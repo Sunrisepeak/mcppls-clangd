@@ -1,0 +1,7 @@
+# Point of divergence. All patches in patches/ and overlay/ are against this
+# llvm-project revision. Bump only through the rebase drill
+# (.agents/docs/2026-10-06-mcppls-clangd-plan.md §6).
+
+repo: https://github.com/llvm/llvm-project
+ref: llvmorg-23.1.0
+reason: matches mcpp-language-server packaging/payload.lock.json clangd-version 23.1.0
