@@ -59,8 +59,7 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=0
           BENCH_CLANG: ${{ github.workspace }}/build-san/bin/clang
+          BUILD_DIR: ${{ github.workspace }}/build-san
         run: |
           python3 tests/probes/gen_bench_project.py /tmp/soak_proj 12
           python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd" /tmp/soak_proj --cycles 10
-        env:
-          BUILD_DIR: ${{ github.workspace }}/build-san
