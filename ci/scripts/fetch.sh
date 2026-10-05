@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# fetch.sh — get the pinned llvm-project tree into $LLVM_DIR.
+# Reuses an already-fetched tree (marker file records the ref and the tarball digest).
+source "$(dirname "$0")/env.sh"
+
+MARKER="$LLVM_DIR/.mcppls-clangd-fetched-$UPSTREAM_REF"
+
+if [[ -f "$MARKER" ]]; then
+  echo "fetch.sh: $LLVM_DIR already has $UPSTREAM_REF"
+  exit 0
+fi
+
+mkdir -p "$LLVM_DIR" "$DIST_DIR"
+
+if [[ ! -f "$TARBALL" ]]; then
+  echo "fetch.sh: downloading $UPSTREAM_REF source tarball"
+  URL="https://codeload.github.com/llvm/llvm-project/tar.gz/refs/tags/$UPSTREAM_REF"
+  for i in 1 2 3 4 5; do
+    curl -sfL --retry 3 --connect-timeout 30 -o "$TARBALL" "$URL" && break
+    sleep 10
+  done
+  [[ -f "$TARBALL" ]] || { echo "fetch.sh: download failed" >&2; exit 1; }
+fi
+
+if [[ -n "$TARBALL_SHA256" ]]; then
+  echo "fetch.sh: verifying tarball digest"
+  echo "$TARBALL_SHA256  $TARBALL" | sha256sum -c -
+fi
+
+echo "fetch.sh: extracting"
+tar xzf "$TARBALL" -C "$LLVM_DIR" --strip-components=1
+touch "$MARKER"
+echo "fetch.sh: done ($LLVM_DIR)"
