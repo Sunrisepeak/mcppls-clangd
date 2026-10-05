@@ -167,36 +167,45 @@ sweepable; `mcppls report` gains a line for fork-carried caches.
 ### 2.5 Measurement update (2026-10-06, qt-demo, patched build vs clangd 23.1.0)
 
 The first carried implementation (the validation memo) was measured against
-the real qt-demo scenario (imports `std` + `nlohmann.json`, heavy headers):
+the real qt-demo scenario (imports `std` + `nlohmann.json`, heavy headers),
+with chrome-trace attribution (`CLANGD_TRACE`) — the numbers below replace
+the plan's earlier estimates:
 
-- vanilla 23.1.0: completion p50 ≈ 1003–1032 ms, p95 ≈ 1057 ms (reproduces
-  the register row);
-- patched: the memo hits on every round (two BMIs validated per
-  preamble-compatibility check), and the validation cost disappears from the
-  profile — steady-state completion drops to ≈ 918–1010 ms. The saving is the
-  whole validation share: **~60–100 ms**, not the second.
-- with the validation gone, the profile now attributes the dominant ~900 ms
-  to **per-AST-build BMI deserialization**: every completion builds a fresh
-  AST, and `ASTReader` re-loads `std.pcm` (libstdc++-scale inputs) into that
-  AST's context. A file without imports in the same project answers in
-  ~60 ms — the delta is the load, exactly as the register row says ("the
-  module context is re-loaded per request").
+- vanilla 23.1.0: completion p50 ≈ 1003–1032 ms (reproduces the register
+  row); patched: the memo hits on every round and the validation share
+  (≈ 60–100 ms) leaves the profile.
+- trace anatomy of a steady-state completion (total ≈ 950 ms, user-perceived):
+  - ≈ 450 ms — the completion's own parse loads `std.pcm` +
+    `nlohmann.json.pcm` into the fresh AST (`-fmodule-file` prebuilts);
+  - ≈ 930 ms — `Sema completion`: the completion collector materializes the
+    imported modules' visible decls (the "591 results from Sema");
+  - ≈ 65 ms — preamble-compatibility check, of which the memoized validation
+    is now a handful of stats (this is what S1 removed; vanilla pays more);
+  - the parse and the collector are the *same* CompilerInstance; the trace
+    shows them as one BuildAST span.
+- clangd has no speculative-reuse for sema completion results (the
+  "speculative" machinery upstream only covers the index fuzzyFind), so every
+  completion re-parses and re-deserializes.
 
-Consequences, recorded honestly:
+What this means:
 
-1. **S1 is landed and worth carrying** — it removes the validation overhead
-   and is upstreamable on its own; the in-patch lit test pins the mechanism.
-2. **S2 as originally sketched ("hold deserialized module objects in an LRU")
-   is not implementable as stated**: deserialized declarations are bound to
-   their ASTContext and cannot be reused across parses. The real S2 has to
-   prevent the per-parse load itself — upstream-grade options to design
-   against (loading modules into the preamble AST so body-only parses
-   inherit them; a deserialization cache in ASTReader; completion-time reuse
-   of a kept CompilerInstance). Until one is designed and proven, S2 stays
-   `draft` in the ledger and the plan's 2–4 week estimate is withdrawn.
-3. The complementary near-term UX fix lives on the mcppls side (0.0.12 plan:
-   completion-result caching for identical inputs), which amortizes the whole
-   round trip without touching clang semantics.
+1. **S1 is landed and worth carrying** (upstreamable; lit test pins it), but
+   it is the small share.
+2. **S2's original sketch ("hold deserialized module objects in an LRU") is
+   void**: deserialized declarations are ASTContext-bound. The honest S2 is a
+   clang-core problem — candidates: amortize the two loads by completing
+   inside the diagnostic AST build; a shared deserialization cache in
+   ASTReader; `-fmodules-embed`-style PCH embedding for preamble-carried
+   imports. None is a patch-sized change; S2 stays `draft`, estimate
+   withdrawn.
+3. **The near-term parity lever lives at the client**: clangd answers with
+   `isIncomplete=false`, so mcppls's editor layer can filter locally as the
+   user types and re-query only on real changes (mcppls 0.0.12's completion
+   plan) — the 950 ms is then paid once per completion *context*, not once
+   per keystroke, which is how header-only projects already feel.
+
+The bench scripts (`tests/probes/`) and the qt probe numbers are committed so
+the next iteration re-measures against the same baseline.
 
 The bench scripts (`tests/probes/`) and the qt probe numbers are committed so
 the next iteration re-measures against the same baseline.
