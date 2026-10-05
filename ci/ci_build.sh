@@ -17,8 +17,8 @@ source ci/scripts/env.sh
 ./ci/scripts/configure.sh
 
 if [[ "${TEST:-0}" = "1" ]]; then
-  # clangd + the clang driver (module lit tests compile with it) + lit tools
-  cmake --build "$BUILD_DIR" --target clangd clang FileCheck not -j "${JOBS:-4}"
+  # clangd + the clang driver (module lit tests compile with it) + lit helpers
+  cmake --build "$BUILD_DIR" --target clangd clang FileCheck not count -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
