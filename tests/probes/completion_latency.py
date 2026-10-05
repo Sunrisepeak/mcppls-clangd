@@ -24,6 +24,7 @@ clangd = os.path.abspath(sys.argv[1])
 project = os.path.abspath(sys.argv[2])
 rounds = int(sys.argv[3]) if len(sys.argv) > 3 else 30
 out_path = sys.argv[4] if len(sys.argv) > 4 else None
+stderr_log = sys.argv[5] if len(sys.argv) > 5 else os.devnull
 
 use = os.path.join(project, "Use.cpp")
 uri = "file://" + use
@@ -36,7 +37,7 @@ proc = subprocess.Popen(
     [clangd, "--experimental-modules-support", f"--compile-commands-dir={project}",
      "--background-index=false", "--header-insertion=never", "--pretty=false",
      "-j=4"],
-    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=open(stderr_log, "w"))
 
 response_q = []
 def reader():

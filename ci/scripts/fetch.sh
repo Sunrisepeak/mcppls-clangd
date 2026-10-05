@@ -24,7 +24,11 @@ fi
 
 if [[ -n "$TARBALL_SHA256" ]]; then
   echo "fetch.sh: verifying tarball digest"
-  echo "$TARBALL_SHA256  $TARBALL" | sha256sum -c -
+  if command -v sha256sum >/dev/null 2>&1; then
+    echo "$TARBALL_SHA256  $TARBALL" | sha256sum -c -
+  else
+    echo "$TARBALL_SHA256  $TARBALL" | shasum -a 256 -c -
+  fi
 fi
 
 echo "fetch.sh: extracting"

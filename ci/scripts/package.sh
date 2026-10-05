@@ -20,7 +20,11 @@ if [[ -d "$BUILD_DIR/lib/clang/$MAJOR/include" ]]; then
   cp -a "$BUILD_DIR/lib/clang/$MAJOR/include" "$OUT/clangd/lib/clang/$MAJOR/include"
 fi
 
-( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS )
+if command -v sha256sum >/dev/null 2>&1; then
+  ( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS )
+else
+  ( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
+fi
 
 echo "package.sh: $OUT"
 cat "$OUT/SHA256SUMS"

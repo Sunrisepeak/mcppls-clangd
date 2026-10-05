@@ -55,16 +55,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Run e2e through mcppls with the fork's clangd
+      - name: A/B comparison — vanilla (payload) vs fork, through mcppls
         run: |
           PAYLOAD_DIR=$(dirname "$(find /tmp/mcppls-rel/unpacked -name mcppls -type f | head -1)")
           FORK_CLANGD=$(find "$DIST_DIR" -path "*linux-x64*/clangd/bin/clangd" | head -1)
-          echo "payload at $PAYLOAD_DIR; fork clangd: $FORK_CLANGD"
-          "$FORK_CLANGD" --version
-          python3 tests/e2e/lsp_driver.py \
-            "$PAYLOAD_DIR/mcppls" "--clangd=$FORK_CLANGD" \
-            --project /tmp/bench_proj --scenarios completion,hover,latency \
-            --budget-ms 8000
+          VANILLA_CLANGD=$(find /tmp/mcppls-rel/unpacked -path "*clangd/bin/clangd" | head -1)
+          echo "payload at $PAYLOAD_DIR"
+          echo "vanilla: $VANILLA_CLANGD"; "$VANILLA_CLANGD" --version | head -1
+          echo "fork:    $FORK_CLANGD"; "$FORK_CLANGD" --version | head -1
+          python3 tests/e2e/compare.py \
+            --vanilla "$VANILLA_CLANGD" --fork "$FORK_CLANGD" \
+            --mcppls "$PAYLOAD_DIR/mcppls" \
+            --project /tmp/bench_proj --rounds 30 \
+            --workdir /tmp/compare --summary "$GITHUB_STEP_SUMMARY"
         env:
           GH_TOKEN: ${{ github.token }}
           DIST_DIR: ${{ github.workspace }}/dist

@@ -115,15 +115,23 @@ send("textDocument/didOpen", {"textDocument": {"uri": uri, "languageId": "cpp",
 time.sleep(2.0)  # initial parse + module prerequisites
 
 def scenario_completion():
-    rid = send("textDocument/completion",
-               {"textDocument": {"uri": uri}, "position": FN_POS})
-    r = wait_id(rid)
-    items = r.get("result") or []
-    if isinstance(items, dict):
-        items = items.get("items", [])
-    names = {i.get("label", "").split("(")[0].strip() for i in items}
-    found = [n for n in names if n.startswith("fn")]
-    return "ok" if found else f"fail: no module symbols in {sorted(names)[:10]}"
+    # module preparation can outlast the initial settle wait; retry until the
+    # module symbols show up or attempts run out
+    last = "no result"
+    for _ in range(4):
+        rid = send("textDocument/completion",
+                   {"textDocument": {"uri": uri}, "position": FN_POS})
+        r = wait_id(rid)
+        items = r.get("result") or []
+        if isinstance(items, dict):
+            items = items.get("items", [])
+        names = {i.get("label", "").split("(")[0].strip() for i in items}
+        found = [n for n in names if n.startswith("fn")]
+        if found:
+            return "ok"
+        last = f"no module symbols in {sorted(names)[:10]}"
+        time.sleep(3)
+    return f"fail: {last}"
 
 def scenario_latency():
     lat = []
