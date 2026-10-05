@@ -1,0 +1,66 @@
+name: soak
+
+# Nightly stabilization (plan doc §6): sanitizer build plus kill/restart
+# lifecycle loops over the module paths the carried patches touch.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *"
+
+concurrency:
+  group: soak-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  soak:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-linux-x64-san-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-x64-san-${{ hashFiles('UPSTREAM') }}-
+      - uses: actions/cache@v4
+        with:
+          path: llvm-project
+          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}
+          restore-keys: llvm-tree-linux-x64-
+
+      - name: Build clangd with ASan+UBSan
+        env:
+          PLATFORM: linux-x64
+          JOBS: 4
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          SANITIZERS: "Address;UndefinedBehavior"
+          BUILD_DIR: ${{ github.workspace }}/build-san
+        run: |
+          ./ci/scripts/fetch.sh
+          ./ci/scripts/apply.sh
+          ./ci/scripts/configure.sh
+          cmake --build "$BUILD_DIR" --target clangd clang FileCheck not -j 4
+
+      - name: Lit module suite under sanitizers
+        working-directory: ${{ github.workspace }}/build-san
+        env:
+          ASAN_OPTIONS: detect_leaks=1:detect_stack_use_after_return=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          ./bin/llvm-lit -sv \
+            tools/clang/tools/extra/clangd/test/modules-validation-cache.test \
+            tools/clang/tools/extra/clangd/test/modules-stale-lock.test \
+            tools/clang/tools/extra/clangd/test/modules.test
+
+      - name: Kill/restart lifecycle loop
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          BENCH_CLANG: ${{ github.workspace }}/build-san/bin/clang
+        run: |
+          python3 tests/probes/gen_bench_project.py /tmp/soak_proj 12
+          python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd" /tmp/soak_proj --cycles 10
+        env:
+          BUILD_DIR: ${{ github.workspace }}/build-san

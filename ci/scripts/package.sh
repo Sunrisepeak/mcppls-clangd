@@ -16,9 +16,8 @@ strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
 
 MAJOR="$("$OUT/clangd/bin/clangd"* --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)"
 if [[ -d "$BUILD_DIR/lib/clang/$MAJOR/include" ]]; then
-  cp -a "$BUILD_DIR/lib/clang/$MAJOR/include" "$OUT/clangd/lib/clang/$MAJOR_include_tmp"
   mkdir -p "$OUT/clangd/lib/clang/$MAJOR"
-  mv "$OUT/clangd/lib/clang/$MAJOR_include_tmp" "$OUT/clangd/lib/clang/$MAJOR/include"
+  cp -a "$BUILD_DIR/lib/clang/$MAJOR/include" "$OUT/clangd/lib/clang/$MAJOR/include"
 fi
 
 ( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS )

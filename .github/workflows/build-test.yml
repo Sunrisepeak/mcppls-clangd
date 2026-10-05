@@ -1,0 +1,99 @@
+name: build-test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform matrix when `all`, else single platform"
+        required: false
+        default: "linux-x64"
+        type: choice
+        options: [linux-x64, linux-arm64, darwin-arm64, win32-x64, all]
+
+concurrency:
+  group: build-test-${{ github.ref }}-${{ github.event.inputs.platform || 'linux-x64' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            os: ubuntu-22.04
+          - platform: linux-arm64
+            os: ubuntu-22.04-arm
+          - platform: darwin-arm64
+            os: macos-14
+          - platform: win32-x64
+            os: windows-2022
+    name: build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    # push/PR gates run the linux-x64 entry only; dispatch runs the chosen
+    # platform (or all).
+    if: >-
+      (github.event_name != 'workflow_dispatch' && matrix.platform == 'linux-x64')
+      || (github.event_name == 'workflow_dispatch'
+          && (github.event.inputs.platform == matrix.platform
+              || github.event.inputs.platform == 'all'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -e
+          case "${{ matrix.platform }}" in
+            linux-*)  sudo apt-get update && sudo apt-get install -y ninja-build ccache ;;
+            darwin-*) brew install ninja ccache ;;
+            win32-*)  pip install ninja ;;
+          esac
+
+      - name: MSVC environment
+        if: matrix.platform == 'win32-x64'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-
+            ccache-${{ matrix.platform }}-
+      - name: Restore llvm tree
+        uses: actions/cache@v4
+        with:
+          path: llvm-project
+          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}
+          restore-keys: llvm-tree-${{ matrix.platform }}-
+
+      - name: Build and test
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          JOBS: 4
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          TEST: "1"
+          RUN_TESTS: lit-subset
+        run: ./ci/ci_build.sh
+
+      - name: Show ccache stats
+        shell: bash
+        run: ccache --show-stats || true
+        if: matrix.platform != 'win32-x64'
+
+  matrix-all:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'all'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "full matrix dispatched separately; this job records the intent"

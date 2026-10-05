@@ -1,0 +1,70 @@
+name: bench
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"   # nightly, after build-test's caches are warm
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-linux-x64-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-x64-${{ hashFiles('UPSTREAM') }}-
+      - uses: actions/cache@v4
+        with:
+          path: llvm-project
+          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}
+          restore-keys: llvm-tree-linux-x64-
+
+      - name: Build clangd
+        env:
+          PLATFORM: linux-x64
+          JOBS: 4
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+        run: |
+          ./ci/scripts/fetch.sh
+          ./ci/scripts/apply.sh
+          ./ci/scripts/configure.sh
+          cmake --build "$BUILD_DIR" --target clangd -j 4
+
+      - name: Generate bench project
+        env:
+          BENCH_CLANG: ${{ github.workspace }}/build-linux-x64/bin/clang
+        run: python3 tests/probes/gen_bench_project.py /tmp/bench_proj 20
+
+      - name: Warm completion latency (gate)
+        run: |
+          python3 tests/probes/completion_latency.py \
+            "$BUILD_DIR/bin/clangd" /tmp/bench_proj 40 /tmp/bench.json
+          python3 - <<'EOF'
+          import json, sys
+          d = json.load(open("/tmp/bench.json"))
+          gate = 250.0
+          print(f"cold={d['cold_ms']}ms p50={d['p50_ms']}ms p95={d['p95_ms']}ms max={d['max_ms']}ms (gate: warm p95 < {gate}ms)")
+          ok = d["p95_ms"] < gate and d["cold_ms"] < 30000
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write(
+              f"### Bench (synthetic 20 modules)\n\n| cold | p50 | p95 | max |\n|---|---|---|---|\n"
+              f"| {d['cold_ms']} ms | {d['p50_ms']} ms | {d['p95_ms']} ms | {d['max_ms']} ms |\n\n"
+              f"gate (warm p95 < {gate} ms): {'PASS' if ok else 'FAIL'}\n")
+          sys.exit(0 if ok else 1)
+          EOF
+        env:
+          BUILD_DIR: ${{ github.workspace }}/build-linux-x64
+
+      - name: Validation-cache mechanism (lit)
+        working-directory: ${{ github.workspace }}/build-linux-x64
+        run: |
+          cmake --build . --target clang FileCheck not -j 4
+          ./bin/llvm-lit -sv tools/clang/tools/extra/clangd/test/modules-validation-cache.test

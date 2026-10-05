@@ -25,6 +25,12 @@ if command -v ccache >/dev/null 2>&1; then
   CCACHE_FLAGS+=(-DLLVM_CCACHE_BUILD=ON -DLLVM_CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache-mcppls-clangd}" -DLLVM_CCACHE_MAXSIZE=10G)
 fi
 
+# sanitizer builds for the soak job (e.g. SANITIZERS="Address;UndefinedBehavior")
+SANITIZER_FLAGS=()
+if [[ -n "${SANITIZERS:-}" ]]; then
+  SANITIZER_FLAGS+=(-DLLVM_USE_SANITIZER="$SANITIZERS")
+fi
+
 cmake -G Ninja -S "$LLVM_DIR/llvm" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_APPEND_VC_REV=OFF \
@@ -34,7 +40,7 @@ cmake -G Ninja -S "$LLVM_DIR/llvm" -B "$BUILD_DIR" \
   -DLLVM_ENABLE_WERROR=OFF \
   -DLLVM_VERSION_SUFFIX="$FORK_SUFFIX" \
   -DLLVM_INCLUDE_TESTS=ON \
-  "${COMPILER_FLAGS[@]}" "${EXTRA[@]}" "${CCACHE_FLAGS[@]}" \
+  "${COMPILER_FLAGS[@]}" "${EXTRA[@]}" "${CCACHE_FLAGS[@]}" "${SANITIZER_FLAGS[@]}" \
   ${CMAKE_EXTRA:-}
 
 echo "configure.sh: done ($BUILD_DIR, platform=$PLATFORM, version=$FORK_VERSION)"

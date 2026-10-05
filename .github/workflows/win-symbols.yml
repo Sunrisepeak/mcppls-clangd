@@ -1,0 +1,60 @@
+name: win-symbols
+
+# Windows build with debug information (plan doc §4.1, §6): the artifact
+# channel for the UP-12/13/20 stack hunt, mirroring how clangd/clangd ships
+# its own debug-symbols artifact.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"   # Mondays
+
+concurrency:
+  group: win-symbols
+  cancel-in-progress: true
+
+jobs:
+  symbols:
+    runs-on: windows-2022
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ninja
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-
+      - uses: actions/cache@v4
+        with:
+          path: llvm-project
+          key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}
+          restore-keys: llvm-tree-win32-x64-
+
+      - name: Build clangd (with PDBs)
+        shell: bash
+        env:
+          PLATFORM: win32-x64
+          JOBS: 4
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CMAKE_EXTRA: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase
+        run: ./ci/ci_build.sh
+
+      - name: Collect debug symbols
+        shell: bash
+        run: |
+          mkdir -p dist/symbols
+          find build-win32-x64 -name "*.pdb" -exec cp {} dist/symbols/ \; 2>/dev/null || true
+          ls -la dist/symbols || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clangd-debug-symbols-win32-x64
+          path: dist/symbols
+          if-no-files-found: warn

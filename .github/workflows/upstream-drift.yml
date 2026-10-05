@@ -1,0 +1,62 @@
+name: upstream-drift
+
+# Weekly advisory (plan doc §4.3): apply every carried patch onto llvm-project
+# main and publish the applies-clean matrix. Advisory by design — this job
+# never fails the branch; drift beyond two weeks opens the rebase conversation.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays
+
+concurrency:
+  group: upstream-drift
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch llvm-project main
+        run: |
+          for i in 1 2 3 4 5; do
+            curl -sfL --retry 3 --connect-timeout 30 -o /tmp/llvm-main.tar.gz \
+              https://codeload.github.com/llvm/llvm-project/tar.gz/refs/heads/main && break
+            sleep 15
+          done
+          mkdir -p /tmp/llvm-main && tar xzf /tmp/llvm-main.tar.gz -C /tmp/llvm-main --strip-components=1
+          cd /tmp/llvm-main && git init -q && git add -A \
+            && git -c user.name=drift -c user.email=drift@ci commit -qm "main tip"
+
+      - name: Apply each patch to main tip
+        id: drift
+        run: |
+          : > /tmp/matrix.md
+          echo "| patch | applies on main |" >> /tmp/matrix.md
+          echo "|---|---|" >> /tmp/matrix.md
+          failed=0
+          while IFS= read -r line; do
+            [[ -z "$line" || "$line" == \#* ]] && continue
+            if git -C /tmp/llvm-main apply --check "$GITHUB_WORKSPACE/patches/$line" 2>/dev/null; then
+              echo "| $line | ✅ clean |" >> /tmp/matrix.md
+            else
+              echo "| $line | ❌ conflicts |" >> /tmp/matrix.md
+              failed=$((failed+1))
+            fi
+          done < patches/series
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          cat /tmp/matrix.md
+
+      - name: Report
+        run: |
+          {
+            echo "### Upstream drift (llvm-project main tip)"
+            cat /tmp/matrix.md
+            if [ "${{ steps.drift.outputs.failed }}" != "0" ]; then
+              echo ""
+              echo "⚠️ ${{ steps.drift.outputs.failed }} patch(es) conflict with main — schedule the rebase drill if this persists two weeks."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

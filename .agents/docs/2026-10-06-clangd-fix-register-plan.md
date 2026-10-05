@@ -144,8 +144,12 @@ sweepable; `mcppls report` gains a line for fork-carried caches.
 
 ### 2.4 Acceptance (existing harnesses, promoted to CI gates)
 
-1. Probe bench in CI (`bench` job): qt-demo **warm** completion p95 < 100 ms
-   (vs ~1 s on 23.1.0); cold path not regressed beyond noise.
+1. Probe bench in CI (`bench` job): the validation memo must show zero
+   regressions on the synthetic module project (warm p95 within noise of
+   vanilla) and the in-patch lit test must hit the cache; the qt-demo warm
+   p95 < 100 ms figure is the **S2 target**, not the S1 gate — §2.5's
+   measurement attributes ~900 ms of the round trip to per-parse BMI
+   deserialization, which S1 does not touch.
 2. `check-clangd` modules + preamble + completion suites green on the patched
    tree (`build-test` job; correctness: a hit must be equivalent to a rebuild
    — the key decides, not the cache).
@@ -157,16 +161,55 @@ sweepable; `mcppls report` gains a line for fork-carried caches.
    the lifecycle is where a wrong key would hide.
 5. Product level (`e2e` job, once `steady`): the same completion p95 measured
    through the mcppls entry point on the latest release re-packed with the
-   fork's clangd — proving the fix end-to-end, with WA-CLANGD-012 retired for
-   detected forks rather than fighting the cache.
+   fork's clangd — proving the fix end-to-end, with WA-CLANGD-012 re-tuned
+   for detected forks rather than fighting the cache.
 
-### 2.5 Retirement path
+### 2.5 Measurement update (2026-10-06, qt-demo, patched build vs clangd 23.1.0)
 
-Fork release `23.1.0-mcppls.N` carries it; WA-CLANGD-012 is skipped for
-detected forks (or re-tuned to catch only regressions). Simultaneously the fix
-is upstreamed (llvm-project PR; the module-perf area has active reviewers) —
-when it lands, the patch drops per its drop condition and the base bumps.
-Even S1 alone is worth filing upstream.
+The first carried implementation (the validation memo) was measured against
+the real qt-demo scenario (imports `std` + `nlohmann.json`, heavy headers):
+
+- vanilla 23.1.0: completion p50 ≈ 1003–1032 ms, p95 ≈ 1057 ms (reproduces
+  the register row);
+- patched: the memo hits on every round (two BMIs validated per
+  preamble-compatibility check), and the validation cost disappears from the
+  profile — steady-state completion drops to ≈ 918–1010 ms. The saving is the
+  whole validation share: **~60–100 ms**, not the second.
+- with the validation gone, the profile now attributes the dominant ~900 ms
+  to **per-AST-build BMI deserialization**: every completion builds a fresh
+  AST, and `ASTReader` re-loads `std.pcm` (libstdc++-scale inputs) into that
+  AST's context. A file without imports in the same project answers in
+  ~60 ms — the delta is the load, exactly as the register row says ("the
+  module context is re-loaded per request").
+
+Consequences, recorded honestly:
+
+1. **S1 is landed and worth carrying** — it removes the validation overhead
+   and is upstreamable on its own; the in-patch lit test pins the mechanism.
+2. **S2 as originally sketched ("hold deserialized module objects in an LRU")
+   is not implementable as stated**: deserialized declarations are bound to
+   their ASTContext and cannot be reused across parses. The real S2 has to
+   prevent the per-parse load itself — upstream-grade options to design
+   against (loading modules into the preamble AST so body-only parses
+   inherit them; a deserialization cache in ASTReader; completion-time reuse
+   of a kept CompilerInstance). Until one is designed and proven, S2 stays
+   `draft` in the ledger and the plan's 2–4 week estimate is withdrawn.
+3. The complementary near-term UX fix lives on the mcppls side (0.0.12 plan:
+   completion-result caching for identical inputs), which amortizes the whole
+   round trip without touching clang semantics.
+
+The bench scripts (`tests/probes/`) and the qt probe numbers are committed so
+the next iteration re-measures against the same baseline.
+
+### 2.6 Retirement path
+
+Fork release `23.1.0-mcppls.N` carries S1; mcppls re-tunes (not skips)
+WA-CLANGD-012 for detected forks since ~100 ms of the round trip is gone.
+S1 is simultaneously upstreamed (llvm-project PR; the module-perf area has
+active reviewers) — when it lands, the patch drops per its drop condition and
+the base bumps. S2 remains carried here only if a proven design emerges; its
+register row stays open either way until completion latency on module-heavy
+files is actually fixed.
 
 ## 3. Campaign summary
 

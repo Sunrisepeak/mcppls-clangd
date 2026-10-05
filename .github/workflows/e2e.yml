@@ -1,0 +1,70 @@
+name: e2e
+
+# Black-box through the mcppls entry point: take the latest mcppls release
+# payload, swap its clangd part for the fork's build (--clangd), drive the
+# shipped configuration over LSP. plan doc §4.3, job `e2e`.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *"
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-linux-x64-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-x64-${{ hashFiles('UPSTREAM') }}-
+      - uses: actions/cache@v4
+        with:
+          path: llvm-project
+          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}
+          restore-keys: llvm-tree-linux-x64-
+
+      - name: Build fork clangd
+        env:
+          PLATFORM: linux-x64
+          JOBS: 4
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          PACKAGE: "1"
+        run: ./ci/ci_build.sh
+
+      - name: Generate bench project
+        env:
+          BENCH_CLANG: ${{ github.workspace }}/build-linux-x64/bin/clang
+        run: python3 tests/probes/gen_bench_project.py /tmp/bench_proj 20
+
+      - name: Fetch latest mcppls release payload
+        run: |
+          gh release download --repo Sunrisepeak/mcpp-language-server \
+            --pattern "payload-linux-x64.tar.gz" --dir /tmp/mcppls-rel
+          mkdir -p /tmp/mcppls-rel/unpacked
+          tar xzf /tmp/mcppls-rel/payload-linux-x64.tar.gz -C /tmp/mcppls-rel/unpacked
+          find /tmp/mcppls-rel/unpacked -maxdepth 3 -type f | head -20
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Run e2e through mcppls with the fork's clangd
+        run: |
+          PAYLOAD_DIR=$(dirname "$(find /tmp/mcppls-rel/unpacked -name mcppls -type f | head -1)")
+          FORK_CLANGD=$(find "$DIST_DIR" -path "*linux-x64*/clangd/bin/clangd" | head -1)
+          echo "payload at $PAYLOAD_DIR; fork clangd: $FORK_CLANGD"
+          "$FORK_CLANGD" --version
+          python3 tests/e2e/lsp_driver.py \
+            "$PAYLOAD_DIR/mcppls" "--clangd=$FORK_CLANGD" \
+            --project /tmp/bench_proj --scenarios completion,hover,latency \
+            --budget-ms 8000
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIST_DIR: ${{ github.workspace }}/dist
