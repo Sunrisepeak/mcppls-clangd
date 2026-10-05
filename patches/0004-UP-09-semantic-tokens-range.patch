@@ -1,0 +1,178 @@
+From ab4051b035168e81835696b0db03dd98398111de Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 6 Oct 2026 08:30:30 +0900
+Subject: [PATCH] [clangd] Implement textDocument/semanticTokens/range
+
+The semanticTokens provider advertises full and delta requests only;
+editors that ask for the range form get a method-not-found and fall
+back to full-file requests. Answer the range request by slicing the
+highlighting tokens to those whose start lies within the requested
+range: the slice keeps the standard delta encoding well-formed (the
+first token's line is its absolute line, and the character delta is
+absolute whenever the line changes), so no re-encoding is needed.
+---
+ clang-tools-extra/clangd/ClangdLSPServer.cpp  | 34 ++++++++++++++++-
+ clang-tools-extra/clangd/ClangdLSPServer.h    |  2 +
+ clang-tools-extra/clangd/Protocol.cpp         |  6 +++
+ clang-tools-extra/clangd/Protocol.h           | 10 +++++
+ .../clangd/test/semantic-tokens-range.test    | 38 +++++++++++++++++++
+ 5 files changed, 89 insertions(+), 1 deletion(-)
+ create mode 100644 clang-tools-extra/clangd/test/semantic-tokens-range.test
+
+diff --git a/clang-tools-extra/clangd/ClangdLSPServer.cpp b/clang-tools-extra/clangd/ClangdLSPServer.cpp
+index 43e8b35e4..d1b764bcf 100644
+--- a/clang-tools-extra/clangd/ClangdLSPServer.cpp
++++ b/clang-tools-extra/clangd/ClangdLSPServer.cpp
+@@ -613,7 +613,7 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
+       {"semanticTokensProvider",
+        llvm::json::Object{
+            {"full", llvm::json::Object{{"delta", true}}},
+-           {"range", false},
++           {"range", true},
+            {"legend",
+             llvm::json::Object{{"tokenTypes", semanticTokenTypes()},
+                                {"tokenModifiers", semanticTokenModifiers()}}},
+@@ -1610,6 +1610,36 @@ void ClangdLSPServer::onSemanticTokens(const SemanticTokensParams &Params,
+       });
+ }
+ 
++void ClangdLSPServer::onSemanticTokensRange(
++    const SemanticTokensRangeParams &Params, Callback<SemanticTokens> CB) {
++  auto File = Params.textDocument.uri.file();
++  Server->semanticHighlights(
++      File,
++      [this, File(File.str()), CB(std::move(CB)), Code(Server->getDraft(File)),
++       Range(Params.range)](
++          llvm::Expected<std::vector<HighlightingToken>> HT) mutable {
++        if (!HT)
++          return CB(HT.takeError());
++        // Keep the tokens that start within the requested range and encode
++        // those; the delta encoding starts from zero, so dropping earlier
++        // tokens leaves the rest well-formed.
++        std::vector<HighlightingToken> Sliced;
++        llvm::copy_if(*HT, std::back_inserter(Sliced),
++                      [&](const HighlightingToken &T) {
++                        if (T.R.start.line < Range.start.line ||
++                            T.R.start.line > Range.end.line)
++                          return false;
++                        if (T.R.start.line == Range.end.line &&
++                            T.R.start.character > Range.end.character)
++                          return false;
++                        return true;
++                      });
++        SemanticTokens Result;
++        Result.tokens = toSemanticTokens(Sliced, *Code);
++        CB(std::move(Result));
++      });
++}
++
+ void ClangdLSPServer::onSemanticTokensDelta(
+     const SemanticTokensDeltaParams &Params,
+     Callback<SemanticTokensOrDelta> CB) {
+@@ -1725,6 +1755,8 @@ void ClangdLSPServer::bindMethods(LSPBinder &Bind,
+   Bind.method("textDocument/selectionRange", this, &ClangdLSPServer::onSelectionRange);
+   Bind.method("textDocument/documentLink", this, &ClangdLSPServer::onDocumentLink);
+   Bind.method("textDocument/semanticTokens/full", this, &ClangdLSPServer::onSemanticTokens);
++  Bind.method("textDocument/semanticTokens/range", this,
++              &ClangdLSPServer::onSemanticTokensRange);
+   Bind.method("textDocument/semanticTokens/full/delta", this, &ClangdLSPServer::onSemanticTokensDelta);
+   Bind.method("clangd/inlayHints", this, &ClangdLSPServer::onClangdInlayHints);
+   Bind.method("textDocument/inlayHint", this, &ClangdLSPServer::onInlayHint);
+diff --git a/clang-tools-extra/clangd/ClangdLSPServer.h b/clang-tools-extra/clangd/ClangdLSPServer.h
+index 6ada3fd9e..d688d6ca5 100644
+--- a/clang-tools-extra/clangd/ClangdLSPServer.h
++++ b/clang-tools-extra/clangd/ClangdLSPServer.h
+@@ -175,6 +175,8 @@ private:
+   void onDocumentLink(const DocumentLinkParams &,
+                       Callback<std::vector<DocumentLink>>);
+   void onSemanticTokens(const SemanticTokensParams &, Callback<SemanticTokens>);
++  void onSemanticTokensRange(const SemanticTokensRangeParams &,
++                             Callback<SemanticTokens>);
+   void onSemanticTokensDelta(const SemanticTokensDeltaParams &,
+                              Callback<SemanticTokensOrDelta>);
+   /// This is a clangd extension. Provides a json tree representing memory usage
+diff --git a/clang-tools-extra/clangd/Protocol.cpp b/clang-tools-extra/clangd/Protocol.cpp
+index d5c50cc1c..9df93a74d 100644
+--- a/clang-tools-extra/clangd/Protocol.cpp
++++ b/clang-tools-extra/clangd/Protocol.cpp
+@@ -1351,6 +1351,12 @@ bool fromJSON(const llvm::json::Value &Params, SemanticTokensParams &R,
+   return O && O.map("textDocument", R.textDocument);
+ }
+ 
++bool fromJSON(const llvm::json::Value &Params, SemanticTokensRangeParams &R,
++              llvm::json::Path P) {
++  llvm::json::ObjectMapper O(Params, P);
++  return O && O.map("textDocument", R.textDocument) && O.map("range", R.range);
++}
++
+ bool fromJSON(const llvm::json::Value &Params, SemanticTokensDeltaParams &R,
+               llvm::json::Path P) {
+   llvm::json::ObjectMapper O(Params, P);
+diff --git a/clang-tools-extra/clangd/Protocol.h b/clang-tools-extra/clangd/Protocol.h
+index b511ca495..72f41a60e 100644
+--- a/clang-tools-extra/clangd/Protocol.h
++++ b/clang-tools-extra/clangd/Protocol.h
+@@ -1918,6 +1918,16 @@ struct SemanticTokensParams {
+ bool fromJSON(const llvm::json::Value &, SemanticTokensParams &,
+               llvm::json::Path);
+ 
++/// Body of textDocument/semanticTokens/range request.
++struct SemanticTokensRangeParams {
++  /// The text document.
++  TextDocumentIdentifier textDocument;
++  /// The range the tokens are requested for.
++  Range range;
++};
++bool fromJSON(const llvm::json::Value &, SemanticTokensRangeParams &,
++              llvm::json::Path);
++
+ /// Body of textDocument/semanticTokens/full/delta request.
+ /// Requests the changes in semantic tokens since a previous response.
+ struct SemanticTokensDeltaParams {
+diff --git a/clang-tools-extra/clangd/test/semantic-tokens-range.test b/clang-tools-extra/clangd/test/semantic-tokens-range.test
+new file mode 100644
+index 000000000..eb05d9dfe
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/semantic-tokens-range.test
+@@ -0,0 +1,38 @@
++# Range semantic tokens: the request returns the tokens whose start is within
++# the requested range, encoded with the standard delta rules (the first
++# token's line is its absolute line; the character delta is absolute whenever
++# the line changes).
++#
++# RUN: clangd -lit-test < %s | FileCheck -strict-whitespace %s
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"capabilities":{"textDocument":{
++  "semanticTokens":{"dynamicRegistration":true}
++}}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{
++  "uri": "test:///foo.cpp",
++  "languageId": "cpp",
++  "text": "int x = 2;\nint y = 3;\nint z = 4;\n"
++}}}
++---
++# A range covering the second and third lines only; the first line's token is
++# excluded.
++{"jsonrpc":"2.0","id":1,"method":"textDocument/semanticTokens/range","params":{"textDocument":{"uri":"test:///foo.cpp"},"range":{"start":{"line":1,"character":0},"end":{"line":2,"character":10}}}}
++# CHECK:       "id": 1,
++# CHECK-NEXT:  "jsonrpc": "2.0",
++# CHECK-NEXT:  "result": {
++# CHECK-NEXT:    "data": [
++# CHECK-NEXT:      1,
++# CHECK-NEXT:      4,
++# CHECK-NEXT:      1,
++# CHECK-NEXT:      0,
++# CHECK-NEXT:      131075,
++# CHECK-NEXT:      1,
++# CHECK-NEXT:      4,
++# CHECK-NEXT:      1,
++# CHECK-NEXT:      0,
++# CHECK-NEXT:      131075
++# CHECK-NEXT:    ],
++---
++{"jsonrpc":"2.0","id":2,"method":"shutdown"}
++---
++{"jsonrpc":"2.0","method":"exit"}
+-- 
+2.43.0
+
