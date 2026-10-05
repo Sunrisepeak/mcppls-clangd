@@ -1,0 +1,635 @@
+From 150367aeb01cc567d909ca4d904eff97f6cc3cb3 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 6 Oct 2026 04:40:25 +0900
+Subject: [PATCH] [clangd] Memoize module file validation across requests
+
+Validating a built module file re-hashes all of its input files for
+every request that reuses the same prerequisite modules, so completion
+on a file importing many modules re-validates the whole set on every
+keystroke even when nothing changed.
+
+Validation now goes through a bounded memo keyed by the published BMI,
+the dependency chain, and the (size, mtime) identity of every input the
+validation read. A later request re-stats those files and reuses the
+verdict when none of them moved; any drift falls back to a full
+validation. Validations whose inputs were read through an overlay
+buffer are not memoized.
+
+To keep the memo key stable across requests, validation reads the
+published BMIs rather than the per-request copy-on-read views, and a
+copy may be validated through its published source while that source is
+unchanged.
+---
+ .../clangd/ModuleValidationCache.h            | 148 +++++++++++++++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 168 ++++++++++++++++--
+ clang-tools-extra/clangd/ModulesBuilder.h     |  15 ++
+ .../test/Inputs/modules-cache-driver.py       | 104 +++++++++++
+ .../clangd/test/modules-validation-cache.test |  13 ++
+ 5 files changed, 429 insertions(+), 19 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleValidationCache.h
+ create mode 100644 clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py
+ create mode 100644 clang-tools-extra/clangd/test/modules-validation-cache.test
+
+diff --git a/clang-tools-extra/clangd/ModuleValidationCache.h b/clang-tools-extra/clangd/ModuleValidationCache.h
+new file mode 100644
+index 000000000..b3dbdada1
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleValidationCache.h
+@@ -0,0 +1,148 @@
++//===-- ModuleValidationCache.h ---------------------------------*- C++-*-===//
++//
++// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// Memoizes the outcome of validating a built module file (BMI).
++//
++// Validating a BMI is expensive: the reader parses the module's control
++// blocks and re-hashes every user input file the module unit recorded. The
++// preamble re-runs this validation for every request that reuses prerequisite
++// modules, so a file importing many modules pays the full validation cost on
++// every keystroke even when nothing changed.
++//
++// A memo entry records the up-to-date verdict plus the (size, mtime)
++// identity of the BMI and of every user input file the validation read. A
++// later lookup re-stats those files: when none of them moved, the verdict is
++// reused instead of recomputing it. Any drift falls back to a full
++// validation, so the memo can only save work, never change the outcome. Like
++// the compiler's own default BMI staleness checks, identity is (size, mtime):
++// a content change that preserves both is not detected by the fast path. A
++// validation that read an input through an overlay buffer (an unsaved edit)
++// is not memoized at all, because its outcome depends on the buffer rather
++// than the file the fast path re-stats.
++//
++// Only up-to-date verdicts are memoized: a stale result leads to a rebuild,
++// and the rebuilt BMI has a new identity that misses anyway. Entries are
++// bounded; when the bound is hit the cache is dropped wholesale. The working
++// set is the project's module count, so this stays small in practice. The
++// cache is process-wide: a clangd process hosts a single language-server
++// session.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULE_VALIDATION_CACHE_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULE_VALIDATION_CACHE_H
++
++#include "llvm/ADT/StringMap.h"
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Support/FileSystem.h"
++#include <chrono>
++#include <cstdint>
++#include <mutex>
++#include <optional>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace clang {
++namespace clangd {
++
++class ModuleValidationCache {
++public:
++  struct FileIdentity {
++    uint64_t Size = 0;
++    llvm::sys::TimePoint<> ModTime = {};
++    bool operator==(const FileIdentity &Other) const {
++      return Size == Other.Size && ModTime == Other.ModTime;
++    }
++    bool operator!=(const FileIdentity &Other) const {
++      return !(*this == Other);
++    }
++  };
++
++  /// The (size, mtime) identity of a regular file, or nullopt when the file
++  /// cannot be stated (missing, unreadable, or a directory). The mtime is
++  /// truncated to seconds: clang's FileEntry records second-precision times,
++  /// and the fast path compares identities across that boundary.
++  static std::optional<FileIdentity> identityOf(llvm::StringRef Path) {
++    llvm::sys::fs::file_status Status;
++    if (std::error_code EC = llvm::sys::fs::status(Path, Status))
++      return std::nullopt;
++    if (llvm::sys::fs::is_directory(Status) || !llvm::sys::fs::is_regular_file(Status))
++      return std::nullopt;
++    return FileIdentity{
++        static_cast<uint64_t>(Status.getSize()),
++        std::chrono::time_point_cast<std::chrono::seconds>(
++            Status.getLastModificationTime())};
++  }
++
++  /// Returns true when a previous validation of \p BMIPath under the
++  /// dependency chain \p ChainKey concluded up-to-date and neither the BMI
++  /// nor any recorded input has moved since. Any doubt returns false.
++  bool isFresh(llvm::StringRef BMIPath, llvm::StringRef ChainKey) {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    auto It = Entries.find(key(BMIPath, ChainKey));
++    if (It == Entries.end())
++      return false;
++    if (identityOf(BMIPath) != It->second.BMI) {
++      Entries.erase(It);
++      return false;
++    }
++    for (const auto &Input : It->second.Inputs)
++      if (identityOf(Input.first) != Input.second) {
++        Entries.erase(It);
++        return false;
++      }
++    return true;
++  }
++
++  /// Records a fresh up-to-date verdict. \p Inputs carries the identity of
++  /// every user input file the validation read; a validation whose inputs
++  /// were read through an overlay buffer must not be recorded (pass an empty
++  /// \p Inputs to skip memoization).
++  void markFresh(llvm::StringRef BMIPath, llvm::StringRef ChainKey,
++                 std::vector<std::pair<std::string, FileIdentity>> Inputs) {
++    if (Inputs.empty())
++      return;
++    auto BMI = identityOf(BMIPath);
++    if (!BMI)
++      return;
++    std::lock_guard<std::mutex> Lock(Mutex);
++    if (Entries.size() >= Bound)
++      Entries.clear();
++    Entries[key(BMIPath, ChainKey)] = {std::move(*BMI), std::move(Inputs)};
++  }
++
++private:
++  static std::string key(llvm::StringRef BMIPath, llvm::StringRef ChainKey) {
++    std::string Result;
++    Result.reserve(BMIPath.size() + ChainKey.size() + 1);
++    Result.append(BMIPath);
++    Result.push_back('\0');
++    Result.append(ChainKey);
++    return Result;
++  }
++
++  struct Entry {
++    FileIdentity BMI;
++    std::vector<std::pair<std::string, FileIdentity>> Inputs;
++  };
++
++  static constexpr size_t Bound = 256;
++  llvm::StringMap<Entry> Entries;
++  std::mutex Mutex;
++};
++
++inline ModuleValidationCache &getModuleValidationCache() {
++  static ModuleValidationCache Cache;
++  return Cache;
++}
++
++} // namespace clangd
++} // namespace clang
++
++#endif // LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULE_VALIDATION_CACHE_H
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 6e47122bd..0086e707e 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "ModulesBuilder.h"
++#include "ModuleValidationCache.h"
+ #include "Compiler.h"
+ #include "SourceCode.h"
+ #include "support/Logger.h"
+@@ -15,6 +16,7 @@
+ #include "clang/Serialization/ASTReader.h"
+ #include "clang/Serialization/ModuleCache.h"
+ #include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/ADT/StringSet.h"
+ #include "llvm/Support/CommandLine.h"
+@@ -43,6 +45,7 @@ llvm::cl::opt<unsigned> VersionedModuleFileGCThresholdSeconds(
+                    "access time is older than this many seconds."),
+     llvm::cl::init(3 * 24 * 60 * 60));
+ 
++
+ //===----------------------------------------------------------------------===//
+ // Persistent Module Cache Layout.
+ //
+@@ -330,8 +333,10 @@ public:
+ /// Represents a reference to a module file (*.pcm).
+ class ModuleFile {
+ protected:
+-  ModuleFile(StringRef ModuleName, PathRef ModuleFilePath)
+-      : ModuleName(ModuleName.str()), ModuleFilePath(ModuleFilePath.str()) {}
++  ModuleFile(StringRef ModuleName, PathRef ModuleFilePath,
++             PathRef PublishedModuleFilePath)
++      : ModuleName(ModuleName.str()), ModuleFilePath(ModuleFilePath.str()),
++        PublishedModuleFilePath(PublishedModuleFilePath.str()) {}
+ 
+ public:
+   ModuleFile() = delete;
+@@ -342,9 +347,11 @@ public:
+   // The move constructor is needed for llvm::SmallVector.
+   ModuleFile(ModuleFile &&Other)
+       : ModuleName(std::move(Other.ModuleName)),
+-        ModuleFilePath(std::move(Other.ModuleFilePath)) {
++        ModuleFilePath(std::move(Other.ModuleFilePath)),
++        PublishedModuleFilePath(std::move(Other.PublishedModuleFilePath)) {
+     Other.ModuleName.clear();
+     Other.ModuleFilePath.clear();
++    Other.PublishedModuleFilePath.clear();
+   }
+ 
+   ModuleFile &operator=(ModuleFile &&Other) {
+@@ -361,9 +368,27 @@ public:
+ 
+   StringRef getModuleFilePath() const { return ModuleFilePath; }
+ 
++  /// The stable published file this module file is a read view of. For
++  /// prebuilt and built files this is the file itself; copy-on-read views
++  /// point at the published BMI they were copied from.
++  StringRef getPublishedModuleFilePath() const {
++    return PublishedModuleFilePath;
++  }
++
++  /// For copy-on-read views: the identity the published source had when this
++  /// view was materialized. nullopt when this file is itself the published
++  /// file. Readers use it to decide whether the published file can be
++  /// validated in place of the view.
++  virtual const std::optional<ModuleValidationCache::FileIdentity> &
++  getPublishedSourceIdentity() const {
++    static const std::optional<ModuleValidationCache::FileIdentity> None;
++    return None;
++  }
++
+ protected:
+   std::string ModuleName;
+   std::string ModuleFilePath;
++  std::string PublishedModuleFilePath;
+ };
+ 
+ /// Represents a prebuilt module file which is not owned by us.
+@@ -375,7 +400,7 @@ private:
+ 
+ public:
+   PrebuiltModuleFile(StringRef ModuleName, PathRef ModuleFilePath, CtorTag)
+-      : ModuleFile(ModuleName, ModuleFilePath) {}
++      : ModuleFile(ModuleName, ModuleFilePath, ModuleFilePath) {}
+ 
+   static std::shared_ptr<PrebuiltModuleFile> make(StringRef ModuleName,
+                                                   PathRef ModuleFilePath) {
+@@ -425,7 +450,7 @@ private:
+ 
+ public:
+   BuiltModuleFile(StringRef ModuleName, PathRef ModuleFilePath, CtorTag)
+-      : ModuleFile(ModuleName, ModuleFilePath) {}
++      : ModuleFile(ModuleName, ModuleFilePath, ModuleFilePath) {}
+ 
+   static std::shared_ptr<BuiltModuleFile> make(StringRef ModuleName,
+                                                PathRef ModuleFilePath) {
+@@ -439,10 +464,18 @@ public:
+ class CopyOnReadModuleFile final : public ModuleFile {
+ private:
+   struct CtorTag {};
++  std::optional<ModuleValidationCache::FileIdentity> PublishedSourceIdentity;
+ 
+ public:
+-  CopyOnReadModuleFile(StringRef ModuleName, PathRef ModuleFilePath, CtorTag)
+-      : ModuleFile(ModuleName, ModuleFilePath) {}
++  CopyOnReadModuleFile(StringRef ModuleName, PathRef PublishedModuleFilePath,
++                       PathRef CopyOnReadModuleFilePath, CtorTag)
++      : ModuleFile(ModuleName, CopyOnReadModuleFilePath,
++                   PublishedModuleFilePath) {
++    // The published file is a stable path on disk; record its identity at
++    // copy time so later readers can tell when it was replaced.
++    if (auto ID = ModuleValidationCache::identityOf(PublishedModuleFilePath))
++      PublishedSourceIdentity = *ID;
++  }
+ 
+   ~CopyOnReadModuleFile() override {
+     if (!ModuleFilePath.empty() && !DebugModulesBuilder)
+@@ -451,10 +484,17 @@ public:
+              ModuleFilePath, EC.message());
+   }
+ 
+-  static std::shared_ptr<CopyOnReadModuleFile> make(StringRef ModuleName,
+-                                                    PathRef ModuleFilePath) {
+-    return std::make_shared<CopyOnReadModuleFile>(ModuleName, ModuleFilePath,
+-                                                  CtorTag{});
++  const std::optional<ModuleValidationCache::FileIdentity> &
++  getPublishedSourceIdentity() const override {
++    return PublishedSourceIdentity;
++  }
++
++  static std::shared_ptr<CopyOnReadModuleFile>
++  make(StringRef ModuleName, PathRef PublishedModuleFilePath,
++       PathRef CopyOnReadModuleFilePath) {
++    return std::make_shared<CopyOnReadModuleFile>(
++        ModuleName, PublishedModuleFilePath, CopyOnReadModuleFilePath,
++        CtorTag{});
+   }
+ };
+ 
+@@ -483,6 +523,30 @@ public:
+           RequiredModule->getModuleFilePath().str());
+   }
+ 
++  void adjustHeaderSearchOptionsForValidation(
++      HeaderSearchOptions &Options) const override {
++    // Validation reads the published files (stable across requests) rather
++    // than the copy-on-read views, keeping memoized verdicts reusable.
++    for (const auto &RequiredModule : RequiredModules)
++      Options.PrebuiltModuleFiles.insert_or_assign(
++          RequiredModule->getModuleName().str(),
++          RequiredModule->getPublishedModuleFilePath().str());
++  }
++
++  void getValidationChainKey(std::string &Out) const override {
++    llvm::SmallVector<std::pair<StringRef, StringRef>, 8> Chain;
++    for (const auto &RequiredModule : RequiredModules)
++      Chain.emplace_back(RequiredModule->getModuleName(),
++                         RequiredModule->getPublishedModuleFilePath());
++    llvm::sort(Chain);
++    for (const auto &[Name, Path] : Chain) {
++      Out.append(Name);
++      Out.push_back('=');
++      Out.append(Path);
++      Out.push_back(';');
++    }
++  }
++
+   std::string getAsString() const {
+     std::string Result;
+     llvm::raw_string_ostream OS(Result);
+@@ -521,14 +585,61 @@ private:
+   llvm::StringSet<> DirectModuleNames;
+ };
+ 
++/// Records the (size, mtime) identity of every user input file a successful
++/// validation read, so its verdict can be memoized. Inputs read through an
++/// overlay buffer (unsaved edits) or missing on disk make the verdict
++/// unrecordable - the fast path re-stats real files, so such validations are
++/// simply not memoized.
++void recordValidationInputs(
++    ASTReader &Reader, ModuleValidationCache &Cache, PathRef ModuleFilePath,
++    llvm::StringRef ChainKey) {
++  std::vector<std::pair<std::string, ModuleValidationCache::FileIdentity>>
++      Inputs;
++  bool Unrecordable = false;
++  for (serialization::ModuleFile &MF : Reader.getModuleManager()) {
++    Reader.visitInputFiles(MF, /*IncludeSystem=*/false, /*Complain=*/false,
++                           [&](const serialization::InputFile &IF, bool) {
++      if (Unrecordable)
++        return;
++      auto FE = IF.getFile();
++      if (!FE)
++        return;
++      auto Disk = ModuleValidationCache::identityOf(FE->getName());
++      if (!Disk || Disk->Size != static_cast<uint64_t>(FE->getSize()) ||
++          Disk->ModTime != llvm::sys::toTimePoint(FE->getModificationTime())) {
++        Inputs.clear();
++        Unrecordable = true;
++        return;
++      }
++      Inputs.emplace_back(FE->getName().str(), *Disk);
++    });
++  }
++  if (!Unrecordable)
++    Cache.markFresh(ModuleFilePath, ChainKey, std::move(Inputs));
++}
++
+ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
+                           const PrerequisiteModules &RequisiteModules,
+                           llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) {
+   HeaderSearchOptions HSOpts;
+-  RequisiteModules.adjustHeaderSearchOptions(HSOpts);
++  RequisiteModules.adjustHeaderSearchOptionsForValidation(HSOpts);
+   HSOpts.ForceCheckCXX20ModulesInputFiles = true;
+   HSOpts.ValidateASTInputFilesContent = true;
+ 
++  // Validating a BMI re-hashes all its inputs; the preamble redoes it for
++  // every request reusing the same prerequisite modules. A memoized verdict
++  // (keyed by the BMI, the dependency chain, and the input identities the
++  // validation read) turns that into a handful of stats. Any doubt falls
++  // back to the full validation below.
++  std::string ChainKey;
++  RequisiteModules.getValidationChainKey(ChainKey);
++  ModuleValidationCache &ValidationCache = getModuleValidationCache();
++  if (ValidationCache.isFresh(ModuleFilePath, ChainKey)) {
++    log("Module file {0} is up to date via the validation cache",
++        ModuleFilePath);
++    return true;
++  }
++
+   clang::clangd::IgnoreDiagnostics IgnoreDiags;
+   DiagnosticOptions DiagOpts;
+   IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
+@@ -573,9 +684,12 @@ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
+   // without treating it as a hard error.
+   // ReadAST will validate all input files internally and return OutOfDate
+   // if any file is modified.
+-  return Reader.ReadAST(ModuleFileName::makeExplicit(ModuleFilePath),
+-                        serialization::MK_MainFile, SourceLocation(),
+-                        ASTReader::ARR_OutOfDate) == ASTReader::Success;
++  bool Success = Reader.ReadAST(ModuleFileName::makeExplicit(ModuleFilePath),
++                                serialization::MK_MainFile, SourceLocation(),
++                                ASTReader::ARR_OutOfDate) == ASTReader::Success;
++  if (Success)
++    recordValidationInputs(Reader, ValidationCache, ModuleFilePath, ChainKey);
++  return Success;
+ }
+ 
+ bool IsModuleFilesUpToDate(
+@@ -703,7 +817,8 @@ copyModuleFileForRead(llvm::StringRef ModuleName,
+     return llvm::createStringError(llvm::formatv(
+         "Failed to copy module file {0} to {1}: {2}", PublishedModuleFilePath,
+         VersionedModuleFilePath, EC.message()));
+-  return CopyOnReadModuleFile::make(ModuleName, VersionedModuleFilePath);
++  return CopyOnReadModuleFile::make(ModuleName, PublishedModuleFilePath,
++                                    VersionedModuleFilePath);
+ }
+ 
+ bool ReusablePrerequisiteModules::canReuse(
+@@ -712,9 +827,24 @@ bool ReusablePrerequisiteModules::canReuse(
+   if (RequiredModules.empty())
+     return true;
+ 
+-  llvm::SmallVector<llvm::StringRef> BMIPaths;
+-  for (auto &MF : RequiredModules)
+-    BMIPaths.push_back(MF->getModuleFilePath());
++  // Validate the published files where possible: they are stable across
++  // requests, so their validation results can be memoized. A copy-on-read
++  // view may be validated via its published source only while that source is
++  // unchanged; once the published file was replaced, only the view itself
++  // knows the inputs it was built for, so the view gets validated directly.
++  llvm::SmallVector<PathRef> BMIPaths;
++  for (auto &MF : RequiredModules) {
++    if (!MF->getPublishedSourceIdentity()) {
++      BMIPaths.push_back(MF->getModuleFilePath());
++      continue;
++    }
++    auto Current =
++        ModuleValidationCache::identityOf(MF->getPublishedModuleFilePath());
++    if (Current && *Current == *MF->getPublishedSourceIdentity())
++      BMIPaths.push_back(MF->getPublishedModuleFilePath());
++    else
++      BMIPaths.push_back(MF->getModuleFilePath());
++  }
+   return IsModuleFilesUpToDate(BMIPaths, *this, VFS);
+ }
+ 
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
+index d8c8c446f..f44226c2b 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.h
++++ b/clang-tools-extra/clangd/ModulesBuilder.h
+@@ -80,6 +80,21 @@ public:
+   /// Returns the set of directly required module names
+   virtual llvm::StringSet<> getRequiredModuleNames() const = 0;
+ 
++  /// Validation of built module files reads the *published* BMI paths, which
++  /// are stable across requests, while parsing consumes the copy-on-read
++  /// files handed out by adjustHeaderSearchOptions. Validation results are
++  /// memoized per (BMI, chain), so the published paths keep the memo key
++  /// stable. The default mirrors adjustHeaderSearchOptions.
++  virtual void
++  adjustHeaderSearchOptionsForValidation(HeaderSearchOptions &Options) const {
++    adjustHeaderSearchOptions(Options);
++  }
++
++  /// A stable fingerprint of the dependency chain validation resolves
++  /// imports against. Two objects with the same key have identically shaped
++  /// validations. The default (empty) means results are not memoized.
++  virtual void getValidationChainKey(std::string &) const {}
++
+   virtual ~PrerequisiteModules() = default;
+ };
+ 
+diff --git a/clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py b/clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py
+new file mode 100644
+index 000000000..58058c2b2
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py
+@@ -0,0 +1,104 @@
++#!/usr/bin/env python3
++"""Drives clangd through the module validation-cache scenario.
++
++Run: %python modules-cache-driver.py <clangd> <workdir>
++
++Creates a small module project, then requests three completions on the same
++file, each after a body-only edit that keeps the preamble valid:
++  round 1: the prerequisite module is built and validated (cold);
++  round 2: the preamble-compatibility check re-validates the published BMI
++           (cold - the dependency chain now contains the module itself);
++  round 3: the compatibility check must hit the validation cache.
++
++The driver asserts both the build and the cache hit appeared in clangd's log,
++and exits non-zero otherwise.
++"""
++import json
++import os
++import subprocess
++import sys
++import time
++
++CLANGD, TMP = sys.argv[1], os.path.abspath(sys.argv[2])
++CLANG = sys.argv[3]
++os.makedirs(TMP, exist_ok=True)
++
++with open(os.path.join(TMP, "A.cppm"), "w") as F:
++    F.write("export module A;\nexport void printA() {}\n")
++
++USE = "import A;\nvoid foo() {\n    printA();\n}\n"
++
++with open(os.path.join(TMP, "Use.cpp"), "w") as F:
++    F.write(USE)
++
++with open(os.path.join(TMP, "compile_commands.json"), "w") as F:
++    F.write(json.dumps([
++        {"directory": TMP,
++         "command": CLANG + " -std=c++20 -o " + TMP + "/Use.cpp.o -c " + TMP + "/Use.cpp",
++         "file": TMP + "/Use.cpp"},
++        {"directory": TMP,
++         "command": CLANG + " -std=c++20 " + TMP + "/A.cppm --precompile -o " + TMP + "/A.pcm",
++         "file": TMP + "/A.cppm"},
++    ]))
++
++LOG = os.path.join(TMP, "log")
++Proc = subprocess.Popen([CLANGD, "--experimental-modules-support", "--lit-test"],
++                        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
++                        stderr=open(LOG, "w"))
++
++_next_id = 0
++def send(Method, Params=None, Notify=False):
++    global _next_id
++    Msg = {"jsonrpc": "2.0", "method": Method}
++    if Params is not None:
++        Msg["params"] = Params
++    if not Notify:
++        _next_id += 1
++        Msg["id"] = _next_id
++    Proc.stdin.write(b"---\n" + json.dumps(Msg).encode() + b"\n")
++    Proc.stdin.flush()
++
++USE_URI = "file://" + TMP + "/Use.cpp"
++
++send("initialize", {"processId": 123, "rootPath": TMP, "capabilities": {}})
++send("initialized", {}, Notify=True)
++
++def round_n(Version, Body):
++    if Version == 1:
++        send("textDocument/didOpen",
++             {"textDocument": {"uri": USE_URI, "languageId": "cpp", "version": 1,
++                               "text": Body}},
++             Notify=True)
++    else:
++        send("textDocument/didChange",
++             {"textDocument": {"uri": USE_URI, "version": Version},
++              "contentChanges": [{"text": Body}]},
++             Notify=True)
++    time.sleep(0.2)
++    send("textDocument/completion",
++         {"textDocument": {"uri": USE_URI}, "position": {"line": 2, "character": 4}})
++    time.sleep(4)
++
++round_n(1, USE)
++round_n(2, "import A;\nvoid foo() {\n    printA();\n    (void)0;\n}\n")
++round_n(3, "import A;\nvoid foo() {\n    printA();\n    (void)0;\n    (void)0;\n}\n")
++
++send("shutdown", None)
++send("exit", None, Notify=True)
++Proc.stdin.close()
++try:
++    Proc.wait(timeout=30)
++except subprocess.TimeoutExpired:
++    Proc.kill()
++    sys.exit("clangd did not exit")
++
++LogText = open(LOG, errors="replace").read()
++Failures = []
++if "Built module A to" not in LogText:
++    Failures.append("module A was never built")
++if "is up to date via the validation cache" not in LogText:
++    Failures.append("validation cache was never hit on the third round")
++if Failures:
++    sys.exit("modules-cache-driver: FAILED:\n  " + "\n  ".join(Failures) +
++             "\nlog:\n" + LogText[-4000:])
++print("modules-cache-driver: OK")
+diff --git a/clang-tools-extra/clangd/test/modules-validation-cache.test b/clang-tools-extra/clangd/test/modules-validation-cache.test
+new file mode 100644
+index 000000000..bbb9b70e5
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/modules-validation-cache.test
+@@ -0,0 +1,13 @@
++# The validation cache reuses the up-to-date verdict of a published BMI
++# across requests instead of re-validating it on every preamble-compatibility
++# check. The driver builds a module project and requests three completions on
++# the same file, each after a body-only edit that keeps the preamble valid:
++# round 1 builds and validates cold; round 2 re-validates cold (the
++# dependency chain now contains the module itself); round 3 must hit the
++# validation cache. The driver asserts both transitions in clangd's log.
++#
++# UNSUPPORTED: system-windows
++#
++# RUN: rm -fr %t
++# RUN: mkdir -p %t
++# RUN: %python %p/Inputs/modules-cache-driver.py clangd %t %clang
+-- 
+2.43.0
+

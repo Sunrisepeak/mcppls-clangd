@@ -1,0 +1,218 @@
+From 4ea52507cfdee5ab36fbee14a6c00afb33f9efe6 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 6 Oct 2026 04:40:25 +0900
+Subject: [PATCH] [clangd] Break module cache locks whose owner died
+
+llvm::LockFileManager detects dead owners on Unix, but its liveness
+check is conservative on Windows: a clangd killed while holding a module
+cache lock leaves every later builder waiting forever.
+
+After waiting --modules-builder-lock-stale-seconds, a builder now reads
+the owner recorded in the lock file and breaks the lock when that
+process is provably dead. Breaking is safe by design: publishing a BMI
+is an atomic rename and every consumer revalidates, so a broken race
+costs a rebuild, never correctness.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 56 +++++++++++
+ .../clangd/test/modules-stale-lock.test       | 98 +++++++++++++++++++
+ 2 files changed, 154 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/test/modules-stale-lock.test
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 0086e707e..55106fc74 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -22,9 +22,14 @@
+ #include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/LockFileManager.h"
++#include "llvm/Support/MemoryBuffer.h"
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/Process.h"
+ 
++#ifdef _WIN32
++#include <windows.h>
++#endif
++
+ #include <chrono>
+ #include <ctime>
+ 
+@@ -45,6 +50,11 @@ llvm::cl::opt<unsigned> VersionedModuleFileGCThresholdSeconds(
+                    "access time is older than this many seconds."),
+     llvm::cl::init(3 * 24 * 60 * 60));
+ 
++llvm::cl::opt<unsigned> ModuleLockStaleBreakSeconds(
++    "modules-builder-lock-stale-seconds",
++    llvm::cl::desc("Break a module cache lock whose owner is provably dead "
++                   "after waiting this many seconds (0 disables breaking)."),
++    llvm::cl::init(60));
+ 
+ //===----------------------------------------------------------------------===//
+ // Persistent Module Cache Layout.
+@@ -229,6 +239,40 @@ llvm::Error ensureLockAnchorFileExists(PathRef LockPath) {
+   return llvm::Error::success();
+ }
+ 
++/// Reports whether the owner recorded in the lock file \param LockPath.lock
++/// is provably dead. llvm::LockFileManager detects dead owners on Unix, but
++/// its liveness check is conservative on Windows, so a killed clangd leaves
++/// every later builder waiting forever there. Breaking such a lock is safe by
++/// design: publishing a BMI is an atomic rename and every consumer
++/// revalidates, so a broken race costs a rebuild, never correctness.
++bool isLockOwnerDead(PathRef LockPath) {
++  llvm::SmallString<256> LockFilePath(LockPath);
++  LockFilePath.append(".lock");
++  auto Buf = llvm::MemoryBuffer::getFile(LockFilePath);
++  if (!Buf)
++    return false;
++  // The lock file holds "<host-id> <pid>" on a single line.
++  llvm::StringRef Content = Buf->get()->getBuffer().trim();
++  auto [_, PIDText] = Content.rsplit(' ');
++  long long PID = 0;
++  if (PIDText.getAsInteger(10, PID) || PID <= 0)
++    return false;
++#if defined(_WIN32)
++  HANDLE Owner = OpenProcessA(PROCESS_QUERY_LIMITED_INFORMATION, /*bInheritHandle=*/false,
++                              static_cast<DWORD>(PID));
++  if (!Owner)
++    return GetLastError() == ERROR_INVALID_PARAMETER;
++  DWORD ExitCode = STILL_ACTIVE;
++  bool Dead = GetExitCodeProcess(Owner, &ExitCode) && ExitCode != STILL_ACTIVE;
++  CloseHandle(Owner);
++  return Dead;
++#else
++  // Unix liveness is handled by LockFileManager itself (OwnerDied).
++  (void)PID;
++  return false;
++#endif
++}
++
+ //===----------------------------------------------------------------------===//
+ // Persistent Module Cache Locking.
+ //
+@@ -277,6 +321,18 @@ public:
+         Waited += LockWaitInterval;
+         log("Still waiting for module lock {0} after {1}s", LockPath,
+             Waited.count());
++        if (ModuleLockStaleBreakSeconds &&
++            Waited >= std::chrono::seconds(ModuleLockStaleBreakSeconds) &&
++            isLockOwnerDead(LockPath)) {
++          llvm::SmallString<256> LockFilePath(LockPath);
++          LockFilePath.append(".lock");
++          log("Breaking module lock {0} whose owner died", LockFilePath);
++          std::error_code RemoveEC = llvm::sys::fs::remove(LockFilePath);
++          if (RemoveEC)
++            log("Failed to break module lock {0}: {1}", LockFilePath,
++                RemoveEC.message());
++          Waited = std::chrono::seconds::zero();
++        }
+         continue;
+       }
+       llvm_unreachable("Unhandled lock wait result");
+diff --git a/clang-tools-extra/clangd/test/modules-stale-lock.test b/clang-tools-extra/clangd/test/modules-stale-lock.test
+new file mode 100644
+index 000000000..9ae79b8f3
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/modules-stale-lock.test
+@@ -0,0 +1,98 @@
++# A module cache lock whose owner is dead must not block builders forever.
++#
++# llvm::LockFileManager detects dead owners on Unix by itself. On Windows its
++# liveness check is conservative, so a killed clangd leaves every later
++# builder waiting forever; clangd breaks a lock that stayed unreleased past
++# --modules-builder-lock-stale-seconds when its recorded owner is provably
++# dead. This test pre-creates a lock with a dead owner and requires the
++# module build to proceed.
++#
++# UNSUPPORTED: system-windows
++#
++# RUN: rm -fr %t
++# RUN: mkdir -p %t
++# RUN: split-file %s %t
++# RUN: sed -e "s|DIR|%/t|g" %t/compile_commands.json.tmpl > %t/compile_commands.json
++# RUN: sed -e "s|DIR|%/t|g" %t/completion.jsonrpc.tmpl > %t/completion.jsonrpc
++# RUN: %python -c "import hashlib,os,sys; d=os.path.join(sys.argv[1],'.cache','clangd','modules','.locks'); os.makedirs(d,exist_ok=True); n=hashlib.sha1(os.path.join(sys.argv[1],'A.cppm').encode('utf-8')).hexdigest(); open(os.path.join(d,n+'.lock'),'w').write('dead-host 999999999\n')" %t
++# RUN: clangd -experimental-modules-support -lit-test -modules-builder-lock-stale-seconds=1 < %t/completion.jsonrpc 2> %t/log
++# RUN: FileCheck %s < %t/log
++#
++# CHECK: Built module A to
++
++#--- A.cppm
++export module A;
++export void printA() {}
++
++#--- Use.cpp
++import A;
++void foo() {
++    printA();
++}
++
++#--- compile_commands.json.tmpl
++[
++    {
++      "directory": "DIR",
++      "command": "CLANG_CC -std=c++20 -o DIR/Use.cpp.o -c DIR/Use.cpp",
++      "file": "DIR/Use.cpp"
++    },
++    {
++      "directory": "DIR",
++      "command": "CLANG_CC -std=c++20 DIR/A.cppm --precompile -o DIR/A.pcm",
++      "file": "DIR/A.cppm"
++    }
++]
++
++#--- completion.jsonrpc.tmpl
++{
++  "jsonrpc": "2.0",
++  "id": 0,
++  "method": "initialize",
++  "params": {
++    "processId": 123,
++    "rootPath": "DIR",
++    "capabilities": {}
++  }
++}
++---
++{
++  "jsonrpc": "2.0",
++  "method": "initialized",
++  "params": {}
++}
++---
++{
++  "jsonrpc": "2.0",
++  "method": "textDocument/didOpen",
++  "params": {
++    "textDocument": {
++      "uri": "file://DIR/Use.cpp",
++      "languageId": "cpp",
++      "version": 1,
++      "text": "import A;\nvoid foo() {\n    printA();\n}\n"
++    }
++  }
++}
++---
++{
++  "jsonrpc": "2.0",
++  "id": 1,
++  "method": "textDocument/completion",
++  "params": {
++    "textDocument": {"uri": "file://DIR/Use.cpp"},
++    "position": {"line": 2, "character": 4}
++  }
++}
++---
++{
++  "jsonrpc": "2.0",
++  "id": 2,
++  "method": "shutdown",
++  "params": null
++}
++---
++{
++  "jsonrpc": "2.0",
++  "method": "exit"
++}
+-- 
+2.43.0
+

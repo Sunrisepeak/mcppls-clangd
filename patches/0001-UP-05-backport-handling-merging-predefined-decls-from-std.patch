@@ -1,0 +1,61 @@
+From bb4fc9fa7b524d82b7fd0f653ec1ac8e6cf96a9a Mon Sep 17 00:00:00 2001
+From: Chuanqi Xu <yedeng.yd@linux.alibaba.com>
+Date: Thu, 27 Aug 2026 12:35:27 +0000
+Subject: [PATCH] [C++20] [Modules] Handling merging predefined decls from std
+
+Backport of llvm-project commit 52774473867e (PR #219151), shipped in
+clang 23.1.1, fixing llvm-project#218152: `align_val_t` is ambiguous
+under MSVC in a module. MSSTL wraps the STL into extern "C++", so the
+predefined declarations from the std module ended up in a different
+redeclaration context than the lookup in ActOnTag expects.
+
+Upstream message:
+
+[C++20] [Modules] Handling merging predefined decls from std (#219151)
+
+Close https://github.com/llvm/llvm-project/issues/218152
+---
+ clang/lib/Sema/SemaDecl.cpp      |  2 +-
+ clang/test/Modules/pr218152.cppm | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+ create mode 100644 clang/test/Modules/pr218152.cppm
+
+diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
+index 27fe259af..6a25a799a 100644
+--- a/clang/lib/Sema/SemaDecl.cpp
++++ b/clang/lib/Sema/SemaDecl.cpp
+@@ -18387,7 +18387,7 @@ Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK, SourceLocation KWLoc,
+   }
+ 
+   if (getLangOpts().CPlusPlus && Name && DC && StdNamespace &&
+-      DC->Equals(getStdNamespace())) {
++      DC->getRedeclContext()->Equals(getStdNamespace())) {
+     if (Name->isStr("bad_alloc")) {
+       // This is a declaration of or a reference to "std::bad_alloc".
+       isStdBadAlloc = true;
+diff --git a/clang/test/Modules/pr218152.cppm b/clang/test/Modules/pr218152.cppm
+new file mode 100644
+index 000000000..c7b82372f
+--- /dev/null
++++ b/clang/test/Modules/pr218152.cppm
+@@ -0,0 +1,17 @@
++// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %s
++
++// expected-no-diagnostics
++export module fake_std;
++
++extern "C++" {
++namespace std {
++  using size_t = decltype(sizeof 0);
++  export enum class align_val_t : size_t {};
++} // namespace std
++
++export void *operator new(std::size_t, std::align_val_t);
++
++namespace std {
++void foo() { align_val_t x{}; }
++} // namespace std
++} // extern "C++"
+-- 
+2.43.0
+
