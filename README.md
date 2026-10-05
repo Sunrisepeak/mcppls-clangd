@@ -17,8 +17,12 @@ bumped.
 
 ## Status
 
-Planning. The overall plan and architecture (v1, for review) lives in
-[.agents/docs](.agents/docs) and is under review as PR1. Nothing is built yet.
+Implemented (Phase 0 complete + the UP-25 core fix, first stage). The plan and
+architecture live in [.agents/docs](.agents/docs); the carried patches are in
+[patches](patches) with their ledger; CI builds and verifies them per platform
+(see `.github/workflows`). The carried clangd reports itself as
+`23.1.0-mcppls.0`. See [PR1](https://github.com/Sunrisepeak/mcppls-clangd/pull/1)
+for the full review trail.
 
 ## License
 
