@@ -36,7 +36,7 @@ jobs:
           PLATFORM: linux-x64
           JOBS: 4
           CCACHE_DIR: ${{ github.workspace }}/.ccache
-          SANITIZERS: "Address;UndefinedBehavior"
+          SANITIZERS: "AddressUndefined"
           BUILD_DIR: ${{ github.workspace }}/build-san
         run: |
           ./ci/scripts/fetch.sh

@@ -25,7 +25,7 @@ if command -v ccache >/dev/null 2>&1; then
   CCACHE_FLAGS+=(-DLLVM_CCACHE_BUILD=ON -DLLVM_CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache-mcppls-clangd}" -DLLVM_CCACHE_MAXSIZE=10G)
 fi
 
-# sanitizer builds for the soak job (e.g. SANITIZERS="Address;UndefinedBehavior")
+# sanitizer builds for the soak job (LLVM's combined flag spelling)
 SANITIZER_FLAGS=()
 if [[ -n "${SANITIZERS:-}" ]]; then
   SANITIZER_FLAGS+=(-DLLVM_USE_SANITIZER="$SANITIZERS")

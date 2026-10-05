@@ -6,6 +6,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Bring BUILD_DIR/LLVM_DIR/FORK_VERSION into this shell: the stage scripts run
+# configure in a child process, and their exported values do not come back.
+source ci/scripts/env.sh
+
 ./ci/scripts/fetch.sh
 # CI always starts from the pinned tree; re-apply if the cache restored an
 # already-patched tree this is a no-op (marker file).

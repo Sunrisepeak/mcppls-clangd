@@ -28,6 +28,14 @@ if [[ -n "$TARBALL_SHA256" ]]; then
 fi
 
 echo "fetch.sh: extracting"
-tar xzf "$TARBALL" -C "$LLVM_DIR" --strip-components=1
+# Windows runners cannot create the test fixtures' symlinks; those files are
+# irrelevant to the clangd build, so tolerate symlink errors and verify the
+# tree landed by its anchor file instead.
+tar xzf "$TARBALL" -C "$LLVM_DIR" --strip-components=1 2>&1 | \
+  grep -v "Cannot create symlink" || true
+[[ -f "$LLVM_DIR/llvm/CMakeLists.txt" ]] || {
+  echo "fetch.sh: extraction failed (no llvm/CMakeLists.txt)" >&2
+  exit 1
+}
 touch "$MARKER"
 echo "fetch.sh: done ($LLVM_DIR)"

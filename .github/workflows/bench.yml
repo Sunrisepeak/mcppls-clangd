@@ -34,6 +34,7 @@ jobs:
           JOBS: 4
           CCACHE_DIR: ${{ github.workspace }}/.ccache
         run: |
+          source ci/scripts/env.sh
           ./ci/scripts/fetch.sh
           ./ci/scripts/apply.sh
           ./ci/scripts/configure.sh
