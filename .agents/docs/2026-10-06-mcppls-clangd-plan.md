@@ -80,6 +80,7 @@ mcppls-clangd/
                           one composable stage each, no monolith
   tests/
     probes/               bench scripts (completion p95, rescan counters) + README
+    e2e/                  black-box scenarios driven through mcppls's entry point
     conformance.md        how the mcppls fixtures are fetched (pinned ref) and run
   .github/workflows/      verify-series, build-test, bench, soak, upstream-drift,
                           win-symbols, release (§4.3)
@@ -160,16 +161,19 @@ bumps, releases are patch-driven and cheap (warm ccache).
 
 ### 4.3 CI verification
 
-Seven jobs; the ledger (`patches/PATCHES.md`) declares what each patch
-contributes to which job, and `bench`/`soak` consume the verification map in
-the fix-register document.
+Nine jobs; the ledger (`patches/PATCHES.md`) declares what each patch
+contributes to which job, and `bench`/`soak`/`e2e` consume the verification
+map in the fix-register document. The CI has two levels on purpose:
+clangd-level jobs prove the fix in the patched tree; the `e2e` job proves the
+fork inside the shipped product.
 
 | job | trigger | what it does | fails when |
 |-----|---------|--------------|------------|
 | `verify-series` | every push | apply the series on the pinned ref; check the ledger's shape: every patch has a row, a test map, a state, a drop condition; row ids absent from patch contents | apply conflict, or a patch without declared verification |
 | `build-test` | every push (linux-x64); nightly + tag (full matrix) | build the `clangd` target with ccache; run the **targeted tests of every touched patch** first (fast feedback from its test map), then `check-clangd` — full suite on linux, modules/preamble/completion suites minimum elsewhere | any test fails |
 | `bench` | nightly + tag | probe benches against the built binary; per-row metrics from the verification map (e.g. UP-25: qt-demo warm completion p95 < 100 ms; UP-04/23: resolution/rescan counters; cold-path no-regression baseline) | a metric crosses its gate |
-| `conformance` | nightly + tag | fetch mcppls at a pinned ref; run its conformance fixtures and engine tests against the forked binary | a fixture fails |
+| `conformance` | nightly + tag | fetch mcppls **source** at a pinned ref; run its conformance fixtures and engine tests against the forked binary — the regression net during development | a fixture fails |
+| `e2e` | nightly + tag | **black-box through the mcppls entry point**: take the latest mcppls release, re-pack its payload with the fork's clangd via mcppls's own `payload` tooling (digest pinning stays intact — the kit is rebuilt, not tampered), then drive the shipped configuration over LSP: module projects, completions, diagnostics, edit/close/restart loops, `mcppls report` showing fork detection and carried patches. Each `steady` patch's acceptance scenario runs here against the real product — a fix is reliable only if it survives the whole stack (budgets, workarounds, payload) | a scenario fails, or a crash/hang in the loop |
 | `soak` | nightly | sanitizer build (linux-x64, ASan+UBSan) plus a scripted hours-long session loop — open/edit/close module files, rapid edits, kill -9 mid-build, restart (the UP-18/24 lifecycle, the UP-07 class) | crash, hang, leak, or sanitizer report |
 | `upstream-drift` | weekly | apply every patch onto **llvm-project main tip**; publish the applies-clean matrix as a status comment on the ledger | advisory — never red by itself; a patch drifting > 2 weeks opens an issue (§6) |
 | `win-symbols` | weekly + on demand | the Windows build with debug symbols per the upstream recipe; the stack-capture channel for UP-12/13/20 | n/a (artifact channel) |

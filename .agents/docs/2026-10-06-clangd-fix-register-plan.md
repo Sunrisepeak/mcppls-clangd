@@ -73,6 +73,13 @@ perf rows carry a bench metric with a gate; lifecycle/crash rows carry a soak
 scenario.** "Fixed but unverifiable" does not merge. Tests are named by
 behavior, never by row id — the ledger does the row ↔ test mapping.
 
+Verification has two levels: the rows below are proven at **clangd level**
+(targeted, fast, inside the patched tree); once a patch is `steady`, its
+acceptance scenario is re-proven at **product level** by the `e2e` job — the
+latest mcppls release with its payload re-packed around the fork's clangd,
+driven black-box through the mcppls entry point over LSP. A fix is reliable
+only when it survives the whole stack (budgets, workarounds, payload).
+
 | rows | kind | verification artifact | CI job / gate |
 |------|------|----------------------|---------------|
 | UP-05, UP-01 | backport equivalence | upstream's own lit tests (already in the tree), run on the patched series | `build-test` green |
@@ -81,6 +88,7 @@ behavior, never by row id — the ledger does the row ↔ test mapping.
 | UP-04, UP-23, UP-25 | perf | probe bench metrics: UP-25 qt-demo warm completion p95 < 100 ms; UP-04 module-resolution cost; UP-23 rescan counter; cold-path and no-import baselines must not regress beyond noise | `bench` nightly + tag |
 | UP-12, UP-13, UP-20 | crash, stack hunt first | debug-symbols Windows build (upstream's own artifact paradigm) → capture stack → file upstream → then decide carry | `win-symbols` artifact channel |
 | UP-03, UP-06, UP-07, UP-21, UP-17, UP-08 | research/architectural | verification designed with the patch, before it lands (these rows start at `draft` by definition) | per-patch, when promoted |
+| all carried rows | product-level integration | black-box e2e: latest mcppls release, payload re-packed with the fork's clangd, per-fix acceptance scenarios + stability loop (open/edit/close/restart, kill -9, `mcppls report` shows fork detection) driven through the mcppls entry point | `e2e` for `steady` patches |
 
 ## 2. UP-25: the core fix
 
@@ -147,6 +155,10 @@ sweepable; `mcppls report` gains a line for fork-carried caches.
    importer reflects the edit (no stale BMI), with the cache warm — lit where
    deterministic, plus a `soak` scenario (rapid module edits, restarts) since
    the lifecycle is where a wrong key would hide.
+5. Product level (`e2e` job, once `steady`): the same completion p95 measured
+   through the mcppls entry point on the latest release re-packed with the
+   fork's clangd — proving the fix end-to-end, with WA-CLANGD-012 retired for
+   detected forks rather than fighting the cache.
 
 ### 2.5 Retirement path
 
