@@ -38,7 +38,10 @@ jobs:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           SANITIZERS: "Address;Undefined"
           BUILD_DIR: ${{ github.workspace }}/build-san
+          CC: clang
+          CXX: clang++
         run: |
+          sudo apt-get install -y clang
           ./ci/scripts/fetch.sh
           ./ci/scripts/apply.sh
           ./ci/scripts/configure.sh
