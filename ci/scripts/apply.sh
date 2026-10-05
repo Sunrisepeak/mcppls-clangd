@@ -22,8 +22,11 @@ if [[ ! -d .git ]]; then
 fi
 
 applied=0
-while IFS= read -r line; do
-  [[ -z "$line" || "$line" == \#* ]] && continue
+while IFS= read -r line || [[ -n "$line" ]]; do
+  line="${line%$'\r'}"                 # tolerate CRLF checkouts on windows
+  line="${line%%#*}"                   # tolerate trailing comments
+  line="$(echo "$line" | xargs 2>/dev/null || echo "$line")"  # trim
+  [[ -z "$line" ]] && continue
   p="$REPO_DIR/patches/$line"
   echo "apply.sh: git am $line"
   git -c user.name="$(git config user.name  || echo mcppls-clangd)" \
