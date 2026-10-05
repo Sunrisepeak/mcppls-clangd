@@ -6,11 +6,14 @@ monorepo, not a vendored source tree, not a runtime integration.
 
 The model is openkal-style: pin the upstream revision (`UPSTREAM`), carry the
 divergence as a numbered patch series (`patches/`) plus drop-in new files
-(`overlay/`), build with upstream CMake, release static per-platform binaries
-for [mcpp-language-server]'s payload machinery. Every patch maps to one row of
+(`overlay/`), build with upstream CMake, release per-platform binaries using
+the same build paradigm as [clangd/clangd]'s releases, feeding
+[mcpp-language-server]'s payload machinery. Every patch maps to one row of
 the upstream-defects register ([mcpp-language-server#24]) and carries a drop
 condition — when upstream lands the fix, the patch is dropped and the base is
 bumped.
+
+[clangd/clangd]: https://github.com/clangd/clangd
 
 ## Status
 

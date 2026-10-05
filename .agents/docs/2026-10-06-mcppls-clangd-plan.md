@@ -3,6 +3,13 @@
 2026-10-06. First PR. Everything here is a proposal to review — nothing is
 built yet.
 
+Review round 1 (2026-10-06): D1/D2/D4 accepted as proposed. D3 re-aligned —
+v1 replicates the clangd/clangd release build paradigm instead of a custom
+static-linking matrix (facts from their public release workflow, §4.1).
+Repository layout reworked so the path fix → verify → stabilize → upstream is
+first-class (§3), and CI verification per carried fix specified (§4.3, and the
+verification map in the fix-register document).
+
 Inputs: the upstream-defects register
 ([mcpp-language-server#24](https://github.com/Sunrisepeak/mcpp-language-server/issues/24)),
 the working discussions of 2026-10-06, and two precedents:
@@ -44,7 +51,7 @@ Final for v1; each is one sentence plus its why.
 |---|----------|-----|
 | D1 | **Not "based on openkal"** — no runtime integration; upstream CMake unmodified | clangd is a standalone LSP process; it has no ABI coupling with openkal programs. Integrating openkal-musl adds a cross-compile matrix and a bootstrap cycle for zero functional gain. |
 | D2 | **Patch series + overlay on a pinned upstream ref** — no git fork of the monorepo, no vendored sources | clangd cannot compile without the clang+LLVM tree, but the repository does not have to *contain* it: fetched at build time against the pin in `UPSTREAM`. Repo stays at KB scale; the divergence stays small and enumerable. |
-| D3 | **Static per-platform binaries**; v1: glibc dynamic + `-static-libstdc++` on linux, default linking on darwin, llvm-mingw `-static` on windows | Fully-static glibc is not worth it (NSS/locale). musl fully-static is an optional later phase (Termux-native, less PRoot) — not a v1 prerequisite. |
+| D3 | **Build paradigm aligned with upstream clangd binaries** — replicate the clangd/clangd release recipe per platform (extracted from their public release workflow into `ci/recipe.md`, §4.1) | Fork artifacts become drop-in replacements for the binaries mcppls already bundles: same toolchain family, same linking model, same compat floor. No custom static-linking experiments in v1. musl fully-static stays an optional later phase (Termux-native, less PRoot) — not a v1 prerequisite. |
 | D4 | **Fork builds identify themselves**: `LLVM_VERSION_SUFFIX=-mcppls.N` | `clangd --version` is the detection contract for mcppls: bundled fork vs user-provided vanilla clangd must be distinguishable, and `mcppls report` must be able to list carried patches. |
 | D5 | **Composition-first patches**: logic in new files under `overlay/`, diffs to upstream files minimized to insertion points | The module area (where most of our defects live) is under active upstream rework; minimal insertion points are what survives a rebase. openkal's discipline — every change fits one sentence — applied to patch form. |
 | D6 | **Upstream-first**: file every row that is unfiled; every patch carries a drop condition | The register is the single source of truth; the fork is a staging ground for upstream PRs, not a rival. UP-05 was fixed upstream within weeks of being noticed — filing shrinks the patch series over time. |
@@ -57,15 +64,25 @@ mcppls-clangd/
   README.md               what this repo is; status; license
   LICENSE                 LLVM's Apache-2.0 WITH LLVM-exceptions text
   UPSTREAM                the pin: repo, ref, reason (one file, three lines)
-  overlay/                NEW files, dropped into the tree after apply, zero conflicts
-    clangd/...            e.g. CachedModulesBuilder.{h,cpp} for UP-25
   patches/
-    0001-UP-18-release-module-locks-left-by-a-killed-clangd.patch
-    ...
-    series                ordered list, one line per patch
-    PATCHES.md            one sentence per patch: register row, upstream link,
-                          drop condition (openkal's PATCHES.md discipline)
-  ci/                     scripts: fetch / apply / configure / build / package
+    series                ordered list, one path per line
+    0001-...patch         each patch = fix + its tests + LLVM-style commit message
+    PATCHES.md            ledger: register row ↔ patch ↔ tests ↔ state ↔ drop condition
+  overlay/
+    clangd/               NEW files only (drop-in after apply, zero conflicts)
+                          + their unit tests; never submitted upstream as-is
+  upstream/
+    drafts/               per-row submission packages: PR description, links,
+                          review status — the material a "steady" patch needs
+  ci/
+    recipe.md             the clangd/clangd release recipe, extracted per platform
+    scripts/              fetch.sh apply.sh configure.sh build.sh package.sh —
+                          one composable stage each, no monolith
+  tests/
+    probes/               bench scripts (completion p95, rescan counters) + README
+    conformance.md        how the mcppls fixtures are fetched (pinned ref) and run
+  .github/workflows/      verify-series, build-test, bench, soak, upstream-drift,
+                          win-symbols, release (§4.3)
   .agents/docs/           plans and reviews (this document)
 ```
 
@@ -77,8 +94,25 @@ mcppls-clangd/
   in, configures, builds the `clangd` target, strips, packages
   `clangd-<version>-<platform>` + `SHA256SUMS`.
 
-The patch format is a plain `git format-patch` series. Nothing here invents a
-patch tool: `git am`, `quilt`-style `series`, and a markdown ledger are enough.
+Layout principles — the tree is arranged so that **fix → verify → stabilize →
+upstream** is the normal path, not an afterthought:
+
+1. **A patch is the unit of upstreaming.** Every patch is one self-contained
+   commit: the fix, its tests, and a commit message written in LLVM style
+   (`[clangd] ...`). `git format-patch -1 <steady-patch>` plus its
+   `upstream/drafts/` entry is a ready llvm-project PR. Register row ids never
+   appear inside patch code or tests (upstream reviewers must not meet our
+   bookkeeping); the ledger is the only place row ↔ patch ↔ test are mapped.
+2. **Fork-only glue lives only in `overlay/`.** Wrapper files (e.g.
+   `CachedModulesBuilder`) that exist for mcppls and are not upstream
+   candidates are isolated there; carry patches never mix fork-only edits in.
+3. **`patches/PATCHES.md` is the single source of truth.** One line per patch:
+   register row, state (§6), test map, upstream link, drop condition.
+   `ci/check-ledger` (part of `verify-series`) enforces the shape, the same
+   way mcppls's devtools `check` commands do.
+4. **Verification is declared next to the fix.** Each ledger entry names its
+   tests and its bench metric up front (verification map in the fix-register
+   document); CI only executes what the ledger declares.
 
 ## 4. Build, CI, release
 
@@ -94,14 +128,22 @@ patch tool: `git am`, `quilt`-style `series`, and a markdown ledger are enough.
 -Ninja  -DCMAKE_BUILD_TYPE=Release
 ```
 
-Static linking per platform (D3):
+Build recipe per platform (D3) — **replicated from clangd/clangd's public
+release workflow** (`.github/workflows/autobuild.yaml` in the clangd/clangd
+repository, inspected 2026-10-06); the extracted per-platform flags land in
+`ci/recipe.md` as a Phase 0 deliverable rather than being hard-coded here:
 
-| platform | v1 linking | notes |
-|----------|-----------|-------|
-| linux-x64 | glibc dynamic + `-static-libstdc++ -static-libgcc` | same shape as clangd/clangd's binaries; runs anywhere with glibc ≥ build host |
-| linux-arm64 | same as linux-x64 | native arm64 runners are free for public repos |
-| darwin-arm64 | default system linking | full static is not possible against darwin system libs |
-| win32-x64 | llvm-mingw, `-static` | self-contained exe; the toolchain mcppls already uses for its win payload |
+| platform | upstream's recipe (what we replicate) |
+|----------|---------------------------------------|
+| linux | built inside an `ubuntu:20.04` container — the old-glibc compat floor is the container, not flags; `-DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -Wl,--compress-debug-sections=zlib"`; `linux-static-deps.cmake` forces `find_package` onto static libs (`.a`, e.g. zlib) |
+| darwin-arm64 | `macos-14`, default system linking, nothing special |
+| win32-x64 | `windows-2022` + MSVC (`vcvars`), `-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` (static CRT); **a separate `clangd-debug-symbols` artifact ships the PDBs** — which is also the tool for the UP-12/13/20 stack hunt |
+
+Deviations we intend (recorded, not silent): gRPC/remote-index stays off
+(clangd/clangd vendors gRPC for remote index; mcppls does not use it — one
+less dependency to bootstrap); only the `clangd` binary is packaged, not the
+indexing tools. Where clangd/clangd ships no binary (linux-arm64), the linux
+recipe runs on a native arm64 `ubuntu:20.04` host.
 
 ### 4.2 CI economics
 
@@ -111,23 +153,38 @@ the `UPSTREAM` ref makes every patch-only iteration minutes — only clangd and
 patched objects rebuild. This one number decides the whole plan's cost, which
 is why **Phase 0 measures it before anything else** (§7).
 
-Release cadence: driven by mcppls needs, not by LLVM. ~2 LLVM releases/year is
-the rebase ceiling; between bumps, releases are patch-driven and cheap
-(warm ccache).
+CI minutes are kept sane by tiering (§4.3): per-push jobs run linux-x64 only;
+the full matrix runs nightly and on release tags. Release cadence: driven by
+mcppls needs, not by LLVM. ~2 LLVM releases/year is the rebase ceiling; between
+bumps, releases are patch-driven and cheap (warm ccache).
 
-### 4.3 Gates
+### 4.3 CI verification
 
-A fork release requires, per platform:
+Seven jobs; the ledger (`patches/PATCHES.md`) declares what each patch
+contributes to which job, and `bench`/`soak` consume the verification map in
+the fix-register document.
 
-1. `patches/` applies cleanly on the pinned ref; `PATCHES.md` and the register
-   agree one-to-one.
-2. `check-clangd` passes — at minimum the modules, preamble and completion
-   suites; full suite where the platform allows.
-3. The mcppls conformance fixtures + probe benches run against the built
-   binary (the `/tmp/lsp_probe_*.py` harnesses graduate into committed bench
-   scripts; the UP-25 gate is qt-demo warm completion p95 < 100 ms).
-4. Artifact digests land in the release; `packaging/payload.lock.json` pins
-   them exactly the way it pins clangd/clangd binaries today.
+| job | trigger | what it does | fails when |
+|-----|---------|--------------|------------|
+| `verify-series` | every push | apply the series on the pinned ref; check the ledger's shape: every patch has a row, a test map, a state, a drop condition; row ids absent from patch contents | apply conflict, or a patch without declared verification |
+| `build-test` | every push (linux-x64); nightly + tag (full matrix) | build the `clangd` target with ccache; run the **targeted tests of every touched patch** first (fast feedback from its test map), then `check-clangd` — full suite on linux, modules/preamble/completion suites minimum elsewhere | any test fails |
+| `bench` | nightly + tag | probe benches against the built binary; per-row metrics from the verification map (e.g. UP-25: qt-demo warm completion p95 < 100 ms; UP-04/23: resolution/rescan counters; cold-path no-regression baseline) | a metric crosses its gate |
+| `conformance` | nightly + tag | fetch mcppls at a pinned ref; run its conformance fixtures and engine tests against the forked binary | a fixture fails |
+| `soak` | nightly | sanitizer build (linux-x64, ASan+UBSan) plus a scripted hours-long session loop — open/edit/close module files, rapid edits, kill -9 mid-build, restart (the UP-18/24 lifecycle, the UP-07 class) | crash, hang, leak, or sanitizer report |
+| `upstream-drift` | weekly | apply every patch onto **llvm-project main tip**; publish the applies-clean matrix as a status comment on the ledger | advisory — never red by itself; a patch drifting > 2 weeks opens an issue (§6) |
+| `win-symbols` | weekly + on demand | the Windows build with debug symbols per the upstream recipe; the stack-capture channel for UP-12/13/20 | n/a (artifact channel) |
+| `release` | tag | full matrix, gates 1–5 green, package + `SHA256SUMS`, feeds `payload.lock.json` | any gate |
+
+Two verification policies bind all jobs:
+
+1. **Every carried fix proves itself in CI.** A patch lands only with the
+   verification its row's kind demands — a lit regression that fails without
+   it for functional rows, a bench metric for perf rows, a soak scenario for
+   lifecycle/crash rows (the full mapping per row is the verification map in
+   the fix-register document). "Fixed but unverifiable" does not merge.
+2. **Tests are named by behavior, not by row** (`modules/lock-cleanup.test`,
+   never `up-18.test`) — patches must read as upstream contributions, and the
+   ledger does the row ↔ test mapping (layout principle 1).
 
 ## 5. mcppls integration
 
@@ -149,19 +206,39 @@ A fork release requires, per platform:
 - Each patch in `PATCHES.md`: what it fixes (row), where the analysis lives,
   the upstream issue/PR link once filed, and the **drop condition** — usually
   "upstream lands an equivalent; then bump the base and drop this".
+- **States**, carried in the ledger and enforced by `verify-series`:
+
+  `draft` → `stabilizing` → `steady` → `upstream-submitted` → `landed (dropped)`
+
+  A patch enters `stabilizing` when its verification map is complete and
+  green; it becomes `steady` after 7 consecutive green nightly `soak` + `bench`
+  runs (N = 7 to start). Only `steady` patches ride a release.
+  `upstream-submitted` means the `upstream/drafts/` package is filed upstream;
+  the patch stays carried until the upstream fix ships in a release we bump
+  to — then it drops per its drop condition.
+- **Stabilization is a schedule, not a mood.** The soak/sanitizer and bench
+  jobs run nightly, so a patch sits in `stabilizing` for at least a week by
+  construction; whatever it breaks surfaces there, not in an mcppls release.
+- **Upstream extraction**: for a `steady` patch, `git format-patch -1` — the
+  commit already carries its tests and its LLVM-style message — plus the
+  `upstream/drafts/<row>.md` package, submitted to llvm-project. The weekly
+  `upstream-drift` job keeps every patch main-compatible in the meantime, so
+  submission never waits for a rebase.
 - Rebase drill (per LLVM bump): bump `UPSTREAM` → `git am`, triage conflicts →
   warm-ccache rebuild → gates → release. With ≤ 8 patches this is a 1–2 day
-  drill; the risk concentrates in the modules area (§8).
+  drill; the risk concentrates in the modules area (§8). Drift monitoring
+  makes the drill boring on purpose: conflicts are known weeks in advance.
 - Windows crash rows (UP-12/13/20) are blocked upstream on missing stacks.
-  The fork's Windows build *from source with symbols* is the tool that will
+  The fork's Windows build *with debug symbols* (the `win-symbols` job — the
+  same artifact channel upstream's own releases use) is the tool that will
   produce those stacks — the fork unblocks its own future rows here.
 
 ## 7. Roadmap
 
 | Phase | Content | Exit gate | Size |
 |-------|---------|-----------|------|
-| 0 — spike | linux-x64 only: unpatched build of `llvmorg-23.1.0` in CI with ccache; backport UP-05 (llvm-project#218152) and UP-01's main fix as the first two patches; verify version suffix | first build ≤ 3 h; patch-only warm rebuild ≤ 15 min; `check-clangd` green; `--version` shows `-mcppls.N`; both backports ship as `23.1.0-mcppls.1` | ~1 week |
-| 1 — mechanical carry | UP-18, UP-24, UP-15 (+ UP-01 if main's fix needs adapting); wire fork artifacts into `payload.lock.json` for linux-x64; expand matrix to the other three platforms | fork bundled in an mcppls release for all four platforms; register rows updated | 1–2 weeks |
+| 0 — spike | linux-x64 only: unpatched build of `llvmorg-23.1.0` in CI with ccache; extract the clangd/clangd release recipe into `ci/recipe.md` (windows/mac/linux facts, §4.1); `verify-series` + `build-test` jobs live from day one; backport UP-05 (llvm-project#218152) and UP-01's main fix as the first two patches; verify version suffix | first build ≤ 3 h; patch-only warm rebuild ≤ 15 min; `check-clangd` green; `--version` shows `-mcppls.N`; recipe recorded; both backports ship as `23.1.0-mcppls.1` | ~1 week |
+| 1 — mechanical carry | UP-18, UP-24, UP-15 (+ UP-01 if main's fix needs adapting); `bench`/`conformance`/`soak`/`upstream-drift` jobs come online; wire fork artifacts into `payload.lock.json` for linux-x64; expand matrix to the other three platforms | fork bundled in an mcppls release for all four platforms; first patches reach `steady`; `upstream/drafts/` filed for the backports; register rows updated | 1–2 weeks |
 | 2 — the core | UP-25 per the fix-register design: S1 resolution memoization (days), S2 loaded-module LRU cache (2–4 weeks focused); retire/stretch WA-CLANGD-012 | qt-demo warm completion p95 < 100 ms with the gate in CI; UP-25 upstreamed (best effort) | 2–4 weeks |
 | 3 — optional | musl fully-static builds (Termux-native, less PRoot); scheduler rows (UP-03/06/07/21) revisited; indexing (UP-08/17) as the second campaign | open | open |
 
@@ -176,7 +253,8 @@ separate, explicit decision after seeing the numbers.
 | Upstream rewrites the modules area (ModulesBuilder churn) and the UP-25 patch keeps breaking | D5 composition-first: the cache is a wrapper with one insertion point; the S1/S2 staging keeps the carried diff small; drop conditions keep us honest about what upstream already fixed. |
 | Cached module objects grow memory in long sessions | LRU bound (module count quota), mirroring mcppls 0.0.10's own cache philosophy: bounded, visible, sweepable; the bound is a clangd flag so vanilla semantics remain reachable. |
 | Two clangd variants in the wild confuse support | D4 version suffix + `mcppls report` lists carried patches; user-provided vanilla clangd stays a first-class path. |
-| CI minutes (macOS ×10, Windows ×2 multipliers) | Phase 0 measures linux-x64 first; ccache makes releases warm; the matrix expands only after the spike proves the numbers. |
+| CI minutes (macOS ×10, Windows ×2 multipliers) | Per-push jobs are linux-x64 only; the full matrix runs nightly and on release tags (§4.3); ccache makes releases warm; the matrix expands only after the spike proves the numbers. |
+| A carried patch drifts from LLVM main until a rebase becomes painful | The weekly `upstream-drift` job applies every patch to main tip and publishes the applies-clean matrix; drift beyond two weeks opens an issue — the bump drill is never a surprise. |
 | Single-maintainer bus factor on a clangd internals fork | D6 upstream-first: everything worth keeping gets filed; `PATCHES.md` keeps the series legible to a newcomer; the register maps every row to a plan. |
 | The fork quietly becomes a feature fork | D7/D6: no patch without a register row; scope is fixes for defects mcppls hit, not clangd features. |
 

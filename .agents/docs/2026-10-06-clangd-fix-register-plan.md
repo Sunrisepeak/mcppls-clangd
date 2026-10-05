@@ -64,6 +64,24 @@ build order.
 | UP-M1…M7 | mcpp defects; fixed/filed in mcpp. |
 | UP-P1/P2 | openkal-linux/PRoot defects; fixed/handled in openkal-linux 0.15.1. A musl fully-static clangd (Phase 3, optional) reduces the PRoot surface but these rows stay openkal-linux's. |
 
+### Verification map — what CI runs per row
+
+Every carried patch declares its verification in the ledger; the CI jobs of
+the plan document (§4.3) execute it. Rules: **functional rows carry a lit
+regression inside the patch that fails without the fix and passes with it;
+perf rows carry a bench metric with a gate; lifecycle/crash rows carry a soak
+scenario.** "Fixed but unverifiable" does not merge. Tests are named by
+behavior, never by row id — the ledger does the row ↔ test mapping.
+
+| rows | kind | verification artifact | CI job / gate |
+|------|------|----------------------|---------------|
+| UP-05, UP-01 | backport equivalence | upstream's own lit tests (already in the tree), run on the patched series | `build-test` green |
+| UP-02, UP-10, UP-14, UP-15, UP-22, UP-09 | functional | one lit regression per patch (deadlock guard fires; unresolvable `export import` reports instead of hanging; unsaved-buffer import builds; `;` location; view const no-diagnostic; range request slices) | `build-test` targeted run |
+| UP-18, UP-24, UP-19 | hygiene, lifecycle paths | lit for the deterministic paths + soak scenarios for what lit cannot reach: kill -9 mid-module-build, restart loops, temp-BMI litter, per-command dirs beyond bound | `build-test` + `soak` |
+| UP-04, UP-23, UP-25 | perf | probe bench metrics: UP-25 qt-demo warm completion p95 < 100 ms; UP-04 module-resolution cost; UP-23 rescan counter; cold-path and no-import baselines must not regress beyond noise | `bench` nightly + tag |
+| UP-12, UP-13, UP-20 | crash, stack hunt first | debug-symbols Windows build (upstream's own artifact paradigm) → capture stack → file upstream → then decide carry | `win-symbols` artifact channel |
+| UP-03, UP-06, UP-07, UP-21, UP-17, UP-08 | research/architectural | verification designed with the patch, before it lands (these rows start at `draft` by definition) | per-patch, when promoted |
+
 ## 2. UP-25: the core fix
 
 ### 2.1 Symptom and measurement
@@ -116,16 +134,19 @@ sweepable; `mcppls report` gains a line for fork-carried caches.
 - **S2 — loaded-module LRU** (2–4 weeks focused): hold the deserialized
   context per §2.3. This is the 1 s → tens-of-ms step.
 
-### 2.4 Acceptance (existing harnesses, promoted to gates)
+### 2.4 Acceptance (existing harnesses, promoted to CI gates)
 
-1. Probe bench in CI: qt-demo **warm** completion p95 < 100 ms (vs ~1 s on
-   23.1.0); cold path not regressed beyond noise.
+1. Probe bench in CI (`bench` job): qt-demo **warm** completion p95 < 100 ms
+   (vs ~1 s on 23.1.0); cold path not regressed beyond noise.
 2. `check-clangd` modules + preamble + completion suites green on the patched
-   tree (correctness: a hit must be equivalent to a rebuild — the key decides,
-   not the cache).
-3. mcppls conformance fixtures green against the forked binary.
+   tree (`build-test` job; correctness: a hit must be equivalent to a rebuild
+   — the key decides, not the cache).
+3. mcppls conformance fixtures green against the forked binary (`conformance`
+   job).
 4. Invalidation proven by test: edit a module unit → next completion on an
-   importer reflects the edit (no stale BMI), with the cache warm.
+   importer reflects the edit (no stale BMI), with the cache warm — lit where
+   deterministic, plus a `soak` scenario (rapid module edits, restarts) since
+   the lifecycle is where a wrong key would hide.
 
 ### 2.5 Retirement path
 
