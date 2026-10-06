@@ -21,3 +21,4 @@ they live here and in patch *filenames* only.
 | 0008-UP-25-semantic-module-completion-default.patch | UP-25 | draft | tests/e2e/completion_quality.py | drop when module completion preserves scope and unindexed exports without the parser |
 | 0009-UP-25-precise-validation-input-identity.patch | UP-25 | draft | tests/e2e/completion_quality.py | drop when upstream validation memo tracks precise input identity |
 | 0010-UP-13-crash-dump-declaration.patch | UP-13 | draft | ci/ci_build.sh | drop together with the Windows crash capture implementation |
+| 0011-UP-25-validation-memo-respects-drafts.patch | UP-25 | stabilizing | clangd/test/modules-validation-overlay.test (in-patch); tests/e2e/completion_quality.py --unsaved-update; product inferred/C7 | drop when upstream memo verifies the request VFS identities before accepting a disk verdict |

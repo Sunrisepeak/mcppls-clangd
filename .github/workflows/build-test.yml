@@ -100,6 +100,14 @@ jobs:
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-quality"
 
+      - name: Unsaved module export regression
+        shell: bash
+        run: |
+          python3 tests/e2e/completion_quality.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-drafts" --unsaved-update
+
       - name: Show ccache stats
         shell: bash
         run: ccache --show-stats || true
