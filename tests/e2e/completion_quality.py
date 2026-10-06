@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--clang', type=Path, required=True)
     parser.add_argument('--workdir', type=Path, required=True)
+    parser.add_argument('--unsaved-update', action='store_true', help='replace the module export only in an open draft')
     parser.add_argument('--async-scheduling', action='store_true', help='also expose the preamble generation race')
     args = parser.parse_args()
     project = args.workdir.resolve()
@@ -46,7 +47,7 @@ def main():
         case = {'id': name, 'platform': replay.platform_name(), 'baseline': 'pass',
                 'project': '.', 'timeout_seconds': 30,
                 'flags': ['--experimental-modules-support', '--background-index=false',
-                          '--header-insertion=never', '--log=verbose', '-j=2',
+                          '--header-insertion=never', '--log=verbose', '--use-dirty-headers', '-j=2',
                           *([] if args.async_scheduling else ['--sync'])],
                 'sequence': [
                     {'method': 'initialize', 'params': {'rootUri': project.as_uri(), 'capabilities': {}}},
@@ -59,13 +60,25 @@ def main():
                      'expected_symbols': ['addHelpOption', 'addOption'],
                      'forbidden_symbols': ['qVersion', 'Counter', 'AdlTester']} ]}
         if name == 'member':
-            updated = text.replace('cli.', 'cli.fre')
             case['sequence'] += [
-                {'action': 'replace-file', 'file': 'Api.cppm', 'from': 'addOption', 'with': 'freshItem', 'same-second': True},
-                {'method': 'workspace/didChangeWatchedFiles', 'notify': True,
-                 'params': {'changes': [{'uri': module.as_uri(), 'type': 2}]}},
                 {'method': 'textDocument/didChange', 'notify': True,
-                 'params': {'textDocument': {'uri': uri, 'version': 2}, 'contentChanges': [{'text': updated}]}},
+                 'params': {'textDocument': {'uri': uri, 'version': 2},
+                            'contentChanges': [{'text': text + '// warm validation\n'}]}},
+                {'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': uri}}},
+                case['sequence'][-1].copy()]
+            updated = text.replace('cli.', 'cli.fre')
+            if args.unsaved_update:
+                edit_steps = [{'method': 'textDocument/didOpen', 'notify': True,
+                               'params': {'textDocument': {'uri': module.as_uri(), 'languageId': 'cpp',
+                                           'version': 1, 'text': module.read_text().replace('addOption', 'freshItem')}}}]
+            else:
+                edit_steps = [
+                    {'action': 'replace-file', 'file': 'Api.cppm', 'from': 'addOption', 'with': 'freshItem', 'same-second': True},
+                    {'method': 'workspace/didChangeWatchedFiles', 'notify': True,
+                     'params': {'changes': [{'uri': module.as_uri(), 'type': 2}]}}]
+            case['sequence'] += edit_steps + [
+                {'method': 'textDocument/didChange', 'notify': True,
+                 'params': {'textDocument': {'uri': uri, 'version': 3}, 'contentChanges': [{'text': updated}]}},
                 {'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': uri}}},
                 {'method': 'textDocument/completion',
                  'params': {'textDocument': {'uri': uri}, 'position': {'line': 7, 'character': 9}},
