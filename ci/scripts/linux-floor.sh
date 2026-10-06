@@ -8,11 +8,11 @@ cd "$(dirname "$0")/../.."
 }
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y ca-certificates git g++ ninja-build ccache python3 python3-pip zlib1g-dev binutils
+apt-get install -y ca-certificates git g++ clang-12 ninja-build ccache python3 python3-pip zlib1g-dev binutils
 python3 -m pip install 'cmake>=3.20,<4'
 git config --global --add safe.directory "$PWD"
 git config --global --add safe.directory "$PWD/llvm-project"
-export PLATFORM=linux-x64 CC=/usr/bin/gcc CXX=/usr/bin/g++ FORCE_STATIC_DEPS=1
+export PLATFORM=linux-x64 CC=/usr/bin/clang-12 CXX=/usr/bin/clang++-12 FORCE_STATIC_DEPS=1
 export BUILD_DIR="${BUILD_DIR:-$PWD/build-linux-x64-ubuntu20}"
 export DIST_DIR="${DIST_DIR:-$PWD/dist/linux-floor}"
 export CCACHE_DIR="${CCACHE_DIR:-/tmp/mcppls-floor-ccache}"
@@ -21,6 +21,7 @@ mkdir -p "$RUNTIME_LICENSE_DIR"
 cp /usr/share/doc/gcc-9-base/copyright "$RUNTIME_LICENSE_DIR/GCC-RUNTIME-copyright.txt"
 cp /usr/share/common-licenses/GPL-3 "$RUNTIME_LICENSE_DIR/GPL-3.txt"
 cp /usr/share/doc/zlib1g-dev/copyright "$RUNTIME_LICENSE_DIR/zlib-copyright.txt"
+source ci/scripts/env.sh
 ./ci/ci_build.sh
 cmake --build "$BUILD_DIR" --target clang-resource-headers -j "${JOBS:-4}"
 # Resource headers must be present before the final build stamp is recorded.
