@@ -11,11 +11,13 @@ OUT="$DIST_DIR/clangd-$FORK_VERSION-$PLATFORM"
 rm -rf "$OUT"
 mkdir -p "$OUT/clangd/bin" "$OUT/clangd/lib"
 
-cp "$CLANGD" "$OUT/clangd/bin/"
+# copy under the platform's artifact name directly; on windows MSYS resolves
+# both `clangd` and `clangd.exe` to the same file, so a rename would refuse
 case "$PLATFORM" in
-  win32-*) [[ -f "$OUT/clangd/bin/clangd" ]] && \
-    mv "$OUT/clangd/bin/clangd" "$OUT/clangd/bin/clangd.exe";;
+  win32-*) TARGET="clangd.exe" ;;
+  *)       TARGET="clangd" ;;
 esac
+cp "$CLANGD" "$OUT/clangd/bin/$TARGET"
 if command -v strip >/dev/null 2>&1; then
   strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
 fi
