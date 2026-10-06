@@ -69,5 +69,5 @@ jobs:
       - name: Validation-cache mechanism (lit)
         working-directory: ${{ github.workspace }}/build-linux-x64
         run: |
-          cmake --build . --target clang FileCheck not count -j 4
+          cmake --build . --target clang FileCheck not count llvm-config -j 4
           ./bin/llvm-lit -sv tools/clang/tools/extra/clangd/test/modules-validation-cache.test

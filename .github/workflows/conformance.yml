@@ -59,7 +59,7 @@ jobs:
       - name: Full clangd module lit suite
         working-directory: ${{ github.workspace }}/build-linux-x64
         run: |
-          cmake --build . --target FileCheck not count -j 4
+          cmake --build . --target FileCheck not count llvm-config -j 4
           ./bin/llvm-lit -sv \
             tools/clang/tools/extra/clangd/test/modules-validation-cache.test \
             tools/clang/tools/extra/clangd/test/modules-stale-lock.test \
