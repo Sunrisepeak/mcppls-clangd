@@ -8,13 +8,15 @@ Run: %python lsp_driver.py <server-cmd...> --project <dir> --scenarios <list>
 
 Scenarios:
   completion   - didOpen + completion must return module-exported symbols
-  definition   - definition on a call must resolve into the project
+  hover        - a module-imported call must have semantic hover
   diagnostics  - a didOpen on a broken body must produce a diagnostic
   latency      - warm completion p95 must stay under --budget-ms (default 5000)
 
 Exit code 0 = all scenarios passed. Details go to stdout as JSON.
 """
+import atexit
 import json
+from pathlib import Path
 import os
 import subprocess
 import sys
@@ -35,21 +37,30 @@ rest = rest[1:]
 def opt(name, default=None):
     return rest[rest.index(name) + 1] if name in rest else default
 
-scenarios = opt("--scenarios", "completion").split(",")
+scenarios = [s.strip() for s in opt("--scenarios", "completion").split(",")]
+unknown = set(scenarios) - {"completion", "hover", "diagnostics", "latency"}
+if unknown:
+    raise SystemExit(f"unsupported scenarios: {sorted(unknown)}")
 budget_ms = int(opt("--budget-ms", "5000"))
 
 use = os.path.join(project, "Use.cpp")
-uri = "file://" + use
+uri = Path(use).as_uri()
 base = open(use).read()
 # the completion point: the line holding the bare `fn` token
 fn_line = next(i for i, l in enumerate(base.split("\n")) if l.strip() == "fn")
 FN_POS = {"line": fn_line, "character": 6}
 # the real call line for definition requests
 def_line = next(i for i, l in enumerate(base.split("\n")) if "return fn1()" in l)
-DEF_POS = {"line": def_line, "character": 13}
+DEF_POS = {"line": def_line, "character": base.split("\n")[def_line].index("fn1")}
 
 proc = subprocess.Popen(server_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                         stderr=subprocess.DEVNULL)
+
+def cleanup():
+    if proc.poll() is None:
+        proc.kill()
+        proc.wait(timeout=10)
+atexit.register(cleanup)
 
 responses = {}
 notifications = []
@@ -101,10 +112,19 @@ def wait_id(rid, timeout=180):
         time.sleep(0.005)
     raise SystemExit(f"lsp_driver: timeout waiting for id {rid}")
 
+doc_version = 1
+
+def change(text):
+    global doc_version
+    doc_version += 1
+    send("textDocument/didChange",
+         {"textDocument": {"uri": uri, "version": doc_version},
+          "contentChanges": [{"text": text}]}, notify=True)
+
 diags = []
 results = {"server": server_cmd, "scenarios": {}}
 
-rid = send("initialize", {"processId": os.getpid(), "rootUri": "file://" + project,
+rid = send("initialize", {"processId": os.getpid(), "rootUri": Path(project).as_uri(),
                           "capabilities": {"textDocument": {
                               "completion": {"completionItem": {"snippetSupport": True}}}}})
 init = wait_id(rid)
@@ -126,7 +146,7 @@ def scenario_completion():
         if isinstance(items, dict):
             items = items.get("items", [])
         names = {i.get("label", "").split("(")[0].strip() for i in items}
-        found = [n for n in names if n.startswith("fn")]
+        found = [n for n in names if n == "fn1"]
         if found:
             return "ok"
         last = f"no module symbols in {sorted(names)[:10]}"
@@ -138,15 +158,18 @@ def scenario_latency():
     text = base
     for i in range(6):
         text = base + f"int touched{i} = 0;\n"
-        send("textDocument/didChange",
-             {"textDocument": {"uri": uri, "version": 10 + i},
-              "contentChanges": [{"text": text}]}, notify=True)
+        change(text)
         time.sleep(0.4)
         t0 = time.time()
         rid = send("textDocument/completion",
                    {"textDocument": {"uri": uri},
-                    "position": {"line": text.count("\n") - 1, "character": 0}})
-        wait_id(rid)
+                    "position": FN_POS})
+        response = wait_id(rid)
+        items = response.get("result") or []
+        if isinstance(items, dict):
+            items = items.get("items", [])
+        if not any(item.get("filterText", item.get("label", "")).split("(")[0].strip() == "fn1" for item in items):
+            return "fail: timed response lacks required fn1 symbol"
         lat.append((time.time() - t0) * 1000)
     lat_sorted = sorted(lat[1:])
     p95 = lat_sorted[-1] if lat_sorted else lat[0]
@@ -156,6 +179,9 @@ def scenario_latency():
 def scenario_hover():
     # go-to-definition on module-imported symbols is a known upstream gap
     # (register UP-08 family); hover resolves through Sema instead.
+    change(base.replace("\n    fn\n", "\n    (void)0;\n"))
+    barrier = send("textDocument/documentSymbol", {"textDocument": {"uri": uri}})
+    wait_id(barrier)
     rid = send("textDocument/hover",
                {"textDocument": {"uri": uri}, "position": DEF_POS})
     r = wait_id(rid)
@@ -163,17 +189,16 @@ def scenario_hover():
     return "ok" if ok else "fail: no hover for the module-imported call"
 
 def scenario_diagnostics():
-    send("textDocument/didChange",
-         {"textDocument": {"uri": uri, "version": 99},
-          "contentChanges": [{"text": base + "\nint broken_syntax_here ;;;\n"}]},
-         notify=True)
+    change(base + "\nint broken_syntax_here = ;\n")
     deadline = time.time() + 90
     while time.time() < deadline:
         with lock:
             for m in list(notifications):
                 if m.get("method") == "textDocument/publishDiagnostics":
                     ds = m["params"].get("diagnostics", [])
-                    if ds:
+                    if (m["params"].get("uri") == uri and
+                        m["params"].get("version") == doc_version and
+                        any(d.get("range", {}).get("start", {}).get("line") == base.count("\n")+1 for d in ds)):
                         diags.extend(ds)
                         return "ok"
         time.sleep(0.25)

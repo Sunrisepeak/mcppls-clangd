@@ -18,7 +18,7 @@ source ci/scripts/env.sh
 
 if [[ "${TEST:-0}" = "1" ]]; then
   # clangd + the clang driver (module lit tests compile with it) + lit helpers
-  cmake --build "$BUILD_DIR" --target clangd clang FileCheck not count split-file llvm-config -j "${JOBS:-4}"
+  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy FileCheck not count split-file llvm-config -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
@@ -30,6 +30,8 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   ./bin/llvm-lit -sv \
     tools/clang/tools/extra/clangd/test/modules-validation-cache.test \
     tools/clang/tools/extra/clangd/test/modules-stale-lock.test \
+    tools/clang/tools/extra/clangd/test/semantic-tokens-range.test \
+    tools/clang/tools/extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp \
     tools/clang/tools/extra/clangd/test/modules.test \
     tools/clang/tools/extra/clangd/test/module_dependencies.test \
     tools/clang/tools/extra/clangd/test/modules_no_cdb.test \

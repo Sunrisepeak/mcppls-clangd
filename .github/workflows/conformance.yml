@@ -50,7 +50,7 @@ jobs:
             "$BUILD_DIR/bin/clangd" "--experimental-modules-support" \
             "--compile-commands-dir=/tmp/bench_proj" \
             --project /tmp/bench_proj \
-            --scenarios completion,definition,diagnostics,latency \
+            --scenarios completion,hover,diagnostics,latency \
             --budget-ms 5000
         env:
           BUILD_DIR: ${{ github.workspace }}/build-linux-x64

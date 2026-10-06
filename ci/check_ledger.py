@@ -84,7 +84,7 @@ for entry in series:
         if not paths:
             fail(f"{name}: release requires executable test paths")
         for path in paths:
-            llvm_path = path.replace("clangd/", "clang-tools-extra/clangd/", 1).replace("clang-tidy/", "clang-tools-extra/clang-tidy/", 1)
+            llvm_path = path.replace("clangd/", "clang-tools-extra/clangd/", 1).replace("clang-tidy/test/", "clang-tools-extra/test/clang-tidy/", 1)
             if not (REPO / path).is_file() and f"+++ b/{llvm_path}" not in patch:
                 fail(f"{name}: missing test {path}")
     if not drop:
