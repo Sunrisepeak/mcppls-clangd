@@ -19,6 +19,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: write   # the publish job creates the release and uploads assets
+
 jobs:
   package:
     strategy:
