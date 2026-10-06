@@ -56,6 +56,13 @@ def main():
             stamp.get('build-binary-sha256') != sha(original) or
             stamp.get('cmake-cache-sha256') != sha(args.build_dir / 'CMakeCache.txt')):
         parser.error('build stamp does not identify this source, platform, configuration and binary')
+    # Prove the declared capability against the final stripped package bytes.
+    canary = ROOT / 'llvm-project/clang-tools-extra/clangd/test/semantic-tokens-range.test'
+    response = subprocess.run([str(engine.resolve()), '-lit-test'], input=canary.read_text(),
+                              text=True, capture_output=True, timeout=20)
+    data = re.search(r'"id":\s*1,.*?"data":\s*(\[.*?\])', response.stdout, re.S)
+    if response.returncode != 0 or not data or json.loads(data.group(1)) != [1, 4, 1, 0, 131075, 1, 4, 1, 0, 131075]:
+        parser.error('final package bytes failed semantic-tokens-range capability canary')
     metadata = {'engine-version': args.version, 'llvm-base-version': base,
                 'llvm-commit': commit, 'fork-commit': fork, 'patch-series-sha256': series,
                 'platform': args.platform, 'sha256': sha(engine),
