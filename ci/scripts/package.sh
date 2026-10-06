@@ -12,7 +12,9 @@ mkdir -p "$OUT/clangd/bin" "$OUT/clangd/lib"
 
 cp "$CLANGD" "$OUT/clangd/bin/"
 case "$PLATFORM" in win32-*) mv "$OUT/clangd/bin/clangd" "$OUT/clangd/bin/clangd.exe";; esac
-strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
+if command -v strip >/dev/null 2>&1; then
+  strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
+fi
 
 MAJOR="$("$OUT/clangd/bin/clangd"* --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)"
 if [[ -d "$BUILD_DIR/lib/clang/$MAJOR/include" ]]; then

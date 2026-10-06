@@ -67,14 +67,21 @@ jobs:
           key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}
           restore-keys: llvm-tree-${{ matrix.platform }}-
 
-      - name: Build and package
+      - name: Build fork clangd
         shell: bash
         env:
           PLATFORM: ${{ matrix.platform }}
           JOBS: 4
           CCACHE_DIR: ${{ github.workspace }}/.ccache
-          PACKAGE: "1"
         run: ./ci/ci_build.sh
+
+      - name: Package payload part
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -x
+          ./ci/scripts/package.sh
 
       - name: Archive payload part
         shell: bash
