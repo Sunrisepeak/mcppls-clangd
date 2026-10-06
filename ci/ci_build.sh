@@ -24,6 +24,7 @@ else
 fi
 
 "$BUILD_DIR/bin/clangd" --version
+python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --platform "$PLATFORM"
 
 if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   cd "$BUILD_DIR"

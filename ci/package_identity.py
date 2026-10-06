@@ -21,6 +21,7 @@ def sha(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--build-dir', type=Path, required=True)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--platform', choices=sorted(PLATFORMS), required=True)
@@ -48,10 +49,19 @@ def main():
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')], text=True).strip()
+    stamp = json.loads((args.build_dir / 'engine-build.json').read_text())
+    original = args.build_dir / 'bin' / engine.name
+    if (stamp.get('fork-commit') != fork or stamp.get('platform') != args.platform or
+            stamp.get('patch-series-sha256') != series or
+            stamp.get('build-binary-sha256') != sha(original) or
+            stamp.get('cmake-cache-sha256') != sha(args.build_dir / 'CMakeCache.txt')):
+        parser.error('build stamp does not identify this source, platform, configuration and binary')
     metadata = {'engine-version': args.version, 'llvm-base-version': base,
                 'llvm-commit': commit, 'fork-commit': fork, 'patch-series-sha256': series,
                 'platform': args.platform, 'sha256': sha(engine),
-                'features': ['semantic-tokens-range']}
+                'features': ['semantic-tokens-range'],
+                'build-binary-sha256': stamp['build-binary-sha256'],
+                'cmake-cache-sha256': stamp['cmake-cache-sha256']}
     (args.directory / 'engine.json').write_text(json.dumps(metadata, indent=2) + '\n')
     # A sorted portable list; the output can never hash itself.
     entries = [f'{sha(path)}  ./{path.relative_to(args.checksums).as_posix()}'

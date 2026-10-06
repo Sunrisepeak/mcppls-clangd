@@ -37,7 +37,7 @@ Modifications: https://github.com/Sunrisepeak/mcppls-clangd
 LLVM is distributed under Apache-2.0 WITH LLVM-exception; see LICENSE.TXT.
 Engine source and ordered patch identities are recorded in engine.json.
 EOF
-python3 ci/package_identity.py --directory "$OUT/clangd" \
+python3 ci/package_identity.py --build-dir "$BUILD_DIR" --directory "$OUT/clangd" \
   --version "$FORK_VERSION" --platform "$PLATFORM" --checksums "$OUT"
 
 echo "package.sh: $OUT"
