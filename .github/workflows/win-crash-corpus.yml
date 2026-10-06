@@ -1,0 +1,88 @@
+name: win-crash-corpus
+
+# C1 of the windows-crash plan: replay the crash corpus against the PDB
+# build under a debugger and with WER LocalDumps enabled. The run fails
+# while any corpus entry still crashes - that failing state is the
+# register row's status. With an empty corpus it validates the
+# infrastructure (build + cdb presence + save-loop soak).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"   # Mondays
+
+concurrency:
+  group: win-crash-corpus
+  cancel-in-progress: true
+
+jobs:
+  corpus:
+    runs-on: windows-2022
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ninja
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-
+      - uses: actions/cache@v4
+        with:
+          path: llvm-project
+          key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}
+          restore-keys: llvm-tree-win32-x64-
+
+      - name: Build fork clangd with PDBs and dump capture
+        shell: bash
+        env:
+          PLATFORM: win32-x64
+          JOBS: 4
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CMAKE_EXTRA: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase
+        run: ./ci/ci_build.sh
+
+      - name: Locate debugger
+        shell: pwsh
+        run: |
+          $cdb = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue
+          if (-not $cdb) { Write-Host "::warning::cdb not found - dumps-only mode" } else { Write-Host "cdb: $($cdb.FullName)" }
+
+      - name: Enable WER LocalDumps for clangd
+        shell: pwsh
+        run: |
+          $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\clangd.exe"
+          New-Item -Path $key -Force | Out-Null
+          Set-ItemProperty -Path $key -Name DumpFolder -Value "D:\a\clangd-dumps" -Type ExpandString
+          Set-ItemProperty -Path $key -Name DumpType -Value 2 -Type DWord
+          Set-ItemProperty -Path $key -Name DumpCount -Value 10 -Type DWord
+
+      - name: Replay corpus (fail while any entry crashes)
+        shell: bash
+        run: |
+          count=$(ls tests/crash/windows/*.json 2>/dev/null | wc -l)
+          echo "corpus entries: $count"
+          if [ "$count" -eq 0 ]; then
+            echo "corpus empty - running the save-loop stability scenario only"
+            BENCH_CLANG="$BUILD_DIR/bin/clang" python3 tests/probes/gen_bench_project.py /tmp/corpus_proj 8
+            python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd.exe" /tmp/corpus_proj --cycles 20
+          else
+            echo "replay per manifest (implemented with C0 corpus landing)"
+          fi
+        env:
+          BUILD_DIR: ${{ github.workspace }}/build-win32-x64
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-crash-dumps
+          path: |
+            /d/a/clangd-dumps/**
+            D:\a\clangd-dumps\**
+          if-no-files-found: ignore

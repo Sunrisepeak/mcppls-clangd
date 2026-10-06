@@ -1,0 +1,171 @@
+From 23a76c7c61f75772aa0fcc0daca0be6c3ed4f5af Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 6 Oct 2026 23:21:43 +0900
+Subject: [PATCH] [clangd] Optional minidump capture on unhandled exceptions
+ (Windows)
+
+Release builds print no usable stack on Windows without a debugger,
+which has kept the hard module-related crashes out of reach.
+
+Add --crash-dumps-dir: when set, an unhandled exception filter writes a
+minidump with full memory and thread stacks into the directory before
+the process terminates as it would have. The filter is process-wide and
+runs after LLVM's own diagnostics; the flag defaults to off and the
+implementation is compiled only on Windows.
+---
+ .../clangd/support/CMakeLists.txt             |  1 +
+ .../clangd/support/WindowsCrashDumps.cpp      | 95 +++++++++++++++++++
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  |  9 ++
+ 3 files changed, 105 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
+
+diff --git a/clang-tools-extra/clangd/support/CMakeLists.txt b/clang-tools-extra/clangd/support/CMakeLists.txt
+index c0be846eb..79c9c6d46 100644
+--- a/clang-tools-extra/clangd/support/CMakeLists.txt
++++ b/clang-tools-extra/clangd/support/CMakeLists.txt
+@@ -17,6 +17,7 @@ endif()
+ 
+ add_clang_library(clangdSupport STATIC
+   Bracket.cpp
++  WindowsCrashDumps.cpp
+   Cancellation.cpp
+   Context.cpp
+   DirectiveTree.cpp
+diff --git a/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp b/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
+new file mode 100644
+index 000000000..e1ef5a6db
+--- /dev/null
++++ b/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
+@@ -0,0 +1,95 @@
++//===-- WindowsCrashDumps.cpp -------------------------------------*-C++-*-===//
++//
++// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "support/WindowsCrashDumps.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/raw_ostream.h"
++
++#ifdef _WIN32
++
++#include <windows.h>
++#include <dbghelp.h>
++#include <time.h>
++#endif
++
++namespace clang {
++namespace clangd {
++
++void installWindowsCrashDumpsImpl(llvm::StringRef DumpsDir);
++
++void installWindowsCrashDumps(llvm::StringRef DumpsDir) {
++#ifdef _WIN32
++  if (DumpsDir.empty())
++    return;
++  installWindowsCrashDumpsImpl(DumpsDir);
++#endif
++}
++
++} // namespace clangd
++} // namespace clang
++
++#ifdef _WIN32
++namespace clang {
++namespace clangd {
++namespace {
++
++llvm::SmallString<256> DumpsDirectory;
++
++void writeMinidump(EXCEPTION_POINTERS *ExceptionPointers) {
++  if (DumpsDirectory.empty())
++    return;
++
++  llvm::SmallString<256> Path(DumpsDirectory);
++  llvm::sys::fs::create_directories(Path);
++  const time_t Now = time(nullptr);
++  char Stamp[32];
++  strftime(Stamp, sizeof(Stamp), "%Y%m%d-%H%M%S", localtime(&Now));
++  llvm::sys::path::append(Path, "clangd-crash-" + std::string(Stamp) + ".dmp");
++
++  HANDLE Process = GetCurrentProcess();
++  DWORD ProcessId = GetCurrentProcessId();
++  if (!DuplicateHandle(Process, Process, Process, &Process,
++                       PROCESS_ALL_ACCESS, FALSE, 0))
++    Process = GetCurrentProcess();
++
++  MINIDUMP_EXCEPTION_INFORMATION ExceptionInfo;
++  ExceptionInfo.ThreadId = GetCurrentThreadId();
++  ExceptionInfo.ExceptionPointers = ExceptionPointers;
++  ExceptionInfo.ClientPointers = FALSE;
++
++  HANDLE File = CreateFileA(Path.c_str(), GENERIC_WRITE, 0, nullptr,
++                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
++  if (File == INVALID_HANDLE_VALUE)
++    return;
++  MiniDumpWriteDump(Process, ProcessId, File, MiniDumpWithFullMemory |
++                                                    MiniDumpWithHandleData,
++                    ExceptionPointers ? &ExceptionInfo : nullptr, nullptr,
++                    nullptr);
++  CloseHandle(File);
++}
++
++LONG WINAPI crashDumpsFilter(EXCEPTION_POINTERS *ExceptionPointers) {
++  writeMinidump(ExceptionPointers);
++  return EXCEPTION_CONTINUE_SEARCH; // terminate exactly as before
++}
++
++} // namespace
++
++void installWindowsCrashDumpsImpl(llvm::StringRef DumpsDir) {
++  DumpsDirectory = DumpsDir;
++  llvm::sys::fs::make_absolute(DumpsDirectory);
++  SetUnhandledExceptionFilter(crashDumpsFilter);
++  // Terminate on aborts and CRT errors the same way (pure-virtual, invalid
++  // parameter, fast-fail path aside).
++  _set_abort_behavior(_CALL_REPORTFAULT, _CALL_REPORTFAULT);
++}
++
++} // namespace clangd
++} // namespace clang
++#endif
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index a272c5e61..0a6383ecb 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -30,6 +30,7 @@
+ #include "support/ThreadCrashReporter.h"
+ #include "support/ThreadsafeFS.h"
+ #include "support/Trace.h"
++#include "support/WindowsCrashDumps.h"
+ #include "clang/Basic/Stack.h"
+ #include "clang/Format/Format.h"
+ #include "llvm/ADT/SmallString.h"
+@@ -209,6 +210,13 @@ opt<CodeCompleteOptions::CodeCompletionParse> CodeCompletionParse{
+     Hidden,
+ };
+ 
++opt<std::string> CrashDumpsDir{
++    "crash-dumps-dir",
++    cat(Features),
++    desc("(Windows) write a minidump with full memory into this directory "
++         "when clangd terminates on an unhandled exception"),
++    init("")};
++
+ opt<CodeCompleteOptions::CodeCompletionRankingModel> RankingModel{
+     "ranking-model",
+     cat(Features),
+@@ -998,6 +1006,7 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+   // the index fast path instead of re-deserializing prerequisite modules per
+   // request (see CodeCompleteOptions::FastModulesCompletion).
+   Opts.CodeComplete.FastModulesCompletion = ExperimentalModulesSupport;
++  clangd::installWindowsCrashDumps(CrashDumpsDir);
+ 
+   RealThreadsafeFS TFS;
+   std::vector<std::unique_ptr<config::Provider>> ProviderStack;
+-- 
+2.43.0
+
