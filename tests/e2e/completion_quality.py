@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--clang', type=Path, required=True)
     parser.add_argument('--workdir', type=Path, required=True)
+    parser.add_argument('--async-scheduling', action='store_true', help='also expose the preamble generation race')
     args = parser.parse_args()
     project = args.workdir.resolve()
     project.mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,8 @@ def main():
         case = {'id': name, 'platform': replay.platform_name(), 'baseline': 'pass',
                 'project': '.', 'timeout_seconds': 30,
                 'flags': ['--experimental-modules-support', '--background-index=false',
-                          '--header-insertion=never', '--log=verbose', '-j=2'],
+                          '--header-insertion=never', '--log=verbose', '-j=2',
+                          *([] if args.async_scheduling else ['--sync'])],
                 'sequence': [
                     {'method': 'initialize', 'params': {'rootUri': project.as_uri(), 'capabilities': {}}},
                     {'method': 'initialized', 'params': {}, 'notify': True},
@@ -57,9 +59,9 @@ def main():
                      'expected_symbols': ['addHelpOption', 'addOption'],
                      'forbidden_symbols': ['qVersion', 'Counter', 'AdlTester']} ]}
         if name == 'member':
-            updated = text.replace('cli.', 'cli.new')
+            updated = text.replace('cli.', 'cli.fre')
             case['sequence'] += [
-                {'action': 'replace-file', 'file': 'Api.cppm', 'from': 'addOption', 'with': 'newOption', 'same-second': True},
+                {'action': 'replace-file', 'file': 'Api.cppm', 'from': 'addOption', 'with': 'freshItem', 'same-second': True},
                 {'method': 'workspace/didChangeWatchedFiles', 'notify': True,
                  'params': {'changes': [{'uri': module.as_uri(), 'type': 2}]}},
                 {'method': 'textDocument/didChange', 'notify': True,
@@ -67,7 +69,7 @@ def main():
                 {'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': uri}}},
                 {'method': 'textDocument/completion',
                  'params': {'textDocument': {'uri': uri}, 'position': {'line': 7, 'character': 9}},
-                 'expected_symbols': ['newOption'], 'forbidden_symbols': ['addOption']}]
+                 'expected_symbols': ['freshItem'], 'forbidden_symbols': ['addOption']}]
         manifest = project / f'{name}.json'
         manifest.write_text(json.dumps(case, indent=2))
         results.append(replay.replay(engine, manifest))

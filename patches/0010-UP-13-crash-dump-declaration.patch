@@ -1,0 +1,56 @@
+From 4e83e0df750aa7e611187d672d16ad3860c8c2d1 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 01:19:24 +0900
+Subject: [PATCH] [clangd] Crash dump support carries its public declaration
+
+---
+ .../clangd/support/WindowsCrashDumps.h        | 37 +++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/support/WindowsCrashDumps.h
+
+diff --git a/clang-tools-extra/clangd/support/WindowsCrashDumps.h b/clang-tools-extra/clangd/support/WindowsCrashDumps.h
+new file mode 100644
+index 000000000..f1b9e238e
+--- /dev/null
++++ b/clang-tools-extra/clangd/support/WindowsCrashDumps.h
+@@ -0,0 +1,37 @@
++//===-- WindowsCrashDumps.h ---------------------------------------*-C++-*-===//
++//
++// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// Last-chance crash capture for Windows: an unhandled exception in any
++// thread writes a minidump (with full memory and thread stacks) into a
++// caller-provided directory, then the process terminates as it would have.
++//
++// Release builds print no usable stack on Windows without a debugger, which
++// has kept every hard crash (unresolved-import Build AST crash, silent
++// correct-command crash, save fan-out crash loop) out of reach. With dumps
++// enabled next to public PDBs, each crash yields symbolized stacks.
++//
++// Disabled unless a dump directory is configured.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_SUPPORT_WINDOWSCRASHDUMPS_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_SUPPORT_WINDOWSCRASHDUMPS_H
++
++#include "llvm/ADT/StringRef.h"
++
++namespace clang {
++namespace clangd {
++
++/// Installs the unhandled-exception filter that writes minidumps into
++/// \p DumpsDir. No-op on non-Windows platforms or when \p DumpsDir is empty.
++void installWindowsCrashDumps(llvm::StringRef DumpsDir);
++
++} // namespace clangd
++} // namespace clang
++
++#endif // LLVM_CLANG_TOOLS_EXTRA_CLANGD_SUPPORT_WINDOWSCRASHDUMPS_H
+-- 
+2.53.0
+

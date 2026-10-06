@@ -1,0 +1,74 @@
+From 846e648fd8b97b76a5adcc22be7e604d6fedb04c Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 01:16:38 +0900
+Subject: [PATCH] [clangd] Validation memo retains native input timestamps and
+ file identity
+
+---
+ clang-tools-extra/clangd/ModuleValidationCache.h | 14 ++++++--------
+ clang-tools-extra/clangd/ModulesBuilder.cpp      |  3 ++-
+ 2 files changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleValidationCache.h b/clang-tools-extra/clangd/ModuleValidationCache.h
+index b3dbdada1..f04a76aa0 100644
+--- a/clang-tools-extra/clangd/ModuleValidationCache.h
++++ b/clang-tools-extra/clangd/ModuleValidationCache.h
+@@ -20,7 +20,7 @@
+ // reused instead of recomputing it. Any drift falls back to a full
+ // validation, so the memo can only save work, never change the outcome. Like
+ // the compiler's own default BMI staleness checks, identity is (size, mtime):
+-// a content change that preserves both is not detected by the fast path. A
++// a content change that preserves the full identity is not detected. A
+ // validation that read an input through an overlay buffer (an unsaved edit)
+ // is not memoized at all, because its outcome depends on the buffer rather
+ // than the file the fast path re-stats.
+@@ -56,18 +56,17 @@ public:
+   struct FileIdentity {
+     uint64_t Size = 0;
+     llvm::sys::TimePoint<> ModTime = {};
++    llvm::sys::fs::UniqueID ID;
+     bool operator==(const FileIdentity &Other) const {
+-      return Size == Other.Size && ModTime == Other.ModTime;
++      return Size == Other.Size && ModTime == Other.ModTime && ID == Other.ID;
+     }
+     bool operator!=(const FileIdentity &Other) const {
+       return !(*this == Other);
+     }
+   };
+ 
+-  /// The (size, mtime) identity of a regular file, or nullopt when the file
+-  /// cannot be stated (missing, unreadable, or a directory). The mtime is
+-  /// truncated to seconds: clang's FileEntry records second-precision times,
+-  /// and the fast path compares identities across that boundary.
++  /// Native file identity and full timestamp precision. Truncating to
++  /// seconds would hide same-size changes made within the same second.
+   static std::optional<FileIdentity> identityOf(llvm::StringRef Path) {
+     llvm::sys::fs::file_status Status;
+     if (std::error_code EC = llvm::sys::fs::status(Path, Status))
+@@ -76,8 +75,7 @@ public:
+       return std::nullopt;
+     return FileIdentity{
+         static_cast<uint64_t>(Status.getSize()),
+-        std::chrono::time_point_cast<std::chrono::seconds>(
+-            Status.getLastModificationTime())};
++        Status.getLastModificationTime(), Status.getUniqueID()};
+   }
+ 
+   /// Returns true when a previous validation of \p BMIPath under the
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 6156b1f62..4bd39f953 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -662,7 +662,8 @@ void recordValidationInputs(
+         return;
+       auto Disk = ModuleValidationCache::identityOf(FE->getName());
+       if (!Disk || Disk->Size != static_cast<uint64_t>(FE->getSize()) ||
+-          Disk->ModTime != llvm::sys::toTimePoint(FE->getModificationTime())) {
++          std::chrono::time_point_cast<std::chrono::seconds>(Disk->ModTime) !=
++              llvm::sys::toTimePoint(FE->getModificationTime())) {
+         Inputs.clear();
+         Unrecordable = true;
+         return;
+-- 
+2.53.0
+
