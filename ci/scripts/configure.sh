@@ -40,7 +40,10 @@ cmake -G Ninja -S "$LLVM_DIR/llvm" -B "$BUILD_DIR" \
   -DLLVM_ENABLE_WERROR=OFF \
   -DLLVM_VERSION_SUFFIX="$FORK_SUFFIX" \
   -DLLVM_INCLUDE_TESTS=ON \
-  "${COMPILER_FLAGS[@]}" "${EXTRA[@]}" "${CCACHE_FLAGS[@]}" "${SANITIZER_FLAGS[@]}" \
+  ${COMPILER_FLAGS[@]+"${COMPILER_FLAGS[@]}"} \
+  ${EXTRA[@]+"${EXTRA[@]}"} \
+  ${CCACHE_FLAGS[@]+"${CCACHE_FLAGS[@]}"} \
+  ${SANITIZER_FLAGS[@]+"${SANITIZER_FLAGS[@]}"} \
   ${CMAKE_EXTRA:-}
 
 echo "configure.sh: done ($BUILD_DIR, platform=$PLATFORM, version=$FORK_VERSION)"
