@@ -23,6 +23,15 @@ import threading
 import time
 
 
+def executable(path):
+    path = path.resolve()
+    if not path.is_file() and path.with_suffix(".exe").is_file():
+        path = path.with_suffix(".exe")
+    if not path.is_file():
+        raise ValueError(f"missing executable: {path}")
+    return path
+
+
 def platform_name():
     return {"win32": "win32-x64", "linux": "linux-x64", "darwin":
             "darwin-arm64" if platform.machine().lower() in ("arm64", "aarch64") else "darwin-x64"}[sys.platform]
@@ -173,7 +182,7 @@ def main():
     manifests = sorted(args.corpus.glob("*.json"))
     if not manifests:
         parser.error("empty corpus cannot provide crash evidence")
-    engine = args.engine.resolve()
+    engine = executable(args.engine)
     results = []
     for manifest in manifests:
         try:

@@ -75,8 +75,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-${{ matrix.platform }}-
+          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
       - name: Build fork clangd
         shell: bash

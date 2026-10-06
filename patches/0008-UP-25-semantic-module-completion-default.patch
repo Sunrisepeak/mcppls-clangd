@@ -1,0 +1,48 @@
+From bf2c1b7f698c999128985635569c01b99b4d67b9 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 01:09:49 +0900
+Subject: [PATCH] [clangd] Module support retains semantic completion by
+ default
+
+---
+ clang-tools-extra/clangd/tool/ClangdMain.cpp | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 0a6383ecb..51c3b017c 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -586,6 +586,15 @@ opt<bool> ExperimentalModulesSupport{
+     init(false),
+ };
+ 
++opt<bool> ExperimentalModuleIndexCompletion{
++    "experimental-module-index-completion",
++    cat(Misc),
++    desc("Use incomplete index-only module completion (may lose semantic results)"),
++    init(false),
++    Hidden,
++};
++
++
+ /// Supports a test URI scheme with relaxed constraints for lit tests.
+ /// The path in a test URI will be combined with a platform-specific fake
+ /// directory to form an absolute path. For example, test:///a.cpp is resolved
+@@ -1002,10 +1011,10 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+   // FIXME: If we're using C++20 modules, force the lookup process to load
+   // external decls, since currently the index doesn't support C++20 modules.
+   Opts.CodeComplete.ForceLoadPreamble = ExperimentalModulesSupport;
+-  // With modules support, identifier/qualified-identifier completion runs on
+-  // the index fast path instead of re-deserializing prerequisite modules per
+-  // request (see CodeCompleteOptions::FastModulesCompletion).
+-  Opts.CodeComplete.FastModulesCompletion = ExperimentalModulesSupport;
++  // Index-only completion cannot preserve member lookup or unindexed module
++  // exports. Module support therefore retains the semantic parser by default.
++  Opts.CodeComplete.FastModulesCompletion =
++      ExperimentalModulesSupport && ExperimentalModuleIndexCompletion;
+   clangd::installWindowsCrashDumps(CrashDumpsDir);
+ 
+   RealThreadsafeFS TFS;
+-- 
+2.53.0
+

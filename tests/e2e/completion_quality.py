@@ -26,7 +26,7 @@ def main():
     args = parser.parse_args()
     project = args.workdir.resolve()
     project.mkdir(parents=True, exist_ok=True)
-    engine, clang = args.engine.resolve(), args.clang.resolve()
+    engine, clang = replay.executable(args.engine), replay.executable(args.clang)
     module = project / 'Api.cppm'
     module.write_text('export module Api;\nexport struct Cli {\n'
                       '  void addHelpOption();\n  void addOption();\n};\n')

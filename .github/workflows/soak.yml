@@ -28,8 +28,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-linux-x64-
+          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
       - name: Build clangd with ASan+UBSan
         env:

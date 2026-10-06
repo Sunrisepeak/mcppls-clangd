@@ -34,8 +34,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-win32-x64-
+          key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
       - name: Build clangd (with PDBs)
         shell: bash
