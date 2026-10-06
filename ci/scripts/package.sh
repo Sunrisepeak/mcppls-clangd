@@ -4,14 +4,18 @@
 source "$(dirname "$0")/env.sh"
 
 CLANGD="$BUILD_DIR/bin/clangd"
-[[ -x "$CLANGD" ]] || { echo "package.sh: $CLANGD not built" >&2; exit 1; }
+[[ -x "$CLANGD" ]] || CLANGD="$BUILD_DIR/bin/clangd.exe"   # windows artifact name
+[[ -x "$CLANGD" ]] || { echo "package.sh: $BUILD_DIR/bin/clangd[.exe] not built" >&2; exit 1; }
 
 OUT="$DIST_DIR/clangd-$FORK_VERSION-$PLATFORM"
 rm -rf "$OUT"
 mkdir -p "$OUT/clangd/bin" "$OUT/clangd/lib"
 
 cp "$CLANGD" "$OUT/clangd/bin/"
-case "$PLATFORM" in win32-*) mv "$OUT/clangd/bin/clangd" "$OUT/clangd/bin/clangd.exe";; esac
+case "$PLATFORM" in
+  win32-*) [[ -f "$OUT/clangd/bin/clangd" ]] && \
+    mv "$OUT/clangd/bin/clangd" "$OUT/clangd/bin/clangd.exe";;
+esac
 if command -v strip >/dev/null 2>&1; then
   strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
 fi
