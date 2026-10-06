@@ -14,8 +14,8 @@ on:
         options: [linux-x64, linux-arm64, darwin-arm64, win32-x64, all]
 
 concurrency:
-  group: build-test-${{ github.ref }}-${{ github.event.inputs.platform || 'push' }}
-  cancel-in-progress: false
+  group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ github.event.inputs.platform || 'default' }}
+  cancel-in-progress: true
 
 jobs:
   setup:
