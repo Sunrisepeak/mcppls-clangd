@@ -1,0 +1,78 @@
+{
+  "engine_sha256": "88b44ea21736de47c71437b4d15e59ff28efaada25ef617a1cceaa520ef7e66c",
+  "platform": "linux-x64",
+  "results": [
+    {
+      "id": "member",
+      "outcome": "error",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "AdlTester",
+            "Api",
+            "Cli",
+            "Counter",
+            "cli",
+            "f",
+            "import",
+            "ptr",
+            "qVersion",
+            "void"
+          ],
+          "elapsed_ms": 2.4667438119649887
+        }
+      ],
+      "detail": "missing symbols ['addHelpOption', 'addOption']; forbidden symbols ['AdlTester', 'Counter', 'qVersion']",
+      "exit_code": -9,
+      "mechanism": [
+        "V[16:08:42.327] Code completion at /tmp/joint-quality-current/Use.cpp:8:6: modules fast path (no Sema)"
+      ]
+    },
+    {
+      "id": "member-prefix",
+      "outcome": "error",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "AdlTester"
+          ],
+          "elapsed_ms": 2.055492252111435
+        }
+      ],
+      "detail": "missing symbols ['addHelpOption', 'addOption']; forbidden symbols ['AdlTester']",
+      "exit_code": -9,
+      "mechanism": [
+        "V[16:08:42.347] Code completion at /tmp/joint-quality-current/Use.cpp:8:8: modules fast path (no Sema)"
+      ]
+    },
+    {
+      "id": "pointer",
+      "outcome": "error",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "AdlTester",
+            "Api",
+            "Cli",
+            "Counter",
+            "cli",
+            "f",
+            "import",
+            "ptr",
+            "qVersion",
+            "void"
+          ],
+          "elapsed_ms": 2.0862258970737457
+        }
+      ],
+      "detail": "missing symbols ['addHelpOption', 'addOption']; forbidden symbols ['AdlTester', 'Counter', 'qVersion']",
+      "exit_code": -9,
+      "mechanism": [
+        "V[16:08:42.369] Code completion at /tmp/joint-quality-current/Use.cpp:8:7: modules fast path (no Sema)"
+      ]
+    }
+  ]
+}

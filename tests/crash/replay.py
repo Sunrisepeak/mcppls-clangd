@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import queue
 import platform
+import re
 import signal
 import subprocess
 import sys
@@ -45,7 +46,7 @@ def replay(engine, manifest):
     sequence = case["sequence"]
     if not sequence or sequence[0]["method"] != "initialize":
         raise ValueError("sequence must start with initialize")
-    if not any(s.get("expect") and s["method"].startswith("textDocument/") for s in sequence):
+    if not any((s.get("expect") or s.get("expected_symbols")) and s["method"].startswith("textDocument/") for s in sequence):
         raise ValueError("sequence requires a semantic response assertion")
     project = (manifest.parent / case["project"]).resolve()
     if not project.is_dir():
@@ -88,7 +89,7 @@ def replay(engine, manifest):
     threading.Thread(target=stderr, daemon=True).start()
     deadline = time.monotonic() + timeout
     rid = 0
-    result = {"id": case["id"], "outcome": "error"}
+    result = {"id": case["id"], "outcome": "error", "responses": []}
 
     def send(method, params=None, notify=False):
         nonlocal rid
@@ -125,7 +126,19 @@ def replay(engine, manifest):
         for step in sequence:
             if step["method"] in ("shutdown", "exit"):
                 raise ValueError("shutdown is managed by the replay harness")
+            started = time.monotonic()
             response = send(step["method"], expand(step.get("params")), step.get("notify", False))
+            if step.get("expected_symbols") or step.get("forbidden_symbols"):
+                items = response.get("result") or []
+                if isinstance(items, dict):
+                    items = items.get("items", [])
+                names = {re.split(r"[(<]", i.get("filterText", i.get("label", "")))[0].strip() for i in items}
+                result["responses"].append({"method": step["method"], "symbols": sorted(names),
+                                            "elapsed_ms": (time.monotonic()-started)*1000})
+                missing = set(step.get("expected_symbols", [])) - names
+                polluted = set(step.get("forbidden_symbols", [])) & names
+                if missing or polluted:
+                    raise ValueError(f"missing symbols {sorted(missing)}; forbidden symbols {sorted(polluted)}")
             for path, expected in step.get("expect", {}).items():
                 actual = pointer(response, path)
                 if actual != expand(expected):
