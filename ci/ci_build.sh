@@ -18,7 +18,7 @@ source ci/scripts/env.sh
 
 if [[ "${TEST:-0}" = "1" ]]; then
   # clangd + the clang driver (module lit tests compile with it) + lit helpers
-  cmake --build "$BUILD_DIR" --target clangd clang FileCheck not count llvm-config -j "${JOBS:-4}"
+  cmake --build "$BUILD_DIR" --target clangd clang FileCheck not count split-file llvm-config -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi

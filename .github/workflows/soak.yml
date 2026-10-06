@@ -45,7 +45,7 @@ jobs:
           ./ci/scripts/fetch.sh
           ./ci/scripts/apply.sh
           ./ci/scripts/configure.sh
-          cmake --build "$BUILD_DIR" --target clangd clang FileCheck not count llvm-config -j 4
+          cmake --build "$BUILD_DIR" --target clangd clang FileCheck not count split-file llvm-config -j 4
 
       - name: Lit module suite under sanitizers
         working-directory: ${{ github.workspace }}/build-san
