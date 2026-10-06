@@ -56,6 +56,18 @@ def main():
                      'params': {'textDocument': {'uri': uri}, 'position': {'line': 7, 'character': 2+len(prefix)}},
                      'expected_symbols': ['addHelpOption', 'addOption'],
                      'forbidden_symbols': ['qVersion', 'Counter', 'AdlTester']} ]}
+        if name == 'member':
+            updated = text.replace('cli.', 'cli.new')
+            case['sequence'] += [
+                {'action': 'replace-file', 'file': 'Api.cppm', 'from': 'addOption', 'with': 'newOption', 'same-second': True},
+                {'method': 'workspace/didChangeWatchedFiles', 'notify': True,
+                 'params': {'changes': [{'uri': module.as_uri(), 'type': 2}]}},
+                {'method': 'textDocument/didChange', 'notify': True,
+                 'params': {'textDocument': {'uri': uri, 'version': 2}, 'contentChanges': [{'text': updated}]}},
+                {'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': uri}}},
+                {'method': 'textDocument/completion',
+                 'params': {'textDocument': {'uri': uri}, 'position': {'line': 7, 'character': 9}},
+                 'expected_symbols': ['newOption'], 'forbidden_symbols': ['addOption']}]
         manifest = project / f'{name}.json'
         manifest.write_text(json.dumps(case, indent=2))
         results.append(replay.replay(engine, manifest))

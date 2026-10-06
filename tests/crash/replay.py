@@ -53,9 +53,9 @@ def replay(engine, manifest):
     if case.get("baseline") not in ("crash", "hang", "pass"):
         raise ValueError("missing baseline outcome")
     sequence = case["sequence"]
-    if not sequence or sequence[0]["method"] != "initialize":
+    if not sequence or sequence[0].get("method") != "initialize":
         raise ValueError("sequence must start with initialize")
-    if not any((s.get("expect") or s.get("expected_symbols")) and s["method"].startswith("textDocument/") for s in sequence):
+    if not any((s.get("expect") or s.get("expected_symbols")) and s.get("method", "").startswith("textDocument/") for s in sequence):
         raise ValueError("sequence requires a semantic response assertion")
     project = (manifest.parent / case["project"]).resolve()
     if not project.is_dir():
@@ -131,8 +131,29 @@ def replay(engine, manifest):
             return {k: expand(v) for k, v in value.items()}
         return value
 
+    originals = {}
     try:
         for step in sequence:
+            if step.get("action") == "replace-file":
+                path = (project / step["file"]).resolve()
+                if not path.is_relative_to(project):
+                    raise ValueError("fixture edit escapes project")
+                original = path.read_bytes()
+                stat = path.stat()
+                originals.setdefault(path, (original, stat.st_atime_ns, stat.st_mtime_ns))
+                old, new = step["from"].encode(), step["with"].encode()
+                if original.count(old) != 1:
+                    raise ValueError("fixture replacement must match exactly once")
+                updated = original.replace(old, new, 1)
+                path.write_bytes(updated)
+                if step.get("same-second"):
+                    if len(updated) != len(original):
+                        raise ValueError("same-second regression requires same size")
+                    # A real change within the same second, with a different
+                    # subsecond timestamp, rather than a preserved timestamp.
+                    stamp = stat.st_mtime_ns + 1 if stat.st_mtime_ns % 1000000000 < 999999999 else stat.st_mtime_ns - 1
+                    os.utime(path, ns=(stat.st_atime_ns, stamp))
+                continue
             if step["method"] in ("shutdown", "exit"):
                 raise ValueError("shutdown is managed by the replay harness")
             started = time.monotonic()
@@ -168,6 +189,9 @@ def replay(engine, manifest):
             else:
                 os.killpg(proc.pid, signal.SIGKILL)
             proc.wait(timeout=15)
+        for path, (content, atime, mtime) in originals.items():
+            path.write_bytes(content)
+            os.utime(path, ns=(atime, mtime))
         result["exit_code"] = proc.returncode
         result["stderr"] = log.decode(errors="replace")
     return result

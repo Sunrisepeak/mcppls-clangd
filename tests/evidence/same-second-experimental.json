@@ -1,0 +1,57 @@
+{
+  "engine_sha256": "ce3e858286d7989c98de0b4bd9d2e3543588b8e3c18e0573928ce1223a2437ae",
+  "platform": "linux-x64",
+  "results": [
+    {
+      "id": "member",
+      "outcome": "error",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "addHelpOption",
+            "addOption"
+          ],
+          "elapsed_ms": 3.954341635107994
+        },
+        {
+          "method": "textDocument/completion",
+          "symbols": [],
+          "elapsed_ms": 3.5565178841352463
+        }
+      ],
+      "detail": "missing symbols ['newOption']; forbidden symbols []",
+      "exit_code": -9
+    },
+    {
+      "id": "member-prefix",
+      "outcome": "pass",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "addHelpOption",
+            "addOption"
+          ],
+          "elapsed_ms": 3.9926450699567795
+        }
+      ],
+      "exit_code": 0
+    },
+    {
+      "id": "pointer",
+      "outcome": "pass",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "addHelpOption",
+            "addOption"
+          ],
+          "elapsed_ms": 3.9858603850007057
+        }
+      ],
+      "exit_code": 0
+    }
+  ]
+}
