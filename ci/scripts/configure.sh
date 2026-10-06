@@ -14,7 +14,7 @@ case "$PLATFORM" in
     # recipe: old-glibc container is the compat floor; static libgcc + deps.
     # The static-deps part needs static system libs (CI container installs
     # them); local dev boxes opt in with FORCE_STATIC_DEPS=1.
-    EXTRA+=(-DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -Wl,--compress-debug-sections=zlib")
+    EXTRA+=(-DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -static-libstdc++ -Wl,--compress-debug-sections=zlib")
     [[ "${FORCE_STATIC_DEPS:-0}" = "1" ]] && EXTRA+=(-DCMAKE_FIND_LIBRARY_SUFFIXES=".a")
     ;;
 esac
