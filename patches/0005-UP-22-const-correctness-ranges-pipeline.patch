@@ -1,0 +1,136 @@
+From 141fff3a2a7a63777d2f35b677687e8f1b399216 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 6 Oct 2026 19:08:23 +0900
+Subject: [PATCH] [clang-tidy] Do not suggest 'const' for ranges fed into a
+ pipeline
+
+misc-const-correctness suggested 'const' for a variable whose only uses
+were as the left-hand side of further ranges pipes (operator|). The pipe
+forwards the range by reference through constrained adaptor templates,
+so adding 'const' propagates into adaptors whose begin() is only
+callable on a non-const object (filter, drop_while, chunk_by, split)
+and the code stops compiling. The mutation analyzer cannot see this:
+the forwarding happens inside the adaptor templates, which no concrete
+non-const-reference parameter matches.
+
+Skip the suggestion when the variable is an argument of operator| in
+the analyzed scope. The pipe appears either as an overloaded-operator
+node or as a plain call of a function named operator|, depending on the
+standard library.
+
+A range that is only iterated directly is unaffected: the loop's
+internal non-const reference binding already makes the analyzer treat
+such variables as mutated.
+---
+ .../clang-tidy/misc/ConstCorrectnessCheck.cpp | 34 ++++++++++++++++
+ .../misc/const-correctness-cxx20-ranges.cpp   | 39 +++++++++++++++++++
+ 2 files changed, 73 insertions(+)
+ create mode 100644 clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp
+
+diff --git a/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp b/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp
+index 88ee9fd58..a00a400ee 100644
+--- a/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp
++++ b/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp
+@@ -52,6 +52,7 @@ AST_MATCHER(FunctionDecl, isTemplate) {
+ AST_MATCHER(FunctionDecl, isFunctionTemplateSpecialization) {
+   return Node.isFunctionTemplateSpecialization();
+ }
++
+ } // namespace
+ 
+ ConstCorrectnessCheck::ConstCorrectnessCheck(StringRef Name,
+@@ -226,6 +227,37 @@ namespace {
+ /// Classify for a variable in what the Const-Check is interested.
+ enum class VariableCategory { Value, Reference, Pointer };
+ 
++/// Whether the variable flows into a ranges pipeline through operator|.
++/// The pipeline forwards the range by reference, so declaring the variable
++/// 'const' propagates into every downstream adaptor - where adaptors with
++/// caching iteration (filter, drop_while, chunk_by, split) only support
++/// non-const begin() and the code stops compiling. The mutation analyzer
++/// cannot see this: the pipe's parameter is a forwarding reference inside
++/// constrained templates, which no concrete non-const-reference parameter
++/// matches.
++template <typename T>
++ast_matchers::internal::Matcher<T>
++findFirst(const ast_matchers::internal::Matcher<T> &Matcher) {
++  return anyOf(Matcher, hasDescendant(Matcher));
++}
++
++bool isFedIntoRangesPipeline(const VarDecl *Variable, const Stmt *Scope,
++                             ASTContext *Context) {
++  // The pipe appears either as an overloaded-operator node or, depending on
++  // the standard library, as a plain call of a function named operator|.
++  const auto AsOperatorCall = cxxOperatorCallExpr(
++      hasAnyOperatorName("|"),
++      hasAnyArgument(declRefExpr(to(decl(equalsNode(Variable))))));
++  const auto AsPlainPipeCall = callExpr(
++      hasAnyArgument(declRefExpr(to(decl(equalsNode(Variable))))),
++      callee(functionDecl(hasName("operator|"))));
++  return !match(traverse(TK_AsIs,
++                         findFirst(
++                             stmt(anyOf(AsOperatorCall, AsPlainPipeCall)))),
++                *Scope, *Context)
++              .empty();
++}
++
+ } // namespace
+ 
+ void ConstCorrectnessCheck::check(const MatchFinder::MatchResult &Result) {
+@@ -268,6 +300,8 @@ void ConstCorrectnessCheck::check(const MatchFinder::MatchResult &Result) {
+     // Offload const-analysis to utility function.
+     if (isMutated(Variable, LocalScope, Function, Result.Context))
+       return;
++    if (isFedIntoRangesPipeline(Variable, LocalScope, Result.Context))
++      return;
+ 
+     auto Diag = diag(Variable->getBeginLoc(),
+                      "variable %0 of type %1 can be declared 'const'")
+diff --git a/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp b/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp
+new file mode 100644
+index 000000000..df1817ad4
+--- /dev/null
++++ b/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp
+@@ -0,0 +1,39 @@
++// A variable fed into a ranges pipeline (operator|) forwards the range by
++// reference into constrained adaptor templates, so declaring it 'const'
++// propagates into adaptors whose begin() is non-const (filter, drop_while,
++// chunk_by, split) and the code stops compiling. Such a variable must not be
++// suggested as 'const' even though the mutation analyzer cannot see the
++// forwarding. A range that is only iterated directly keeps the suggestion.
++//
++// RUN: %check_clang_tidy %s misc-const-correctness %t --
++
++class Range {
++public:
++  int *begin();
++  int *end();
++};
++
++struct Adaptor {};
++
++template <typename R> Range operator|(R &&Range, Adaptor);
++
++void pipedRangeIsNotSuggested() {
++  Range Input;
++  Range Piped = Input | Adaptor{};
++  // The pipe reads 'Piped' by reference; 'const' would propagate.
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Again' of type 'Range' can be declared 'const'
++  Range Again = Piped | Adaptor{};
++  (void)Again;
++}
++
++void directlyIteratedRangeIsNeverSuggested() {
++  Range Iterated = Range{};
++  for (const int V : Iterated)
++    (void)V;
++}
++
++void ordinaryReadOnlyValuesAreStillSuggested() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Answer' of type 'int' can be declared 'const'
++  int Answer = 42;
++  (void)Answer;
++}
+-- 
+2.43.0
+
