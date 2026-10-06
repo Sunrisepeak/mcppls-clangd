@@ -33,7 +33,7 @@ def main():
     commit = pin.get('commit', '')
     if not re.fullmatch('[0-9a-f]{40}', commit):
         parser.error('UPSTREAM must pin the resolved LLVM commit')
-    base = pin['ref'].removeprefix('llvmorg-')
+    base = pin['ref'][len('llvmorg-'):] if pin['ref'].startswith('llvmorg-') else pin['ref']
     if not re.fullmatch(re.escape(base) + r'-mcppls\.[0-9]+', args.version):
         parser.error('engine version must retain its maintained-engine identity')
     engine = args.directory / 'bin' / ('clangd.exe' if args.platform.startswith('win32-') else 'clangd')
