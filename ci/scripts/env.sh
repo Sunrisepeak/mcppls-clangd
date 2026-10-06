@@ -28,6 +28,7 @@ if [[ -z "${PLATFORM:-}" ]]; then
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64)  PLATFORM=linux-x64 ;;
     Linux-aarch64) PLATFORM=linux-arm64 ;;
+    Darwin-x86_64) PLATFORM=darwin-x64 ;;
     Darwin-arm64)  PLATFORM=darwin-arm64 ;;
     MINGW*|MSYS*)  PLATFORM=win32-x64 ;;
     *) echo "env.sh: unknown platform $(uname -s)-$(uname -m); set PLATFORM" >&2; exit 1 ;;
