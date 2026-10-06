@@ -1,4 +1,4 @@
-From 4ea52507cfdee5ab36fbee14a6c00afb33f9efe6 Mon Sep 17 00:00:00 2001
+From 6b5483dad1765189c00d4c2ddd0224cc7dbe6cd4 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Tue, 6 Oct 2026 04:40:25 +0900
 Subject: [PATCH] [clangd] Break module cache locks whose owner died
@@ -19,7 +19,7 @@ costs a rebuild, never correctness.
  create mode 100644 clang-tools-extra/clangd/test/modules-stale-lock.test
 
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 0086e707e..55106fc74 100644
+index 0086e707e..6156b1f62 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -22,9 +22,14 @@
@@ -72,7 +72,7 @@ index 0086e707e..55106fc74 100644
 +  if (PIDText.getAsInteger(10, PID) || PID <= 0)
 +    return false;
 +#if defined(_WIN32)
-+  HANDLE Owner = OpenProcessA(PROCESS_QUERY_LIMITED_INFORMATION, /*bInheritHandle=*/false,
++  HANDLE Owner = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, /*bInheritHandle=*/false,
 +                              static_cast<DWORD>(PID));
 +  if (!Owner)
 +    return GetLastError() == ERROR_INVALID_PARAMETER;
