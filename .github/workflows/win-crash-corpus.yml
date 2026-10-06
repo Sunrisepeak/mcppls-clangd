@@ -1,10 +1,6 @@
 name: win-crash-corpus
 
-# C1 of the windows-crash plan: replay the crash corpus against the PDB
-# build under a debugger and with WER LocalDumps enabled. The run fails
-# while any corpus entry still crashes - that failing state is the
-# register row's status. With an empty corpus it validates the
-# infrastructure (build + cdb presence + save-loop soak).
+# Empty or invalid corpora fail: infrastructure smoke is not crash evidence.
 
 on:
   workflow_dispatch:
@@ -52,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           $cdb = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue
-          if (-not $cdb) { Write-Host "::warning::cdb not found - dumps-only mode" } else { Write-Host "cdb: $($cdb.FullName)" }
+          if (-not $cdb) { throw "cdb is required for crash corpus evidence" } else { Write-Host "cdb: $($cdb.FullName)" }
 
       - name: Enable WER LocalDumps for clangd
         shell: pwsh
@@ -66,15 +62,8 @@ jobs:
       - name: Replay corpus (fail while any entry crashes)
         shell: bash
         run: |
-          count=$(ls tests/crash/windows/*.json 2>/dev/null | wc -l)
-          echo "corpus entries: $count"
-          if [ "$count" -eq 0 ]; then
-            echo "corpus empty - running the save-loop stability scenario only"
-            BENCH_CLANG="$BUILD_DIR/bin/clang" python3 tests/probes/gen_bench_project.py /tmp/corpus_proj 8
-            python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd.exe" /tmp/corpus_proj --cycles 20
-          else
-            echo "replay per manifest (implemented with C0 corpus landing)"
-          fi
+          python3 tests/crash/replay.py --engine "$BUILD_DIR/bin/clangd.exe" \
+            --corpus tests/crash/windows --output crash-outcomes.json
         env:
           BUILD_DIR: ${{ github.workspace }}/build-win32-x64
 
@@ -83,6 +72,7 @@ jobs:
         with:
           name: windows-crash-dumps
           path: |
+            crash-outcomes.json
             /d/a/clangd-dumps/**
             D:\a\clangd-dumps\**
           if-no-files-found: ignore

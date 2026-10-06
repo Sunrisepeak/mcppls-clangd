@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""Replay nonempty, platform-specific crash corpora; forced termination fails.
+
+Each JSON contains id, platform, project (relative to the manifest), baseline
+(crash/hang/pass), timeout_seconds, and sequence. Each sequence step contains
+method and params; requests additionally contain expect, a nonempty mapping
+of JSON pointers to exact response values. Notifications set notify=true.
+URI placeholders ${PROJECT_URI} are expanded recursively. A successful replay
+requires initialize, at least one semantic assertion and a clean shutdown.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import queue
+import platform
+import signal
+import subprocess
+import sys
+import threading
+import time
+
+
+def platform_name():
+    return {"win32": "win32-x64", "linux": "linux-x64", "darwin":
+            "darwin-arm64" if platform.machine().lower() in ("arm64", "aarch64") else "darwin-x64"}[sys.platform]
+
+
+def pointer(value, path):
+    if not path.startswith("/"):
+        raise ValueError("assertions require JSON pointers")
+    for key in path[1:].split("/"):
+        key = key.replace("~1", "/").replace("~0", "~")
+        value = value[int(key)] if isinstance(value, list) else value[key]
+    return value
+
+
+def replay(engine, manifest):
+    case = json.loads(manifest.read_text())
+    if case.get("platform") != platform_name():
+        raise ValueError(f"{manifest}: wrong platform")
+    if case.get("baseline") not in ("crash", "hang", "pass"):
+        raise ValueError("missing baseline outcome")
+    sequence = case["sequence"]
+    if not sequence or sequence[0]["method"] != "initialize":
+        raise ValueError("sequence must start with initialize")
+    if not any(s.get("expect") and s["method"].startswith("textDocument/") for s in sequence):
+        raise ValueError("sequence requires a semantic response assertion")
+    project = (manifest.parent / case["project"]).resolve()
+    if not project.is_dir():
+        raise ValueError("missing project inputs")
+    timeout = float(case["timeout_seconds"])
+    if not 0 < timeout <= 600:
+        raise ValueError("deadline must be in (0, 600]")
+    # New process unit: POSIX group / Windows process tree, including helpers.
+    proc = subprocess.Popen([str(engine), *case.get("flags", [])], cwd=project,
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, start_new_session=os.name != "nt")
+    messages = queue.Queue()
+    log = bytearray()
+
+    def stderr():
+        while chunk := proc.stderr.read(4096):
+            if len(log) < 1048576:
+                log.extend(chunk[:1048576-len(log)])
+
+    def reader():
+        try:
+            while True:
+                headers = {}
+                while True:
+                    line = proc.stdout.readline(8192)
+                    if not line:
+                        raise EOFError("server stdout closed")
+                    if line in (b"\n", b"\r\n"):
+                        break
+                    key, value = line.decode().split(":", 1)
+                    headers[key.lower()] = value.strip()
+                length = int(headers["content-length"])
+                if not 0 < length <= 16777216:
+                    raise ValueError("invalid frame length")
+                messages.put(json.loads(proc.stdout.read(length)))
+        except Exception as exc:
+            messages.put(exc)
+
+    threading.Thread(target=reader, daemon=True).start()
+    threading.Thread(target=stderr, daemon=True).start()
+    deadline = time.monotonic() + timeout
+    rid = 0
+    result = {"id": case["id"], "outcome": "error"}
+
+    def send(method, params=None, notify=False):
+        nonlocal rid
+        rid += 1
+        msg = {"jsonrpc": "2.0", "method": method, "params": params}
+        if not notify:
+            msg["id"] = rid
+        data = json.dumps(msg).encode()
+        proc.stdin.write(b"Content-Length: %d\r\n\r\n" % len(data) + data)
+        proc.stdin.flush()
+        if notify:
+            return None
+        while True:
+            if time.monotonic() >= deadline:
+                raise queue.Empty
+            reply = messages.get(timeout=max(0.001, deadline-time.monotonic()))
+            if isinstance(reply, Exception):
+                raise reply
+            if reply.get("id") == rid and ("result" in reply or "error" in reply):
+                if "error" in reply:
+                    raise ValueError(f"request failed: {reply['error']}")
+                return reply
+
+    def expand(value):
+        if isinstance(value, str):
+            return value.replace("${PROJECT_URI}", project.as_uri())
+        if isinstance(value, list):
+            return [expand(v) for v in value]
+        if isinstance(value, dict):
+            return {k: expand(v) for k, v in value.items()}
+        return value
+
+    try:
+        for step in sequence:
+            if step["method"] in ("shutdown", "exit"):
+                raise ValueError("shutdown is managed by the replay harness")
+            response = send(step["method"], expand(step.get("params")), step.get("notify", False))
+            for path, expected in step.get("expect", {}).items():
+                actual = pointer(response, path)
+                if actual != expand(expected):
+                    raise ValueError(f"{path}: expected {expected!r}, observed {actual!r}")
+        send("shutdown")
+        send("exit", notify=True)
+        proc.stdin.close()
+        proc.wait(timeout=max(0.001, deadline-time.monotonic()))
+        result["outcome"] = "pass" if proc.returncode == 0 else "crash"
+    except (queue.Empty, subprocess.TimeoutExpired):
+        result["outcome"] = "timeout"
+    except Exception as exc:
+        result.update(outcome="crash" if proc.poll() not in (None, 0) else "error", detail=str(exc))
+    finally:
+        if proc.poll() is None:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, timeout=15)
+            else:
+                os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait(timeout=15)
+        result["exit_code"] = proc.returncode
+        result["stderr"] = log.decode(errors="replace")
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--engine", type=Path, required=True)
+    parser.add_argument("--corpus", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    manifests = sorted(args.corpus.glob("*.json"))
+    if not manifests:
+        parser.error("empty corpus cannot provide crash evidence")
+    engine = args.engine.resolve()
+    results = []
+    for manifest in manifests:
+        try:
+            results.append(replay(engine, manifest))
+        except Exception as exc:
+            results.append({"manifest": str(manifest), "outcome": "invalid", "detail": str(exc)})
+    args.output.write_text(json.dumps({"engine_sha256": hashlib.sha256(engine.read_bytes()).hexdigest(),
+                                      "platform": platform_name(), "results": results}, indent=2))
+    return int(any(r["outcome"] != "pass" for r in results))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

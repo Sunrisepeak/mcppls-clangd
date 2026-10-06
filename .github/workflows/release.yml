@@ -23,15 +23,23 @@ permissions:
   contents: write   # the publish job creates the release and uploads assets
 
 jobs:
+  eligibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject experimental patches
+        run: python3 ci/check_ledger.py --release
+
   package:
+    needs: eligibility
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux-x64
             os: ubuntu-22.04
-          - platform: linux-arm64
-            os: ubuntu-22.04-arm
+          - platform: darwin-x64
+            os: macos-15-intel
           - platform: darwin-arm64
             os: macos-14
           - platform: win32-x64

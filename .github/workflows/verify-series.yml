@@ -32,6 +32,9 @@ jobs:
       - name: Check patch ledger
         run: python3 ci/check_ledger.py
 
+      - name: Release gate negative controls
+        run: python3 ci/test_release_gates.py
+
       - name: Summary
         run: |
           {
