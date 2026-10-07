@@ -62,3 +62,4 @@ they live here and in patch *filenames* only.
 
 | 0032-UP-25-first-module-completion-commands.patch | UP-25 | stabilizing | tests/e2e/module_cold_completion.py; ci/module-cold-completion.md | Upstream first module completion waits for initial inputs and uses the resolved compile command while preserving explicit fallback |
 
+| 0033-UP-24-owner-lease-gc-fixture.patch | UP-24 | stabilizing | PrerequisiteModulesTests.PersistentModuleCacheGCRemovesUnownedReadCopies; ci/module-build-cancellation.md | Upstream GC fixture asserts actual orphan kernel-lease ownership while retaining stable and active-reader PCMs |
