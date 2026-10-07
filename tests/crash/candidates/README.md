@@ -33,3 +33,12 @@ and environment rather than relabeling a passing test as a crash regression.
 Replay text uses ${FILE_TEXT:GPPDefines.ixx}; reads stay inside the fixture.
 ${PROJECT_PATH} expands absolute command paths and dictionary keys;
 ${PROJECT_URI} expands LSP document locations.
+
+
+The first native qualification run (37674003750) used an in-memory CDB
+notification and passed on the exact historical binary SHA dbd52c13...:
+clangd reported no ProjectModules because its producer map requires a disk
+CDB. That run is ineligible, and exposed a missing replay premise rather than
+an engine fix. The candidate now writes a real compile_commands.json before
+opening the source and restores/removes it on exit. The updated native
+baseline verdict is required. The local Linux replay passes with that disk CDB.

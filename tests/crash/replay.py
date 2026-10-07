@@ -184,6 +184,17 @@ def replay(engine, manifest):
                     if pointer(response, path) != expand(expected):
                         raise ValueError(f"deferred response failed assertion {path}")
                 continue
+            if step.get("action") == "write-file":
+                path = (project / step["file"]).resolve()
+                if not path.is_relative_to(project):
+                    raise ValueError("fixture edit escapes project")
+                if path.exists():
+                    stat = path.stat()
+                    originals.setdefault(path, (path.read_bytes(), stat.st_atime_ns, stat.st_mtime_ns))
+                else:
+                    originals.setdefault(path, (None, None, None))
+                path.write_text(expand(step["contents"]), encoding="utf-8")
+                continue
             if step.get("action") == "replace-file":
                 path = (project / step["file"]).resolve()
                 if not path.is_relative_to(project):
@@ -285,8 +296,11 @@ def replay(engine, manifest):
             proc.stdout.close()
             proc.stderr.close()
         for path, (content, atime, mtime) in originals.items():
-            path.write_bytes(content)
-            os.utime(path, ns=(atime, mtime))
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+                os.utime(path, ns=(atime, mtime))
         result["exit_code"] = proc.returncode
         result["stderr"] = log.decode(errors="replace")
     return result

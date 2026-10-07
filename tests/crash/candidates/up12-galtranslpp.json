@@ -24,28 +24,9 @@
       "params": {}
     },
     {
-      "method": "workspace/didChangeConfiguration",
-      "notify": true,
-      "params": {
-        "settings": {
-          "compilationDatabaseChanges": {
-            "${PROJECT_PATH}/GPPDefines.ixx": {
-              "workingDirectory": "${PROJECT_PATH}",
-              "compilationCommand": [
-                "clang++",
-                "--target=x86_64-pc-windows-msvc",
-                "-std=c++23",
-                "-O3",
-                "-g",
-                "-flto",
-                "-x",
-                "c++-module",
-                "${PROJECT_PATH}/GPPDefines.ixx"
-              ]
-            }
-          }
-        }
-      }
+      "action": "write-file",
+      "file": "compile_commands.json",
+      "contents": "[\n  {\n    \"directory\": \"${PROJECT_PATH}\",\n    \"file\": \"${PROJECT_PATH}/GPPDefines.ixx\",\n    \"arguments\": [\n      \"clang++\",\n      \"--target=x86_64-pc-windows-msvc\",\n      \"-std=c++23\",\n      \"-O3\",\n      \"-g\",\n      \"-flto\",\n      \"-x\",\n      \"c++-module\",\n      \"${PROJECT_PATH}/GPPDefines.ixx\"\n    ]\n  }\n]"
     },
     {
       "method": "textDocument/didOpen",
