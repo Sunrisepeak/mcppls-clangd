@@ -18,12 +18,11 @@ FORK_VERSION="${UPSTREAM_VERSION}${FORK_SUFFIX}"
 
 # Working tree (gitignored), build dir, dist dir.
 LLVM_DIR="${LLVM_DIR:-$REPO_DIR/llvm-project}"
-BUILD_DIR="${BUILD_DIR:-$REPO_DIR/build-${PLATFORM:-linux-x64}}"
-DIST_DIR="${DIST_DIR:-$REPO_DIR/dist}"
-TARBALL="${TARBALL:-$REPO_DIR/llvm-src.tar.gz}"
-TARBALL_SHA256="$(awk '{print $1}' "$REPO_DIR/ci/tarball.sha256" 2>/dev/null || true)"
 
-# Platform: linux-x64 | linux-arm64 | darwin-arm64 | win32-x64
+# Platform: linux-x64 | linux-arm64 | darwin-x64 | darwin-arm64 | win32-x64.
+# Resolve it before BUILD_DIR: the build dir is named after the platform, and
+# deriving it first made every non-injected Windows or macOS shell build into
+# build-linux-x64 while reporting the correctly detected platform.
 if [[ -z "${PLATFORM:-}" ]]; then
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64)  PLATFORM=linux-x64 ;;
@@ -34,5 +33,10 @@ if [[ -z "${PLATFORM:-}" ]]; then
     *) echo "env.sh: unknown platform $(uname -s)-$(uname -m); set PLATFORM" >&2; exit 1 ;;
   esac
 fi
+
+BUILD_DIR="${BUILD_DIR:-$REPO_DIR/build-${PLATFORM}}"
+DIST_DIR="${DIST_DIR:-$REPO_DIR/dist}"
+TARBALL="${TARBALL:-$REPO_DIR/llvm-src.tar.gz}"
+TARBALL_SHA256="$(awk '{print $1}' "$REPO_DIR/ci/tarball.sha256" 2>/dev/null || true)"
 
 export LLVM_DIR BUILD_DIR DIST_DIR PLATFORM FORK_VERSION FORK_SUFFIX UPSTREAM_REF UPSTREAM_VERSION
