@@ -20,7 +20,7 @@ class Capture(unittest.TestCase):
             result = {'outcome': 'crash', 'exit_code': 0x80000003, 'readers_stopped': True}
             frame = ('00000030`dcd5c920 00007ff6`b83bf1ba : '
                      '00000200`3c4a91b0 00000207`3c4a91b0 00000030`dcd5cfe0 00000000`00000000 : '
-                     'clangd!clang::syntax::TokenCollector::Builder::build+0x2ff')
+                     'clangd!clang::syntax::TokenCollector::Builder::build+0x2ff [D:/llvm/clang/lib/Tooling/Syntax/Tokens.cpp @ 1]')
             log = 'MCPPLS_SECOND_CHANCE\nExceptionCode: 80000003\n' + frame + '\n'
             # Synthetic data exercises the classifier only; it is not native proof.
             self.assertTrue(capture.evidence(result, log, dump, False)['captured'])
@@ -32,6 +32,7 @@ class Capture(unittest.TestCase):
             self.assertFalse(capture.evidence(result, log.replace('MCPPLS_SECOND_CHANCE',
                 '0:000> .echo MCPPLS_SECOND_CHANCE'), dump, False)['captured'])
             self.assertFalse(capture.evidence(result, log.replace('clangd!', 'clangd+'), dump, False)['captured'])
+            self.assertFalse(capture.evidence(result, log.replace(' [D:/llvm/clang/lib/Tooling/Syntax/Tokens.cpp @ 1]', ''), dump, False)['captured'])
             self.assertFalse(capture.evidence(result, log.replace(
                 frame,
                 '0:000> x clangd!clang::syntax::TokenCollector'), dump, False)['captured'])
@@ -42,6 +43,7 @@ class Capture(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='capture-') as temp:
             script = capture.debugger_script(Path(temp) / 'exception.dmp')
             self.assertIn('sxd -h bpe', script)
+            self.assertIn('.lines -e\n.reload /f', script)
             self.assertIn('sxd -c2 ', script)
             self.assertTrue(script.endswith('MCPPLS_CDB_ATTACHED\ngh\n'))
             self.assertIn('.dump /m /o ', script)

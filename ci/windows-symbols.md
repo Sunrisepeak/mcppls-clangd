@@ -76,3 +76,12 @@ rows; rerun is required to verify the minidump. Actual native evidence is in
 tests/evidence/up12-native-symbolic-stack.json. Older llvm-readobj prints raw
 GUID bytes; identity now normalizes that PE little-endian layout, with the
 official pair verified on Linux using both LLVM 18 and the newer reader.
+
+Corrected run 37687987936 collects the 98,187-byte minidump in its intended
+artifact directory, actual exception record and symbolic frames; the natural
+exit and debugger exit are both 0x80000003 with no forced termination. This
+passes the original function-stack/minidump capture gate. The joint plan also
+requires source-location information, so capture now explicitly enables
+[.lines -e](https://learn.microsoft.com/en-us/windows-hardware/drivers/debuggercmds/-lines--toggle-source-line-support-)
+before loading symbols and requires source file/line annotations in actual
+stack rows. A new native run must prove that stronger gate.

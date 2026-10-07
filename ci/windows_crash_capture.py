@@ -78,7 +78,7 @@ def debugger_script(dump):
         raise ValueError('the debugger dump path must contain no whitespace, quotes or semicolons')
     capture = ('.echo MCPPLS_SECOND_CHANCE; .lastevent; .exr -1; .ecxr; '
                f'kv; ~* kb; .dump /m /o {path}; gn')
-    return ('!sym noisy\n.reload /f clangd.exe\n'
+    return ('!sym noisy\n.lines -e\n.reload /f clangd.exe\n'
             # The attach breakpoint is handled explicitly by gh below. Later
             # breakpoint exceptions are not handled and reach second chance.
             'sxd -h bpe\n'
@@ -95,17 +95,20 @@ def evidence(result, log, dump, debugger_forced):
     # lookup text elsewhere in the log cannot stand in for a crash frame.
     symbols = re.findall(r'^\s*[0-9a-fA-F`]+(?:\s+[0-9a-fA-F`]+)?\s+:\s+'
                          r'(?:[0-9a-fA-F`]+\s+){4}:\s+clangd!([^\r\n]+)', log, re.M)
+    source_lines = [list(match) for frame in symbols for match in re.findall(
+        r'\[([^\]\r\n]+\.(?:cpp|cc|cxx|h|hpp))\s+@\s+(\d+)\]', frame)]
     dump_ok = dump.is_file() and dump.stat().st_size > 4
     if dump_ok:
         with dump.open('rb') as stream:
             dump_ok = stream.read(4) == b'MDMP'
     captured = (result['outcome'] == 'crash' and code == 0x80000003
                 and '80000003' in [value.lower() for value in codes]
-                and second and bool(symbols) and dump_ok and not debugger_forced
+                and second and bool(symbols) and bool(source_lines) and dump_ok and not debugger_forced
                 and result.get('readers_stopped') is True)
     return {'captured': captured, 'natural_exit_hex': f'0x{code:08x}',
             'second_chance_handler_executed': second, 'exception_codes': codes,
             'symbolized_frames': sorted(set(symbols)), 'minidump_valid': dump_ok,
+            'source_lines': source_lines,
             'debugger_forced_termination': debugger_forced}
 
 
