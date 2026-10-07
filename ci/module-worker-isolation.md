@@ -122,3 +122,12 @@ std::min/std::max calls. Parenthesized standard function names avoid expansion
 and preserve scheduling behavior. The historical stock crash remains proven,
 but this failed build supplies no fixed-fork execution claim. Native rerun
 remains required.
+
+Root integration at ordered patch 0036 has now recompiled all 166 affected
+clangd units, rearchived daemon/support/tweaks/remote/main libraries and
+relinked clangd and ClangdTests. The focused prerequisite/CDB/draft/scheduler
+set passes 66 units in 436 ms; all 26 DiagnosticsTest units pass in 114 ms.
+Actual first cold completion and unsaved import/update replay return correct
+symbols, unchanged disk and normal exit. This resolves mixed-archive validation
+for this development head; production worker default remains unwired, and no
+final floor/native package or hard resource qualification is implied.
