@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -70,6 +71,24 @@ while True:
                 manifest.write_text(json.dumps(case))
                 return replay.replay(Path(sys.executable), manifest)['outcome']
             self.assertEqual(run(), 'pass')
+            source = project / 'export.cppm'
+            source.write_text('addOption')
+            os.utime(source, ns=(10500000000, 10500000000))
+            original_stamp = source.stat().st_mtime_ns
+            case['sequence'].insert(1, {'action': 'replace-file', 'file': source.name,
+                'from': 'addOption', 'with': 'freshItem', 'same-second': True})
+            real_utime = os.utime
+            stamps = []
+            def ntfs_utime(path, *, ns):
+                rounded = tuple(t // 100 * 100 for t in ns)
+                stamps.append(rounded[1])
+                return real_utime(path, ns=rounded)
+            with patch.object(replay.os, 'utime', ntfs_utime):
+                self.assertEqual(run(), 'pass')
+            self.assertNotEqual(stamps[0], original_stamp)
+            self.assertEqual(stamps[0] // 1000000000, original_stamp // 1000000000)
+            self.assertEqual(source.read_text(), 'addOption')
+            case['sequence'].pop(1)
             case['sequence'][1]['expect']['/result/items/0/label'] = 'wrong'
             self.assertEqual(run(), 'error')
             fake.write_text('import sys; sys.exit(7)\n')

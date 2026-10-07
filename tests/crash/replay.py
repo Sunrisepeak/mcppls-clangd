@@ -196,8 +196,15 @@ def replay(engine, manifest):
                         raise ValueError("same-second regression requires same size")
                     # A real change within the same second, with a different
                     # subsecond timestamp, rather than a preserved timestamp.
-                    stamp = stat.st_mtime_ns + 1 if stat.st_mtime_ns % 1000000000 < 999999999 else stat.st_mtime_ns - 1
+                    # NTFS represents timestamps in 100 ns ticks. A +1 ns
+                    # request rounds back to the original stamp on Windows,
+                    # accidentally testing a preserved-mtime edit instead.
+                    delta = 1000000  # 1 ms, still within the same second
+                    stamp = stat.st_mtime_ns + delta if stat.st_mtime_ns % 1000000000 < 1000000000 - delta else stat.st_mtime_ns - delta
                     os.utime(path, ns=(stat.st_atime_ns, stamp))
+                    observed = path.stat().st_mtime_ns
+                    if observed == stat.st_mtime_ns or observed // 1000000000 != stat.st_mtime_ns // 1000000000:
+                        raise ValueError("filesystem cannot represent a changed timestamp within the same second")
                 continue
             if step["method"] in ("shutdown", "exit"):
                 raise ValueError("shutdown is managed by the replay harness")

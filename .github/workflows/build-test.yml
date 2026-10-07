@@ -71,6 +71,12 @@ jobs:
         if: matrix.platform == 'win32-x64'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Install the Windows compiler cache
+        if: matrix.platform == 'win32-x64'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: v0.18.0
+
       - name: Restore ccache
         uses: actions/cache@v4
         with:
@@ -93,7 +99,40 @@ jobs:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           TEST: "1"
           RUN_TESTS: lit-subset
+          SCCACHE_GHA_ENABLED: "true"
+          SCCACHE_IDLE_TIMEOUT: "0"
+          CMAKE_EXTRA: ${{ matrix.platform == 'win32-x64' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }}
         run: ./ci/ci_build.sh
+
+      - name: Real standard-library const fixes remain compilable
+        if: matrix.platform == 'linux-x64'
+        shell: bash
+        run: |
+          python3 tests/e2e/const_correctness.py \
+            --engine build-linux-x64/bin/clangd --clang-tidy build-linux-x64/bin/clang-tidy \
+            --clang build-linux-x64/bin/clang --workdir "${{ runner.temp }}/const-correctness"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.platform == 'linux-x64'
+        with:
+          name: const-correctness-linux-x64
+          path: ${{ runner.temp }}/const-correctness/result.json
+          if-no-files-found: error
+
+      - name: BMI reader leases protect live copies and reclaim crash orphans
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cache_lease.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-cache-lease"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-cache-lease-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-cache-lease/results.json
+          if-no-files-found: error
 
       - name: Module member semantic regression
         shell: bash

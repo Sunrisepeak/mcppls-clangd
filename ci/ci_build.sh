@@ -40,6 +40,7 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
     tools/clang/tools/extra/clangd/test/modules-stale-lock.test \
     tools/clang/tools/extra/clangd/test/semantic-tokens-range.test \
     tools/clang/tools/extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp \
+    tools/clang/tools/extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp \
     tools/clang/tools/extra/clangd/test/modules.test \
     tools/clang/tools/extra/clangd/test/module_dependencies.test \
     tools/clang/tools/extra/clangd/test/modules_no_cdb.test \
