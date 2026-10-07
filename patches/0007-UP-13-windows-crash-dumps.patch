@@ -36,7 +36,7 @@ new file mode 100644
 index 000000000..e1ef5a6db
 --- /dev/null
 +++ b/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,96 @@
 +//===-- WindowsCrashDumps.cpp -------------------------------------*-C++-*-===//
 +//
 +// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
@@ -106,8 +106,9 @@ index 000000000..e1ef5a6db
 +                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 +  if (File == INVALID_HANDLE_VALUE)
 +    return;
-+  MiniDumpWriteDump(Process, ProcessId, File, MiniDumpWithFullMemory |
-+                                                    MiniDumpWithHandleData,
++  MiniDumpWriteDump(Process, ProcessId, File,
++                    static_cast<MINIDUMP_TYPE>(MiniDumpWithFullMemory |
++                                               MiniDumpWithHandleData),
 +                    ExceptionPointers ? &ExceptionInfo : nullptr, nullptr,
 +                    nullptr);
 +  CloseHandle(File);
