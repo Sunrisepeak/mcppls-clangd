@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 }
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y ca-certificates git g++ clang-12 ninja-build ccache python3 python3-pip zlib1g-dev binutils
+apt-get install -y ca-certificates curl git g++ clang-12 ninja-build ccache python3 python3-pip zlib1g-dev binutils
 python3 -m pip install 'cmake>=3.20,<4'
 git config --global --add safe.directory "$PWD"
 git config --global --add safe.directory "$PWD/llvm-project"
