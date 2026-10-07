@@ -1,0 +1,277 @@
+From 72c2ac57acae267d2217d1235074af0af417f3fa Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:39:43 +0900
+Subject: [PATCH] Stop isolated module workers when their parent owner dies
+
+---
+ .../clangd/ModuleBuildWorker.cpp              | 162 +++++++++++++++++-
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |   6 +-
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  |   8 +-
+ .../unittests/PrerequisiteModulesTest.cpp     |   5 +-
+ 4 files changed, 172 insertions(+), 9 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 7d1864090..c2bb7b580 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -16,13 +16,18 @@
+ #include "llvm/Config/llvm-config.h"
+ #include "llvm/Support/Process.h"
+ #include <array>
++#include <atomic>
++#include <cstdlib>
++#include <limits>
+ #include <thread>
+ #ifdef _WIN32
+ #include <windows.h>
+ #else
+ #include <cerrno>
+ #include <csignal>
++#include <fcntl.h>
+ #include <sys/resource.h>
++#include <sys/stat.h>
+ #include <sys/wait.h>
+ #include <unistd.h>
+ #endif
+@@ -74,6 +79,141 @@ llvm::Error validateInvocation(const CompilerInvocation &Invocation,
+         "module worker cannot serialize remapped buffer pointers");
+   return llvm::Error::success();
+ }
++
++// The child inherits only the read side on POSIX. Keeping another write side
++// in the child would hide owner death forever. Windows inherits a handle to
++// the actual parent process object, which remains the same object after PID
++// reuse. This object is not a replacement for the supervisor's kill/reap.
++class WorkerOwner {
++public:
++  static llvm::Expected<std::unique_ptr<WorkerOwner>> create(PathRef PipePath) {
++    auto Owner = std::unique_ptr<WorkerOwner>(new WorkerOwner);
++#ifdef _WIN32
++    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(),
++                         GetCurrentProcess(), &Owner->Handle, SYNCHRONIZE, TRUE,
++                         0))
++      return llvm::createStringError(
++          "failed creating module worker owner handle");
++#else
++    // Opening the writer with O_CLOEXEC is atomic. A pipe()+fcntl() pair
++    // would allow another concurrent spawn to inherit the writer in between
++    // and keep the worker alive after this parent dies.
++    if (mkfifo(PipePath.str().c_str(), 0600))
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Owner->PipePath = PipePath.str();
++    Owner->Pipe[0] =
++        open(PipePath.str().c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++    if (Owner->Pipe[0] < 0)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Owner->Pipe[1] =
++        open(PipePath.str().c_str(), O_WRONLY | O_NONBLOCK | O_CLOEXEC);
++    // The read end must reach the worker. Extra inherited readers are harmless
++    // because EOF is determined solely by the non-inherited parent writer.
++    if (Owner->Pipe[1] < 0 || fcntl(Owner->Pipe[0], F_SETFD, 0) < 0)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++#endif
++    return std::move(Owner);
++  }
++  std::string token() const {
++#ifdef _WIN32
++    return std::to_string(reinterpret_cast<uintptr_t>(Handle));
++#else
++    return std::to_string(Pipe[0]);
++#endif
++  }
++  ~WorkerOwner() {
++#ifdef _WIN32
++    if (Handle)
++      CloseHandle(Handle);
++#else
++    for (int FD : Pipe)
++      if (FD >= 0)
++        close(FD);
++    if (!PipePath.empty())
++      unlink(PipePath.c_str()); // remove_directories() skips FIFO entries.
++#endif
++  }
++
++private:
++  WorkerOwner() = default;
++#ifdef _WIN32
++  HANDLE Handle = nullptr;
++#else
++  int Pipe[2] = {-1, -1};
++  std::string PipePath;
++#endif
++};
++
++class WorkerOwnerMonitor {
++public:
++  static llvm::Expected<std::unique_ptr<WorkerOwnerMonitor>>
++  create(StringRef Token) {
++    uint64_t Value = 0;
++    if (Token.getAsInteger(10, Value) || !Value)
++      return llvm::createStringError("invalid module worker owner token");
++    auto Monitor = std::unique_ptr<WorkerOwnerMonitor>(new WorkerOwnerMonitor);
++#ifdef _WIN32
++    if (Value > (std::numeric_limits<uintptr_t>::max)())
++      return llvm::createStringError("invalid module worker owner handle");
++    Monitor->Handle = reinterpret_cast<HANDLE>(static_cast<uintptr_t>(Value));
++    DWORD Flags = 0;
++    if (!GetHandleInformation(Monitor->Handle, &Flags)) {
++      Monitor->Handle = nullptr;
++      return llvm::createStringError("missing inherited module worker owner");
++    }
++#else
++    if (Value <= 2 || Value > (std::numeric_limits<int>::max)())
++      return llvm::createStringError("invalid module worker owner descriptor");
++    int FD = static_cast<int>(Value);
++    int Flags = fcntl(FD, F_GETFL);
++    if (Flags < 0 || fcntl(FD, F_SETFL, Flags | O_NONBLOCK) < 0)
++      return llvm::createStringError("missing inherited module worker owner");
++    Monitor->FD = FD;
++#endif
++    auto *Self = Monitor.get();
++    Monitor->Thread = std::thread([Self] {
++      while (!Self->Stopped.load(std::memory_order_relaxed)) {
++#ifdef _WIN32
++        if (WaitForSingleObject(Self->Handle, 0) != WAIT_TIMEOUT)
++          std::_Exit(1);
++#else
++        char Byte;
++        ssize_t Result = read(Self->FD, &Byte, 1);
++        if (Result == 0 || (Result < 0 && errno != EAGAIN &&
++                            errno != EWOULDBLOCK && errno != EINTR))
++          std::_Exit(1);
++#endif
++        std::this_thread::sleep_for(std::chrono::milliseconds(10));
++      }
++    });
++    return std::move(Monitor);
++  }
++  ~WorkerOwnerMonitor() {
++    Stopped.store(true, std::memory_order_relaxed);
++    if (Thread.joinable())
++      Thread.join();
++#ifdef _WIN32
++    if (Handle)
++      CloseHandle(Handle);
++#else
++    if (FD >= 0)
++      close(FD);
++#endif
++  }
++
++private:
++  WorkerOwnerMonitor() = default;
++  std::atomic<bool> Stopped{false};
++  std::thread Thread;
++#ifdef _WIN32
++  HANDLE Handle = nullptr;
++#else
++  int FD = -1;
++#endif
++};
+ // This deliberately avoids Program.cpp's process-global SIGALRM timeout.
+ class WorkerProcess {
+ public:
+@@ -173,7 +313,7 @@ std::string workerDiagnostics(PathRef Path) {
+   if (llvm::sys::fs::file_size(Path, Size))
+     return {};
+   auto Text = llvm::MemoryBuffer::getFileSlice(
+-      Path, std::min<uint64_t>(Size, 64 * 1024), 0);
++      Path, (std::min<uint64_t>)(Size, 64 * 1024), 0);
+   return Text ? (*Text)->getBuffer().str() : std::string{};
+ }
+ 
+@@ -289,10 +429,17 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+     return llvm::createStringError(
+         "module worker was cancelled or timed out during capture");
+   const std::string DiagnosticsPath = Path("stderr.log");
++  auto Owner = WorkerOwner::create(Path("owner.pipe"));
++  if (!Owner)
++    return Owner.takeError();
++  const std::string OwnerToken = (*Owner)->token();
++  if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
++    return llvm::createStringError(
++        "module worker cancelled or timed out during owner setup");
+   std::array<std::optional<StringRef>, 3> Redirects{
+       StringRef(""), StringRef(""), StringRef(DiagnosticsPath)};
+-  std::array<StringRef, 3> Args{Options.Executable, "--module-build-worker",
+-                                RequestPath};
++  std::array<StringRef, 4> Args{Options.Executable, "--module-build-worker",
++                                RequestPath, OwnerToken};
+   std::string LaunchError;
+   bool Failed = false;
+   auto Process =
+@@ -351,7 +498,14 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+        Child.Statistics});
+ }
+ 
+-llvm::Error runModuleBuildWorker(PathRef RequestFile) {
++llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken) {
++  std::unique_ptr<WorkerOwnerMonitor> Owner;
++  if (!OwnerToken.empty()) {
++    auto Monitor = WorkerOwnerMonitor::create(OwnerToken);
++    if (!Monitor)
++      return Monitor.takeError();
++    Owner = std::move(*Monitor);
++  }
+   auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
+   if (!Buffer)
+     return llvm::errorCodeToError(Buffer.getError());
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index a4e6cae0d..587972686 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -76,7 +76,11 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+ // independently own launch, cancellation, timeout, termination, specific-child
+ // reap, and cleanup after a crash/kill. This entry alone provides no hard
+ // bound.
+-llvm::Error runModuleBuildWorker(PathRef RequestFile);
++// OwnerToken, when supplied by buildModuleInWorker, names an inherited OS
++// owner-lifetime object, never a PID looked up after launch. Direct protocol
++// probes may omit it; supervised production workers must retain it.
++llvm::Error runModuleBuildWorker(PathRef RequestFile,
++                                 llvm::StringRef OwnerToken = {});
+ 
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index d5f5873e9..01090f1c1 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -791,9 +791,11 @@ int clangdMain(int argc, char *argv[]) {
+   llvm::InitLLVM X(argc, argv);
+   llvm::InitializeAllTargetInfos();
+   // The internal compiler worker has no LSP transport or inherited clangd
+-  // configuration. Its sole input is the versioned captured-request file.
+-  if (argc == 3 && llvm::StringRef(argv[1]) == "--module-build-worker") {
+-    if (auto Err = runModuleBuildWorker(argv[2])) {
++  // configuration. Inputs are the captured request and optional inherited
++  // owner-lifetime object; neither enters ordinary command-line parsing.
++  if ((argc == 3 || argc == 4) &&
++      llvm::StringRef(argv[1]) == "--module-build-worker") {
++    if (auto Err = runModuleBuildWorker(argv[2], argc == 4 ? argv[3] : "")) {
+       llvm::errs() << llvm::toString(std::move(Err)) << "\n";
+       return 1;
+     }
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 2ec0bbcd6..4b6cfe21b 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -469,7 +469,10 @@ export int value() { return Captured; }
+   ASSERT_TRUE(static_cast<bool>(Request))
+       << llvm::toString(Request.takeError());
+   CDB.addFile("request.json", *Request);
+-  auto Err = runModuleBuildWorker(getFullPath("request.json"));
++  auto Err = runModuleBuildWorker(getFullPath("request.json"), "invalid");
++  EXPECT_THAT(llvm::toString(std::move(Err)),
++              testing::HasSubstr("invalid module worker owner token"));
++  Err = runModuleBuildWorker(getFullPath("request.json"));
+   EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
+   EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
+   // A failed attempt must not leave the earlier output looking successful.
+-- 
+2.53.0
+

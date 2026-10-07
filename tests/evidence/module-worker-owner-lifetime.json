@@ -1,0 +1,45 @@
+{
+  "source_commit": "72c2ac57acae267d2217d1235074af0af417f3fa",
+  "scope": "private Linux changed-TU proof; root integration pending",
+  "owner_death": {
+    "parent_pid": 786378,
+    "parent_exit": -9,
+    "worker_pid": 786379,
+    "worker_exit": 1,
+    "owner_death_to_reap_ms": 9.37,
+    "frontend_marker": "/tmp/module-worker-supervisor-evidence/owner-death/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n",
+    "orphan_directory": "/tmp/clangd-module-worker-4fcefd",
+    "orphan_directory_exists": true,
+    "staged_output_exists": false
+  },
+  "normal_runs": [
+    {
+      "mode": "success",
+      "exit": 0,
+      "stdout": "elapsed_ms=20 other_alive=1 no_children=1 output=1\nworker_success=1\n",
+      "stderr": "",
+      "remaining_temp_dirs": []
+    },
+    {
+      "mode": "timeout",
+      "exit": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\nmodule worker timed out (pid 786371): /tmp/module-worker-supervisor-evidence/timeout/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "remaining_temp_dirs": []
+    },
+    {
+      "mode": "cancel",
+      "exit": 0,
+      "stdout": "elapsed_ms=103 other_alive=1 no_children=1 output=0\nmodule worker cancelled (pid 786375): /tmp/module-worker-supervisor-evidence/cancel/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "remaining_temp_dirs": []
+    }
+  ],
+  "default_enabled": false,
+  "limitations": [
+    "orphan directory intentionally remains",
+    "Windows and Darwin not executed",
+    "no hard memory limit",
+    "production builder unwired"
+  ]
+}

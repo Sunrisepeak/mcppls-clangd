@@ -71,3 +71,5 @@ they live here and in patch *filenames* only.
 | 0035-UP-03-module-worker-supervision-and-drafts.patch | UP-03 | stabilizing | DraftStore.AtomicSnapshotRetainsVersionsAndExportsDirtyHeaders; PrerequisiteModulesTests.ModuleWorker*; ci/module-worker-isolation.md | Upstream supervises only its owned compiler child, reaps before cleanup and exports actual atomic request drafts; actual server enablement remains separate |
 
 | 0036-UP-03-windows-module-dag-macro-portability.patch | UP-03 | stabilizing | native Windows build; ci/module-worker-isolation.md | Upstream module DAG standard function calls compile with Windows min/max macros without changing scheduling |
+
+| 0037-UP-03-module-worker-owner-lifetime.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerPreservesCapturedInputs; ci/module-worker-isolation.md | Upstream supervised compiler workers use a real inherited owner object and exit when that owner dies; orphan directory collection remains separate |

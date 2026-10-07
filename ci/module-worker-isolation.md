@@ -131,3 +131,21 @@ Actual first cold completion and unsaved import/update replay return correct
 symbols, unchanged disk and normal exit. This resolves mixed-archive validation
 for this development head; production worker default remains unwired, and no
 final floor/native package or hard resource qualification is implied.
+
+## 0037 parent owner lifetime
+
+Supervised workers inherit an actual owner object and start a monitor before
+request/frontend execution: POSIX FIFO reader with the sole writer held by
+the parent (atomically CLOEXEC), Windows SYNCHRONIZE process-object handle.
+No PID lookup can confuse reuse with ownership. The monitor exits the worker
+when the owner disappears; normal completion joins it. Explicit FIFO unlink
+precedes normal recursive directory cleanup. Direct argc3 internal protocol
+probes remain ownerless; API-launched workers always receive the owner token.
+
+Private Linux parent SIGKILL during actual frontend work stops and reaps the
+worker in 9.37 ms. Success/timeout/cancel still preserve an unrelated child
+and clear normal units. The killed owner's directory intentionally remains:
+neither SIGKILL nor immediate worker exit runs cleanup. Following collection
+must acquire both parent/worker leases, protect same-process active units and
+leave unmarked legacy units untouched. Native Windows/Darwin execution,
+orphan sweep and actual default server policy remain unqualified.
