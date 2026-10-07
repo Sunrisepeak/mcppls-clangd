@@ -35,6 +35,9 @@ python3 tests/e2e/module_request_inputs.py \
 python3 tests/e2e/module_dag.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-dag"
+python3 tests/e2e/module_cold_completion.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-cold-completion"
 python3 tests/e2e/module_scan_memo.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-scan-memo"

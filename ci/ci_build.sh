@@ -54,7 +54,7 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
     tools/clang/test/Modules/missing-module-semicolon-location.cpp
   CLANGD_TESTS=./tools/clang/tools/extra/clangd/unittests/ClangdTests
   [[ -x "$CLANGD_TESTS" ]] || CLANGD_TESTS+=.exe
-  "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer:PrerequisiteModulesTests.Provider*:GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration:DiagnosticsTest.*'
+  "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.*:GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration:DiagnosticsTest.*-PrerequisiteModulesTests.PositiveScanMemo*'
   if [[ "$PLATFORM" == "linux-x64" ]]; then
     "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.PositiveScanMemo*'
   fi

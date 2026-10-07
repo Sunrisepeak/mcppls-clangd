@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "platform": "linux-x64",
+  "source": {
+    "patch_count": 32,
+    "ordered_patch_names": [
+      "0001-UP-05-backport-handling-merging-predefined-decls-from-std.patch",
+      "0002-UP-25-memoize-module-file-validation-across-requests.patch",
+      "0003-UP-18-break-module-cache-locks-whose-owner-died.patch",
+      "0004-UP-09-semantic-tokens-range.patch",
+      "0005-UP-22-const-correctness-ranges-pipeline.patch",
+      "0006-UP-25-completion-index-fast-path.patch",
+      "0007-UP-13-windows-crash-dumps.patch",
+      "0008-UP-25-semantic-module-completion-default.patch",
+      "0009-UP-25-precise-validation-input-identity.patch",
+      "0010-UP-13-crash-dump-declaration.patch",
+      "0011-UP-25-validation-memo-respects-drafts.patch",
+      "0012-mcpp-fallback-style.patch",
+      "0013-UP-25-completion-refreshes-module-dependencies.patch",
+      "0014-compiler-extension-semantic-completion.patch",
+      "0015-UP-01-module-directive-token-recovery.patch",
+      "0016-module-lock-wait-cancellation.patch",
+      "0017-module-dependency-cycle-rejection.patch",
+      "0018-completion-stage-tracing.patch",
+      "0019-third-party-imports-keep-resolvable-modules.patch",
+      "0020-prerequisite-reuse-dies-with-command-generation.patch",
+      "0021-UP-22-semantic-const-range-constraints.patch",
+      "0022-UP-24-copy-on-read-owner-leases.patch",
+      "0023-UP-03-bounded-module-dag-compilation.patch",
+      "0024-UP-12-missing-bmi-directive-replay.patch",
+      "0025-UP-03-provider-command-generation-cache.patch",
+      "0026-UP-23-request-buffer-module-scans.patch",
+      "0027-UP-15-module-separator-diagnostic-locations.patch",
+      "0028-UP-03-verified-module-dependency-scan-memo.patch",
+      "0029-UP-03-observe-module-scan-builtin-expansions.patch",
+      "0031-W3-module-build-cancellation-boundaries.patch",
+      "0032-UP-25-first-module-completion-commands.patch",
+      "0033-UP-24-owner-lease-gc-fixture.patch"
+    ],
+    "source_commit": "9492f9bec80824ba00c36d4d4b7112dd1eafc0fc",
+    "patch_paths_compared": 62,
+    "overlay_paths_compared": 3,
+    "mismatches": [],
+    "scope": "All touched source paths independently applied from pinned baseline plus unchanged overlays; not a full-source release build."
+  },
+  "patch_series_sha256": "e9001d0954e80cdd5fb1a5ee56f00dac604b89dc40a6b0c6bf1b45551395fc08",
+  "engine_sha256": "a0f239573c16b6363b85ebb42a34dc3b1aec38f78625f987ed33bcf8669b0f63",
+  "scope": "Incremental native development link. No final immutable package, floor, native editor or hard resource-bound claim.",
+  "integrated_units": {
+    "passed": 68,
+    "elapsed_ms": 579,
+    "log_sha256": "e011599a598d7b5d1266dce8a7a63ed1e3304bd98e782d2375bd1deed928b866",
+    "scope": "Full prerequisite and diagnostics, provider generation, fallback and selected preamble scheduler tests."
+  },
+  "cold_candidate": {
+    "outcome": "pass",
+    "exit_code": 0,
+    "readers_stopped": true,
+    "source_unchanged": true,
+    "engine_sha256": "a0f239573c16b6363b85ebb42a34dc3b1aec38f78625f987ed33bcf8669b0f63",
+    "responses": [
+      {
+        "method": "textDocument/completion",
+        "symbols": [
+          "fn_m"
+        ],
+        "elapsed_ms": 52.544376005243976,
+        "completion_items": {
+          "fn_m": [
+            {
+              "detail": "int",
+              "filterText": "fn_m",
+              "insertText": "fn_m",
+              "insertTextFormat": 1,
+              "kind": 3,
+              "label": " fn_m()",
+              "score": 0.8084393739700317,
+              "sortText": "40b10a1efn_m",
+              "textEdit": {
+                "newText": "fn_m",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 1
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cold_baseline": {
+    "outcome": "error",
+    "detail": "missing symbols ['fn_m']; forbidden symbols []",
+    "exit_code": -9,
+    "readers_stopped": true,
+    "source_unchanged": true,
+    "engine_sha256": "44f4e08d2ad66bc9cb28ad35c64a8d9bd322cac04b62e842cb83bacbbdaf3144",
+    "responses": [
+      {
+        "method": "textDocument/completion",
+        "symbols": [],
+        "elapsed_ms": 8.190389002265874
+      }
+    ]
+  },
+  "baseline_exit_note": "-9 is harness cleanup after missing semantic symbols, not natural crash evidence.",
+  "phase_probe": {
+    "engine_sha256": "94ca5ddeab954703b62584928b1c7905368deba74d8ad392b156c925d20f6fe8",
+    "all_semantic_requests_passed": true,
+    "phases": {
+      "cold-open": {
+        "requested": 1,
+        "answered": 1,
+        "missing": 0,
+        "samples_ms": [
+          20.588933999533765
+        ],
+        "p50_ms": 20.588933999533765,
+        "p95_ms": 20.588933999533765
+      },
+      "settled-warm": {
+        "requested": 4,
+        "answered": 4,
+        "missing": 0,
+        "samples_ms": [
+          6.451107998145744,
+          2.9332699996302836,
+          3.7472280018846504,
+          3.6367610009619966
+        ],
+        "p50_ms": 3.6367610009619966,
+        "p95_ms": 6.451107998145744
+      },
+      "edited": {
+        "requested": 3,
+        "answered": 3,
+        "missing": 0,
+        "samples_ms": [
+          5.420007997599896,
+          5.693371000234038,
+          5.430391000118107
+        ],
+        "p50_ms": 5.430391000118107,
+        "p95_ms": 5.693371000234038
+      }
+    },
+    "limits": [
+      "Single context exploratory probe; no release performance gate claim.",
+      "Cold-open includes fallback responses: missing symbols fail, not excluded.",
+      "No insertion compilation or baseline speedup proof.",
+      "Settled-warm is AST-ready, not proof of a particular cache hit."
+    ]
+  },
+  "cancel_matched_source_before": "Same new test with independently compiled original ModulesBuilder fails both cancellation trigger points, leaving stable/read-copy PCM; fixed object cleans all PCMs and retries normally.",
+  "gc_scope": "Test-only ownership correction; no production GC behavior change, published-cache growth remains open.",
+  "open": "Response generation repair, worker isolation/deadline/RSS, final native immutable packages and product lock, qualified native crash corpus, editor/native statistics, RC and nightly gates."
+}
