@@ -2,7 +2,7 @@ name: verify-series
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
 
 concurrency:
@@ -32,7 +32,9 @@ jobs:
         run: python3 ci/check_ledger.py
 
       - name: Release gate negative controls
-        run: python3 ci/test_release_gates.py
+        run: |
+          python3 ci/test_release_gates.py
+          python3 ci/test_soak.py
 
       - name: Summary
         run: |

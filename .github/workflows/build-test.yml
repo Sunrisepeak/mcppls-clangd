@@ -2,7 +2,7 @@ name: build-test
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -15,7 +15,9 @@ on:
 
 concurrency:
   group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ github.event.inputs.platform || 'default' }}
-  cancel-in-progress: true
+  # Finish expensive native builds so their compiler caches are saved.
+  # New PR revisions queue; only the newest pending revision is retained.
+  cancel-in-progress: false
 
 jobs:
   setup:

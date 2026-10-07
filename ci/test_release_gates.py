@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fast negative controls for release eligibility and corpus replay."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -76,6 +77,35 @@ while True:
             fake.write_text('import time; time.sleep(60)\n')
             case['timeout_seconds'] = 0.1
             self.assertEqual(run(), 'timeout')
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX process-group cleanup')
+    def test_crashed_leader_reaps_output_holding_helpers(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('replay', ROOT / 'tests/crash/replay.py')
+        replay = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(replay)
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            fake = project / 'crashed.py'
+            fake.write_text("import subprocess, sys\n"
+                            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+                            "open('child.pid', 'w').write(str(child.pid))\n"
+                            "sys.exit(7)\n")
+            manifest = project / 'case.json'
+            manifest.write_text(json.dumps({
+                'id': 'crashed-leader', 'platform': replay.platform_name(),
+                'baseline': 'crash', 'project': '.', 'flags': [str(fake)],
+                'timeout_seconds': 0.3, 'sequence': [
+                    {'method': 'initialize', 'params': {}},
+                    {'method': 'textDocument/completion', 'params': {},
+                     'expect': {'/result/items/0/label': 'member'}}]}))
+            result = replay.replay(Path(sys.executable), manifest)
+            self.assertNotEqual(result['outcome'], 'pass')
+            self.assertEqual(result['exit_code'], 7)
+            self.assertTrue(result['readers_stopped'], result)
+            stat = Path(f"/proc/{int((project / 'child.pid').read_text())}/stat")
+            if stat.exists():
+                self.assertEqual(stat.read_text().split(') ')[1].split()[0], 'Z')
 
 
 if __name__ == '__main__':

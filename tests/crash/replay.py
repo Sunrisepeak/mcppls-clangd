@@ -94,8 +94,10 @@ def replay(engine, manifest):
         except Exception as exc:
             messages.put(exc)
 
-    threading.Thread(target=reader, daemon=True).start()
-    threading.Thread(target=stderr, daemon=True).start()
+    readers = [threading.Thread(target=reader, daemon=True),
+               threading.Thread(target=stderr, daemon=True)]
+    for thread in readers:
+        thread.start()
     deadline = time.monotonic() + timeout
     rid = 0
     result = {"id": case["id"], "outcome": "error", "responses": [], "raw_responses": []}
@@ -248,12 +250,28 @@ def replay(engine, manifest):
     except Exception as exc:
         result.update(outcome="crash" if proc.poll() not in (None, 0) else "error", detail=str(exc))
     finally:
-        if proc.poll() is None:
-            if os.name == "nt":
+        if os.name == "nt":
+            if proc.poll() is None:
                 subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, timeout=15)
-            else:
+        else:
+            # A crashed leader can leave live helpers holding its output pipes.
+            # The owned group still exists, so clean it even after leader exit.
+            try:
                 os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait(timeout=15)
+            except ProcessLookupError:
+                pass
+        proc.wait(timeout=15)
+        for thread in readers:
+            thread.join(timeout=2)
+        result["readers_stopped"] = all(not thread.is_alive() for thread in readers)
+        if not result["readers_stopped"]:
+            result.update(outcome="error", detail="inherited output descriptors remain open")
+        proc.stdin.close()
+        if result["readers_stopped"]:
+            # Closing a buffered stream held by a blocked reader can itself
+            # block. A surviving pipe holder fails the gate above instead.
+            proc.stdout.close()
+            proc.stderr.close()
         for path, (content, atime, mtime) in originals.items():
             path.write_bytes(content)
             os.utime(path, ns=(atime, mtime))
