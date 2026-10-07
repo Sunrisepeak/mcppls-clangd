@@ -67,7 +67,13 @@ def main():
     (root / 'result.json').write_text(json.dumps(result, indent=2))
     if result['outcome'] != 'pass' or not result['disk_contents_unchanged']:
         raise RuntimeError(result.get('detail', 'disk buffer changed'))
-    if 'Failed to build module prerequisites' in result['stderr']:
+    # A superseded AST or shutdown can cancel a concurrent module task after
+    # the requested symbols have already been returned. Keep genuine build
+    # failures fatal while accepting this explicit cancellation outcome.
+    failures = [line for line in result['stderr'].splitlines()
+                if 'Failed to build module prerequisites' in line
+                and not line.endswith('; due to Task was cancelled.')]
+    if failures:
         raise RuntimeError('valid unsaved imports failed')
     print(json.dumps({'outcome': 'pass', 'disk_contents_unchanged': True,
                       'report': str(root / 'result.json')}))

@@ -67,3 +67,7 @@ they live here and in patch *filenames* only.
 | 0033-UP-24-owner-lease-gc-fixture.patch | UP-24 | stabilizing | PrerequisiteModulesTests.PersistentModuleCacheGCReclaimsOnlyUnownedReadCopies; ci/module-build-cancellation.md | Upstream GC fixture asserts actual orphan kernel-lease ownership while retaining stable and active-reader PCMs |
 
 | 0034-UP-03-module-compiler-worker-protocol.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerPreservesCapturedInputs; ci/module-worker-isolation.md | Upstream provides a module worker input protocol with captured VFS semantics and explicit output ownership; parent supervision remains separately required |
+
+| 0035-UP-03-module-worker-supervision-and-drafts.patch | UP-03 | stabilizing | DraftStore.AtomicSnapshotRetainsVersionsAndExportsDirtyHeaders; PrerequisiteModulesTests.ModuleWorker*; ci/module-worker-isolation.md | Upstream supervises only its owned compiler child, reaps before cleanup and exports actual atomic request drafts; actual server enablement remains separate |
+
+| 0036-UP-03-windows-module-dag-macro-portability.patch | UP-03 | stabilizing | native Windows build; ci/module-worker-isolation.md | Upstream module DAG standard function calls compile with Windows min/max macros without changing scheduling |

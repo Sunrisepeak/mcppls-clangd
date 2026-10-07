@@ -1,0 +1,38 @@
+{
+  "source_commit": "03a76e8de3ce94e774fc467b149a5a4ef2de78af",
+  "integrated_source_commit": "426fd381a",
+  "scope": "private Linux changed-TU build; full dependent rebuild pending",
+  "default_enabled": false,
+  "native_platforms": [
+    "linux"
+  ],
+  "results": [
+    {
+      "mode": "success",
+      "exit": 0,
+      "stdout": "elapsed_ms=11 other_alive=1 no_children=1 output=1\nworker_success=1\n",
+      "stderr": "",
+      "remaining_temp_dirs": []
+    },
+    {
+      "mode": "timeout",
+      "exit": 0,
+      "stdout": "elapsed_ms=103 other_alive=1 no_children=1 output=0\nmodule worker timed out (pid 765582): /tmp/module-worker-supervisor-evidence/timeout/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "remaining_temp_dirs": []
+    },
+    {
+      "mode": "cancel",
+      "exit": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\nmodule worker cancelled (pid 765585): /tmp/module-worker-supervisor-evidence/cancel/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "remaining_temp_dirs": []
+    }
+  ],
+  "limits": [
+    "no hard RSS bound",
+    "no parent-death ownership yet",
+    "snapshot IO is not interruptible",
+    "no actual server integration yet"
+  ]
+}

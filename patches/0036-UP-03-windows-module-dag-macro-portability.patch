@@ -1,0 +1,43 @@
+From b5cac2d5b7f16306b732cc904a931fb14002c39e Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:30:21 +0900
+Subject: [PATCH] Avoid Windows min and max macros in module DAG compilation
+
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 118a7bca3..e3054874b 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -106,7 +106,7 @@ llvm::cl::opt<unsigned> ModuleBuildWorkers(
+ 
+ llvm::ThreadPoolStrategy moduleBuildStrategy() {
+   auto Strategy = llvm::heavyweight_hardware_concurrency(
+-      std::max(1u, std::min(4u, unsigned(ModuleBuildWorkers))));
++      (std::max)(1u, (std::min)(4u, unsigned(ModuleBuildWorkers))));
+   Strategy.Limit = true;
+   return Strategy;
+ }
+@@ -1321,7 +1321,7 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+     for (StringRef Dependency : MDB.getRequiredModules(Source)) {
+       if (llvm::Error Err = Visitor(Dependency, Visitor))
+         return Err;
+-      Depth = std::max(Depth, Completed.find(Dependency)->second + 1);
++      Depth = (std::max)(Depth, Completed.find(Dependency)->second + 1);
+     }
+     Completed.insert({Name, Depth});
+     Plan.push_back({Name.str(), std::move(Source), Depth});
+@@ -1673,7 +1673,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+     // Bound queued work as well as active compilation. Every wave sees one
+     // immutable prerequisite snapshot; workers never wait on peer tasks.
+     for (size_t Batch = Begin; Batch < End;) {
+-      size_t BatchEnd = std::min(End, Batch + BuildPool.getMaxConcurrency());
++      size_t BatchEnd = (std::min)(End, Batch + BuildPool.getMaxConcurrency());
+       auto Snapshot =
+           std::make_shared<const ReusablePrerequisiteModules>(BuiltModuleFiles);
+       std::vector<std::optional<Result>> Results(BatchEnd - Batch);
+-- 
+2.53.0
+

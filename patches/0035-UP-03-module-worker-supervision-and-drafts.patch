@@ -1,0 +1,700 @@
+From 03a76e8de3ce94e774fc467b149a5a4ef2de78af Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:28:45 +0900
+Subject: [PATCH] Supervise isolated module compilation and capture request
+ drafts
+
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     |  19 +-
+ clang-tools-extra/clangd/DraftStore.cpp       |  63 +++-
+ clang-tools-extra/clangd/DraftStore.h         |  16 ++
+ .../clangd/ModuleBuildWorker.cpp              | 271 ++++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |  30 ++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  10 +
+ .../clangd/support/ThreadsafeFS.h             |  30 ++
+ .../clangd/unittests/DraftStoreTests.cpp      |  26 ++
+ .../unittests/PrerequisiteModulesTest.cpp     |  22 ++
+ 9 files changed, 463 insertions(+), 24 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index ca77c966a..7424fe3cd 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -173,23 +173,6 @@ private:
+   bool CollectInactiveRegions;
+ };
+ 
+-class DraftStoreFS : public ThreadsafeFS {
+-public:
+-  DraftStoreFS(const ThreadsafeFS &Base, const DraftStore &Drafts)
+-      : Base(Base), DirtyFiles(Drafts) {}
+-
+-private:
+-  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
+-    auto OFS = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+-        Base.view(std::nullopt));
+-    OFS->pushOverlay(DirtyFiles.asVFS());
+-    return OFS;
+-  }
+-
+-  const ThreadsafeFS &Base;
+-  const DraftStore &DirtyFiles;
+-};
+-
+ } // namespace
+ 
+ ClangdServer::Options ClangdServer::optsForTest() {
+@@ -229,7 +212,7 @@ ClangdServer::ClangdServer(const GlobalCompilationDatabase &CDB,
+       WorkspaceRoot(Opts.WorkspaceRoot),
+       Transient(Opts.ImplicitCancellation ? TUScheduler::InvalidateOnUpdate
+                                           : TUScheduler::NoInvalidation),
+-      DirtyFS(std::make_unique<DraftStoreFS>(TFS, DraftMgr)),
++      DirtyFS(createDraftStoreFS(TFS, DraftMgr)),
+       ContextProvider(Opts.ContextProvider) {
+   if (Opts.AsyncThreadsCount != 0)
+     IndexTasks.emplace();
+diff --git a/clang-tools-extra/clangd/DraftStore.cpp b/clang-tools-extra/clangd/DraftStore.cpp
+index 66e45b0c0..fac4dd9d1 100644
+--- a/clang-tools-extra/clangd/DraftStore.cpp
++++ b/clang-tools-extra/clangd/DraftStore.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "DraftStore.h"
+ #include "support/Logger.h"
++#include "support/ThreadsafeFS.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include <memory>
+@@ -91,6 +92,36 @@ void DraftStore::removeDraft(PathRef File) {
+ 
+ namespace {
+ 
++class DraftStoreFS : public ThreadsafeFS {
++public:
++  DraftStoreFS(const ThreadsafeFS &Base, const DraftStore &Drafts)
++      : Base(Base), DirtyFiles(Drafts) {}
++
++  std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const override {
++    auto Captured = Base.snapshotForModuleBuild();
++    if (!Captured)
++      return std::nullopt;
++    // The same atomic DraftStore snapshot used by asVFS(), never a sequence
++    // of getActiveFiles/getDraft calls that could combine different versions.
++    for (const auto &File : DirtyFiles.snapshot())
++      Captured->OverlayFiles.push_back(
++          {File.File, *File.Contents.Contents, File.MTime});
++    return Captured;
++  }
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    auto OFS = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
++        Base.view(std::nullopt));
++    OFS->pushOverlay(DirtyFiles.asVFS());
++    return OFS;
++  }
++
++  const ThreadsafeFS &Base;
++  const DraftStore &DirtyFiles;
++};
++
+ /// A read only MemoryBuffer shares ownership of a ref counted string. The
+ /// shared string object must not be modified while an owned by this buffer.
+ class SharedStringBuffer : public llvm::MemoryBuffer {
+@@ -114,14 +145,34 @@ public:
+ };
+ } // namespace
+ 
+-llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> DraftStore::asVFS() const {
+-  auto MemFS = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++std::unique_ptr<ThreadsafeFS> createDraftStoreFS(const ThreadsafeFS &Base,
++                                                 const DraftStore &Drafts) {
++  return std::make_unique<DraftStoreFS>(Base, Drafts);
++}
++
++DraftStore::Snapshot DraftStore::snapshot() const {
+   std::lock_guard<std::mutex> Guard(Mutex);
+-  for (const auto &Draft : Drafts)
+-    MemFS->addFile(Draft.getKey(), Draft.getValue().MTime,
+-                   std::make_unique<SharedStringBuffer>(
+-                       Draft.getValue().D.Contents, Draft.getKey()));
++  Snapshot Result;
++  Result.reserve(Drafts.size());
++  for (const auto &File : Drafts)
++    Result.push_back(
++        {File.getKey().str(), File.getValue().D, File.getValue().MTime});
++  return Result;
++}
++
++llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++DraftStore::asVFS(const Snapshot &Files) {
++  auto MemFS = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++  for (const auto &File : Files)
++    MemFS->addFile(File.File, File.MTime,
++                   std::make_unique<SharedStringBuffer>(File.Contents.Contents,
++                                                        File.File));
+   return MemFS;
+ }
++
++llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> DraftStore::asVFS() const {
++  return asVFS(snapshot());
++}
++
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/DraftStore.h b/clang-tools-extra/clangd/DraftStore.h
+index 0d5204215..56dd9b4b4 100644
+--- a/clang-tools-extra/clangd/DraftStore.h
++++ b/clang-tools-extra/clangd/DraftStore.h
+@@ -13,6 +13,7 @@
+ #include "clang/Basic/LLVM.h"
+ #include "llvm/ADT/StringMap.h"
+ #include "llvm/Support/VirtualFileSystem.h"
++#include <ctime>
+ #include <mutex>
+ #include <optional>
+ #include <string>
+@@ -20,6 +21,7 @@
+ 
+ namespace clang {
+ namespace clangd {
++class ThreadsafeFS;
+ 
+ /// A thread-safe container for files opened in a workspace, addressed by
+ /// filenames. The contents are owned by the DraftStore.
+@@ -48,6 +50,16 @@ public:
+   /// Remove the draft from the store.
+   void removeDraft(PathRef File);
+ 
++  struct SnapshotFile {
++    Path File;
++    Draft Contents;
++    std::time_t MTime;
++  };
++  using Snapshot = std::vector<SnapshotFile>;
++  // One atomic version of all drafts, retaining immutable buffer ownership.
++  Snapshot snapshot() const;
++  static llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++  asVFS(const Snapshot &);
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> asVFS() const;
+ 
+ private:
+@@ -59,6 +71,10 @@ private:
+   llvm::StringMap<DraftAndTime> Drafts;
+ };
+ 
++// The server's dirty-header view, also exportable to an isolated compiler.
++std::unique_ptr<ThreadsafeFS> createDraftStoreFS(const ThreadsafeFS &Base,
++                                                 const DraftStore &Drafts);
++
+ } // namespace clangd
+ } // namespace clang
+ 
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 55a3f6a19..7d1864090 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -12,6 +12,20 @@
+ #include "clang/Frontend/TextDiagnosticPrinter.h"
+ #include "clang/Lex/PreprocessorOptions.h"
+ #include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringMap.h"
++#include "llvm/Config/llvm-config.h"
++#include "llvm/Support/Process.h"
++#include <array>
++#include <thread>
++#ifdef _WIN32
++#include <windows.h>
++#else
++#include <cerrno>
++#include <csignal>
++#include <sys/resource.h>
++#include <sys/wait.h>
++#include <unistd.h>
++#endif
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/JSON.h"
+ #include "llvm/Support/MemoryBuffer.h"
+@@ -60,6 +74,109 @@ llvm::Error validateInvocation(const CompilerInvocation &Invocation,
+         "module worker cannot serialize remapped buffer pointers");
+   return llvm::Error::success();
+ }
++// This deliberately avoids Program.cpp's process-global SIGALRM timeout.
++class WorkerProcess {
++public:
++  explicit WorkerProcess(llvm::sys::ProcessInfo Process) : Process(Process) {}
++  ~WorkerProcess() {
++    if (Active) {
++      terminate();
++      auto Reaped = reap(/*Blocking=*/true);
++      if (!Reaped)
++        llvm::consumeError(Reaped.takeError());
++    }
++  }
++  llvm::Expected<std::optional<int>> reap(bool Blocking) {
++#ifdef _WIN32
++    DWORD State = WaitForSingleObject(Process.Process, Blocking ? INFINITE : 0);
++    if (State == WAIT_TIMEOUT)
++      return std::optional<int>{};
++    if (State != WAIT_OBJECT_0)
++      return llvm::createStringError("failed waiting for module worker");
++    DWORD Code = 1;
++    if (!GetExitCodeProcess(Process.Process, &Code))
++      return llvm::createStringError(
++          "failed reading module worker exit status");
++    CloseHandle(Process.Process);
++    Active = false;
++    return std::optional<int>(static_cast<int>(Code));
++#else
++    int Status = 0;
++    struct rusage Usage;
++    pid_t Result;
++    do {
++      Result = wait4(Process.Pid, &Status, Blocking ? 0 : WNOHANG, &Usage);
++    } while (Result < 0 && errno == EINTR);
++    if (Result == 0)
++      return std::optional<int>{};
++    if (Result < 0) {
++      if (errno == ECHILD)
++        Active = false; // Never signal a PID already reaped elsewhere.
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    }
++    Active = false;
++    llvm::sys::ProcessStatistics Stats;
++    auto Micros = [](const timeval &Time) {
++      return std::chrono::seconds(Time.tv_sec) +
++             std::chrono::microseconds(Time.tv_usec);
++    };
++    Stats.UserTime = Micros(Usage.ru_utime);
++    Stats.TotalTime = Stats.UserTime + Micros(Usage.ru_stime);
++#ifdef __APPLE__
++    Stats.PeakMemory = Usage.ru_maxrss / 1024;
++#else
++    Stats.PeakMemory = Usage.ru_maxrss;
++#endif
++    Statistics = Stats;
++    return std::optional<int>(WIFEXITED(Status) ? WEXITSTATUS(Status) : -1);
++#endif
++  }
++  void terminate() {
++#ifdef _WIN32
++    TerminateProcess(Process.Process, 1);
++#else
++    kill(Process.Pid, SIGKILL);
++#endif
++  }
++  std::optional<llvm::sys::ProcessStatistics> Statistics;
++
++private:
++  llvm::sys::ProcessInfo Process;
++  bool Active = true;
++};
++
++llvm::Error writeSnapshot(PathRef Path, StringRef Contents,
++                          std::optional<int64_t> MTime = std::nullopt) {
++  int FD = -1;
++  if (auto EC = llvm::sys::fs::openFileForWrite(Path, FD))
++    return llvm::errorCodeToError(EC);
++  llvm::raw_fd_ostream Out(FD, true);
++  Out << Contents;
++  Out.flush();
++  if (Out.has_error()) {
++    auto EC = Out.error();
++    Out.clear_error();
++    return llvm::errorCodeToError(EC);
++  }
++  if (MTime) {
++    llvm::sys::TimePoint<> Time{std::chrono::seconds(*MTime)};
++    if (auto EC = llvm::sys::fs::setLastAccessAndModificationTime(FD, Time))
++      return llvm::errorCodeToError(EC);
++  }
++  return llvm::Error::success();
++}
++
++std::string workerDiagnostics(PathRef Path) {
++  // A diagnostic file cannot force an unbounded parent allocation.
++  uint64_t Size = 0;
++  if (llvm::sys::fs::file_size(Path, Size))
++    return {};
++  auto Text = llvm::MemoryBuffer::getFileSlice(
++      Path, std::min<uint64_t>(Size, 64 * 1024), 0);
++  return Text ? (*Text)->getBuffer().str() : std::string{};
++}
++
+ } // namespace
+ 
+ llvm::Expected<std::string>
+@@ -80,6 +197,160 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+   return llvm::formatv("{0}", llvm::json::Value(std::move(Request))).str();
+ }
+ 
++llvm::Expected<std::optional<ModuleBuildWorkerResult>>
++buildModuleInWorker(const CompilerInvocation &Invocation,
++                    StringRef MainContents, const ThreadsafeFS &FS,
++                    PathRef WorkingDirectory,
++                    const ModuleBuildWorkerOptions &Options) {
++  if (Options.Isolation == ModuleBuildWorkerOptions::Policy::InProcess)
++    return std::optional<ModuleBuildWorkerResult>{};
++  const auto Started = std::chrono::steady_clock::now();
++  auto Snapshot = FS.snapshotForModuleBuild();
++  if (!Snapshot) {
++    if (Options.Isolation == ModuleBuildWorkerOptions::Policy::WhenSupported)
++      return std::optional<ModuleBuildWorkerResult>{};
++    return llvm::createStringError(
++        "required module worker cannot export request filesystem");
++  }
++  if (Options.Timeout <= std::chrono::milliseconds::zero() ||
++      !llvm::sys::path::is_absolute(Options.Executable))
++    return llvm::createStringError(
++        "module worker requires an executable and positive timeout");
++  const auto Deadline = Started + Options.Timeout;
++  auto Cancelled = [&] { return Options.Cancelled && Options.Cancelled(); };
++  if (Cancelled())
++    return llvm::createStringError("module worker was cancelled before launch");
++  const std::string Output = Invocation.getFrontendOpts().OutputFile;
++  if (!llvm::sys::path::is_absolute(Output) || StringRef(Output).contains('\0'))
++    return llvm::createStringError(
++        "module worker staged output must be absolute");
++  if (llvm::sys::fs::exists(Output))
++    return llvm::createStringError(
++        "module worker staged output already exists");
++  llvm::SmallString<256> Directory;
++  if (auto EC = llvm::sys::fs::createUniqueDirectory("clangd-module-worker",
++                                                     Directory))
++    return llvm::errorCodeToError(EC);
++  bool Success = false;
++  auto Cleanup = llvm::scope_exit([&] {
++    llvm::sys::fs::remove_directories(Directory);
++    if (!Success)
++      llvm::sys::fs::remove(Output);
++  });
++  auto Path = [&](StringRef Name) {
++    llvm::SmallString<256> Result(Directory);
++    llvm::sys::path::append(Result, Name);
++    return Result.str().str();
++  };
++  ModuleBuildWorkerInputs Inputs;
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  Inputs.WorkingDirectory = WorkingDirectory.str();
++  if (Invocation.getFrontendOpts().Inputs.size() != 1 ||
++      !Invocation.getFrontendOpts().Inputs[0].isFile())
++    return llvm::createStringError("module worker requires a single main file");
++  Inputs.MainFile = Invocation.getFrontendOpts().Inputs[0].getFile().str();
++  Inputs.MainContentsFile = Path("main.snapshot");
++  if (auto Err = writeSnapshot(Inputs.MainContentsFile, MainContents))
++    return std::move(Err);
++  // Flatten repeated paths with last-overlay-wins semantics.
++  llvm::StringMap<const ModuleBuildFileSystemSnapshot::File *> Files;
++  for (const auto &File : Snapshot->OverlayFiles)
++    Files[File.Path] = &File;
++  llvm::vfs::YAMLVFSWriter Writer;
++  Writer.setUseExternalNames(false);
++  unsigned Index = 0;
++  for (const auto &Entry : Files) {
++    const auto &File = *Entry.getValue();
++    if (!llvm::sys::path::is_absolute(File.Path))
++      return llvm::createStringError(
++          "captured module worker paths must be absolute");
++    std::string ContentsPath = Path("overlay-" + std::to_string(Index++));
++    if (auto Err =
++            writeSnapshot(ContentsPath, File.Contents, File.ModificationTime))
++      return std::move(Err);
++    Writer.addFileMapping(File.Path, ContentsPath);
++  }
++  std::string YAML;
++  llvm::raw_string_ostream YAMLStream(YAML);
++  Writer.write(YAMLStream);
++  Inputs.OverlayFiles = {Path("filesystem.yaml")};
++  if (auto Err = writeSnapshot(Inputs.OverlayFiles.front(), YAML))
++    return std::move(Err);
++  CompilerInvocation WorkerInvocation(Invocation);
++  WorkerInvocation.getHeaderSearchOpts().ModuleCachePath = Path("module-cache");
++  auto Request = serializeModuleBuildWorkerRequest(WorkerInvocation, Inputs);
++  if (!Request)
++    return Request.takeError();
++  const std::string RequestPath = Path("request.json");
++  if (auto Err = writeSnapshot(RequestPath, *Request))
++    return std::move(Err);
++  if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
++    return llvm::createStringError(
++        "module worker was cancelled or timed out during capture");
++  const std::string DiagnosticsPath = Path("stderr.log");
++  std::array<std::optional<StringRef>, 3> Redirects{
++      StringRef(""), StringRef(""), StringRef(DiagnosticsPath)};
++  std::array<StringRef, 3> Args{Options.Executable, "--module-build-worker",
++                                RequestPath};
++  std::string LaunchError;
++  bool Failed = false;
++  auto Process =
++      llvm::sys::ExecuteNoWait(Options.Executable, Args, std::nullopt,
++                               Redirects, 0, &LaunchError, &Failed);
++  if (Failed || Process.Pid == llvm::sys::ProcessInfo::InvalidPid)
++    return llvm::createStringError("failed to launch module worker: " +
++                                   LaunchError);
++  // Declared after Cleanup: destruction always terminates/reaps before files
++  // and any caller-owned source locks/prerequisite leases can be released.
++  WorkerProcess Child(Process);
++  for (;;) {
++    auto Status = Child.reap(/*Blocking=*/false);
++    if (!Status)
++      return Status.takeError();
++    if (*Status) {
++      if (**Status != 0)
++        return llvm::createStringError("module worker failed: " +
++                                       workerDiagnostics(DiagnosticsPath));
++      break;
++    }
++    const bool WasCancelled = Cancelled();
++    if (WasCancelled || std::chrono::steady_clock::now() >= Deadline) {
++      Child.terminate();
++      auto Reaped = Child.reap(/*Blocking=*/true);
++      if (!Reaped)
++        return Reaped.takeError();
++      return llvm::createStringError(
++          llvm::formatv("module worker {0} (pid {1}): {2}",
++                        WasCancelled ? "cancelled" : "timed out", Process.Pid,
++                        workerDiagnostics(DiagnosticsPath))
++              .str());
++    }
++    std::this_thread::sleep_for(std::chrono::milliseconds(10));
++  }
++  if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
++    return llvm::createStringError(
++        "module worker cancelled or timed out before accepting output");
++  // A BMI must not reference prerequisites about to disappear with this
++  // worker's private cache. Explicit prerequisite copies remain parent-owned.
++  std::error_code EC;
++  for (llvm::sys::fs::recursive_directory_iterator I(Path("module-cache"), EC),
++       End;
++       I != End && !EC; I.increment(EC))
++    if (llvm::sys::path::extension(I->path()) == ".pcm")
++      return llvm::createStringError(
++          "module worker built uncaptured implicit prerequisites");
++  if (EC && EC != std::errc::no_such_file_or_directory)
++    return llvm::errorCodeToError(EC);
++  if (!llvm::sys::fs::exists(Output))
++    return llvm::createStringError("module worker produced no staged output");
++  Success = true;
++  return std::optional<ModuleBuildWorkerResult>(
++      {std::chrono::duration_cast<std::chrono::milliseconds>(
++           std::chrono::steady_clock::now() - Started),
++       Child.Statistics});
++}
++
+ llvm::Error runModuleBuildWorker(PathRef RequestFile) {
+   auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
+   if (!Buffer)
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index 69987c96f..a4e6cae0d 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -11,12 +11,17 @@
+ 
+ #include "support/Path.h"
+ #include "llvm/Support/Error.h"
++#include "llvm/Support/Program.h"
++#include <chrono>
++#include <functional>
++#include <optional>
+ #include <string>
+ #include <vector>
+ 
+ namespace clang {
+ class CompilerInvocation;
+ namespace clangd {
++class ThreadsafeFS;
+ 
+ // These files belong to the parent until the child has been reaped. The main
+ // buffer and every virtual overlay backing file must contain the exact request
+@@ -39,6 +44,31 @@ llvm::Expected<std::string>
+ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+                                   const ModuleBuildWorkerInputs &Inputs);
+ 
++struct ModuleBuildWorkerOptions {
++  enum class Policy { InProcess, WhenSupported, Required };
++  Policy Isolation = Policy::InProcess;
++  std::string Executable;
++  std::chrono::milliseconds Timeout{60000};
++  std::function<bool()> Cancelled;
++};
++struct ModuleBuildWorkerResult {
++  std::chrono::milliseconds WallTime;
++  std::optional<llvm::sys::ProcessStatistics> Statistics;
++};
++
++// nullopt selects the existing in-process implementation, either by explicit
++// default policy or because WhenSupported encountered an unexportable view.
++// Required never falls back. Once a worker has launched, every failure is an
++// error, regardless of policy: falling back could bypass its bound. This call
++// owns capture, specific-child termination/reap and temporary-directory
++// cleanup. The caller keeps its publication lock and prerequisite read leases
++// alive.
++llvm::Expected<std::optional<ModuleBuildWorkerResult>>
++buildModuleInWorker(const CompilerInvocation &Invocation,
++                    llvm::StringRef MainContents, const ThreadsafeFS &FS,
++                    PathRef WorkingDirectory,
++                    const ModuleBuildWorkerOptions &Options);
++
+ // Internal clangd executable mode. Never publishes the staged output. Clang
+ // may also write its configured implicit-module cache, which the parent must
+ // redirect into the worker-owned temporary directory. Failed compilation
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 5a436d52d..118a7bca3 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -52,6 +52,16 @@ public:
+                   llvm::StringRef Contents)
+       : Base(Base), MainFile(MainFile), Contents(Contents) {}
+ 
++  std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const override {
++    auto Snapshot = Base.snapshotForModuleBuild();
++    if (!Snapshot)
++      return std::nullopt;
++    // Match InMemoryFileSystem's zero timestamp and top-overlay precedence.
++    Snapshot->OverlayFiles.push_back({MainFile, Contents, 0});
++    return Snapshot;
++  }
++
+ private:
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
+     auto Overlay = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+diff --git a/clang-tools-extra/clangd/support/ThreadsafeFS.h b/clang-tools-extra/clangd/support/ThreadsafeFS.h
+index 26ca1365c..939747214 100644
+--- a/clang-tools-extra/clangd/support/ThreadsafeFS.h
++++ b/clang-tools-extra/clangd/support/ThreadsafeFS.h
+@@ -12,11 +12,27 @@
+ #include "Path.h"
+ #include "llvm/ADT/IntrusiveRefCntPtr.h"
+ #include "llvm/Support/VirtualFileSystem.h"
++#include <cstdint>
+ #include <memory>
++#include <optional>
++#include <string>
++#include <vector>
+ 
+ namespace clang {
+ namespace clangd {
+ 
++// A faithful disk-based view with immutable virtual-file overlays. Unknown
++// filesystem implementations must not advertise this capability. Snapshot
++// files preserve their request timestamp and virtual path in the child.
++struct ModuleBuildFileSystemSnapshot {
++  struct File {
++    std::string Path;
++    std::string Contents;
++    int64_t ModificationTime = 0; // seconds since the Unix epoch
++  };
++  std::vector<File> OverlayFiles;
++};
++
+ /// Wrapper for vfs::FileSystem for use in multithreaded programs like clangd.
+ /// As FileSystem is not threadsafe, concurrent threads must each obtain one.
+ /// Implementations may choose to depend on Context::current() e.g. to implement
+@@ -42,9 +58,23 @@ private:
+   /// Overridden by implementations to provide a vfs::FileSystem.
+   /// This is distinct from view(NoneType) to avoid GCC's -Woverloaded-virtual.
+   virtual llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const = 0;
++
++public:
++  // nullopt means this view cannot be faithfully exported to a disk-based
++  // compiler worker. It does not authorize replacing the view with real disk.
++  virtual std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const {
++    return std::nullopt;
++  }
+ };
+ 
+ class RealThreadsafeFS : public ThreadsafeFS {
++public:
++  std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const override {
++    return ModuleBuildFileSystemSnapshot{};
++  }
++
+ private:
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override;
+ };
+diff --git a/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp b/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp
+index 9d202e401..560da265e 100644
+--- a/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp
++++ b/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "DraftStore.h"
++#include "support/ThreadsafeFS.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+ 
+@@ -14,6 +15,31 @@ namespace clang {
+ namespace clangd {
+ namespace {
+ 
++TEST(DraftStore, AtomicSnapshotRetainsVersionsAndExportsDirtyHeaders) {
++  RealThreadsafeFS Base;
++  DraftStore Store;
++  Store.addDraft("/header.h", "1", "old header");
++  Store.addDraft("/M.cppm", "1", "old module");
++  auto Captured = Store.snapshot();
++  auto FS = createDraftStoreFS(Base, Store);
++  auto Exported = FS->snapshotForModuleBuild();
++  ASSERT_TRUE(Exported);
++  ASSERT_EQ(Exported->OverlayFiles.size(), 2u);
++  Store.addDraft("/header.h", "2", "new header");
++  Store.removeDraft("/M.cppm");
++  auto View = DraftStore::asVFS(Captured);
++  auto Header = View->getBufferForFile("/header.h");
++  ASSERT_TRUE(Header);
++  EXPECT_EQ((*Header)->getBuffer(), "old header");
++  EXPECT_TRUE(View->exists("/M.cppm"));
++  for (const auto &File : Exported->OverlayFiles)
++    EXPECT_TRUE(File.Contents == "old header" || File.Contents == "old module");
++  auto Current = FS->snapshotForModuleBuild();
++  ASSERT_TRUE(Current);
++  ASSERT_EQ(Current->OverlayFiles.size(), 1u);
++  EXPECT_EQ(Current->OverlayFiles[0].Contents, "new header");
++}
++
+ TEST(DraftStore, Versions) {
+   DraftStore DS;
+   Path File = "foo.cpp";
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 15d09ff54..2ec0bbcd6 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -407,6 +407,28 @@ export module M;
+   }
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ModuleWorkerPolicyDoesNotInventDiskSemantics) {
++  class UnknownFS : public ThreadsafeFS {
++    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++      return llvm::vfs::getRealFileSystem();
++    }
++  } FS;
++  CompilerInvocation Invocation;
++  ModuleBuildWorkerOptions Options;
++  auto Result = buildModuleInWorker(Invocation, "", FS, TestDir, Options);
++  ASSERT_TRUE(static_cast<bool>(Result));
++  EXPECT_FALSE(*Result);
++  Options.Isolation = ModuleBuildWorkerOptions::Policy::WhenSupported;
++  Result = buildModuleInWorker(Invocation, "", FS, TestDir, Options);
++  ASSERT_TRUE(static_cast<bool>(Result));
++  EXPECT_FALSE(*Result);
++  Options.Isolation = ModuleBuildWorkerOptions::Policy::Required;
++  Result = buildModuleInWorker(Invocation, "", FS, TestDir, Options);
++  ASSERT_FALSE(static_cast<bool>(Result));
++  EXPECT_THAT(llvm::toString(Result.takeError()),
++              testing::HasSubstr("cannot export"));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleWorkerPreservesCapturedInputs) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "#error disk main must not be read\n");
+-- 
+2.53.0
+

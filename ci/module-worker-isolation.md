@@ -88,3 +88,37 @@ limit. Bound failure must fail closed rather than silently launch unlimited.
 Persistent published-BMI disk growth remains a separate open lifecycle issue.
 
 Integrated Linux development evidence: [module-worker-protocol.json](../tests/evidence/module-worker-protocol.json). All 82 relevant units pass in 607 ms. The actual executable entry compiles a 34648-byte PCM from captured main/header snapshots while disk versions contain #error; malformed protocol and captured compile failure exit normally with errors and no staged output. The child stdout remains empty, and invalid CLANGD_FLAGS cannot contaminate this internal entry. All 66 touched source paths from the ordered 34-patch fixture and three overlays match. No hard limit, default worker selection or release package is claimed.
+
+## 0035 owned child supervision and actual drafts
+
+The separate buildModuleInWorker API now captures the actual ClangdServer
+DraftStore filesystem with one mutex-protected snapshot and immutable buffers.
+RequestModuleFS appends the exact main input last. Unknown filesystems decline
+export; Required fails closed, while WhenSupported may select the original path
+only before launch. Started workers never fall back after failure or a bound.
+The default remains InProcess, and ModulesBuilder does not yet call this API.
+
+The supervisor uses its exact child PID/handle, polls a steady deadline and
+cancellation, kills/reaps before deleting its unit directory and staged PCM,
+and bounds parent diagnostic reads to 64 KiB and the actual file size. Snapshot
+I/O itself is not interruptible. Explicit prerequisite leases remain caller
+owned. Generated implicit dependency PCMs cause rejection because unit cleanup
+would invalidate their lifetime.
+
+Private Linux source 03a76e8de supplied real-child success in 11 ms, frontend
+timeout in 103 ms and cancellation in 102 ms. All retained fixtures prove disk
+main/header differ from captured bytes; stop cases retain no staged PCM, unit
+directory or child, and an unrelated child remains alive/unreaped. Four focused
+units pass. These use changed compilation units and existing archives: a full
+dependent rebuild is required before default enablement. No native macOS or
+Windows, parent-death cleanup, hard RSS limit or release package is claimed.
+The initial diagnostic-slice SIGBUS was corrected before these final runs.
+
+## 0036 Windows compilation repair
+
+Native historical Windows run 37685946237 stopped during compilation, before
+fork crash qualification: Windows min/max macros expanded the module DAG's
+std::min/std::max calls. Parenthesized standard function names avoid expansion
+and preserve scheduling behavior. The historical stock crash remains proven,
+but this failed build supplies no fixed-fork execution claim. Native rerun
+remains required.
