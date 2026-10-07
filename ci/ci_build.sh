@@ -23,6 +23,10 @@ else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
 
+if [[ "${SYMBOLS:-0}" = "1" ]]; then
+  cmake --build "$BUILD_DIR" --target llvm-readobj llvm-pdbutil -j "${JOBS:-4}"
+fi
+
 "$BUILD_DIR/bin/clangd" --version
 python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --platform "$PLATFORM"
 

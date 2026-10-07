@@ -25,12 +25,9 @@ jobs:
       - run: pip install ninja
       - uses: ilammy/msvc-dev-cmd@v1
 
-      - uses: actions/cache@v4
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba
         with:
-          path: .ccache
-          key: ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
-          restore-keys: |
-            ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-
+          version: v0.18.0
       - uses: actions/cache@v4
         with:
           path: llvm-project
@@ -41,19 +38,23 @@ jobs:
         env:
           PLATFORM: win32-x64
           JOBS: 4
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-          CMAKE_EXTRA: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase
+          SYMBOLS: "1"
+          SCCACHE_GHA_ENABLED: "true"
+          SCCACHE_IDLE_TIMEOUT: "0"
+          CMAKE_EXTRA: -DLLVM_ENABLE_PDB=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
         run: ./ci/ci_build.sh
 
-      - name: Collect debug symbols
-        shell: bash
+      - name: Verify linked PDB identity and debugger symbol lookup
+        shell: pwsh
         run: |
-          mkdir -p dist/symbols
-          find build-win32-x64 -name "*.pdb" -exec cp {} dist/symbols/ \; 2>/dev/null || true
-          ls -la dist/symbols || true
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) { throw "cdb is required for symbol evidence" }
+          python ci/windows_symbols.py --engine build-win32-x64/bin/clangd.exe --pdb build-win32-x64/bin/clangd.pdb --readobj build-win32-x64/bin/llvm-readobj.exe --pdbutil build-win32-x64/bin/llvm-pdbutil.exe --cdb "$cdb" --output dist/symbols
+          if ($LASTEXITCODE -ne 0) { throw "linked PDB verification failed" }
+          Copy-Item build-win32-x64/engine-build.json dist/symbols/engine-build.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: clangd-debug-symbols-win32-x64
           path: dist/symbols
-          if-no-files-found: warn
+          if-no-files-found: error

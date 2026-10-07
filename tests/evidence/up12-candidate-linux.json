@@ -1,0 +1,1749 @@
+{
+  "actual_host": "linux-x64",
+  "scope": "normalized UP-12 candidate semantic replay; native baseline qualification pending",
+  "result": {
+    "id": "UP-12-galtranslpp-unresolved-imports",
+    "outcome": "pass",
+    "responses": [],
+    "raw_responses": [
+      {
+        "method": "initialize",
+        "reply": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "astProvider": true,
+              "callHierarchyProvider": true,
+              "clangdInlayHintsProvider": true,
+              "codeActionProvider": true,
+              "compilationDatabase": {
+                "automaticReload": true
+              },
+              "completionProvider": {
+                "resolveProvider": false,
+                "triggerCharacters": [
+                  ".",
+                  "<",
+                  ">",
+                  ":",
+                  "\"",
+                  "/",
+                  "*"
+                ]
+              },
+              "declarationProvider": true,
+              "definitionProvider": true,
+              "documentFormattingProvider": true,
+              "documentHighlightProvider": true,
+              "documentLinkProvider": {
+                "resolveProvider": false
+              },
+              "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": []
+              },
+              "documentRangeFormattingProvider": {
+                "rangesSupport": true
+              },
+              "documentSymbolProvider": true,
+              "executeCommandProvider": {
+                "commands": [
+                  "clangd.applyFix",
+                  "clangd.applyRename",
+                  "clangd.applyTweak"
+                ]
+              },
+              "foldingRangeProvider": true,
+              "hoverProvider": true,
+              "implementationProvider": true,
+              "inactiveRegionsProvider": true,
+              "inlayHintProvider": true,
+              "memoryUsageProvider": true,
+              "referencesProvider": true,
+              "renameProvider": true,
+              "selectionRangeProvider": true,
+              "semanticTokensProvider": {
+                "full": {
+                  "delta": true
+                },
+                "legend": {
+                  "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "deprecated",
+                    "deduced",
+                    "readonly",
+                    "static",
+                    "abstract",
+                    "virtual",
+                    "dependentName",
+                    "defaultLibrary",
+                    "usedAsMutableReference",
+                    "usedAsMutablePointer",
+                    "constructorOrDestructor",
+                    "userDefined",
+                    "functionScope",
+                    "classScope",
+                    "fileScope",
+                    "globalScope"
+                  ],
+                  "tokenTypes": [
+                    "variable",
+                    "variable",
+                    "parameter",
+                    "function",
+                    "method",
+                    "function",
+                    "property",
+                    "variable",
+                    "class",
+                    "interface",
+                    "enum",
+                    "enumMember",
+                    "type",
+                    "type",
+                    "unknown",
+                    "namespace",
+                    "typeParameter",
+                    "concept",
+                    "type",
+                    "macro",
+                    "modifier",
+                    "operator",
+                    "bracket",
+                    "label",
+                    "comment"
+                  ]
+                },
+                "range": true
+              },
+              "signatureHelpProvider": {
+                "triggerCharacters": [
+                  "(",
+                  ")",
+                  "{",
+                  "}",
+                  "<",
+                  ">",
+                  ","
+                ]
+              },
+              "standardTypeHierarchyProvider": true,
+              "textDocumentSync": {
+                "change": 2,
+                "openClose": true,
+                "save": true
+              },
+              "typeDefinitionProvider": true,
+              "typeHierarchyProvider": true,
+              "workspaceSymbolProvider": true
+            },
+            "serverInfo": {
+              "name": "clangd",
+              "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+            }
+          }
+        },
+        "elapsed_ms": 1.7497330009064171
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 5,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 40,
+                    "line": 13
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 13
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "baseConfigPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 42,
+                    "line": 14
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 14
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "globalConfigPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 43,
+                    "line": 15
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 15
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultPromptPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 41,
+                    "line": 16
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 16
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultDictPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 44,
+                    "line": 17
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 17
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultGptDictPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 44,
+                    "line": 18
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 18
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultPreDictPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 45,
+                    "line": 19
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 19
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultPostDictPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 43,
+                    "line": 20
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 20
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "pluginConfigsPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 46,
+                    "line": 21
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 21
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "filePluginConfigPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 46,
+                    "line": 22
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 22
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "textPluginConfigPath"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 47,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 23
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "transCacheDirName"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 47,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 24
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "otherCacheDirName"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 54,
+                    "line": 26
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 26
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultRegCompileModifier"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 54,
+                    "line": 27
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 27
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "defaultRegReplaceModifier"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 35
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 32
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "NameType"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 12,
+                    "line": 34
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 34
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "None"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 20,
+                    "line": 34
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 34
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Single"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 30,
+                    "line": 34
+                  },
+                  "start": {
+                    "character": 22,
+                    "line": 34
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Multiple"
+            },
+            {
+              "containerName": "",
+              "kind": 5,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 42
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 37
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "SentencePosition"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 24,
+                    "line": 38
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 38
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "file"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 22,
+                    "line": 39
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 39
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "index"
+            },
+            {
+              "containerName": "",
+              "kind": 12,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 90,
+                    "line": 41
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 41
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "operator=="
+            },
+            {
+              "containerName": "",
+              "kind": 12,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 47
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 45
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "AbslHashValue"
+            },
+            {
+              "containerName": "",
+              "kind": 5,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 90
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 49
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Sentence"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 22,
+                    "line": 50
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 50
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "index"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 28,
+                    "line": 51
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 51
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "filename"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 24,
+                    "line": 53
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 53
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "name"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 38,
+                    "line": 54
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 54
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "names"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 29,
+                    "line": 55
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 55
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "nametrans"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 43,
+                    "line": 56
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 56
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "namestrans"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 24,
+                    "line": 57
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 57
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "orig"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 27,
+                    "line": 58
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 58
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "preproc"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 41,
+                    "line": 59
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 59
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "problems"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 27,
+                    "line": 60
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 60
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "transby"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 28,
+                    "line": 61
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 61
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "transraw"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 29,
+                    "line": 62
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 62
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "transview"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 29,
+                    "line": 63
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 63
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "linebreak"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 59,
+                    "line": 64
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 64
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "otherinfo"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 43,
+                    "line": 66
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 66
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "ref"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 43,
+                    "line": 67
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 67
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "refBy"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 42,
+                    "line": 69
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 69
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "nameType"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 32,
+                    "line": 70
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 70
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "prev"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 32,
+                    "line": 71
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 71
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "next"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 35,
+                    "line": 72
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 72
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "transCompleted"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 43,
+                    "line": 73
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 73
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "problemAnalyzeDisabled"
+            },
+            {
+              "containerName": "",
+              "kind": 8,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 33,
+                    "line": 74
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 74
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "isRefPending"
+            },
+            {
+              "containerName": "",
+              "kind": 6,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 9,
+                    "line": 81
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 76
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "getProblemByIndex"
+            },
+            {
+              "containerName": "",
+              "kind": 6,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 9,
+                    "line": 89
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 83
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "setProblemByIndex"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 95
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 92
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "TransEngine"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 12,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "None"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "ForGalTsv"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 36,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 25,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "ForNovelTsv"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 48,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 38,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "ForGalJson"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 56,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 50,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Sakura"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 66,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 58,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "DumpName"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 77,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 68,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "NameTrans"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 86,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 79,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "GenDict"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 95,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 88,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Rebuild"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 107,
+                    "line": 94
+                  },
+                  "start": {
+                    "character": 97,
+                    "line": 94
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "ShowNormal"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 108
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 97
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "names2TransEngine"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 113
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 110
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "CachePart"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 12,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "None"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 19,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Index"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 29,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 21,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "FileName"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 35,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 31,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Name"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 42,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 37,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Names"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 53,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 44,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "NameTrans"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 65,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 55,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "NamesTrans"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 71,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 67,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Orig"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 80,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 73,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Preproc"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 90,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 82,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Problems"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 101,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 92,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "OtherInfo"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 110,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 103,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "TransBy"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 120,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 112,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "TransRaw"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 131,
+                    "line": 112
+                  },
+                  "start": {
+                    "character": 122,
+                    "line": 112
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Transview"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 130
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 115
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "names2CachePart"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 135
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 132
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "ConditionType"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 12,
+                    "line": 134
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 134
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "None"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 134
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 134
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Gpp"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 22,
+                    "line": 134
+                  },
+                  "start": {
+                    "character": 19,
+                    "line": 134
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Lua"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 30,
+                    "line": 134
+                  },
+                  "start": {
+                    "character": 24,
+                    "line": 134
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Python"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 140
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 137
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "PluginRunTime"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 12,
+                    "line": 139
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 139
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "None"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 18,
+                    "line": 139
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 139
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "DPre"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 139
+                  },
+                  "start": {
+                    "character": 20,
+                    "line": 139
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Pre"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 29,
+                    "line": 139
+                  },
+                  "start": {
+                    "character": 25,
+                    "line": 139
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "Post"
+            },
+            {
+              "containerName": "",
+              "kind": 10,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 36,
+                    "line": 139
+                  },
+                  "start": {
+                    "character": 31,
+                    "line": 139
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "DPost"
+            },
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 5,
+                    "line": 148
+                  },
+                  "start": {
+                    "character": 4,
+                    "line": 142
+                  }
+                },
+                "uri": "file:///home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx"
+              },
+              "name": "pluginRunTime2Names"
+            }
+          ]
+        },
+        "elapsed_ms": 13.358051000977866
+      }
+    ],
+    "readers_stopped": true,
+    "exit_code": 0,
+    "stderr": "I[19:17:30.383] clangd version 23.1.0-mcppls.0\nI[19:17:30.383] Features: linux\nI[19:17:30.383] PID: 453457\nI[19:17:30.383] Working directory: /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp\nI[19:17:30.383] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[19:17:30.383] argv[1]: --experimental-modules-support\nI[19:17:30.383] argv[2]: --background-index=false\nI[19:17:30.383] argv[3]: -j=2\nI[19:17:30.383] Starting LSP over stdin/stdout\nI[19:17:30.384] <-- initialize(1)\nI[19:17:30.384] --> reply:initialize(1) 0 ms\nI[19:17:30.384] <-- initialized\nI[19:17:30.384] <-- workspace/didChangeConfiguration\nI[19:17:30.384] <-- textDocument/didOpen\nI[19:17:30.384] Failed to get compilation Database for /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx\nI[19:17:30.384] <-- textDocument/documentSymbol(5)\nI[19:17:30.384] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp]\n/home/speak/.xlings/bin/clang++ --driver-mode=g++ --target=x86_64-pc-windows-msvc -std=c++23 -O3 -g -flto -x c++-module -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx\nI[19:17:30.389] Built preamble of size 273728 for file /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx version 1 in 0.00 seconds\nI[19:17:30.389] Failed to get compilation Database for /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx\nE[19:17:30.389] Failed to get Project Modules information for /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx\nI[19:17:30.389] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx in 0.00 seconds\nI[19:17:30.396] --> textDocument/publishDiagnostics\nI[19:17:30.397] --> reply:textDocument/documentSymbol(5) 12 ms\nI[19:17:30.398] <-- shutdown(6)\nI[19:17:30.398] --> reply:shutdown(6) 0 ms\nI[19:17:30.398] <-- exit\nI[19:17:30.398] LSP finished, exiting with status 0\n"
+  }
+}

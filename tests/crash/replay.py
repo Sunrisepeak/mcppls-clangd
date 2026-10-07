@@ -142,11 +142,16 @@ def replay(engine, manifest):
         if isinstance(value, str):
             if value.startswith("${REQUEST:") and value.endswith("}"):
                 return aliases[value[10:-1]][0]
-            return value.replace("${PROJECT_URI}", project.as_uri())
+            if value.startswith("${FILE_TEXT:") and value.endswith("}"):
+                source = (project / value[12:-1]).resolve()
+                if not source.is_relative_to(project):
+                    raise ValueError("fixture text escapes project")
+                return source.read_text(encoding="utf-8-sig")
+            return value.replace("${PROJECT_URI}", project.as_uri()).replace("${PROJECT_PATH}", project.as_posix())
         if isinstance(value, list):
             return [expand(v) for v in value]
         if isinstance(value, dict):
-            return {k: expand(v) for k, v in value.items()}
+            return {expand(k): expand(v) for k, v in value.items()}
         return value
 
     originals = {}

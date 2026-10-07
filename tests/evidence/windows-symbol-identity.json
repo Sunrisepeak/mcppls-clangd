@@ -1,0 +1,11 @@
+{
+  "scope": "cross-linked PE/PDB identity proof on Linux; not clangd or Windows debugger evidence",
+  "matching_pair": {
+    "guid": "{0324152D-BB9E-B763-4C4C-44205044422E}",
+    "age": 1,
+    "codeview": "\nFile: /tmp/joint-pdb-proof/a.exe\nFormat: COFF-x86-64\nArch: x86_64\nAddressSize: 64bit\nDebugDirectory [\n  DebugEntry {\n    Characteristics: 0x0\n    TimeDateStamp: 2026-10-07 19:11:56 (0x6AC6997C)\n    MajorVersion: 0x0\n    MinorVersion: 0x0\n    Type: CodeView (0x2)\n    SizeOfData: 0x33\n    AddressOfRawData: 0x201C\n    PointerToRawData: 0x61C\n    PDBInfo {\n      PDBSignature: 0x53445352\n      PDBGUID: {0324152D-BB9E-B763-4C4C-44205044422E}\n      PDBAge: 1\n      PDBFileName: /tmp/joint-pdb-proof/a.pdb\n    }\n  }\n]\n",
+    "pdb_summary": "\n\n                          Summary                           \n============================================================\n  Block Size: 4096\n  Number of blocks: 18\n  Number of streams: 15\n  Signature: 52696365\n  Age: 1\n  GUID: {0324152D-BB9E-B763-4C4C-44205044422E}\n  Features: 0x1\n  Has Debug Info: true\n  Has Types: true\n  Has IDs: true\n  Has Globals: true\n  Has Publics: true\n  Is incrementally linked: false\n  Has conflicting types: false\n  Is stripped: false\n\n"
+  },
+  "mismatched_pair_rejected": "executable CodeView GUID/age does not match linked PDB",
+  "cdb": "not available on Linux"
+}
