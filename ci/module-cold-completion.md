@@ -29,3 +29,5 @@ not broad performance thresholds. Existing fallback/command/preamble scheduler
 and cancellation cases total ten passing focused units. Final native binaries,
 installed editors, full statistical context matrix and resource deadlines remain
 separate release requirements.
+
+[Integrated evidence](../tests/evidence/module-cancellation-and-cold-completion.json) records both identified binaries, raw semantic outcomes, phase samples and all 68 focused unit passes.
