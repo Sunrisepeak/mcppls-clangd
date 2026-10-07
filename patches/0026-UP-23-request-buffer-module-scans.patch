@@ -1,0 +1,447 @@
+From 04e95eb554eb54e15ae725032fedc8c20608ea67 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 06:14:48 +0900
+Subject: [PATCH] fix(modules): dependency scans use exact request buffers
+
+Project-module scanners used the compilation database filesystem even
+when prerequisite construction received a request filesystem. Rebind
+production facades to request views, overlay exact captured main contents,
+and compare current imports before reusing completion prerequisites.
+
+Keep overlay bytes in request-owned immutable storage: dependency scanning
+caches borrowed VFS buffers across temporary worker views. Per-view copies
+otherwise leave dangling buffers during subsequent provider scans.
+
+Remove the disk-only buildability verdict memo until every scan/provider
+input can be validated. Regression evidence covers exact unsaved contents,
+supplied filesystem precedence, and the module DAG/recovery raw suite.
+Bounded verified-input scan reuse is a separate follow-up.
+
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     |   5 +-
+ clang-tools-extra/clangd/CodeComplete.cpp     |  13 +-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 115 ++++++++++--------
+ clang-tools-extra/clangd/ModulesBuilder.h     |  13 +-
+ clang-tools-extra/clangd/Preamble.cpp         |   7 +-
+ clang-tools-extra/clangd/ProjectModules.cpp   |  22 +++-
+ clang-tools-extra/clangd/ProjectModules.h     |   6 +
+ .../unittests/PrerequisiteModulesTest.cpp     |  43 +++++++
+ 8 files changed, 161 insertions(+), 63 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index c7326f417..ca77c966a 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -1203,7 +1203,7 @@ void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+   // scenario support in clang. A TU whose imports are all third-party never
+   // loads a named-module BMI, so its parse is a plain textual one and the
+   // preamble stays safe there.
+-  auto NeedsPreambleSkip = [this, File]() {
++  auto NeedsPreambleSkip = [this, File, &Inputs]() {
+     if (!ModulesManager)
+       return false;
+     // Required modules check uses compile commands extracted from the
+@@ -1212,7 +1212,8 @@ void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+     // command adjustments from the config.
+     WithContext Ctx(ContextProvider ? ContextProvider(File)
+                                     : Context::current().clone());
+-    return ModulesManager->hasBuildableRequiredModules(File);
++    return ModulesManager->hasBuildableRequiredModules(File, *Inputs.TFS,
++                                                       Inputs.Contents);
+   };
+   Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || NeedsPreambleSkip();
+ }
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 2d35ead1b..82e5c3856 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1399,9 +1399,16 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+   // update has noticed the invalidation. Validate against this request's VFS.
+   if (RequiredModules && Input.ParseInput.ModulesManager) {
+     trace::Span ModuleTracer("Completion module validation");
+-    if (!RequiredModules->canReuse(*CI, RequestVFS)) {
+-      FreshModules = Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
+-          Input.FileName, *Input.ParseInput.TFS);
++    auto CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
++        Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
++    llvm::StringSet<> CurrentNameSet;
++    for (const auto &Name : CurrentNames)
++      CurrentNameSet.insert(Name);
++    if (CurrentNameSet != RequiredModules->getRequiredModuleNames() ||
++        !RequiredModules->canReuse(*CI, RequestVFS)) {
++      FreshModules =
++          Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
++              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
+       RequiredModules = FreshModules.get();
+       ReusePreamble = false;
+     }
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 0bba6f56c..df27ab385 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -43,6 +43,33 @@ namespace clangd {
+ 
+ namespace {
+ 
++// The request's main buffer takes precedence over both disk and the global
++// DraftStore. Views remain independent, as required by ThreadsafeFS; workers
++// share immutable text, never a mutable FileSystem object.
++class RequestModuleFS : public ThreadsafeFS {
++public:
++  RequestModuleFS(const ThreadsafeFS &Base, PathRef MainFile,
++                  llvm::StringRef Contents)
++      : Base(Base), MainFile(MainFile), Contents(Contents) {}
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    auto Overlay = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
++        Base.view(std::nullopt));
++    auto Main = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++    // DependencyScanningService keeps borrowed VFS buffers across worker
++    // views. Back this buffer with the request-owned string, whose lifetime
++    // covers every scanner, rather than a copy owned by this temporary view.
++    Main->addFile(MainFile, 0,
++                  llvm::MemoryBuffer::getMemBuffer(Contents, MainFile));
++    Overlay->pushOverlay(std::move(Main));
++    return Overlay;
++  }
++  const ThreadsafeFS &Base;
++  const std::string MainFile;
++  const std::string Contents;
++};
++
+ llvm::cl::opt<bool> DebugModulesBuilder(
+     "debug-modules-builder",
+     llvm::cl::desc("Don't remove clangd's built module files for debugging. "
+@@ -1352,20 +1379,14 @@ class ModulesBuilder::ModulesBuilderImpl {
+ public:
+   ModulesBuilderImpl(const GlobalCompilationDatabase &CDB)
+       : Cache(CDB), BuildPool(moduleBuildStrategy()) {
+-    // A compile-command change is what can turn a textual third-party import
+-    // into a buildable module unit (or the reverse), so the per-file
+-    // preamble-safety verdicts die with it.
+-    CommandWatcher = getCDB().watch(
+-        [this](const std::vector<std::string> &) {
+-          {
+-            std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
+-            BuildableRequiredModulesVerdicts.clear();
+-          }
+-          // A command change may make a previously textual import buildable
+-          // (or break a built one), so reusable prerequisite sets die with
+-          // their generation instead of serving stale emptiness forever.
+-          ++CommandGeneration;
+-        });
++    // A command change can turn a textual import into a buildable module
++    // (or the reverse), invalidating previously built prerequisite sets.
++    CommandWatcher = getCDB().watch([this](const std::vector<std::string> &) {
++      // A command change may make a previously textual import buildable
++      // (or break a built one), so reusable prerequisite sets die with
++      // their generation instead of serving stale emptiness forever.
++      ++CommandGeneration;
++    });
+   }
+ 
+   ModuleNameToSourceCache &getProjectModulesCache() {
+@@ -1374,31 +1395,13 @@ public:
+   std::atomic<uint64_t> &commandGeneration() { return CommandGeneration; }
+   const GlobalCompilationDatabase &getCDB() const { return Cache.getCDB(); }
+ 
+-  /// Whether any directly imported module of \p File can produce a BMI here.
+-  /// The verdict is cached per (file, import-name set): the name resolution
+-  /// runs a global project scan whose failure paths dominate real projects
+-  /// with toolchain modules, and a changed import list must re-derive the
+-  /// verdict before any preamble is attached while BMIs load.
+-  bool hasBuildableRequiredModulesCached(PathRef File) {
+-    // The verdict depends on the file's imports and the project's compile
+-    // commands. Keying the cache by the file's precise on-disk identity
+-    // keeps keystrokes (draft edits never touch the disk file) at one stat,
+-    // while a saved edit or a command change forces a full re-derivation.
+-    auto Disk = ModuleValidationCache::identityOf(File);
+-    {
+-      std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
+-      auto It = BuildableRequiredModulesVerdicts.find(File);
+-      if (It != BuildableRequiredModulesVerdicts.end() &&
+-          It->second.DiskIdentity == Disk)
+-        return It->second.Verdict;
+-    }
++  /// Source/header/draft inputs can change without a command notification.
++  /// Re-derive this preamble-safety decision from the actual request view.
++  bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS) {
+     auto MDB = getCDB().getProjectModules(File);
+-    if (!MDB) {
+-      std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
+-      BuildableRequiredModulesVerdicts.insert_or_assign(
+-          File, FileBuildability{Disk, {}, false});
++    if (!MDB)
+       return false;
+-    }
++    MDB->setFileSystem(TFS);
+     CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
+     std::vector<std::string> Names = CachedMDB.getRequiredModules(File);
+     llvm::sort(Names);
+@@ -1420,9 +1423,6 @@ public:
+         break;
+       }
+     }
+-    std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
+-    BuildableRequiredModulesVerdicts.insert_or_assign(
+-        File, FileBuildability{Disk, std::move(Names), Verdict});
+     return Verdict;
+   }
+ 
+@@ -1450,13 +1450,6 @@ private:
+   ModuleNameToSourceCache ProjectModulesCache;
+   std::mutex GarbageCollectedProjectRootsMutex;
+   llvm::StringSet<> GarbageCollectedProjectRoots;
+-  struct FileBuildability {
+-    std::optional<ModuleValidationCache::FileIdentity> DiskIdentity;
+-    std::vector<std::string> ImportNames;
+-    bool Verdict = false;
+-  };
+-  std::mutex BuildableVerdictsMutex;
+-  llvm::StringMap<FileBuildability> BuildableRequiredModulesVerdicts;
+   std::atomic<uint64_t> CommandGeneration{1};
+   GlobalCompilationDatabase::CommandChanged::Subscription CommandWatcher;
+   // Shared by all document builds. Per-document pools would multiply memory
+@@ -1726,8 +1719,11 @@ bool ModulesBuilder::hasRequiredModules(PathRef File) {
+   return !CachedMDB.getRequiredModules(File).empty();
+ }
+ 
+-bool ModulesBuilder::hasBuildableRequiredModules(PathRef File) {
+-  return Impl->hasBuildableRequiredModulesCached(File);
++bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
++                                                 const ThreadsafeFS &TFS,
++                                                 llvm::StringRef Contents) {
++  RequestModuleFS RequestFS(TFS, File, Contents);
++  return Impl->hasBuildableRequiredModules(File, RequestFS);
+ }
+ 
+ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+@@ -1740,6 +1736,26 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+   return CachedMDB.getRequiredModules(File);
+ }
+ 
++std::vector<std::string>
++ModulesBuilder::getRequiredModuleNames(PathRef File, const ThreadsafeFS &TFS,
++                                       llvm::StringRef Contents) {
++  RequestModuleFS RequestFS(TFS, File, Contents);
++  auto MDB = Impl->getCDB().getProjectModules(File);
++  if (!MDB)
++    return {};
++  MDB->setFileSystem(RequestFS);
++  return MDB->getRequiredModules(File);
++}
++
++std::unique_ptr<PrerequisiteModules>
++ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
++                                            const ThreadsafeFS &TFS,
++                                            llvm::StringRef Contents) {
++  RequestModuleFS RequestFS(TFS, File, Contents);
++  // The two-argument operation drains all worker jobs before this view dies.
++  return buildPrerequisiteModulesFor(File, RequestFS);
++}
++
+ std::unique_ptr<PrerequisiteModules>
+ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+                                             const ThreadsafeFS &TFS) {
+@@ -1748,6 +1764,7 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+     elog("Failed to get Project Modules information for {0}", File);
+     return std::make_unique<FailedPrerequisiteModules>();
+   }
++  MDB->setFileSystem(TFS);
+   CachingProjectModules CachedMDB(std::move(MDB),
+                                   Impl->getProjectModulesCache());
+ 
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
+index 9bc448b40..f98a50566 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.h
++++ b/clang-tools-extra/clangd/ModulesBuilder.h
+@@ -116,16 +116,27 @@ public:
+   std::unique_ptr<PrerequisiteModules>
+   buildPrerequisiteModulesFor(PathRef File, const ThreadsafeFS &TFS);
+ 
++  /// Scan and build using the exact main-file contents captured by the request,
++  /// even when the disk file or another draft version differs. Other inputs
++  /// are read through TFS. All scanning/build jobs finish before returning.
++  std::unique_ptr<PrerequisiteModules>
++  buildPrerequisiteModulesFor(PathRef File, const ThreadsafeFS &TFS,
++                              llvm::StringRef Contents);
++
+   bool hasRequiredModules(PathRef File);
+ 
+   /// Whether any directly imported module of \p File can actually produce a
+   /// BMI in this project. Files whose imports are all third-party (no unit
+   /// source, or a source outside the project without a compile command)
+   /// never load named-module BMIs, so their parse may safely keep a preamble.
+-  bool hasBuildableRequiredModules(PathRef File);
++  bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS,
++                                   llvm::StringRef Contents);
+ 
+   /// Returns the list of directly required module names
+   std::vector<std::string> getRequiredModuleNames(PathRef File);
++  std::vector<std::string> getRequiredModuleNames(PathRef File,
++                                                  const ThreadsafeFS &TFS,
++                                                  llvm::StringRef Contents);
+ 
+ private:
+   class ModulesBuilderImpl;
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index 31f141f62..75850f543 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -677,8 +677,8 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+       WallTimer PrerequisiteModuleTimer;
+       PrerequisiteModuleTimer.startTimer();
+       Result->RequiredModules =
+-          Inputs.ModulesManager->buildPrerequisiteModulesFor(FileName,
+-                                                             *Inputs.TFS);
++          Inputs.ModulesManager->buildPrerequisiteModulesFor(
++              FileName, *Inputs.TFS, Inputs.Contents);
+       PrerequisiteModuleTimer.stopTimer();
+ 
+       log("Built prerequisite modules for file {0} in {1} seconds", FileName,
+@@ -736,7 +736,8 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+   auto RequiredModulesMatch = [&]() -> bool {
+     if (!Inputs.ModulesManager || !Preamble.RequiredModules)
+       return true;
+-    auto NewNames = Inputs.ModulesManager->getRequiredModuleNames(FileName);
++    auto NewNames = Inputs.ModulesManager->getRequiredModuleNames(
++        FileName, *Inputs.TFS, Inputs.Contents);
+     llvm::StringSet<> NewNameSet;
+     NewNameSet.insert_range(NewNames);
+     return NewNameSet == Preamble.RequiredModules->getRequiredModuleNames();
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 51aa4cdad..e84588f82 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -614,10 +614,16 @@ public:
+       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
+       const ThreadsafeFS &TFS,
+       std::shared_ptr<ProjectModulesCommandCache> CommandCache)
+-      : CompileCommands(std::make_unique<CompileCommandsProjectModules>(
+-            CDB, TFS, std::move(CommandCache))),
+-        Scanning(
+-            std::make_unique<ScanningAllProjectModules>(std::move(CDB), TFS)) {}
++      : CDB(std::move(CDB)), CommandCache(std::move(CommandCache)) {
++    setFileSystem(TFS);
++  }
++
++  void setFileSystem(const ThreadsafeFS &FS) override {
++    CompileCommands =
++        std::make_unique<CompileCommandsProjectModules>(CDB, FS, CommandCache);
++    Scanning = std::make_unique<ScanningAllProjectModules>(CDB, FS);
++    forwardCommandMangler();
++  }
+ 
+   std::vector<std::string> getRequiredModules(PathRef File) override {
+     // Return scanning results directly as it is fast enough and up to date.
+@@ -653,6 +659,11 @@ public:
+ 
+   void setCommandMangler(CommandMangler Mangler) override {
+     this->Mangler = std::move(Mangler);
++    forwardCommandMangler();
++  }
++
++private:
++  void forwardCommandMangler() {
+     auto ForwardMangler = [this](tooling::CompileCommand &Command,
+                                  PathRef CommandPath) {
+       if (this->Mangler)
+@@ -662,7 +673,8 @@ public:
+     Scanning->setCommandMangler(std::move(ForwardMangler));
+   }
+ 
+-private:
++  std::shared_ptr<const tooling::CompilationDatabase> CDB;
++  std::shared_ptr<ProjectModulesCommandCache> CommandCache;
+   std::unique_ptr<CompileCommandsProjectModules> CompileCommands;
+   std::unique_ptr<ScanningAllProjectModules> Scanning;
+   CommandMangler Mangler;
+diff --git a/clang-tools-extra/clangd/ProjectModules.h b/clang-tools-extra/clangd/ProjectModules.h
+index a06894afb..2a9c5104f 100644
+--- a/clang-tools-extra/clangd/ProjectModules.h
++++ b/clang-tools-extra/clangd/ProjectModules.h
+@@ -58,6 +58,12 @@ public:
+   virtual void setCommandMangler(CommandMangler Mangler) {}
+ 
+   virtual ~ProjectModules() = default;
++
++  /// Scanning implementations must use this request's filesystem for every
++  /// source/header/response-file read and discard earlier scanning state.
++  /// The filesystem must outlive this facade. Non-scanning backends need no
++  /// adjustment. Call before querying the facade.
++  virtual void setFileSystem(const ThreadsafeFS &FS) {}
+ };
+ 
+ // One immutable compilation-database generation's command inventory. Facades
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index e317286e1..2a3f0f1e8 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -17,6 +17,7 @@
+ #include "ModulesBuilder.h"
+ #include "Preamble.h"
+ #include "ProjectModules.h"
++#include "TestFS.h"
+ #include "TestTU.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
+@@ -55,6 +56,9 @@ public:
+   void setCommandMangler(CommandMangler Mangler) override {
+     Underlying->setCommandMangler(std::move(Mangler));
+   }
++  void setFileSystem(const ThreadsafeFS &FS) override {
++    Underlying->setFileSystem(FS);
++  }
+ 
+   std::string getSourceForModuleName(llvm::StringRef ModuleName,
+                                      PathRef RequiredSrcFile) override {
+@@ -348,6 +352,45 @@ export module M;
+   EXPECT_TRUE(MInfo->canReuse(*Invocation, FS.view(TestDir)));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, UnsavedImportUsesExactRequestBuffer) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int draft_value = 1;\n");
++  CDB.addFile("Use.cpp", "int disk_value;\n");
++  ModulesBuilder Builder(CDB);
++  const auto Use = getFullPath("Use.cpp");
++  const std::string Draft = "import M;\nint probe() { return draft_value; }\n";
++
++  EXPECT_TRUE(Builder.hasBuildableRequiredModules(Use, FS, Draft));
++  auto WithImport = Builder.buildPrerequisiteModulesFor(Use, FS, Draft);
++  ASSERT_TRUE(WithImport);
++  HeaderSearchOptions WithImportOptions(TestDir);
++  WithImport->adjustHeaderSearchOptions(WithImportOptions);
++  EXPECT_EQ(WithImportOptions.PrebuiltModuleFiles.count("M"), 1u);
++
++  // The second request has no import, with the same on-disk file and CDB.
++  // A disk-only preamble-safety verdict or scanner sees the wrong generation.
++  const std::string NoImport = "int request_value;\n";
++  MockFS RequestFS;
++  RequestFS.OverlayRealFileSystemForModules = true;
++  RequestFS.Files[Use] = Draft;
++  auto FromRequestFS = Builder.buildPrerequisiteModulesFor(Use, RequestFS);
++  ASSERT_TRUE(FromRequestFS);
++  HeaderSearchOptions RequestOptions(TestDir);
++  FromRequestFS->adjustHeaderSearchOptions(RequestOptions);
++  EXPECT_EQ(RequestOptions.PrebuiltModuleFiles.count("M"), 1u);
++  // Explicit main contents also take precedence over a different global draft.
++  EXPECT_FALSE(Builder.hasBuildableRequiredModules(Use, RequestFS, NoImport));
++  EXPECT_FALSE(Builder.hasBuildableRequiredModules(Use, FS, NoImport));
++  auto WithoutImport = Builder.buildPrerequisiteModulesFor(Use, FS, NoImport);
++  ASSERT_TRUE(WithoutImport);
++  HeaderSearchOptions WithoutImportOptions(TestDir);
++  WithoutImport->adjustHeaderSearchOptions(WithoutImportOptions);
++  EXPECT_TRUE(WithoutImportOptions.PrebuiltModuleFiles.empty());
++  auto Disk = FS.view(TestDir)->getBufferForFile(Use);
++  ASSERT_TRUE(Disk);
++  EXPECT_EQ((*Disk)->getBuffer(), "int disk_value;\n");
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleWithArgumentPatch) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

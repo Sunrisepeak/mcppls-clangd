@@ -1,0 +1,1222 @@
+{
+  "before": {
+    "id": "module-request-inputs",
+    "outcome": "error",
+    "responses": [
+      {
+        "method": "textDocument/completion",
+        "symbols": [],
+        "elapsed_ms": 5.098038000141969
+      }
+    ],
+    "raw_responses": [
+      {
+        "method": "initialize",
+        "reply": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "astProvider": true,
+              "callHierarchyProvider": true,
+              "clangdInlayHintsProvider": true,
+              "codeActionProvider": true,
+              "compilationDatabase": {
+                "automaticReload": true
+              },
+              "completionProvider": {
+                "resolveProvider": false,
+                "triggerCharacters": [
+                  ".",
+                  "<",
+                  ">",
+                  ":",
+                  "\"",
+                  "/",
+                  "*"
+                ]
+              },
+              "declarationProvider": true,
+              "definitionProvider": true,
+              "documentFormattingProvider": true,
+              "documentHighlightProvider": true,
+              "documentLinkProvider": {
+                "resolveProvider": false
+              },
+              "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": []
+              },
+              "documentRangeFormattingProvider": {
+                "rangesSupport": true
+              },
+              "documentSymbolProvider": true,
+              "executeCommandProvider": {
+                "commands": [
+                  "clangd.applyFix",
+                  "clangd.applyRename",
+                  "clangd.applyTweak"
+                ]
+              },
+              "foldingRangeProvider": true,
+              "hoverProvider": true,
+              "implementationProvider": true,
+              "inactiveRegionsProvider": true,
+              "inlayHintProvider": true,
+              "memoryUsageProvider": true,
+              "referencesProvider": true,
+              "renameProvider": true,
+              "selectionRangeProvider": true,
+              "semanticTokensProvider": {
+                "full": {
+                  "delta": true
+                },
+                "legend": {
+                  "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "deprecated",
+                    "deduced",
+                    "readonly",
+                    "static",
+                    "abstract",
+                    "virtual",
+                    "dependentName",
+                    "defaultLibrary",
+                    "usedAsMutableReference",
+                    "usedAsMutablePointer",
+                    "constructorOrDestructor",
+                    "userDefined",
+                    "functionScope",
+                    "classScope",
+                    "fileScope",
+                    "globalScope"
+                  ],
+                  "tokenTypes": [
+                    "variable",
+                    "variable",
+                    "parameter",
+                    "function",
+                    "method",
+                    "function",
+                    "property",
+                    "variable",
+                    "class",
+                    "interface",
+                    "enum",
+                    "enumMember",
+                    "type",
+                    "type",
+                    "unknown",
+                    "namespace",
+                    "typeParameter",
+                    "concept",
+                    "type",
+                    "macro",
+                    "modifier",
+                    "operator",
+                    "bracket",
+                    "label",
+                    "comment"
+                  ]
+                },
+                "range": true
+              },
+              "signatureHelpProvider": {
+                "triggerCharacters": [
+                  "(",
+                  ")",
+                  "{",
+                  "}",
+                  "<",
+                  ">",
+                  ","
+                ]
+              },
+              "standardTypeHierarchyProvider": true,
+              "textDocumentSync": {
+                "change": 2,
+                "openClose": true,
+                "save": true
+              },
+              "typeDefinitionProvider": true,
+              "typeHierarchyProvider": true,
+              "workspaceSymbolProvider": true
+            },
+            "serverInfo": {
+              "name": "clangd",
+              "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+            }
+          }
+        },
+        "elapsed_ms": 2.1033310003986116
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 4,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 12,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 37,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 1
+                  }
+                },
+                "uri": "file:///tmp/mcppls-request-scan-before/Use.cpp"
+              },
+              "name": "probe"
+            }
+          ]
+        },
+        "elapsed_ms": 13.648607000504853
+      },
+      {
+        "method": "textDocument/completion",
+        "reply": {
+          "id": 5,
+          "jsonrpc": "2.0",
+          "result": {
+            "isIncomplete": false,
+            "items": []
+          }
+        },
+        "elapsed_ms": 5.090522001410136
+      }
+    ],
+    "detail": "missing symbols ['draft_value']; forbidden symbols []",
+    "readers_stopped": true,
+    "exit_code": -9,
+    "stderr": "I[21:15:53.907] clangd version 23.1.0-mcppls.0\nI[21:15:53.907] Features: linux\nI[21:15:53.907] PID: 583050\nI[21:15:53.907] Working directory: /tmp/mcppls-request-scan-before\nI[21:15:53.907] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[21:15:53.907] argv[1]: --experimental-modules-support\nI[21:15:53.907] argv[2]: --background-index=false\nI[21:15:53.907] argv[3]: --log=verbose\nV[21:15:53.907] User config file is /home/speak/.config/clangd/config.yaml\nI[21:15:53.907] Starting LSP over stdin/stdout\nV[21:15:53.907] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///tmp/mcppls-request-scan-before\"}}\n\nI[21:15:53.907] <-- initialize(1)\nI[21:15:53.907] --> reply:initialize(1) 0 ms\nV[21:15:53.908] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[21:15:53.908] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[21:15:53.908] <-- initialized\nV[21:15:53.908] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import M;\\nint probe() { return draft_value(); }\\n\",\"uri\":\"file:///tmp/mcppls-request-scan-before/Use.cpp\",\"version\":1}}}\n\nI[21:15:53.908] <-- textDocument/didOpen\nI[21:15:53.908] Loaded compilation database from /tmp/mcppls-request-scan-before/compile_commands.json\nV[21:15:53.910] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-scan-before/Use.cpp\"}}}\n\nI[21:15:53.910] <-- textDocument/documentSymbol(4)\nV[21:15:53.910] Broadcasting compilation database from /tmp/mcppls-request-scan-before\nI[21:15:53.910] ASTWorker building file /tmp/mcppls-request-scan-before/Use.cpp version 1 with command \n[/tmp/mcppls-request-scan-before]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-request-scan-before/Use.cpp\nV[21:15:53.911] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:15:53.911] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/mcppls-request-scan-before -fcoverage-compilation-dir=/tmp/mcppls-request-scan-before -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/mcppls-request-scan-before/Use.cpp\nV[21:15:53.911] Building first preamble for /tmp/mcppls-request-scan-before/Use.cpp version 1\nI[21:15:53.915] Built preamble of size 268832 for file /tmp/mcppls-request-scan-before/Use.cpp version 1 in 0.00 seconds\nI[21:15:53.917] Built prerequisite modules for file /tmp/mcppls-request-scan-before/Use.cpp in 0.00 seconds\nV[21:15:53.917] indexed preamble AST for /tmp/mcppls-request-scan-before/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[21:15:53.918] Indexing c++20 standard library in the context of /tmp/mcppls-request-scan-before/Use.cpp\nV[21:15:53.921] indexed file AST for /tmp/mcppls-request-scan-before/Use.cpp version 1:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:15:53.921] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:15:53.921] --> textDocument/publishDiagnostics\nV[21:15:53.921] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"module_not_found\",\"message\":\"Module 'M' not found\",\"range\":{\"end\":{\"character\":9,\"line\":0},\"start\":{\"character\":7,\"line\":0}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///tmp/mcppls-request-scan-before/Use.cpp\",\"version\":1}}\n\nV[21:15:53.921] ASTWorker running DocumentSymbols on version 1 of /tmp/mcppls-request-scan-before/Use.cpp\nI[21:15:53.921] --> reply:textDocument/documentSymbol(4) 11 ms\nV[21:15:53.921] >>> {\"id\":4,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":37,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///tmp/mcppls-request-scan-before/Use.cpp\"},\"name\":\"probe\"}]}\n\nV[21:15:53.922] <<< {\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":28,\"line\":1},\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-scan-before/Use.cpp\"}}}\n\nI[21:15:53.922] <-- textDocument/completion(5)\nV[21:15:53.925] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:15:53.926] Ignored diagnostic. /tmp/mcppls-request-scan-before/Use.cpp:1:8:module 'M' not found\nV[21:15:53.926] Code complete: fuzzyFind({\n  \"AnyScope\": true,\n  \"Limit\": 100,\n  \"PreferredTypes\": [\n    \"c:I\"\n  ],\n  \"ProximityPaths\": [\n    \"/tmp/mcppls-request-scan-before/Use.cpp\"\n  ],\n  \"Query\": \"draft_v\",\n  \"RestrictForCodeCompletion\": true,\n  \"Scopes\": [\n    \"\"\n  ]\n})\nI[21:15:53.926] Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int\nI[21:15:53.926] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[21:15:53.926] --> reply:textDocument/completion(5) 4 ms\nV[21:15:53.927] >>> {\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[]}}\n\n",
+    "engine_sha256": "ad1e2614989dbb7285f75e5fa7c050f4ea362d202e48319208d8b940d5647960",
+    "disk_contents_unchanged": true
+  },
+  "after": {
+    "id": "module-request-inputs",
+    "outcome": "pass",
+    "responses": [
+      {
+        "method": "textDocument/completion",
+        "symbols": [
+          "draft_value"
+        ],
+        "elapsed_ms": 11.864797001180705,
+        "completion_items": {
+          "draft_value": [
+            {
+              "detail": "int",
+              "filterText": "draft_value",
+              "insertText": "draft_value",
+              "insertTextFormat": 1,
+              "kind": 3,
+              "label": " draft_value()",
+              "score": 1.3650459051132202,
+              "sortText": "4051462ddraft_value",
+              "textEdit": {
+                "newText": "draft_value",
+                "range": {
+                  "end": {
+                    "character": 28,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 21,
+                    "line": 1
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "textDocument/completion",
+        "symbols": [
+          "next_value"
+        ],
+        "elapsed_ms": 9.61140300205443,
+        "completion_items": {
+          "next_value": [
+            {
+              "detail": "int",
+              "filterText": "next_value",
+              "insertText": "next_value",
+              "insertTextFormat": 1,
+              "kind": 3,
+              "label": " next_value()",
+              "score": 1.3650459051132202,
+              "sortText": "4051462dnext_value",
+              "textEdit": {
+                "newText": "next_value",
+                "range": {
+                  "end": {
+                    "character": 28,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 21,
+                    "line": 1
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "raw_responses": [
+      {
+        "method": "initialize",
+        "reply": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "astProvider": true,
+              "callHierarchyProvider": true,
+              "clangdInlayHintsProvider": true,
+              "codeActionProvider": true,
+              "compilationDatabase": {
+                "automaticReload": true
+              },
+              "completionProvider": {
+                "resolveProvider": false,
+                "triggerCharacters": [
+                  ".",
+                  "<",
+                  ">",
+                  ":",
+                  "\"",
+                  "/",
+                  "*"
+                ]
+              },
+              "declarationProvider": true,
+              "definitionProvider": true,
+              "documentFormattingProvider": true,
+              "documentHighlightProvider": true,
+              "documentLinkProvider": {
+                "resolveProvider": false
+              },
+              "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": []
+              },
+              "documentRangeFormattingProvider": {
+                "rangesSupport": true
+              },
+              "documentSymbolProvider": true,
+              "executeCommandProvider": {
+                "commands": [
+                  "clangd.applyFix",
+                  "clangd.applyRename",
+                  "clangd.applyTweak"
+                ]
+              },
+              "foldingRangeProvider": true,
+              "hoverProvider": true,
+              "implementationProvider": true,
+              "inactiveRegionsProvider": true,
+              "inlayHintProvider": true,
+              "memoryUsageProvider": true,
+              "referencesProvider": true,
+              "renameProvider": true,
+              "selectionRangeProvider": true,
+              "semanticTokensProvider": {
+                "full": {
+                  "delta": true
+                },
+                "legend": {
+                  "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "deprecated",
+                    "deduced",
+                    "readonly",
+                    "static",
+                    "abstract",
+                    "virtual",
+                    "dependentName",
+                    "defaultLibrary",
+                    "usedAsMutableReference",
+                    "usedAsMutablePointer",
+                    "constructorOrDestructor",
+                    "userDefined",
+                    "functionScope",
+                    "classScope",
+                    "fileScope",
+                    "globalScope"
+                  ],
+                  "tokenTypes": [
+                    "variable",
+                    "variable",
+                    "parameter",
+                    "function",
+                    "method",
+                    "function",
+                    "property",
+                    "variable",
+                    "class",
+                    "interface",
+                    "enum",
+                    "enumMember",
+                    "type",
+                    "type",
+                    "unknown",
+                    "namespace",
+                    "typeParameter",
+                    "concept",
+                    "type",
+                    "macro",
+                    "modifier",
+                    "operator",
+                    "bracket",
+                    "label",
+                    "comment"
+                  ]
+                },
+                "range": true
+              },
+              "signatureHelpProvider": {
+                "triggerCharacters": [
+                  "(",
+                  ")",
+                  "{",
+                  "}",
+                  "<",
+                  ">",
+                  ","
+                ]
+              },
+              "standardTypeHierarchyProvider": true,
+              "textDocumentSync": {
+                "change": 2,
+                "openClose": true,
+                "save": true
+              },
+              "typeDefinitionProvider": true,
+              "typeHierarchyProvider": true,
+              "workspaceSymbolProvider": true
+            },
+            "serverInfo": {
+              "name": "clangd",
+              "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+            }
+          }
+        },
+        "elapsed_ms": 1.2382360000628978
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 4,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 12,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 37,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 1
+                  }
+                },
+                "uri": "file:///tmp/mcppls-request-lifetime-final/Use.cpp"
+              },
+              "name": "probe"
+            }
+          ]
+        },
+        "elapsed_ms": 34.00972100280342
+      },
+      {
+        "method": "textDocument/completion",
+        "reply": {
+          "id": 5,
+          "jsonrpc": "2.0",
+          "result": {
+            "isIncomplete": false,
+            "items": [
+              {
+                "detail": "int",
+                "filterText": "draft_value",
+                "insertText": "draft_value",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " draft_value()",
+                "score": 1.3650459051132202,
+                "sortText": "4051462ddraft_value",
+                "textEdit": {
+                  "newText": "draft_value",
+                  "range": {
+                    "end": {
+                      "character": 28,
+                      "line": 1
+                    },
+                    "start": {
+                      "character": 21,
+                      "line": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "elapsed_ms": 11.815743000624934
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 7,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 0
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 0
+                  }
+                },
+                "uri": "file:///tmp/mcppls-request-lifetime-final/Use.cpp"
+              },
+              "name": "request_value"
+            }
+          ]
+        },
+        "elapsed_ms": 3.1326520002039615
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 9,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 12,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 36,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 1
+                  }
+                },
+                "uri": "file:///tmp/mcppls-request-lifetime-final/Use.cpp"
+              },
+              "name": "probe"
+            }
+          ]
+        },
+        "elapsed_ms": 5.039875999500509
+      },
+      {
+        "method": "textDocument/completion",
+        "reply": {
+          "id": 10,
+          "jsonrpc": "2.0",
+          "result": {
+            "isIncomplete": false,
+            "items": [
+              {
+                "detail": "int",
+                "filterText": "next_value",
+                "insertText": "next_value",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " next_value()",
+                "score": 1.3650459051132202,
+                "sortText": "4051462dnext_value",
+                "textEdit": {
+                  "newText": "next_value",
+                  "range": {
+                    "end": {
+                      "character": 28,
+                      "line": 1
+                    },
+                    "start": {
+                      "character": 21,
+                      "line": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "elapsed_ms": 9.601478002878139
+      }
+    ],
+    "readers_stopped": true,
+    "exit_code": 0,
+    "stderr": "I[21:51:17.510] clangd version 23.1.0-mcppls.0\nI[21:51:17.510] Features: linux\nI[21:51:17.510] PID: 635254\nI[21:51:17.510] Working directory: /tmp/mcppls-request-lifetime-final\nI[21:51:17.510] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[21:51:17.510] argv[1]: --experimental-modules-support\nI[21:51:17.510] argv[2]: --background-index=false\nI[21:51:17.510] argv[3]: --log=verbose\nV[21:51:17.510] User config file is /home/speak/.config/clangd/config.yaml\nI[21:51:17.510] Starting LSP over stdin/stdout\nV[21:51:17.510] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///tmp/mcppls-request-lifetime-final\"}}\n\nI[21:51:17.510] <-- initialize(1)\nI[21:51:17.510] --> reply:initialize(1) 0 ms\nV[21:51:17.510] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[21:51:17.510] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[21:51:17.510] <-- initialized\nV[21:51:17.510] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import M;\\nint probe() { return draft_value(); }\\n\",\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":1}}}\n\nI[21:51:17.510] <-- textDocument/didOpen\nI[21:51:17.510] Loaded compilation database from /tmp/mcppls-request-lifetime-final/compile_commands.json\nV[21:51:17.512] Module provider inventory: 3 files\nV[21:51:17.512] Module provider index rebuilt: 3 commands\nV[21:51:17.514] Broadcasting compilation database from /tmp/mcppls-request-lifetime-final\nV[21:51:17.514] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"}}}\n\nI[21:51:17.514] <-- textDocument/documentSymbol(4)\nI[21:51:17.514] ASTWorker building file /tmp/mcppls-request-lifetime-final/Use.cpp version 1 with command \n[/tmp/mcppls-request-lifetime-final]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.514] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.515] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/mcppls-request-lifetime-final -fcoverage-compilation-dir=/tmp/mcppls-request-lifetime-final -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.515] Building first preamble for /tmp/mcppls-request-lifetime-final/Use.cpp version 1\nI[21:51:17.520] Built preamble of size 268840 for file /tmp/mcppls-request-lifetime-final/Use.cpp version 1 in 0.01 seconds\nV[21:51:17.523] Module provider index reused: 3 commands\nV[21:51:17.525] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:51:17.528] Running GC pass for clangd built module files under /tmp/mcppls-request-lifetime-final/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[21:51:17.528] Failed to scan module cache directory /tmp/mcppls-request-lifetime-final/.cache/clangd/modules: No such file or directory\nI[21:51:17.528] Done running GC pass for clangd built module files under /tmp/mcppls-request-lifetime-final/.cache/clangd/modules\nV[21:51:17.528] Module build task M started (active=1, limit=2)\nV[21:51:17.530] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:51:17.536] Built module M to /tmp/mcppls-request-lifetime-final/.cache/clangd/modules/M.cppm-080BFE8143DD436B/68415953FBFFDEF3/M-20261007-215117-536104.-a1a753.pcm\nV[21:51:17.536] Module build task M finished (active=0)\nI[21:51:17.536] Built prerequisite modules for file /tmp/mcppls-request-lifetime-final/Use.cpp in 0.02 seconds\nV[21:51:17.537] indexed preamble AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[21:51:17.540] Indexing c++20 standard library in the context of /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.544] indexed file AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 1:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.544] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:51:17.544] --> textDocument/publishDiagnostics\nV[21:51:17.544] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":1}}\n\nV[21:51:17.544] ASTWorker running DocumentSymbols on version 1 of /tmp/mcppls-request-lifetime-final/Use.cpp\nI[21:51:17.544] --> reply:textDocument/documentSymbol(4) 30 ms\nV[21:51:17.544] >>> {\"id\":4,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":37,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"},\"name\":\"probe\"}]}\n\nV[21:51:17.544] <<< {\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":28,\"line\":1},\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"}}}\n\nI[21:51:17.544] <-- textDocument/completion(5)\nV[21:51:17.548] Module provider index reused: 3 commands\nV[21:51:17.553] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.556] Code complete: fuzzyFind({\n  \"AnyScope\": true,\n  \"Limit\": 100,\n  \"PreferredTypes\": [\n    \"c:I\"\n  ],\n  \"ProximityPaths\": [\n    \"/tmp/mcppls-request-lifetime-final/Use.cpp\"\n  ],\n  \"Query\": \"draft_v\",\n  \"RestrictForCodeCompletion\": true,\n  \"Scopes\": [\n    \"\"\n  ]\n})\nI[21:51:17.556] Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int\nI[21:51:17.556] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[21:51:17.556] --> reply:textDocument/completion(5) 11 ms\nV[21:51:17.556] >>> {\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"int\",\"filterText\":\"draft_value\",\"insertText\":\"draft_value\",\"insertTextFormat\":1,\"kind\":3,\"label\":\" draft_value()\",\"score\":1.3650459051132202,\"sortText\":\"4051462ddraft_value\",\"textEdit\":{\"newText\":\"draft_value\",\"range\":{\"end\":{\"character\":28,\"line\":1},\"start\":{\"character\":21,\"line\":1}}}}]}}\n\nV[21:51:17.556] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didChange\",\"params\":{\"contentChanges\":[{\"text\":\"int request_value;\\n\"}],\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":2}}}\n\nI[21:51:17.556] <-- textDocument/didChange\nV[21:51:17.557] <<< {\"id\":7,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"}}}\n\nI[21:51:17.557] <-- textDocument/documentSymbol(7)\nI[21:51:17.557] ASTWorker building file /tmp/mcppls-request-lifetime-final/Use.cpp version 2 with command \n[/tmp/mcppls-request-lifetime-final]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.557] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.557] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/mcppls-request-lifetime-final -fcoverage-compilation-dir=/tmp/mcppls-request-lifetime-final -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.557] Rebuilding invalidated preamble for /tmp/mcppls-request-lifetime-final/Use.cpp version 2 (previous was version 1)\nV[21:51:17.559] indexed file AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 2:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.559] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:51:17.559] --> textDocument/publishDiagnostics\nV[21:51:17.559] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":2}}\n\nV[21:51:17.559] ASTWorker running DocumentSymbols on version 2 of /tmp/mcppls-request-lifetime-final/Use.cpp\nI[21:51:17.559] --> reply:textDocument/documentSymbol(7) 2 ms\nV[21:51:17.559] >>> {\"id\":7,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":13,\"location\":{\"range\":{\"end\":{\"character\":17,\"line\":0},\"start\":{\"character\":0,\"line\":0}},\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"},\"name\":\"request_value\"}]}\n\nV[21:51:17.559] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didChange\",\"params\":{\"contentChanges\":[{\"text\":\"import N;\\nint probe() { return next_value(); }\\n\"}],\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":3}}}\n\nI[21:51:17.559] <-- textDocument/didChange\nI[21:51:17.560] Built preamble of size 268840 for file /tmp/mcppls-request-lifetime-final/Use.cpp version 2 in 0.00 seconds\nV[21:51:17.560] Module provider index reused: 3 commands\nI[21:51:17.560] Built prerequisite modules for file /tmp/mcppls-request-lifetime-final/Use.cpp in 0.00 seconds\nV[21:51:17.561] indexed preamble AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 2:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.562] <<< {\"id\":9,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"}}}\n\nI[21:51:17.562] <-- textDocument/documentSymbol(9)\nV[21:51:17.562] indexed file AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 2:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.562] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:51:17.562] --> textDocument/publishDiagnostics\nV[21:51:17.562] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":2}}\n\nI[21:51:17.562] ASTWorker building file /tmp/mcppls-request-lifetime-final/Use.cpp version 3 with command \n[/tmp/mcppls-request-lifetime-final]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.563] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.563] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/mcppls-request-lifetime-final -fcoverage-compilation-dir=/tmp/mcppls-request-lifetime-final -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/mcppls-request-lifetime-final/Use.cpp\nV[21:51:17.563] Rebuilding invalidated preamble for /tmp/mcppls-request-lifetime-final/Use.cpp version 3 (previous was version 2)\nV[21:51:17.564] indexed file AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 3:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.564] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:51:17.564] --> textDocument/publishDiagnostics\nV[21:51:17.564] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"module_not_found\",\"message\":\"Module 'N' not found\",\"range\":{\"end\":{\"character\":9,\"line\":0},\"start\":{\"character\":7,\"line\":0}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":3}}\n\nV[21:51:17.564] ASTWorker running DocumentSymbols on version 3 of /tmp/mcppls-request-lifetime-final/Use.cpp\nI[21:51:17.564] --> reply:textDocument/documentSymbol(9) 2 ms\nV[21:51:17.564] >>> {\"id\":9,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":36,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"},\"name\":\"probe\"}]}\n\nV[21:51:17.564] <<< {\"id\":10,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":28,\"line\":1},\"textDocument\":{\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\"}}}\n\nI[21:51:17.564] <-- textDocument/completion(10)\nI[21:51:17.565] Built preamble of size 268840 for file /tmp/mcppls-request-lifetime-final/Use.cpp version 3 in 0.00 seconds\nV[21:51:17.566] Module provider index reused: 3 commands\nV[21:51:17.566] Module provider index reused: 3 commands\nV[21:51:17.567] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.568] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.568] Module build task N started (active=1, limit=2)\nV[21:51:17.568] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:51:17.570] Built module N to /tmp/mcppls-request-lifetime-final/.cache/clangd/modules/N.cppm-0F822E71363E5FEB/56D3747DFE19F03D/N-20261007-215117-570004.-baa77f.pcm\nV[21:51:17.570] Module build task N finished (active=0)\nI[21:51:17.570] Built prerequisite modules for file /tmp/mcppls-request-lifetime-final/Use.cpp in 0.00 seconds\nV[21:51:17.570] indexed preamble AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 3:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.570] Module provider index reused: 3 commands\nV[21:51:17.571] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:51:17.571] indexed file AST for /tmp/mcppls-request-lifetime-final/Use.cpp version 3:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:51:17.571] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:51:17.571] --> textDocument/publishDiagnostics\nV[21:51:17.571] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/mcppls-request-lifetime-final/Use.cpp\",\"version\":3}}\n\nV[21:51:17.573] Module build task N started (active=1, limit=2)\nI[21:51:17.573] Reusing module N from /tmp/mcppls-request-lifetime-final/.cache/clangd/modules/N.cppm-0F822E71363E5FEB/56D3747DFE19F03D/N-20261007-215117-570004.-baa77f.pcm\nV[21:51:17.573] Module build task N finished (active=0)\nV[21:51:17.574] Code complete: fuzzyFind({\n  \"AnyScope\": true,\n  \"Limit\": 100,\n  \"PreferredTypes\": [\n    \"c:I\"\n  ],\n  \"ProximityPaths\": [\n    \"/tmp/mcppls-request-lifetime-final/Use.cpp\"\n  ],\n  \"Query\": \"next_va\",\n  \"RestrictForCodeCompletion\": true,\n  \"Scopes\": [\n    \"\"\n  ]\n})\nV[21:51:17.574] Code complete: speculative fuzzy request matches the actual index request. Waiting for the speculative index results.\nI[21:51:17.574] Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int\nI[21:51:17.574] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[21:51:17.574] --> reply:textDocument/completion(10) 9 ms\nV[21:51:17.574] >>> {\"id\":10,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"int\",\"filterText\":\"next_value\",\"insertText\":\"next_value\",\"insertTextFormat\":1,\"kind\":3,\"label\":\" next_value()\",\"score\":1.3650459051132202,\"sortText\":\"4051462dnext_value\",\"textEdit\":{\"newText\":\"next_value\",\"range\":{\"end\":{\"character\":28,\"line\":1},\"start\":{\"character\":21,\"line\":1}}}}]}}\n\nV[21:51:17.574] <<< {\"id\":11,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[21:51:17.574] <-- shutdown(11)\nI[21:51:17.574] --> reply:shutdown(11) 0 ms\nV[21:51:17.574] >>> {\"id\":11,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[21:51:17.574] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[21:51:17.574] <-- exit\nI[21:51:17.574] LSP finished, exiting with status 0\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:49:too many arguments provided to function-like macro invocation\nV[21:51:17.837] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:90:9:macro 'atomic_is_lock_free' defined here\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:5:redefinition of 'atomic_is_lock_free' as different kind of symbol\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1294:5:previous definition is here\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:105:7:expected expression\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:109:6:expected ';' after top level declarator\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected parameter declarator\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected ')'\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:to match this '('\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:41:too many arguments provided to function-like macro invocation\nV[21:51:17.837] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:144:9:macro 'atomic_load' defined here\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:5:redefinition of 'atomic_load' as different kind of symbol\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1397:5:previous definition is here\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:7:expected expression\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:69:expected ';' after top level declarator\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected parameter declarator\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected ')'\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:to match this '('\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:47:too many arguments provided to function-like macro invocation\nV[21:51:17.837] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:141:9:macro 'atomic_store' defined here\nV[21:51:17.837] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:5:variable has incomplete type 'void'\nV[21:51:17.839] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:34:use of undeclared identifier '__p'; did you mean '_Lp'?\nV[21:51:17.839] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:187:39:'_Lp' declared here\nV[21:51:17.841] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:49:use of undeclared identifier '__r'\nV[21:51:17.841] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:76:unexpected ';' before '}'\nV[21:51:17.841] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:79:expected ';' after top level declarator\nV[21:51:17.841] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:212:5:expected parameter declarator\nV[21:51:17.841] Ignored diagnostic. too many errors emitted, stopping now\nV[21:51:18.177] indexed preamble AST for /tmp/mcppls-request-lifetime-final/Use.cpp version :\n  symbol slab: 27769 symbols, 8900112 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 702 relations, 17432 bytes\nI[21:51:18.191] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nV[21:51:18.207] Build dynamic index for header symbols with estimated memory usage of 9543448 bytes\n",
+    "engine_sha256": "1eb09d8bd4024a0e0b265a51e31a76c31a51256354c095c1fff4077be1458535",
+    "disk_contents_unchanged": true
+  },
+  "scope": "Exact main request contents, unchanged disk, unsaved M/no-import/N; focused development link, not immutable final package.",
+  "source_commit": "67b79d62b",
+  "focused_unit_count": 30,
+  "focused_unit_log": "Note: Google Test filter = DiagnosticsTest.*:PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer:PrerequisiteModulesTests.Provider*:GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration\n[==========] Running 30 tests from 3 test suites.\n[----------] Global test environment set-up.\n[----------] 26 tests from DiagnosticsTest\n[ RUN      ] DiagnosticsTest.DiagnosticRanges\nBuilt preamble of size 210640 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.DiagnosticRanges (7 ms)\n[ RUN      ] DiagnosticsTest.ModuleDirectiveMissingSemicolonRange\nBuilt preamble of size 210364 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 210364 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 210364 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 210364 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.ModuleDirectiveMissingSemicolonRange (15 ms)\n[ RUN      ] DiagnosticsTest.WSwitch\nBuilt preamble of size 210528 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.WSwitch (2 ms)\n[ RUN      ] DiagnosticsTest.FlagsMatter\nBuilt preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 209940 for file /clangd-test/Plain.c version null in 0.00 seconds\n[       OK ] DiagnosticsTest.FlagsMatter (5 ms)\n[ RUN      ] DiagnosticsTest.DiagnosticPreamble\nBuilt preamble of size 210556 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nIncludeCleaner: Failed to get an entry for resolved path '' from include \"not-found.h\" : '': No such file or directory\n[       OK ] DiagnosticsTest.DiagnosticPreamble (2 ms)\n[ RUN      ] DiagnosticsTest.DeduplicatedClangTidyDiagnostics\nBuilt preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.DeduplicatedClangTidyDiagnostics (6 ms)\n[ RUN      ] DiagnosticsTest.ClangTidy\nBuilt preamble of size 210880 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.ClangTidy (3 ms)\n[ RUN      ] DiagnosticsTest.ClangTidyRedundantParenthesesFix\nBuilt preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.ClangTidyRedundantParenthesesFix (2 ms)\n[ RUN      ] DiagnosticsTest.ClangTidyEOF\nBuilt preamble of size 210788 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.ClangTidyEOF (2 ms)\n[ RUN      ] DiagnosticsTest.ClangTidyCallingIntoPreprocessor\nBuilt preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nDropped diagnostic: /clangd-test/b.h: use a trailing return type for this function [modernize-use-trailing-return-type]\n[       OK ] DiagnosticsTest.ClangTidyCallingIntoPreprocessor (2 ms)\n[ RUN      ] DiagnosticsTest.Preprocessor\nBuilt preamble of size 210608 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.Preprocessor (2 ms)\n[ RUN      ] DiagnosticsTest.IgnoreVerify\nBuilt preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.IgnoreVerify (2 ms)\n[ RUN      ] DiagnosticsTest.RecursivePreamble\nBuilt preamble of size 209972 for file /clangd-test/foo.h version null in 0.00 seconds\nBuilt preamble of size 209972 for file /clangd-test/foo.h version null in 0.00 seconds\n[       OK ] DiagnosticsTest.RecursivePreamble (5 ms)\n[ RUN      ] DiagnosticsTest.RecursivePreamblePragmaOnce\nBuilt preamble of size 209976 for file /clangd-test/foo.h version null in 0.00 seconds\nBuilt preamble of size 209976 for file /clangd-test/foo.h version null in 0.00 seconds\n[       OK ] DiagnosticsTest.RecursivePreamblePragmaOnce (5 ms)\n[ RUN      ] DiagnosticsTest.RecursivePreambleIfndefGuard\nBuilt preamble of size 210056 for file /clangd-test/foo.h version null in 0.00 seconds\nBuilt preamble of size 210056 for file /clangd-test/foo.h version null in 0.00 seconds\n[       OK ] DiagnosticsTest.RecursivePreambleIfndefGuard (5 ms)\n[ RUN      ] DiagnosticsTest.PreambleWithPragmaAssumeNonnull\nBuilt preamble of size 210556 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.PreambleWithPragmaAssumeNonnull (2 ms)\n[ RUN      ] DiagnosticsTest.PreamblePragmaDiagnosticPushPop\nBuilt preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.PreamblePragmaDiagnosticPushPop (2 ms)\n[ RUN      ] DiagnosticsTest.PreambleHeaderWithBadPragmaAssumeNonnull\nBuilt preamble of size 211220 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.PreambleHeaderWithBadPragmaAssumeNonnull (2 ms)\n[ RUN      ] DiagnosticsTest.InsideMacros\nBuilt preamble of size 210756 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.InsideMacros (2 ms)\n[ RUN      ] DiagnosticsTest.NoFixItInMacro\nBuilt preamble of size 210708 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.NoFixItInMacro (2 ms)\n[ RUN      ] DiagnosticsTest.PragmaSystemHeader\nBuilt preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nDropped diagnostic: /clangd-test/TestTU.h: #pragma system_header ignored in main file\nBuilt preamble of size 209976 for file /clangd-test/TestTU.h version null in 0.00 seconds\n[       OK ] DiagnosticsTest.PragmaSystemHeader (5 ms)\n[ RUN      ] DiagnosticsTest.ToLSP\n[       OK ] DiagnosticsTest.ToLSP (0 ms)\n[ RUN      ] DiagnosticsTest.IncludeCleaner\nBuilt preamble of size 211856 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 211856 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\nBuilt preamble of size 211856 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.IncludeCleaner (8 ms)\n[ RUN      ] DiagnosticsTest.FixItFromHeader\nBuilt preamble of size 211508 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.FixItFromHeader (2 ms)\n[ RUN      ] DiagnosticsTest.UnusedInHeader\nBuilt preamble of size 209964 for file /clangd-test/test.c version null in 0.00 seconds\nBuilt preamble of size 209964 for file /clangd-test/test.h version null in 0.00 seconds\n[       OK ] DiagnosticsTest.UnusedInHeader (5 ms)\n[ RUN      ] DiagnosticsTest.DontSuppressSubcategories\nBuilt preamble of size 210556 for file /clangd-test/TestTU.cpp version null in 0.00 seconds\n[       OK ] DiagnosticsTest.DontSuppressSubcategories (2 ms)\n[----------] 26 tests from DiagnosticsTest (115 ms total)\n\n[----------] 1 test from GlobalCompilationDatabaseTest\n[ RUN      ] GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration\nLoaded compilation database from /clangd-test/compile_commands.json\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\nBroadcasting compilation database from /clangd-test\nReloaded compilation database from /clangd-test/compile_commands.json\nBroadcasting compilation database from /clangd-test\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\n[       OK ] GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration (0 ms)\n[----------] 1 test from GlobalCompilationDatabaseTest (0 ms total)\n\n[----------] 3 tests from PrerequisiteModulesTests\n[ RUN      ] PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\nIgnored diagnostic. argument unused during compilation: '-c'\nRunning GC pass for clangd built module files under /tmp/modules-test-6946e0/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nFailed to scan module cache directory /tmp/modules-test-6946e0/.cache/clangd/modules: No such file or directory\nDone running GC pass for clangd built module files under /tmp/modules-test-6946e0/.cache/clangd/modules\nModule build task M started (active=1, limit=2)\nIgnored diagnostic. argument unused during compilation: '-c'\nBuilt module M to /tmp/modules-test-6946e0/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/8D74B13C62069C1E/M-20261007-215121-101504.-78f164.pcm\nModule build task M finished (active=0)\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\nIgnored diagnostic. argument unused during compilation: '-c'\nModule build task M started (active=1, limit=2)\nReusing module M from /tmp/modules-test-6946e0/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/8D74B13C62069C1E/M-20261007-215121-101504.-78f164.pcm\nModule build task M finished (active=0)\n[       OK ] PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer (12 ms)\n[ RUN      ] PrerequisiteModulesTests.ProviderResponseContentsAreNotMemoized\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\nModule provider index rebuilt: 2 commands\n[       OK ] PrerequisiteModulesTests.ProviderResponseContentsAreNotMemoized (5 ms)\n[ RUN      ] PrerequisiteModulesTests.ProviderInventorySharedWithManglerInvalidation\nModule provider inventory: 2 files\nModule provider index rebuilt: 2 commands\nModule provider index reused: 2 commands\nModule provider index reused: 2 commands\nModule provider index rebuilt: 2 commands\nModule provider index rebuilt: 2 commands\nModule provider index reused: 2 commands\n[       OK ] PrerequisiteModulesTests.ProviderInventorySharedWithManglerInvalidation (2 ms)\n[----------] 3 tests from PrerequisiteModulesTests (21 ms total)\n\n[----------] Global test environment tear-down\n[==========] 30 tests from 3 test suites ran. (136 ms total)\n[  PASSED  ] 30 tests.\n",
+  "overlay_lifetime": {
+    "before": {
+      "id": "diamond-1",
+      "outcome": "crash",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.8963270013045985
+        }
+      ],
+      "detail": "server stdout closed",
+      "readers_stopped": true,
+      "exit_code": -11,
+      "stderr": "I[21:35:33.214] clangd version 23.1.0-mcppls.0\nI[21:35:33.214] Features: linux\nI[21:35:33.214] PID: 605640\nI[21:35:33.214] Working directory: /tmp/mcppls-26-27-module-dag/diamond-1\nI[21:35:33.214] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[21:35:33.214] argv[1]: --experimental-modules-support\nI[21:35:33.214] argv[2]: --background-index=false\nI[21:35:33.214] argv[3]: -j=4\nI[21:35:33.214] argv[4]: --log=verbose\nI[21:35:33.214] argv[5]: --modules-builder-workers=1\nV[21:35:33.214] User config file is /home/speak/.config/clangd/config.yaml\nI[21:35:33.214] Starting LSP over stdin/stdout\nV[21:35:33.214] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1\"}}\n\nI[21:35:33.214] <-- initialize(1)\nI[21:35:33.214] --> reply:initialize(1) 0 ms\nV[21:35:33.214] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[21:35:33.215] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[21:35:33.215] <-- initialized\nV[21:35:33.215] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import A;\\nvoid caller(){\\n  fn\\n}\\n\",\"uri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\",\"version\":1}}}\n\nI[21:35:33.215] <-- textDocument/didOpen\nI[21:35:33.215] Loaded compilation database from /tmp/mcppls-26-27-module-dag/diamond-1/compile_commands.json\nV[21:35:33.216] Module provider inventory: 5 files\nV[21:35:33.216] Module provider index rebuilt: 5 commands\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.\nStack dump:\n0.\tProgram arguments: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd --experimental-modules-support --background-index=false -j=4 --log=verbose --modules-builder-workers=1\n #0 0x0000000000593f00 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x593f00)\n #1 0x0000000000590ae7 SignalHandler(int, siginfo_t*, void*) Signals.cpp:0:0\n #2 0x0000791bddd28f20 __restore_rt libc_sigaction.c:0:0\n #3 0x0000000000eef6c2 clang::Lexer::LexStringLiteral(clang::Token&, char const*, clang::tok::TokenKind) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xeef6c2)\n #4 0x0000000000ef0682 clang::Lexer::LexTokenInternal(clang::Token&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xef0682)\n #5 0x0000000000f72b6c clang::Preprocessor::Lex(clang::Token&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xf72b6c)\n #6 0x0000000000f53787 clang::Preprocessor::ReadMacroCallArgumentList(clang::Token&, clang::MacroInfo*, clang::SourceLocation&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xf53787)\n #7 0x0000000000f56e05 clang::Preprocessor::HandleMacroExpandedIdentifier(clang::Token&, clang::MacroDefinition const&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xf56e05)\n #8 0x0000000000f77330 clang::Preprocessor::HandleIdentifier(clang::Token&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xf77330)\n #9 0x0000000000f72b6c clang::Preprocessor::Lex(clang::Token&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0xf72b6c)\n#10 0x0000000002f9026b clang::ReadPCHAndPreprocessAction::ExecuteAction() (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2f9026b)\n#11 0x0000000002f825b0 clang::FrontendAction::Execute() (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2f825b0)\n#12 0x0000000002f0f732 clang::CompilerInstance::ExecuteAction(clang::FrontendAction&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2f0f732)\n#13 0x0000000002ed9ad7 clang::dependencies::DependencyScanningAction::runInvocation(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>, std::unique_ptr<clang::CompilerInvocation, std::default_delete<clang::CompilerInvocation>>, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>, std::shared_ptr<clang::PCHContainerOperations>, clang::DiagnosticConsumer*) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2ed9ad7)\n#14 0x0000000002ec59da clang::dependencies::DependencyScanningWorker::computeDependencies(llvm::StringRef, llvm::ArrayRef<llvm::ArrayRef<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>>>, clang::dependencies::DependencyConsumer&, clang::dependencies::DependencyActionController&, clang::DiagnosticConsumer&, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2ec59da)\n#15 0x0000000002bd9579 computeDependenciesForDriverCommandLine(clang::dependencies::DependencyScanningWorker&, llvm::StringRef, llvm::ArrayRef<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>>, clang::dependencies::DependencyConsumer&, clang::dependencies::DependencyActionController&, clang::DiagnosticConsumer&, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) DependencyScanningTool.cpp:0:0\n#16 0x0000000002bd9d46 clang::tooling::computeDependencies(clang::dependencies::DependencyScanningWorker&, llvm::StringRef, llvm::ArrayRef<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>>, clang::dependencies::DependencyConsumer&, clang::dependencies::DependencyActionController&, clang::DiagnosticConsumer&, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2bd9d46)\n#17 0x0000000002bd9ef2 clang::tooling::DependencyScanningTool::getP1689ModuleDependencyFile(clang::tooling::CompileCommand const&, llvm::StringRef, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>&, clang::DiagnosticConsumer&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x2bd9ef2)\n#18 0x0000000001f28151 clang::clangd::(anonymous namespace)::ModuleDependencyScanner::scan(llvm::StringRef, llvm::unique_function<void (clang::tooling::CompileCommand&, llvm::StringRef) const> const&) ProjectModules.cpp:0:0\n#19 0x0000000001f2a5c8 clang::clangd::CompoundProjectModules::getSourceForModuleName[abi:cxx11](llvm::StringRef, llvm::StringRef) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1f2a5c8)\n#20 0x0000000001f03d3f clang::clangd::(anonymous namespace)::CachingProjectModules::getSourceForModuleName(llvm::StringRef, llvm::StringRef) ModulesBuilder.cpp:0:0\n#21 0x0000000001f08888 clang::clangd::ModulesBuilder::ModulesBuilderImpl::hasBuildableRequiredModules(llvm::StringRef, clang::clangd::ThreadsafeFS const&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1f08888)\n#22 0x0000000001f08b07 clang::clangd::ModulesBuilder::hasBuildableRequiredModules(llvm::StringRef, clang::clangd::ThreadsafeFS const&, llvm::StringRef) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1f08b07)\n#23 0x0000000001d65a52 clang::clangd::ClangdServer::adjustParseInputs(clang::clangd::ParseInputs&, llvm::StringRef) const (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1d65a52)\n#24 0x0000000001d7166d clang::clangd::ClangdServer::addDocument(llvm::StringRef, llvm::StringRef, llvm::StringRef, clang::clangd::WantDiagnostics, bool) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1d7166d)\n#25 0x0000000001d0b972 clang::clangd::ClangdLSPServer::onDocumentDidOpen(clang::clangd::DidOpenTextDocumentParams const&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1d0b972)\n#26 0x0000000001d3c86d llvm::detail::UniqueFunctionBase<void, llvm::json::Value>::UniqueFunctionBase<void clang::clangd::LSPBinder::notification<clang::clangd::DidOpenTextDocumentParams, clang::clangd::ClangdLSPServer>(llvm::StringLiteral, clang::clangd::ClangdLSPServer*, void (clang::clangd::ClangdLSPServer::*)(clang::clangd::DidOpenTextDocumentParams const&))::'lambda'(llvm::json::Value), void clang::clangd::LSPBinder::notification<clang::clangd::DidOpenTextDocumentParams, clang::clangd::ClangdLSPServer>(llvm::StringLiteral, clang::clangd::ClangdLSPServer*, void (clang::clangd::ClangdLSPServer::*)(clang::clangd::DidOpenTextDocumentParams const&))::'lambda'(llvm::json::Value)>(clang::clangd::DidOpenTextDocumentParams, llvm::detail::UniqueFunctionBase<void, llvm::json::Value>::CalledAs<clang::clangd::ClangdLSPServer>)::'lambda'(llvm::detail::UniqueFunctionBase<void, llvm::json::Value> const*, llvm::json::Value&)::_FUN(llvm::detail::UniqueFunctionBase<void, llvm::json::Value> const*, llvm::json::Value&) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1d3c86d)\n#27 0x0000000001d2cdd7 clang::clangd::ClangdLSPServer::MessageHandler::onNotify(llvm::StringRef, llvm::json::Value) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1d2cdd7)\n#28 0x0000000001eefdbf clang::clangd::(anonymous namespace)::JSONTransport::loop(clang::clangd::Transport::MessageHandler&) JSONTransport.cpp:0:0\n#29 0x0000000001d156b1 clang::clangd::ClangdLSPServer::run() (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1d156b1)\n#30 0x0000000001ca9f5f clang::clangd::clangdMain(int, char**) (/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd+0x1ca9f5f)\n#31 0x0000791bddd11fb8 __libc_start_call_main /tmp/claude-1000/-home-speak-workspace-github-mcpp-community-mcpp-plugins/0b9b09e8-f8ec-4c1c-8dfa-28f597e57389/scratchpad/gfxwork/src/glibc-2.44/csu/../sysdeps/nptl/libc_start_call_main.h:83:3\n#32 0x0000791bddd120d7 call_init /tmp/claude-1000/-home-speak-workspace-github-mcpp-community-mcpp-plugins/0b9b09e8-f8ec-4c1c-8dfa-28f597e57389/scratchpad/gfxwork/src/glibc-2.44/csu/../csu/libc-start.c:127:20\n#33 0x0000791bddd120d7 __libc_start_main@GLIBC_2.2.5 /tmp/claude-1000/-home-speak-workspace-github-mcpp-community-mcpp-plugins/0b9b09e8-f8ec-4c1c-8dfa-28f597e57389/scratchpad/gfxwork/src/glibc-2.44/csu/../csu/libc-start.c:359:5\n#34 0x0000000000491c51 _start /tmp/claude-1000/-home-speak-workspace-github-openxlings-xlings/0497622e-d435-47ae-87ed-ff9f1b2a9f49/scratchpad/gfxwork/src/glibc-2.44/csu/../sysdeps/x86_64/start.S:117:0\nSignalled while processing message:\n{\"jsonrpc\": \"2.0\", \"method\": \"textDocument/didOpen\", \"params\": {\"textDocument\": {\"uri\": \"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\", \"languageId\": \"cpp\", \"version\": 1, \"text\": \"import A;\\nvoid caller(){\\n  fn\\n}\\n\"}}}\n"
+    },
+    "after": {
+      "id": "diamond-1",
+      "outcome": "pass",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "fnA",
+            "fnB",
+            "fnC",
+            "fnD"
+          ],
+          "elapsed_ms": 15.01696999912383,
+          "completion_items": {
+            "fnA": [
+              {
+                "detail": "int",
+                "filterText": "fnA",
+                "insertText": "fnA",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fnA()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efnA",
+                "textEdit": {
+                  "newText": "fnA",
+                  "range": {
+                    "end": {
+                      "character": 4,
+                      "line": 2
+                    },
+                    "start": {
+                      "character": 2,
+                      "line": 2
+                    }
+                  }
+                }
+              }
+            ],
+            "fnB": [
+              {
+                "detail": "int",
+                "filterText": "fnB",
+                "insertText": "fnB",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fnB()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efnB",
+                "textEdit": {
+                  "newText": "fnB",
+                  "range": {
+                    "end": {
+                      "character": 4,
+                      "line": 2
+                    },
+                    "start": {
+                      "character": 2,
+                      "line": 2
+                    }
+                  }
+                }
+              }
+            ],
+            "fnC": [
+              {
+                "detail": "int",
+                "filterText": "fnC",
+                "insertText": "fnC",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fnC()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efnC",
+                "textEdit": {
+                  "newText": "fnC",
+                  "range": {
+                    "end": {
+                      "character": 4,
+                      "line": 2
+                    },
+                    "start": {
+                      "character": 2,
+                      "line": 2
+                    }
+                  }
+                }
+              }
+            ],
+            "fnD": [
+              {
+                "detail": "int",
+                "filterText": "fnD",
+                "insertText": "fnD",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fnD()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efnD",
+                "textEdit": {
+                  "newText": "fnD",
+                  "range": {
+                    "end": {
+                      "character": 4,
+                      "line": 2
+                    },
+                    "start": {
+                      "character": 2,
+                      "line": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.9140959993819706
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 3
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 1
+                    }
+                  },
+                  "uri": "file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp"
+                },
+                "name": "caller"
+              }
+            ]
+          },
+          "elapsed_ms": 49.40012999941246
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "int",
+                  "filterText": "fnA",
+                  "insertText": "fnA",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " fnA()",
+                  "score": 0.8084393739700317,
+                  "sortText": "40b10a1efnA",
+                  "textEdit": {
+                    "newText": "fnA",
+                    "range": {
+                      "end": {
+                        "character": 4,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 2,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "int",
+                  "filterText": "fnB",
+                  "insertText": "fnB",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " fnB()",
+                  "score": 0.8084393739700317,
+                  "sortText": "40b10a1efnB",
+                  "textEdit": {
+                    "newText": "fnB",
+                    "range": {
+                      "end": {
+                        "character": 4,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 2,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "int",
+                  "filterText": "fnC",
+                  "insertText": "fnC",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " fnC()",
+                  "score": 0.8084393739700317,
+                  "sortText": "40b10a1efnC",
+                  "textEdit": {
+                    "newText": "fnC",
+                    "range": {
+                      "end": {
+                        "character": 4,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 2,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "int",
+                  "filterText": "fnD",
+                  "insertText": "fnD",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " fnD()",
+                  "score": 0.8084393739700317,
+                  "sortText": "40b10a1efnD",
+                  "textEdit": {
+                    "newText": "fnD",
+                    "range": {
+                      "end": {
+                        "character": 4,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 2,
+                        "line": 2
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 14.919350000127451
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[21:49:22.503] clangd version 23.1.0-mcppls.0\nI[21:49:22.503] Features: linux\nI[21:49:22.503] PID: 633547\nI[21:49:22.503] Working directory: /tmp/mcppls-26-27-module-dag/diamond-1\nI[21:49:22.503] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[21:49:22.503] argv[1]: --experimental-modules-support\nI[21:49:22.503] argv[2]: --background-index=false\nI[21:49:22.503] argv[3]: -j=4\nI[21:49:22.503] argv[4]: --log=verbose\nI[21:49:22.503] argv[5]: --modules-builder-workers=1\nV[21:49:22.503] User config file is /home/speak/.config/clangd/config.yaml\nI[21:49:22.503] Starting LSP over stdin/stdout\nV[21:49:22.503] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1\"}}\n\nI[21:49:22.503] <-- initialize(1)\nI[21:49:22.503] --> reply:initialize(1) 0 ms\nV[21:49:22.503] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[21:49:22.503] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[21:49:22.503] <-- initialized\nV[21:49:22.503] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import A;\\nvoid caller(){\\n  fn\\n}\\n\",\"uri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\",\"version\":1}}}\n\nI[21:49:22.503] <-- textDocument/didOpen\nI[21:49:22.504] Loaded compilation database from /tmp/mcppls-26-27-module-dag/diamond-1/compile_commands.json\nV[21:49:22.505] Module provider inventory: 5 files\nV[21:49:22.505] Module provider index rebuilt: 5 commands\nV[21:49:22.509] Broadcasting compilation database from /tmp/mcppls-26-27-module-dag/diamond-1\nV[21:49:22.509] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\"}}}\n\nI[21:49:22.509] <-- textDocument/documentSymbol(4)\nI[21:49:22.509] ASTWorker building file /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp version 1 with command \n[/tmp/mcppls-26-27-module-dag/diamond-1]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\nV[21:49:22.509] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:49:22.509] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/mcppls-26-27-module-dag/diamond-1 -fcoverage-compilation-dir=/tmp/mcppls-26-27-module-dag/diamond-1 -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\nV[21:49:22.509] Building first preamble for /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp version 1\nI[21:49:22.515] Built preamble of size 268852 for file /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp version 1 in 0.01 seconds\nV[21:49:22.518] Module provider index reused: 5 commands\nV[21:49:22.519] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:49:22.531] Running GC pass for clangd built module files under /tmp/mcppls-26-27-module-dag/diamond-1/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[21:49:22.531] Done running GC pass for clangd built module files under /tmp/mcppls-26-27-module-dag/diamond-1/.cache/clangd/modules\nV[21:49:22.531] Module build task D started (active=1, limit=1)\nV[21:49:22.532] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:49:22.536] Built module D to /tmp/mcppls-26-27-module-dag/diamond-1/.cache/clangd/modules/D.cppm-80168A3336C873F7/1083342C30851973/D-20261007-214922-536120.-f8c3c8.pcm\nV[21:49:22.536] Module build task D finished (active=0)\nV[21:49:22.536] Module build task B started (active=1, limit=1)\nV[21:49:22.537] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:49:22.539] Built module B to /tmp/mcppls-26-27-module-dag/diamond-1/.cache/clangd/modules/B.cppm-4FF079B328BE5663/662F457D0F55FC56/B-20261007-214922-539310.-38e613.pcm\nV[21:49:22.539] Module build task B finished (active=0)\nV[21:49:22.539] Module build task C started (active=1, limit=1)\nV[21:49:22.540] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:49:22.543] Built module C to /tmp/mcppls-26-27-module-dag/diamond-1/.cache/clangd/modules/C.cppm-4ABF6E02D91BEDE4/7EA6B71789058FDE/C-20261007-214922-542943.-c609b1.pcm\nV[21:49:22.543] Module build task C finished (active=0)\nV[21:49:22.543] Module build task A started (active=1, limit=1)\nV[21:49:22.544] Ignored diagnostic. argument unused during compilation: '-c'\nI[21:49:22.546] Built module A to /tmp/mcppls-26-27-module-dag/diamond-1/.cache/clangd/modules/A.cppm-C7BEDAF5ABAFC72D/45A12C5B2F16956A/A-20261007-214922-546256.-9dfd66.pcm\nV[21:49:22.546] Module build task A finished (active=0)\nI[21:49:22.546] Built prerequisite modules for file /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp in 0.03 seconds\nV[21:49:22.546] indexed preamble AST for /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[21:49:22.548] Indexing c++20 standard library in the context of /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\nV[21:49:22.552] Trying to fix unresolved name \"fn\" in scopes: []\nV[21:49:22.553] indexed file AST for /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp version 1:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:49:22.553] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[21:49:22.553] --> textDocument/publishDiagnostics\nV[21:49:22.553] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"undeclared_var_use\",\"message\":\"Use of undeclared identifier 'fn'\",\"range\":{\"end\":{\"character\":4,\"line\":2},\"start\":{\"character\":2,\"line\":2}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\",\"version\":1}}\n\nV[21:49:22.553] ASTWorker running DocumentSymbols on version 1 of /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\nI[21:49:22.553] --> reply:textDocument/documentSymbol(4) 44 ms\nV[21:49:22.553] >>> {\"id\":4,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":1,\"line\":3},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\"},\"name\":\"caller\"}]}\n\nV[21:49:22.553] <<< {\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":4,\"line\":2},\"textDocument\":{\"uri\":\"file:///tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\"}}}\n\nI[21:49:22.553] <-- textDocument/completion(5)\nV[21:49:22.560] Module provider index reused: 5 commands\nV[21:49:22.564] Ignored diagnostic. argument unused during compilation: '-c'\nV[21:49:22.567] Code complete: fuzzyFind({\n  \"AnyScope\": true,\n  \"Limit\": 100,\n  \"PreferredTypes\": [],\n  \"ProximityPaths\": [\n    \"/tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp\"\n  ],\n  \"Query\": \"fn\",\n  \"RestrictForCodeCompletion\": true,\n  \"Scopes\": [\n    \"\"\n  ]\n})\nI[21:49:22.568] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[21:49:22.568] Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.\nI[21:49:22.568] --> reply:textDocument/completion(5) 14 ms\nV[21:49:22.568] >>> {\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"int\",\"filterText\":\"fnA\",\"insertText\":\"fnA\",\"insertTextFormat\":1,\"kind\":3,\"label\":\" fnA()\",\"score\":0.80843937397003174,\"sortText\":\"40b10a1efnA\",\"textEdit\":{\"newText\":\"fnA\",\"range\":{\"end\":{\"character\":4,\"line\":2},\"start\":{\"character\":2,\"line\":2}}}},{\"detail\":\"int\",\"filterText\":\"fnB\",\"insertText\":\"fnB\",\"insertTextFormat\":1,\"kind\":3,\"label\":\" fnB()\",\"score\":0.80843937397003174,\"sortText\":\"40b10a1efnB\",\"textEdit\":{\"newText\":\"fnB\",\"range\":{\"end\":{\"character\":4,\"line\":2},\"start\":{\"character\":2,\"line\":2}}}},{\"detail\":\"int\",\"filterText\":\"fnC\",\"insertText\":\"fnC\",\"insertTextFormat\":1,\"kind\":3,\"label\":\" fnC()\",\"score\":0.80843937397003174,\"sortText\":\"40b10a1efnC\",\"textEdit\":{\"newText\":\"fnC\",\"range\":{\"end\":{\"character\":4,\"line\":2},\"start\":{\"character\":2,\"line\":2}}}},{\"detail\":\"int\",\"filterText\":\"fnD\",\"insertText\":\"fnD\",\"insertTextFormat\":1,\"kind\":3,\"label\":\" fnD()\",\"score\":0.80843937397003174,\"sortText\":\"40b10a1efnD\",\"textEdit\":{\"newText\":\"fnD\",\"range\":{\"end\":{\"character\":4,\"line\":2},\"start\":{\"character\":2,\"line\":2}}}}]}}\n\nV[21:49:22.568] <<< {\"id\":6,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[21:49:22.568] <-- shutdown(6)\nI[21:49:22.568] --> reply:shutdown(6) 0 ms\nV[21:49:22.568] >>> {\"id\":6,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[21:49:22.568] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[21:49:22.568] <-- exit\nI[21:49:22.568] LSP finished, exiting with status 0\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:49:too many arguments provided to function-like macro invocation\nV[21:49:22.865] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:90:9:macro 'atomic_is_lock_free' defined here\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:5:redefinition of 'atomic_is_lock_free' as different kind of symbol\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1294:5:previous definition is here\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:105:7:expected expression\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:109:6:expected ';' after top level declarator\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected parameter declarator\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected ')'\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:to match this '('\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:41:too many arguments provided to function-like macro invocation\nV[21:49:22.865] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:144:9:macro 'atomic_load' defined here\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:5:redefinition of 'atomic_load' as different kind of symbol\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1397:5:previous definition is here\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:7:expected expression\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:69:expected ';' after top level declarator\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected parameter declarator\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected ')'\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:to match this '('\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:47:too many arguments provided to function-like macro invocation\nV[21:49:22.865] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:141:9:macro 'atomic_store' defined here\nV[21:49:22.865] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:5:variable has incomplete type 'void'\nV[21:49:22.867] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:34:use of undeclared identifier '__p'; did you mean '_Lp'?\nV[21:49:22.867] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:187:39:'_Lp' declared here\nV[21:49:22.869] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:49:use of undeclared identifier '__r'\nV[21:49:22.869] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:76:unexpected ';' before '}'\nV[21:49:22.869] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:79:expected ';' after top level declarator\nV[21:49:22.869] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:212:5:expected parameter declarator\nV[21:49:22.869] Ignored diagnostic. too many errors emitted, stopping now\nV[21:49:23.200] indexed preamble AST for /tmp/mcppls-26-27-module-dag/diamond-1/Use.cpp version :\n  symbol slab: 27769 symbols, 8900112 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 702 relations, 17432 bytes\nI[21:49:23.212] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nV[21:49:23.228] Build dynamic index for header symbols with estimated memory usage of 9547832 bytes\n"
+    },
+    "scope": "Actual raw diamond request before and after request-owned buffer storage repair. Development links, not final package or native acceptance."
+  },
+  "dag": {
+    "ok": true,
+    "engine_sha256": "1eb09d8bd4024a0e0b265a51e31a76c31a51256354c095c1fff4077be1458535",
+    "cases": [
+      {
+        "id": "wide-1",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 1,
+        "document_symbol_ms": 802.4514310018276
+      },
+      {
+        "id": "wide-2",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 2,
+        "document_symbol_ms": 505.67598799898406
+      },
+      {
+        "id": "wide-4",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 4,
+        "document_symbol_ms": 367.9779240010248
+      },
+      {
+        "id": "diamond-1",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 1,
+        "document_symbol_ms": 53.87625000003027
+      },
+      {
+        "id": "diamond-4",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 2,
+        "document_symbol_ms": 48.60249199919053
+      },
+      {
+        "id": "failure-1",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 1,
+        "document_symbol_ms": 31.322973998612724
+      },
+      {
+        "id": "failure-4",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 2,
+        "document_symbol_ms": 40.38285199931124
+      },
+      {
+        "id": "prebuilt-4",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 1,
+        "document_symbol_ms": 49.750313999538776
+      },
+      {
+        "id": "concurrent-2",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 2,
+        "document_symbol_ms": 519.5032480005466
+      },
+      {
+        "id": "textual-4",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "max_active": 1,
+        "document_symbol_ms": 42.945655000949046
+      }
+    ]
+  }
+}

@@ -114,6 +114,8 @@ def run_case(engine, clang, root, shape, workers, baseline=False):
         'platform': replay.platform_name(), 'baseline': 'pass',
         'timeout_seconds': 30, 'flags': flags, 'sequence': sequence}))
     result = replay.replay(engine, manifest)
+    # Keep natural exits and raw replies even when a later assertion fails.
+    (root / 'replay-result.json').write_text(json.dumps(result, indent=2) + '\n')
     if result['outcome'] != 'pass':
         raise RuntimeError(f'{shape}/{workers}: {result.get("detail", result["outcome"])}')
     if shape != 'failure' and 'Failed to build' in result['stderr']:
