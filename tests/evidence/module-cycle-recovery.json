@@ -145,7 +145,7 @@
             }
           }
         },
-        "elapsed_ms": 2.000140957534313
+        "elapsed_ms": 2.087569795548916
       },
       {
         "method": "textDocument/documentSymbol",
@@ -173,7 +173,7 @@
             }
           ]
         },
-        "elapsed_ms": 13.897078111767769
+        "elapsed_ms": 15.83827007561922
       },
       {
         "method": "textDocument/documentSymbol",
@@ -201,11 +201,189 @@
             }
           ]
         },
-        "elapsed_ms": 2.6871412992477417
+        "elapsed_ms": 3.2464703544974327
       }
     ],
     "exit_code": 0,
-    "stderr": "I[01:28:44.598] clangd version 23.1.0-mcppls.0\nI[01:28:44.598] Features: linux\nI[01:28:44.598] PID: 3118478\nI[01:28:44.598] Working directory: /tmp/joint-portable-module-cycle\nI[01:28:44.598] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:28:44.598] argv[1]: --experimental-modules-support\nI[01:28:44.598] argv[2]: --background-index=false\nI[01:28:44.598] argv[3]: -j=2\nI[01:28:44.598] Starting LSP over stdin/stdout\nI[01:28:44.598] <-- initialize(1)\nI[01:28:44.598] --> reply:initialize(1) 0 ms\nI[01:28:44.599] <-- initialized\nI[01:28:44.599] <-- textDocument/didOpen\nI[01:28:44.599] Loaded compilation database from /tmp/joint-portable-module-cycle/compile_commands.json\nI[01:28:44.600] <-- textDocument/documentSymbol(4)\nI[01:28:44.600] ASTWorker building file /tmp/joint-portable-module-cycle/Use.cpp version 1 with command \n[/tmp/joint-portable-module-cycle]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-portable-module-cycle/Use.cpp\nI[01:28:44.605] Built preamble of size 268832 for file /tmp/joint-portable-module-cycle/Use.cpp version 1 in 0.00 seconds\nE[01:28:44.610] Failed to build module A; due to Cyclic module dependency involving A\nI[01:28:44.610] Built prerequisite modules for file /tmp/joint-portable-module-cycle/Use.cpp in 0.01 seconds\nI[01:28:44.610] Indexing c++20 standard library in the context of /tmp/joint-portable-module-cycle/Use.cpp\nI[01:28:44.612] --> textDocument/publishDiagnostics\nI[01:28:44.612] --> reply:textDocument/documentSymbol(4) 12 ms\nI[01:28:44.613] <-- textDocument/didChange\nI[01:28:44.613] <-- textDocument/documentSymbol(6)\nI[01:28:44.613] ASTWorker building file /tmp/joint-portable-module-cycle/Use.cpp version 2 with command \n[/tmp/joint-portable-module-cycle]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-portable-module-cycle/Use.cpp\nI[01:28:44.615] --> textDocument/publishDiagnostics\nI[01:28:44.615] --> reply:textDocument/documentSymbol(6) 1 ms\nI[01:28:44.615] <-- shutdown(7)\nI[01:28:44.615] --> reply:shutdown(7) 0 ms\nI[01:28:44.615] <-- exit\nI[01:28:44.615] LSP finished, exiting with status 0\nI[01:28:44.616] Built preamble of size 268832 for file /tmp/joint-portable-module-cycle/Use.cpp version 2 in 0.00 seconds\nE[01:28:44.618] Failed to build module A; due to Task was cancelled.\nI[01:28:44.618] Built prerequisite modules for file /tmp/joint-portable-module-cycle/Use.cpp in 0.00 seconds\nI[01:28:45.222] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\n"
+    "stderr": "I[01:29:29.157] clangd version 23.1.0-mcppls.0\nI[01:29:29.157] Features: linux\nI[01:29:29.157] PID: 3118982\nI[01:29:29.157] Working directory: /tmp/joint-portable-module-cycle\nI[01:29:29.157] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:29:29.157] argv[1]: --experimental-modules-support\nI[01:29:29.157] argv[2]: --background-index=false\nI[01:29:29.157] argv[3]: -j=2\nI[01:29:29.157] Starting LSP over stdin/stdout\nI[01:29:29.157] <-- initialize(1)\nI[01:29:29.157] --> reply:initialize(1) 0 ms\nI[01:29:29.158] <-- initialized\nI[01:29:29.158] <-- textDocument/didOpen\nI[01:29:29.158] Loaded compilation database from /tmp/joint-portable-module-cycle/compile_commands.json\nI[01:29:29.160] <-- textDocument/documentSymbol(4)\nI[01:29:29.160] ASTWorker building file /tmp/joint-portable-module-cycle/Use.cpp version 1 with command \n[/tmp/joint-portable-module-cycle]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-portable-module-cycle/Use.cpp\nI[01:29:29.165] Built preamble of size 268832 for file /tmp/joint-portable-module-cycle/Use.cpp version 1 in 0.00 seconds\nE[01:29:29.171] Failed to build module A; due to Cyclic module dependency involving A\nI[01:29:29.171] Built prerequisite modules for file /tmp/joint-portable-module-cycle/Use.cpp in 0.01 seconds\nI[01:29:29.172] Indexing c++20 standard library in the context of /tmp/joint-portable-module-cycle/Use.cpp\nI[01:29:29.173] --> textDocument/publishDiagnostics\nI[01:29:29.173] --> reply:textDocument/documentSymbol(4) 13 ms\nI[01:29:29.174] <-- textDocument/didChange\nI[01:29:29.175] <-- textDocument/documentSymbol(6)\nI[01:29:29.175] ASTWorker building file /tmp/joint-portable-module-cycle/Use.cpp version 2 with command \n[/tmp/joint-portable-module-cycle]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-portable-module-cycle/Use.cpp\nI[01:29:29.177] --> textDocument/publishDiagnostics\nI[01:29:29.177] --> reply:textDocument/documentSymbol(6) 1 ms\nI[01:29:29.177] <-- shutdown(7)\nI[01:29:29.177] --> reply:shutdown(7) 0 ms\nI[01:29:29.177] <-- exit\nI[01:29:29.177] LSP finished, exiting with status 0\nI[01:29:29.177] Built preamble of size 268832 for file /tmp/joint-portable-module-cycle/Use.cpp version 2 in 0.00 seconds\nE[01:29:29.179] Failed to build module A; due to Task was cancelled.\nI[01:29:29.179] Built prerequisite modules for file /tmp/joint-portable-module-cycle/Use.cpp in 0.00 seconds\nI[01:29:29.801] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\n"
+  },
+  "diamond": {
+    "id": "diamond-module-recovery",
+    "outcome": "pass",
+    "responses": [],
+    "raw_responses": [
+      {
+        "method": "initialize",
+        "reply": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "astProvider": true,
+              "callHierarchyProvider": true,
+              "clangdInlayHintsProvider": true,
+              "codeActionProvider": true,
+              "compilationDatabase": {
+                "automaticReload": true
+              },
+              "completionProvider": {
+                "resolveProvider": false,
+                "triggerCharacters": [
+                  ".",
+                  "<",
+                  ">",
+                  ":",
+                  "\"",
+                  "/",
+                  "*"
+                ]
+              },
+              "declarationProvider": true,
+              "definitionProvider": true,
+              "documentFormattingProvider": true,
+              "documentHighlightProvider": true,
+              "documentLinkProvider": {
+                "resolveProvider": false
+              },
+              "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": []
+              },
+              "documentRangeFormattingProvider": {
+                "rangesSupport": true
+              },
+              "documentSymbolProvider": true,
+              "executeCommandProvider": {
+                "commands": [
+                  "clangd.applyFix",
+                  "clangd.applyRename",
+                  "clangd.applyTweak"
+                ]
+              },
+              "foldingRangeProvider": true,
+              "hoverProvider": true,
+              "implementationProvider": true,
+              "inactiveRegionsProvider": true,
+              "inlayHintProvider": true,
+              "memoryUsageProvider": true,
+              "referencesProvider": true,
+              "renameProvider": true,
+              "selectionRangeProvider": true,
+              "semanticTokensProvider": {
+                "full": {
+                  "delta": true
+                },
+                "legend": {
+                  "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "deprecated",
+                    "deduced",
+                    "readonly",
+                    "static",
+                    "abstract",
+                    "virtual",
+                    "dependentName",
+                    "defaultLibrary",
+                    "usedAsMutableReference",
+                    "usedAsMutablePointer",
+                    "constructorOrDestructor",
+                    "userDefined",
+                    "functionScope",
+                    "classScope",
+                    "fileScope",
+                    "globalScope"
+                  ],
+                  "tokenTypes": [
+                    "variable",
+                    "variable",
+                    "parameter",
+                    "function",
+                    "method",
+                    "function",
+                    "property",
+                    "variable",
+                    "class",
+                    "interface",
+                    "enum",
+                    "enumMember",
+                    "type",
+                    "type",
+                    "unknown",
+                    "namespace",
+                    "typeParameter",
+                    "concept",
+                    "type",
+                    "macro",
+                    "modifier",
+                    "operator",
+                    "bracket",
+                    "label",
+                    "comment"
+                  ]
+                },
+                "range": true
+              },
+              "signatureHelpProvider": {
+                "triggerCharacters": [
+                  "(",
+                  ")",
+                  "{",
+                  "}",
+                  "<",
+                  ">",
+                  ","
+                ]
+              },
+              "standardTypeHierarchyProvider": true,
+              "textDocumentSync": {
+                "change": 2,
+                "openClose": true,
+                "save": true
+              },
+              "typeDefinitionProvider": true,
+              "typeHierarchyProvider": true,
+              "workspaceSymbolProvider": true
+            },
+            "serverInfo": {
+              "name": "clangd",
+              "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+            }
+          }
+        },
+        "elapsed_ms": 1.8973499536514282
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 4,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 22,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 1
+                  }
+                },
+                "uri": "file:///tmp/joint-portable-module-cycle/Use.cpp"
+              },
+              "name": "marker"
+            }
+          ]
+        },
+        "elapsed_ms": 23.9800363779068
+      }
+    ],
+    "exit_code": 0,
+    "stderr": "I[01:29:29.845] clangd version 23.1.0-mcppls.0\nI[01:29:29.845] Features: linux\nI[01:29:29.845] PID: 3118993\nI[01:29:29.845] Working directory: /tmp/joint-portable-module-cycle\nI[01:29:29.845] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:29:29.845] argv[1]: --experimental-modules-support\nI[01:29:29.845] argv[2]: --background-index=false\nI[01:29:29.845] argv[3]: -j=2\nI[01:29:29.845] Starting LSP over stdin/stdout\nI[01:29:29.845] <-- initialize(1)\nI[01:29:29.845] --> reply:initialize(1) 0 ms\nI[01:29:29.845] <-- initialized\nI[01:29:29.845] <-- textDocument/didOpen\nI[01:29:29.845] Loaded compilation database from /tmp/joint-portable-module-cycle/compile_commands.json\nI[01:29:29.847] <-- textDocument/documentSymbol(4)\nI[01:29:29.847] ASTWorker building file /tmp/joint-portable-module-cycle/Use.cpp version 1 with command \n[/tmp/joint-portable-module-cycle]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-portable-module-cycle/Use.cpp\nI[01:29:29.851] Built preamble of size 268832 for file /tmp/joint-portable-module-cycle/Use.cpp version 1 in 0.00 seconds\nI[01:29:29.859] Running GC pass for clangd built module files under /tmp/joint-portable-module-cycle/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[01:29:29.859] Failed to scan module cache directory /tmp/joint-portable-module-cycle/.cache/clangd/modules: No such file or directory\nI[01:29:29.859] Done running GC pass for clangd built module files under /tmp/joint-portable-module-cycle/.cache/clangd/modules\nI[01:29:29.860] Built module D to /tmp/joint-portable-module-cycle/.cache/clangd/modules/D.cppm-312476DBD2FE8F7A/35D9EFCEB4E8F206/D-20261007-012929-860663.pcm\nI[01:29:29.862] Built module B to /tmp/joint-portable-module-cycle/.cache/clangd/modules/B.cppm-8E514B0CCE977BC4/B00EE01CA5720DA9/B-20261007-012929-862548.pcm\nI[01:29:29.864] Built module C to /tmp/joint-portable-module-cycle/.cache/clangd/modules/C.cppm-C35A0D6110BC13A0/9BDFC85FD7C4BC79/C-20261007-012929-864194.pcm\nI[01:29:29.865] Built module A to /tmp/joint-portable-module-cycle/.cache/clangd/modules/A.cppm-5D0B03610D0339DD/AE73F68BD869FE1E/A-20261007-012929-865902.pcm\nI[01:29:29.865] Built prerequisite modules for file /tmp/joint-portable-module-cycle/Use.cpp in 0.01 seconds\nI[01:29:29.866] Indexing c++20 standard library in the context of /tmp/joint-portable-module-cycle/Use.cpp\nI[01:29:29.869] --> textDocument/publishDiagnostics\nI[01:29:29.869] --> reply:textDocument/documentSymbol(4) 22 ms\nI[01:29:29.869] <-- shutdown(5)\nI[01:29:29.869] --> reply:shutdown(5) 0 ms\nI[01:29:29.869] <-- exit\nI[01:29:29.869] LSP finished, exiting with status 0\nI[01:29:30.492] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\n"
   },
   "limits": [
     "No parallel DAG scheduling claim."

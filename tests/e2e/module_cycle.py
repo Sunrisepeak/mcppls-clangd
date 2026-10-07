@@ -50,11 +50,40 @@ def main():
         'flags': ['--experimental-modules-support', '--background-index=false', '-j=2'],
         'sequence': sequence}))
     result = replay.replay(engine, manifest)
+    # A second process sees a real diamond after the cyclic providers change.
+    # Successful BMI construction proves shared D is not treated as a cycle.
+    diamond_sources = {
+        'A.cppm': 'export module A;\nexport import B;\nexport import C;\n',
+        'B.cppm': 'export module B;\nexport import D;\nexport int b;\n',
+        'C.cppm': 'export module C;\nexport import D;\nexport int c;\n',
+        'D.cppm': 'export module D;\nexport int d;\n',
+        'Use.cpp': 'import A;\nint marker = b + c + d;\n',
+    }
+    for name, contents in diamond_sources.items():
+        (root / name).write_text(contents)
+    (root / 'compile_commands.json').write_text(json.dumps([
+        {'directory': str(root), 'file': str(root / name),
+         'arguments': [str(clang), '-std=c++20', '-c', str(root / name)]}
+        for name in diamond_sources]))
+    diamond = sequence[:4]
+    diamond[2] = {'method': 'textDocument/didOpen', 'notify': True, 'params': {
+        'textDocument': {'uri': source.as_uri(), 'languageId': 'cpp',
+                         'version': 1, 'text': source.read_text()}}}
+    diamond[3] = {'method': 'textDocument/documentSymbol', 'params': document,
+                  'expect': {'/result/0/name': 'marker'}}
+    diamond.append({'action': 'await-log', 'contains': 'Built module A to '})
+    case = json.loads(manifest.read_text())
+    case.update(id='diamond-module-recovery', sequence=diamond)
+    manifest.write_text(json.dumps(case))
+    shared = replay.replay(engine, manifest)
+    if 'Failed to build module' in shared['stderr']:
+        shared['outcome'] = 'error'
+        shared['detail'] = 'valid diamond failed to build'
     report = {'schema': 1, 'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(),
-              'result': result, 'limits': ['No parallel DAG scheduling claim.']}
+              'result': result, 'diamond': shared, 'limits': ['No parallel DAG scheduling claim.']}
     (root / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
     print(result['outcome'], result.get('detail', ''))
-    return 0 if result['outcome'] == 'pass' else 1
+    return 0 if result['outcome'] == 'pass' and shared['outcome'] == 'pass' else 1
 
 
 if __name__ == '__main__':
