@@ -50,3 +50,13 @@ BMI paths. The former normalization omitted those ASTReader inputs, so its
 passing result cannot qualify a crash regression. Native qualification is
 still required; these retained failure conditions are not invented corrupt
 BMIs or forced process kills.
+
+
+Native run 37684762425 with all six explicit hints exits 0x80000003 on the
+exact historical binary SHA dbd52c13d21ef9d284f4f0627efe76c81adf2fe0998f230127f554a54fc9dde7.
+The old harness initially labeled it error because EOF arrived before poll()
+observed termination. Replay now waits briefly for natural exit after EOF;
+a controlled delayed-crash regression requires exit9, while clean early EOF
+remains a failed semantic replay. A forced kill cannot qualify a crash.
+The native exit record is retained in tests/evidence/up12-native-baseline-crash.json.
+Corrected-harness replay and native fork validation remain pending.

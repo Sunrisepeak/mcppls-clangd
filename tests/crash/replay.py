@@ -270,6 +270,15 @@ def replay(engine, manifest):
         result["outcome"] = "pass" if proc.returncode == 0 else "crash"
     except (queue.Empty, subprocess.TimeoutExpired):
         result["outcome"] = "timeout"
+    except EOFError as exc:
+        # Closing stdout can precede the process becoming waitable. Observe
+        # its natural exit before cleanup; a forced kill is never evidence of
+        # a baseline crash. A clean early exit still fails semantic replay.
+        try:
+            code = proc.wait(timeout=min(1.0, max(0.001, deadline-time.monotonic())))
+            result.update(outcome="crash" if code != 0 else "error", detail=str(exc))
+        except subprocess.TimeoutExpired:
+            result.update(outcome="error", detail="stdout closed before a natural exit")
     except Exception as exc:
         result.update(outcome="crash" if proc.poll() not in (None, 0) else "error", detail=str(exc))
     finally:

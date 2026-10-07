@@ -37,6 +37,28 @@ class Gates(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(b'empty corpus', result.stderr)
 
+    def test_stdout_closes_before_natural_exit(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('replay', ROOT / 'tests/crash/replay.py')
+        replay = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(replay)
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            fake = project / 'early_eof.py'
+            manifest = project / 'case.json'
+            manifest.write_text(json.dumps({'id': 'early-eof',
+                'platform': replay.platform_name(), 'baseline': 'crash',
+                'project': '.', 'flags': [str(fake)], 'timeout_seconds': 3,
+                'sequence': [{'method': 'initialize', 'params': {}},
+                    {'method': 'textDocument/hover', 'params': {},
+                     'expect': {'/result': 'answer'}}]}))
+            for code, outcome in ((9, 'crash'), (0, 'error')):
+                fake.write_text('import os,time\nos.close(1)\ntime.sleep(0.1)\nos._exit(%d)\n' % code)
+                result = replay.replay(Path(sys.executable), manifest)
+                self.assertEqual(result['outcome'], outcome)
+                self.assertEqual(result['exit_code'], code)
+                self.assertTrue(result['readers_stopped'])
+
     def test_replay_outcomes(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('replay', ROOT / 'tests/crash/replay.py')
