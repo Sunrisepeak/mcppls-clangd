@@ -1,0 +1,478 @@
+{
+  "baseline": [
+    {
+      "id": "attribute-introducer",
+      "outcome": "error",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "__attr_dealloc_fclose"
+          ],
+          "elapsed_ms": 651.8901297822595
+        }
+      ],
+      "detail": "missing symbols ['__attribute__']; forbidden symbols []",
+      "exit_code": -9,
+      "stderr": "I[00:31:43.453] clangd version 23.1.0-mcppls.0\nI[00:31:43.453] Features: linux\nI[00:31:43.453] PID: 3065385\nI[00:31:43.453] Working directory: /tmp/joint-extension-baseline/attribute-introducer\nI[00:31:43.453] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:31:43.453] argv[1]: --sync\nI[00:31:43.453] argv[2]: --background-index=false\nI[00:31:43.453] argv[3]: --header-insertion=never\nI[00:31:43.453] Starting LSP over stdin/stdout\nI[00:31:43.453] <-- initialize(1)\nI[00:31:43.453] --> reply:initialize(1) 0 ms\nI[00:31:43.453] <-- initialized\nI[00:31:43.453] <-- textDocument/didOpen\nI[00:31:43.453] Loaded compilation database from /tmp/joint-extension-baseline/attribute-introducer/compile_commands.json\nI[00:31:43.453] ASTWorker building file /tmp/joint-extension-baseline/attribute-introducer/test.cpp version 1 with command \n[/tmp/joint-extension-baseline/attribute-introducer]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-extension-baseline/attribute-introducer/test.cpp\nI[00:31:43.456] Built preamble of size 268892 for file /tmp/joint-extension-baseline/attribute-introducer/test.cpp version 1 in 0.00 seconds\nI[00:31:43.457] Indexing c++20 standard library in the context of /tmp/joint-extension-baseline/attribute-introducer/test.cpp\nI[00:31:44.074] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:31:44.103] --> textDocument/publishDiagnostics\nI[00:31:44.103] <-- textDocument/completion(4)\nI[00:31:44.105] Code complete: sema context TopLevel, query scopes [] (AnyScope=true), expected type <none>\nI[00:31:44.105] Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:31:44.105] --> reply:textDocument/completion(4) 1 ms\n"
+    },
+    {
+      "id": "cleanup-attribute",
+      "outcome": "pass",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "__cleanup__",
+            "cleanup"
+          ],
+          "elapsed_ms": 650.8290767669678
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[00:31:44.115] clangd version 23.1.0-mcppls.0\nI[00:31:44.115] Features: linux\nI[00:31:44.115] PID: 3065389\nI[00:31:44.115] Working directory: /tmp/joint-extension-baseline/cleanup-attribute\nI[00:31:44.115] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:31:44.115] argv[1]: --sync\nI[00:31:44.115] argv[2]: --background-index=false\nI[00:31:44.115] argv[3]: --header-insertion=never\nI[00:31:44.115] Starting LSP over stdin/stdout\nI[00:31:44.115] <-- initialize(1)\nI[00:31:44.115] --> reply:initialize(1) 0 ms\nI[00:31:44.115] <-- initialized\nI[00:31:44.115] <-- textDocument/didOpen\nI[00:31:44.116] Loaded compilation database from /tmp/joint-extension-baseline/cleanup-attribute/compile_commands.json\nI[00:31:44.116] ASTWorker building file /tmp/joint-extension-baseline/cleanup-attribute/test.cpp version 1 with command \n[/tmp/joint-extension-baseline/cleanup-attribute]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-extension-baseline/cleanup-attribute/test.cpp\nI[00:31:44.119] Built preamble of size 268880 for file /tmp/joint-extension-baseline/cleanup-attribute/test.cpp version 1 in 0.00 seconds\nI[00:31:44.119] Indexing c++20 standard library in the context of /tmp/joint-extension-baseline/cleanup-attribute/test.cpp\nI[00:31:44.736] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:31:44.764] --> textDocument/publishDiagnostics\nI[00:31:44.764] <-- textDocument/completion(4)\nI[00:31:44.766] Code complete: sema context Attribute, query scopes [] (AnyScope=true), expected type <none>\nI[00:31:44.766] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:31:44.766] --> reply:textDocument/completion(4) 1 ms\nI[00:31:44.766] <-- shutdown(5)\nI[00:31:44.766] --> reply:shutdown(5) 0 ms\nI[00:31:44.766] <-- exit\nI[00:31:44.766] LSP finished, exiting with status 0\n"
+    },
+    {
+      "id": "seh-windows",
+      "outcome": "error",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [],
+          "elapsed_ms": 8.275828324258327
+        }
+      ],
+      "detail": "missing symbols ['__try']; forbidden symbols []",
+      "exit_code": -9,
+      "stderr": "I[00:31:44.776] clangd version 23.1.0-mcppls.0\nI[00:31:44.776] Features: linux\nI[00:31:44.776] PID: 3065469\nI[00:31:44.776] Working directory: /tmp/joint-extension-baseline/seh-windows\nI[00:31:44.776] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:31:44.776] argv[1]: --sync\nI[00:31:44.776] argv[2]: --background-index=false\nI[00:31:44.776] argv[3]: --header-insertion=never\nI[00:31:44.776] Starting LSP over stdin/stdout\nI[00:31:44.776] <-- initialize(1)\nI[00:31:44.776] --> reply:initialize(1) 0 ms\nI[00:31:44.777] <-- initialized\nI[00:31:44.777] <-- textDocument/didOpen\nI[00:31:44.777] Loaded compilation database from /tmp/joint-extension-baseline/seh-windows/compile_commands.json\nI[00:31:44.777] ASTWorker building file /tmp/joint-extension-baseline/seh-windows/test.cpp version 1 with command \n[/tmp/joint-extension-baseline/seh-windows]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 --target=x86_64-pc-windows-msvc -fms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-extension-baseline/seh-windows/test.cpp\nI[00:31:44.780] Built preamble of size 273016 for file /tmp/joint-extension-baseline/seh-windows/test.cpp version 1 in 0.00 seconds\nI[00:31:44.783] --> textDocument/publishDiagnostics\nI[00:31:44.783] <-- textDocument/completion(4)\nI[00:31:44.785] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:31:44.785] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:31:44.785] --> reply:textDocument/completion(4) 1 ms\n"
+    }
+  ],
+  "candidate": {
+    "schema": 1,
+    "scope": "compiler extensions, self-contained semantic and syntax checks",
+    "engine_sha256": "c917b2b3358d07c76a44e2eadf2f8ed178170830a1dcdb81fb4056df193e05d3",
+    "results": [
+      {
+        "id": "gnu-introducer",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__attr_dealloc_fclose",
+              "__attribute__"
+            ],
+            "elapsed_ms": 648.699146695435,
+            "completion_items": {
+              "__attribute__": [
+                {
+                  "filterText": "__attribute__",
+                  "insertText": "__attribute__(($0))",
+                  "insertTextFormat": 2,
+                  "kind": 15,
+                  "label": " __attribute__((attribute))",
+                  "score": 0.7722705602645874,
+                  "sortText": "40ba4c7a__attribute__",
+                  "textEdit": {
+                    "newText": "__attribute__(($0))",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 0
+                      },
+                      "start": {
+                        "character": 0,
+                        "line": 0
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:46.113] clangd version 23.1.0-mcppls.0\nI[00:38:46.113] Features: linux\nI[00:38:46.113] PID: 3069878\nI[00:38:46.113] Working directory: /tmp/joint-compiler-extensions-reference/gnu-introducer\nI[00:38:46.113] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:46.113] argv[1]: --sync\nI[00:38:46.113] argv[2]: --background-index=false\nI[00:38:46.113] argv[3]: --header-insertion=never\nI[00:38:46.113] Starting LSP over stdin/stdout\nI[00:38:46.113] <-- initialize(1)\nI[00:38:46.113] --> reply:initialize(1) 0 ms\nI[00:38:46.113] <-- initialized\nI[00:38:46.113] <-- textDocument/didOpen\nI[00:38:46.113] Loaded compilation database from /tmp/joint-compiler-extensions-reference/gnu-introducer/compile_commands.json\nI[00:38:46.113] ASTWorker building file /tmp/joint-compiler-extensions-reference/gnu-introducer/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/gnu-introducer]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/gnu-introducer/test.cpp\nI[00:38:46.118] Built preamble of size 268904 for file /tmp/joint-compiler-extensions-reference/gnu-introducer/test.cpp version 1 in 0.00 seconds\nI[00:38:46.118] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/gnu-introducer/test.cpp\nI[00:38:46.731] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:46.760] --> textDocument/publishDiagnostics\nI[00:38:46.760] <-- textDocument/completion(4)\nI[00:38:46.762] Code complete: sema context TopLevel, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:46.762] Code complete: 1 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:38:46.762] --> reply:textDocument/completion(4) 1 ms\nI[00:38:46.762] <-- shutdown(5)\nI[00:38:46.762] --> reply:shutdown(5) 0 ms\nI[00:38:46.762] <-- exit\nI[00:38:46.762] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "gnu-cleanup",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__cleanup__",
+              "cleanup"
+            ],
+            "elapsed_ms": 648.0208421126008,
+            "completion_items": {
+              "cleanup": [
+                {
+                  "filterText": "cleanup",
+                  "insertText": "cleanup($0)",
+                  "insertTextFormat": 2,
+                  "kind": 15,
+                  "label": " cleanup(FunctionDecl)",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681cleanup",
+                  "textEdit": {
+                    "newText": "cleanup($0)",
+                    "range": {
+                      "end": {
+                        "character": 39,
+                        "line": 1
+                      },
+                      "start": {
+                        "character": 36,
+                        "line": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:46.777] clangd version 23.1.0-mcppls.0\nI[00:38:46.777] Features: linux\nI[00:38:46.777] PID: 3069884\nI[00:38:46.777] Working directory: /tmp/joint-compiler-extensions-reference/gnu-cleanup\nI[00:38:46.777] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:46.777] argv[1]: --sync\nI[00:38:46.777] argv[2]: --background-index=false\nI[00:38:46.777] argv[3]: --header-insertion=never\nI[00:38:46.777] Starting LSP over stdin/stdout\nI[00:38:46.777] <-- initialize(1)\nI[00:38:46.778] --> reply:initialize(1) 0 ms\nI[00:38:46.778] <-- initialized\nI[00:38:46.778] <-- textDocument/didOpen\nI[00:38:46.778] Loaded compilation database from /tmp/joint-compiler-extensions-reference/gnu-cleanup/compile_commands.json\nI[00:38:46.778] ASTWorker building file /tmp/joint-compiler-extensions-reference/gnu-cleanup/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/gnu-cleanup]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/gnu-cleanup/test.cpp\nI[00:38:46.781] Built preamble of size 268900 for file /tmp/joint-compiler-extensions-reference/gnu-cleanup/test.cpp version 1 in 0.00 seconds\nI[00:38:46.782] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/gnu-cleanup/test.cpp\nI[00:38:47.395] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:47.424] --> textDocument/publishDiagnostics\nI[00:38:47.424] <-- textDocument/completion(4)\nI[00:38:47.426] Code complete: sema context Attribute, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:47.426] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:38:47.426] --> reply:textDocument/completion(4) 1 ms\nI[00:38:47.426] <-- shutdown(5)\nI[00:38:47.426] --> reply:shutdown(5) 0 ms\nI[00:38:47.426] <-- exit\nI[00:38:47.426] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "gnu-cleanup-function",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "release"
+            ],
+            "elapsed_ms": 634.9186040461063,
+            "completion_items": {
+              "release": [
+                {
+                  "detail": "void",
+                  "filterText": "release",
+                  "insertText": "release",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " release(int *)",
+                  "score": 0.501885175704956,
+                  "sortText": "40ff8474release",
+                  "textEdit": {
+                    "newText": "release",
+                    "range": {
+                      "end": {
+                        "character": 47,
+                        "line": 5
+                      },
+                      "start": {
+                        "character": 44,
+                        "line": 5
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:47.441] clangd version 23.1.0-mcppls.0\nI[00:38:47.441] Features: linux\nI[00:38:47.441] PID: 3069892\nI[00:38:47.441] Working directory: /tmp/joint-compiler-extensions-reference/gnu-cleanup-function\nI[00:38:47.441] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:47.441] argv[1]: --sync\nI[00:38:47.441] argv[2]: --background-index=false\nI[00:38:47.441] argv[3]: --header-insertion=never\nI[00:38:47.441] Starting LSP over stdin/stdout\nI[00:38:47.441] <-- initialize(1)\nI[00:38:47.442] --> reply:initialize(1) 0 ms\nI[00:38:47.442] <-- initialized\nI[00:38:47.442] <-- textDocument/didOpen\nI[00:38:47.442] Loaded compilation database from /tmp/joint-compiler-extensions-reference/gnu-cleanup-function/compile_commands.json\nI[00:38:47.442] ASTWorker building file /tmp/joint-compiler-extensions-reference/gnu-cleanup-function/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/gnu-cleanup-function]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/gnu-cleanup-function/test.cpp\nI[00:38:47.445] Built preamble of size 268924 for file /tmp/joint-compiler-extensions-reference/gnu-cleanup-function/test.cpp version 1 in 0.00 seconds\nI[00:38:47.446] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/gnu-cleanup-function/test.cpp\nI[00:38:48.046] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:48.075] --> textDocument/publishDiagnostics\nI[00:38:48.075] <-- textDocument/completion(4)\nI[00:38:48.076] Code complete: sema context Attribute, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:48.077] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:38:48.077] --> reply:textDocument/completion(4) 1 ms\nI[00:38:48.077] <-- shutdown(5)\nI[00:38:48.077] --> reply:shutdown(5) 0 ms\nI[00:38:48.077] <-- exit\nI[00:38:48.077] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "windows-seh",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__try"
+            ],
+            "elapsed_ms": 8.184588514268398,
+            "completion_items": {
+              "__try": [
+                {
+                  "filterText": "__try",
+                  "insertText": "__try {\n${1:statements}\n} __except(${2:filter-expression}) {\n$0\n}",
+                  "insertTextFormat": 2,
+                  "kind": 15,
+                  "label": " __try {statements} __except(filter-expression) {handler-statements}",
+                  "score": 0.8373723030090332,
+                  "sortText": "40a9a1f8__try",
+                  "textEdit": {
+                    "newText": "__try {\n${1:statements}\n} __except(${2:filter-expression}) {\n$0\n}",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 1
+                      },
+                      "start": {
+                        "character": 2,
+                        "line": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:48.092] clangd version 23.1.0-mcppls.0\nI[00:38:48.092] Features: linux\nI[00:38:48.092] PID: 3069900\nI[00:38:48.092] Working directory: /tmp/joint-compiler-extensions-reference/windows-seh\nI[00:38:48.092] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:48.092] argv[1]: --sync\nI[00:38:48.092] argv[2]: --background-index=false\nI[00:38:48.092] argv[3]: --header-insertion=never\nI[00:38:48.092] Starting LSP over stdin/stdout\nI[00:38:48.092] <-- initialize(1)\nI[00:38:48.092] --> reply:initialize(1) 0 ms\nI[00:38:48.092] <-- initialized\nI[00:38:48.092] <-- textDocument/didOpen\nI[00:38:48.092] Loaded compilation database from /tmp/joint-compiler-extensions-reference/windows-seh/compile_commands.json\nI[00:38:48.092] ASTWorker building file /tmp/joint-compiler-extensions-reference/windows-seh/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/windows-seh]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-pc-windows-msvc -fms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/windows-seh/test.cpp\nI[00:38:48.096] Built preamble of size 273052 for file /tmp/joint-compiler-extensions-reference/windows-seh/test.cpp version 1 in 0.00 seconds\nI[00:38:48.099] --> textDocument/publishDiagnostics\nI[00:38:48.099] <-- textDocument/completion(4)\nI[00:38:48.100] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:48.100] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:38:48.100] --> reply:textDocument/completion(4) 1 ms\nI[00:38:48.100] <-- shutdown(5)\nI[00:38:48.100] --> reply:shutdown(5) 0 ms\nI[00:38:48.100] <-- exit\nI[00:38:48.100] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "linux-no-seh",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 646.060629747808,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:48.110] clangd version 23.1.0-mcppls.0\nI[00:38:48.110] Features: linux\nI[00:38:48.110] PID: 3069906\nI[00:38:48.110] Working directory: /tmp/joint-compiler-extensions-reference/linux-no-seh\nI[00:38:48.110] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:48.110] argv[1]: --sync\nI[00:38:48.110] argv[2]: --background-index=false\nI[00:38:48.110] argv[3]: --header-insertion=never\nI[00:38:48.110] Starting LSP over stdin/stdout\nI[00:38:48.110] <-- initialize(1)\nI[00:38:48.110] --> reply:initialize(1) 0 ms\nI[00:38:48.110] <-- initialized\nI[00:38:48.110] <-- textDocument/didOpen\nI[00:38:48.111] Loaded compilation database from /tmp/joint-compiler-extensions-reference/linux-no-seh/compile_commands.json\nI[00:38:48.111] ASTWorker building file /tmp/joint-compiler-extensions-reference/linux-no-seh/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/linux-no-seh]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -fms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/linux-no-seh/test.cpp\nI[00:38:48.114] Built preamble of size 274812 for file /tmp/joint-compiler-extensions-reference/linux-no-seh/test.cpp version 1 in 0.00 seconds\nI[00:38:48.114] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/linux-no-seh/test.cpp\nI[00:38:48.726] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:48.754] --> textDocument/publishDiagnostics\nI[00:38:48.755] <-- textDocument/completion(4)\nI[00:38:48.756] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:48.756] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:38:48.756] --> reply:textDocument/completion(4) 1 ms\nI[00:38:48.757] <-- shutdown(5)\nI[00:38:48.757] --> reply:shutdown(5) 0 ms\nI[00:38:48.757] <-- exit\nI[00:38:48.757] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "windows-mode-off",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 7.981050759553909,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:48.766] clangd version 23.1.0-mcppls.0\nI[00:38:48.767] Features: linux\nI[00:38:48.767] PID: 3069913\nI[00:38:48.767] Working directory: /tmp/joint-compiler-extensions-reference/windows-mode-off\nI[00:38:48.767] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:48.767] argv[1]: --sync\nI[00:38:48.767] argv[2]: --background-index=false\nI[00:38:48.767] argv[3]: --header-insertion=never\nI[00:38:48.767] Starting LSP over stdin/stdout\nI[00:38:48.767] <-- initialize(1)\nI[00:38:48.767] --> reply:initialize(1) 0 ms\nI[00:38:48.767] <-- initialized\nI[00:38:48.767] <-- textDocument/didOpen\nI[00:38:48.767] Loaded compilation database from /tmp/joint-compiler-extensions-reference/windows-mode-off/compile_commands.json\nI[00:38:48.767] ASTWorker building file /tmp/joint-compiler-extensions-reference/windows-mode-off/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/windows-mode-off]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-pc-windows-msvc -fno-ms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/windows-mode-off/test.cpp\nI[00:38:48.771] Built preamble of size 268388 for file /tmp/joint-compiler-extensions-reference/windows-mode-off/test.cpp version 1 in 0.00 seconds\nI[00:38:48.773] --> textDocument/publishDiagnostics\nI[00:38:48.773] <-- textDocument/completion(4)\nI[00:38:48.775] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:48.775] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:38:48.775] --> reply:textDocument/completion(4) 1 ms\nI[00:38:48.775] <-- shutdown(5)\nI[00:38:48.775] --> reply:shutdown(5) 0 ms\nI[00:38:48.775] <-- exit\nI[00:38:48.775] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "expression-not-attribute",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__attr_dealloc_fclose"
+            ],
+            "elapsed_ms": 640.9103544428945,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:48.780] clangd version 23.1.0-mcppls.0\nI[00:38:48.781] Features: linux\nI[00:38:48.781] PID: 3069918\nI[00:38:48.781] Working directory: /tmp/joint-compiler-extensions-reference/expression-not-attribute\nI[00:38:48.781] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:48.781] argv[1]: --sync\nI[00:38:48.781] argv[2]: --background-index=false\nI[00:38:48.781] argv[3]: --header-insertion=never\nI[00:38:48.781] Starting LSP over stdin/stdout\nI[00:38:48.781] <-- initialize(1)\nI[00:38:48.781] --> reply:initialize(1) 0 ms\nI[00:38:48.781] <-- initialized\nI[00:38:48.781] <-- textDocument/didOpen\nI[00:38:48.781] Loaded compilation database from /tmp/joint-compiler-extensions-reference/expression-not-attribute/compile_commands.json\nI[00:38:48.781] ASTWorker building file /tmp/joint-compiler-extensions-reference/expression-not-attribute/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/expression-not-attribute]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/expression-not-attribute/test.cpp\nI[00:38:48.784] Built preamble of size 268936 for file /tmp/joint-compiler-extensions-reference/expression-not-attribute/test.cpp version 1 in 0.00 seconds\nI[00:38:48.785] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/expression-not-attribute/test.cpp\nI[00:38:49.391] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:49.420] --> textDocument/publishDiagnostics\nI[00:38:49.420] <-- textDocument/completion(4)\nI[00:38:49.421] Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int\nI[00:38:49.422] Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:38:49.422] --> reply:textDocument/completion(4) 1 ms\nI[00:38:49.422] <-- shutdown(5)\nI[00:38:49.422] --> reply:shutdown(5) 0 ms\nI[00:38:49.422] <-- exit\nI[00:38:49.422] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "ordinary-cleanup",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "atomic_flag_clear",
+              "atomic_flag_clear_explicit",
+              "clearenv",
+              "clearerr",
+              "clearerr_unlocked",
+              "cmp_less",
+              "cmp_less_equal"
+            ],
+            "elapsed_ms": 644.4784430786967,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:49.432] clangd version 23.1.0-mcppls.0\nI[00:38:49.432] Features: linux\nI[00:38:49.432] PID: 3069923\nI[00:38:49.432] Working directory: /tmp/joint-compiler-extensions-reference/ordinary-cleanup\nI[00:38:49.432] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:49.432] argv[1]: --sync\nI[00:38:49.432] argv[2]: --background-index=false\nI[00:38:49.432] argv[3]: --header-insertion=never\nI[00:38:49.432] Starting LSP over stdin/stdout\nI[00:38:49.432] <-- initialize(1)\nI[00:38:49.432] --> reply:initialize(1) 0 ms\nI[00:38:49.432] <-- initialized\nI[00:38:49.432] <-- textDocument/didOpen\nI[00:38:49.432] Loaded compilation database from /tmp/joint-compiler-extensions-reference/ordinary-cleanup/compile_commands.json\nI[00:38:49.432] ASTWorker building file /tmp/joint-compiler-extensions-reference/ordinary-cleanup/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/ordinary-cleanup]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/ordinary-cleanup/test.cpp\nI[00:38:49.436] Built preamble of size 268912 for file /tmp/joint-compiler-extensions-reference/ordinary-cleanup/test.cpp version 1 in 0.00 seconds\nI[00:38:49.436] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/ordinary-cleanup/test.cpp\nI[00:38:50.045] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:50.074] --> textDocument/publishDiagnostics\nI[00:38:50.075] <-- textDocument/completion(4)\nI[00:38:50.076] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:38:50.076] Code complete: 0 results from Sema, 12 from Index, 0 matched, 0 from identifiers, 12 returned.\nI[00:38:50.076] --> reply:textDocument/completion(4) 1 ms\nI[00:38:50.077] <-- shutdown(5)\nI[00:38:50.077] --> reply:shutdown(5) 0 ms\nI[00:38:50.077] <-- exit\nI[00:38:50.077] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "comment",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 640.048198401928,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:50.087] clangd version 23.1.0-mcppls.0\nI[00:38:50.087] Features: linux\nI[00:38:50.087] PID: 3069928\nI[00:38:50.087] Working directory: /tmp/joint-compiler-extensions-reference/comment\nI[00:38:50.087] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:50.087] argv[1]: --sync\nI[00:38:50.087] argv[2]: --background-index=false\nI[00:38:50.087] argv[3]: --header-insertion=never\nI[00:38:50.087] Starting LSP over stdin/stdout\nI[00:38:50.087] <-- initialize(1)\nI[00:38:50.087] --> reply:initialize(1) 0 ms\nI[00:38:50.087] <-- initialized\nI[00:38:50.087] <-- textDocument/didOpen\nI[00:38:50.087] Loaded compilation database from /tmp/joint-compiler-extensions-reference/comment/compile_commands.json\nI[00:38:50.087] ASTWorker building file /tmp/joint-compiler-extensions-reference/comment/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/comment]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/comment/test.cpp\nI[00:38:50.091] Built preamble of size 268888 for file /tmp/joint-compiler-extensions-reference/comment/test.cpp version 1 in 0.00 seconds\nI[00:38:50.091] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/comment/test.cpp\nI[00:38:50.697] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:50.725] --> textDocument/publishDiagnostics\nI[00:38:50.725] <-- textDocument/completion(4)\nI[00:38:50.727] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:38:50.727] --> reply:textDocument/completion(4) 1 ms\nI[00:38:50.727] <-- shutdown(5)\nI[00:38:50.727] --> reply:shutdown(5) 0 ms\nI[00:38:50.727] <-- exit\nI[00:38:50.727] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "string",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 644.9493449181318,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:38:50.737] clangd version 23.1.0-mcppls.0\nI[00:38:50.737] Features: linux\nI[00:38:50.737] PID: 3069935\nI[00:38:50.737] Working directory: /tmp/joint-compiler-extensions-reference/string\nI[00:38:50.737] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[00:38:50.737] argv[1]: --sync\nI[00:38:50.737] argv[2]: --background-index=false\nI[00:38:50.737] argv[3]: --header-insertion=never\nI[00:38:50.737] Starting LSP over stdin/stdout\nI[00:38:50.737] <-- initialize(1)\nI[00:38:50.738] --> reply:initialize(1) 0 ms\nI[00:38:50.738] <-- initialized\nI[00:38:50.738] <-- textDocument/didOpen\nI[00:38:50.738] Loaded compilation database from /tmp/joint-compiler-extensions-reference/string/compile_commands.json\nI[00:38:50.738] ASTWorker building file /tmp/joint-compiler-extensions-reference/string/test.cpp version 1 with command \n[/tmp/joint-compiler-extensions-reference/string]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-compiler-extensions-reference/string/test.cpp\nI[00:38:50.741] Built preamble of size 268880 for file /tmp/joint-compiler-extensions-reference/string/test.cpp version 1 in 0.00 seconds\nI[00:38:50.742] Indexing c++20 standard library in the context of /tmp/joint-compiler-extensions-reference/string/test.cpp\nI[00:38:51.352] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[00:38:51.381] --> textDocument/publishDiagnostics\nI[00:38:51.381] <-- textDocument/completion(4)\nI[00:38:51.383] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:38:51.383] --> reply:textDocument/completion(4) 1 ms\nI[00:38:51.383] <-- shutdown(5)\nI[00:38:51.383] --> reply:shutdown(5) 0 ms\nI[00:38:51.383] <-- exit\nI[00:38:51.383] LSP finished, exiting with status 0\n"
+      }
+    ],
+    "compilation": [
+      {
+        "id": "gnu",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/gnu.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "windows",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-pc-windows-msvc",
+          "-fms-extensions",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/windows.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "linux-rejects-seh",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fms-extensions",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/linux-rejects-seh.cpp"
+        ],
+        "exit_code": 1,
+        "stderr": "/tmp/joint-compiler-extensions-reference/linux-rejects-seh.cpp:1:12: error: SEH '__try' is not supported on this target\n    1 | void f() { __try {} __except (1) {} }\n      |            ^\n1 error generated.\n",
+        "ok": true
+      }
+    ],
+    "inserted_compilation": [
+      {
+        "id": "gnu-introducer",
+        "actual_edit": {
+          "newText": "__attribute__(($0))",
+          "range": {
+            "end": {
+              "character": 6,
+              "line": 0
+            },
+            "start": {
+              "character": 0,
+              "line": 0
+            }
+          }
+        },
+        "expanded_source": "__attribute__((used))\nint marker;\n",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/gnu-introducer/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "gnu-cleanup",
+        "actual_edit": {
+          "newText": "cleanup($0)",
+          "range": {
+            "end": {
+              "character": 39,
+              "line": 1
+            },
+            "start": {
+              "character": 36,
+              "line": 1
+            }
+          }
+        },
+        "expanded_source": "void release(int*);\nvoid f() { int value __attribute__((cleanup(release))); }\n",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/gnu-cleanup/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "gnu-cleanup-function",
+        "actual_edit": {
+          "newText": "release",
+          "range": {
+            "end": {
+              "character": 47,
+              "line": 5
+            },
+            "start": {
+              "character": 44,
+              "line": 5
+            }
+          }
+        },
+        "expanded_source": "void release(int*);\nvoid releaseWrong();\nvoid releaseValue(int);\nvoid releasePair(int*, int);\nint releaseData;\nvoid f() { int value __attribute__((cleanup(release))); }\n",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/gnu-cleanup-function/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "windows-seh",
+        "actual_edit": {
+          "newText": "__try {\n${1:statements}\n} __except(${2:filter-expression}) {\n$0\n}",
+          "range": {
+            "end": {
+              "character": 6,
+              "line": 1
+            },
+            "start": {
+              "character": 2,
+              "line": 1
+            }
+          }
+        },
+        "expanded_source": "void f() {\n  __try {\nint value = 0; (void)value;\n} __except(1) {\n\n}\n}\n",
+        "command": [
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23",
+          "-std=c++20",
+          "--target=x86_64-pc-windows-msvc",
+          "-fms-extensions",
+          "-fsyntax-only",
+          "/tmp/joint-compiler-extensions-reference/windows-seh/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      }
+    ]
+  },
+  "limits": [
+    "Self-contained semantic cases, not real-project or crash evidence.",
+    "Windows-target compilation on Linux; native Windows CI still pending.",
+    "GNU simple cleanup function names; qualified names are a Clang extension outside the GCC grammar.",
+    "Prepackaging local engine, not final four-platform release bytes."
+  ]
+}

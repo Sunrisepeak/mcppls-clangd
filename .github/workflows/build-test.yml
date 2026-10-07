@@ -109,6 +109,21 @@ jobs:
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-drafts" --unsaved-update --async-scheduling
 
+      - name: Compiler extension semantics and actual insertion
+        shell: bash
+        run: |
+          python3 tests/e2e/compiler_extensions.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/compiler-extensions"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compiler-extensions-${{ matrix.platform }}
+          path: ${{ runner.temp }}/compiler-extensions/results.json
+          if-no-files-found: error
+
       - name: Show ccache stats
         shell: bash
         run: ccache --show-stats || true

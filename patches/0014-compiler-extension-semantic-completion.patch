@@ -1,0 +1,189 @@
+From 1e0eaf4cccaf07465dcc266cfbf532560eaee470 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 09:39:18 +0900
+Subject: [PATCH] Complete compiler attribute syntax and target-aware SEH
+ constructs
+
+---
+ clang-tools-extra/clangd/CodeComplete.cpp     |  7 ++
+ clang/include/clang/Sema/SemaCodeCompletion.h |  1 +
+ clang/lib/Parse/ParseDecl.cpp                 |  9 ++
+ clang/lib/Sema/SemaCodeComplete.cpp           | 84 +++++++++++++++++++
+ 4 files changed, 101 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 18f597554..3b4417d57 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -2042,6 +2042,13 @@ private:
+     for (const auto &IndexResult : IndexResults) {
+       if (UsedIndexResults.count(&IndexResult))
+         continue;
++      // Microsoft statement constructs must be supplied by Sema in a
++      // supported target/context. An index-only macro from a system header
++      // (for example libstdc++'s __try) is not evidence of SEH support. Visible
++      // declarations and macros already contributed their Sema results above.
++      if (IndexResult.Name == "__try" || IndexResult.Name == "__except" ||
++          IndexResult.Name == "__finally" || IndexResult.Name == "__leave")
++        continue;
+       if (!includeSymbolFromIndex(CCContextKind, IndexResult))
+         continue;
+       AddToBundles(/*SemaResult=*/nullptr, &IndexResult, nullptr);
+diff --git a/clang/include/clang/Sema/SemaCodeCompletion.h b/clang/include/clang/Sema/SemaCodeCompletion.h
+index 7203b19d5..621ddb780 100644
+--- a/clang/include/clang/Sema/SemaCodeCompletion.h
++++ b/clang/include/clang/Sema/SemaCodeCompletion.h
+@@ -94,6 +94,7 @@ public:
+     PCC_TopLevelOrExpression,
+   };
+ 
++  void CodeCompleteCleanupFunction(Scope *S);
+   void CodeCompleteModuleImport(SourceLocation ImportLoc, ModuleIdPath Path);
+   void CodeCompleteOrdinaryName(Scope *S,
+                                 ParserCompletionContext CompletionContext);
+diff --git a/clang/lib/Parse/ParseDecl.cpp b/clang/lib/Parse/ParseDecl.cpp
+index 6262e8b20..07a421eb6 100644
+--- a/clang/lib/Parse/ParseDecl.cpp
++++ b/clang/lib/Parse/ParseDecl.cpp
+@@ -491,6 +491,15 @@ unsigned Parser::ParseAttributeArgsCommon(
+   // Ignore the left paren location for now.
+   ConsumeParen();
+ 
++  if (Tok.is(tok::code_completion) &&
++      ParsedAttr::getParsedKind(AttrName, ScopeName, Form.getSyntax()) ==
++          ParsedAttr::AT_Cleanup) {
++    Actions.CodeCompletion().CodeCompleteCleanupFunction(getCurScope());
++    cutOffParsing();
++    return 0;
++  }
++
++
+   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(
+       *AttrName, Form.getSyntax(), ScopeName);
+   bool AttributeIsTypeArgAttr =
+diff --git a/clang/lib/Sema/SemaCodeComplete.cpp b/clang/lib/Sema/SemaCodeComplete.cpp
+index bd239adb0..9a7c2afc1 100644
+--- a/clang/lib/Sema/SemaCodeComplete.cpp
++++ b/clang/lib/Sema/SemaCodeComplete.cpp
+@@ -25,6 +25,7 @@
+ #include "clang/AST/QualTypeNames.h"
+ #include "clang/AST/Type.h"
+ #include "clang/Basic/AttributeCommonInfo.h"
++#include "clang/Basic/TargetInfo.h"
+ #include "clang/Basic/CharInfo.h"
+ #include "clang/Basic/ExceptionSpecificationType.h"
+ #include "clang/Basic/OperatorKinds.h"
+@@ -256,6 +257,17 @@ public:
+   /// Set the filter used for code-completion results.
+   void setFilter(LookupFilter Filter) { this->Filter = Filter; }
+ 
++  bool IsCleanupFunction(const NamedDecl *ND) const {
++    const auto *FD = dyn_cast<FunctionDecl>(ND);
++    if (const auto *Template = dyn_cast<FunctionTemplateDecl>(ND))
++      FD = Template->getTemplatedDecl();
++    if (!FD || FD->getNumParams() != 1 ||
++        !FD->getParamDecl(0)->getType()->isPointerType())
++      return false;
++    const auto *Method = dyn_cast<CXXMethodDecl>(FD);
++    return !Method || Method->isStatic();
++  }
++
+   Result *data() { return Results.empty() ? nullptr : &Results.front(); }
+   unsigned size() const { return Results.size(); }
+   bool empty() const { return Results.empty(); }
+@@ -2473,6 +2485,39 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
+ 
+     AddTypedefResult(Results);
+ 
++    // SEH is a statement construct, not an ordinary function name. Match
++    // the parser's extension mode and Sema's target support check.
++    if (CCC == SemaCodeCompletion::PCC_Statement &&
++        SemaRef.getLangOpts().MicrosoftExt &&
++        SemaRef.Context.getTargetInfo().getTriple().isOSWindows() &&
++        SemaRef.Context.getTargetInfo().isSEHTrySupported() &&
++        Results.includeCodePatterns()) {
++      DeclContext *DC = SemaRef.CurContext;
++      while (DC && !DC->isFunctionOrMethod())
++        DC = DC->getParent();
++      if (isa_and_nonnull<FunctionDecl>(DC)) {
++        Builder.AddTypedTextChunk("__try");
++        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
++        Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
++        Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
++        Builder.AddPlaceholderChunk("statements");
++        Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
++        Builder.AddChunk(CodeCompletionString::CK_RightBrace);
++        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
++        Builder.AddTextChunk("__except");
++        Builder.AddChunk(CodeCompletionString::CK_LeftParen);
++        Builder.AddPlaceholderChunk("filter-expression");
++        Builder.AddChunk(CodeCompletionString::CK_RightParen);
++        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
++        Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
++        Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
++        Builder.AddPlaceholderChunk("handler-statements");
++        Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
++        Builder.AddChunk(CodeCompletionString::CK_RightBrace);
++        Results.AddResult(Result(Builder.TakeString()));
++      }
++    }
++
+     if (SemaRef.getLangOpts().CPlusPlus && Results.includeCodePatterns() &&
+         SemaRef.getLangOpts().CXXExceptions) {
+       Builder.AddTypedTextChunk("try");
+@@ -2991,6 +3036,29 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
+     break;
+   }
+ 
++  // The GNU attribute introducer is accepted by Clang in declaration
++  // positions even in a strict standard dialect. Attribute names and their
++  // arguments are supplied by CodeCompleteAttribute, using ParsedAttrInfo.
++  switch (CCC) {
++  case SemaCodeCompletion::PCC_Namespace:
++  case SemaCodeCompletion::PCC_Class:
++  case SemaCodeCompletion::PCC_ObjCInstanceVariableList:
++  case SemaCodeCompletion::PCC_LocalDeclarationSpecifiers:
++  case SemaCodeCompletion::PCC_Statement:
++    if (Results.includeCodePatterns()) {
++      Builder.AddTypedTextChunk("__attribute__");
++      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
++      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
++      Builder.AddPlaceholderChunk("attribute");
++      Builder.AddChunk(CodeCompletionString::CK_RightParen);
++      Builder.AddChunk(CodeCompletionString::CK_RightParen);
++      Results.AddResult(Result(Builder.TakeString()));
++    }
++    break;
++  default:
++    break;
++  }
++
+   if (WantTypesInContext(CCC, SemaRef.getLangOpts()))
+     AddTypeSpecifierResults(SemaRef.getLangOpts(), Results);
+ 
+@@ -4769,6 +4837,22 @@ void SemaCodeCompletion::CodeCompleteModuleImport(SourceLocation ImportLoc,
+                             Results.size());
+ }
+ 
++void SemaCodeCompletion::CodeCompleteCleanupFunction(Scope *S) {
++  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
++                        CodeCompleter->getCodeCompletionTUInfo(),
++                        CodeCompletionContext::CCC_Attribute);
++  Results.setFilter(&ResultBuilder::IsCleanupFunction);
++  CodeCompletionDeclConsumer Consumer(Results, SemaRef.CurContext);
++  // cleanup takes a function reference, not a call expression.
++  Consumer.setIsAddressOfOperand(true);
++  SemaRef.LookupVisibleDecls(S, Sema::LookupOrdinaryName, Consumer,
++                            CodeCompleter->includeGlobals(),
++                            CodeCompleter->loadExternal());
++  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
++                            Results.getCompletionContext(), Results.data(),
++                            Results.size());
++}
++
+ void SemaCodeCompletion::CodeCompleteOrdinaryName(
+     Scope *S, SemaCodeCompletion::ParserCompletionContext CompletionContext) {
+   ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+-- 
+2.53.0
+

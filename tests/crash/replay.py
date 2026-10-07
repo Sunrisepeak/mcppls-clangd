@@ -55,7 +55,7 @@ def replay(engine, manifest):
     sequence = case["sequence"]
     if not sequence or sequence[0].get("method") != "initialize":
         raise ValueError("sequence must start with initialize")
-    if not any((s.get("expect") or s.get("expected_symbols")) and s.get("method", "").startswith("textDocument/") for s in sequence):
+    if not any((s.get("expect") or s.get("expected_symbols") or s.get("forbidden_symbols")) and s.get("method", "").startswith("textDocument/") for s in sequence):
         raise ValueError("sequence requires a semantic response assertion")
     project = (manifest.parent / case["project"]).resolve()
     if not project.is_dir():
@@ -169,6 +169,17 @@ def replay(engine, manifest):
                 polluted = set(step.get("forbidden_symbols", [])) & names
                 if missing or polluted:
                     raise ValueError(f"missing symbols {sorted(missing)}; forbidden symbols {sorted(polluted)}")
+                selected = {}
+                for item in items:
+                    name = re.split(r"[(<]", item.get("filterText", item.get("label", "")))[0].strip()
+                    if name in step.get("expected_symbols", []):
+                        selected.setdefault(name, []).append(item)
+                result["responses"][-1]["completion_items"] = selected
+                for name, fragments in step.get("expected_snippet_fragments", {}).items():
+                    candidates = selected.get(name, [])
+                    texts = [i.get("textEdit", {}).get("newText", i.get("insertText", "")) for i in candidates]
+                    if not any(all(fragment in text for fragment in fragments) for text in texts):
+                        raise ValueError(f"{name}: missing snippet fragments {fragments!r}, observed {texts!r}")
             for path, expected in step.get("expect", {}).items():
                 actual = pointer(response, path)
                 if actual != expand(expected):
