@@ -150,6 +150,15 @@ def replay(engine, manifest):
     originals = {}
     try:
         for step in sequence:
+            if step.get("action") == "sleep":
+                slept_until = time.monotonic() + float(step["seconds"])
+                while time.monotonic() < slept_until:
+                    if time.monotonic() >= deadline:
+                        raise queue.Empty
+                    if proc.poll() is not None:
+                        raise ValueError("engine exited during the requested sleep")
+                    time.sleep(0.05)
+                continue
             if step.get("action") == "await-log":
                 expected = step["contains"].encode()
                 while expected not in log:

@@ -188,7 +188,85 @@ def main():
     report['preamble_sizes'] = {k: v for k, v in sizes.items()}
     (root / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
     print(retained['outcome'], detail2, f"preamble sizes={sizes}")
-    return 0 if retained['outcome'] == 'pass' else 1
+    if retained['outcome'] != 'pass':
+        return 1
+
+    # A provider appearing through a compile-command change must reach files
+    # whose prerequisite set resolved to nothing earlier: the reuse verdict
+    # dies with the command generation instead of serving stale emptiness.
+    # The whole sequence runs in one process so the change is genuinely
+    # observed mid-session.
+    dep2 = root / 'dep2.cppm'
+    dep2.write_text('export module dep2;\nexport int dep2_value() { return 2; }\n')
+    source3 = root / 'main3.cpp'
+    text3 = ('import third_party_missing;\nimport dep2;\n'
+             'int probe3() {\n    return dep2_va;\n}\n')
+    text3b = text3.replace('dep2_va', 'dep2_val', 1)
+    source3.write_text(text3)
+    # dep2 has no compile command yet: its import stays textual.
+    (root / 'compile_commands.json').write_text(json.dumps([
+        {'directory': str(root), 'file': str(p),
+         'arguments': [str(clang), '-std=c++20', '-c', str(p)]}
+        for p in (dep, source, source2, source3)]))
+    with_dep2 = json.dumps([
+        {'directory': str(root), 'file': str(p),
+         'arguments': [str(clang), '-std=c++20', '-c', str(p)]}
+        for p in (dep, dep2, source, source2, source3)])
+    uri3 = source3.as_uri()
+    document3 = {'textDocument': {'uri': uri3}}
+    sequence3 = [
+        {'method': 'initialize', 'params': {'rootUri': root.as_uri(), 'capabilities': {}}},
+        {'method': 'initialized', 'notify': True, 'params': {}},
+        {'method': 'textDocument/didOpen', 'notify': True, 'params': {
+            'textDocument': {'uri': uri3, 'languageId': 'cpp', 'version': 1, 'text': text3}}},
+        {'method': 'textDocument/documentSymbol', 'params': document3,
+         'expect': {'/result/0/name': 'probe3'}},
+        {'method': 'textDocument/completion',
+         'params': {'textDocument': {'uri': uri3},
+                    'position': position_of(text3, 'dep2_va'),
+                    'context': {'triggerKind': 1}},
+         'forbidden_symbols': ['dep2_value']},
+        # The provider appears: the compile database gains dep2's command.
+        {'action': 'replace-file', 'file': 'compile_commands.json',
+         'from': json.dumps({'directory': str(root), 'file': str(source3),
+                             'arguments': [str(clang), '-std=c++20', '-c', str(source3)]}),
+         'with': json.dumps({'directory': str(root), 'file': str(dep2),
+                             'arguments': [str(clang), '-std=c++20', '-c', str(dep2)]}) +
+                 ', ' +
+                 json.dumps({'directory': str(root), 'file': str(source3),
+                             'arguments': [str(clang), '-std=c++20', '-c', str(source3)]})},
+        # The directory CDB revalidates on a five-second interval, so enough
+        # request cycles must pass before the changed database reloads and
+        # broadcasts; a later cycle's update then observes the new generation
+        # and rebuilds the prerequisite set with the new provider.
+        # The directory CDB revalidates on a five-second interval: wait past
+        # it so the next request cycle reloads the database, broadcasts the
+        # command change, and rebuilds prerequisites with the new provider.
+        {'action': 'sleep', 'seconds': 6},
+        {'method': 'textDocument/didChange', 'notify': True, 'params': {
+            'textDocument': {'uri': uri3, 'version': 2},
+            'contentChanges': [{'text': text3b}]}},
+        {'method': 'textDocument/documentSymbol', 'params': document3,
+         'expect': {'/result/0/name': 'probe3'}},
+        {'action': 'await-log', 'contains': 'Built module dep2 to '},
+    ]
+    sequence3 += [
+        {'method': 'textDocument/completion',
+         'params': {'textDocument': {'uri': uri3},
+                    'position': position_of(text3b, 'dep2_val'),
+                    'context': {'triggerKind': 1}},
+         'expected_symbols': ['dep2_value']},
+    ]
+    manifest.write_text(json.dumps({
+        'id': 'third-party-import-provider-gain', 'project': '.',
+        'platform': replay.platform_name(), 'baseline': 'pass', 'timeout_seconds': 240,
+        'flags': ['--experimental-modules-support', '--background-index=false', '-j=2'],
+        'sequence': sequence3}))
+    provider_gain = replay.replay(engine, manifest)
+    report['provider_case'] = provider_gain
+    (root / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
+    print(provider_gain['outcome'], provider_gain.get('detail', '')[:150])
+    return 0 if provider_gain['outcome'] == 'pass' else 1
 
 
 if __name__ == '__main__':
