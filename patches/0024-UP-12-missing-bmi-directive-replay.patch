@@ -1,0 +1,97 @@
+From 51506a1b778152dd285ed7fb676d991c6206f03d Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 05:44:46 +0900
+Subject: [PATCH] fix(modules): queued directives own their keywords after
+ missing BMI recovery
+
+An absent explicitly named BMI sets a sticky module-loader fatal flag. Recovery
+continues later imports, but HandleIdentifier returned their original keywords
+after queuing the same tokens in the directive suffix stream. TokenCollector
+then received duplicate source locations and spun in the measured Release build.
+
+Consume the original keyword whenever a C++ module directive stream was queued.
+Keep the existing fatal return when no directive stream exists. Token-collector
+and clangd regressions verify keyword counts, later symbols and edit recovery.
+The normalized historical six-missing-BMI fixture now exits normally on Linux;
+the historical Windows exception still requires native baseline qualification.
+---
+ .../test/missing-bmi-token-recovery.test      | 19 +++++++++++++++++++
+ clang/lib/Lex/Preprocessor.cpp                |  7 +++++++
+ clang/unittests/Tooling/Syntax/TokensTest.cpp | 17 +++++++++++++++++
+ 3 files changed, 43 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/test/missing-bmi-token-recovery.test
+
+diff --git a/clang-tools-extra/clangd/test/missing-bmi-token-recovery.test b/clang-tools-extra/clangd/test/missing-bmi-token-recovery.test
+new file mode 100644
+index 000000000..3e96ef252
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/missing-bmi-token-recovery.test
+@@ -0,0 +1,19 @@
++# Later imports must not replay their keyword after a prior named BMI failed.
++# RUN: clangd -lit-test < %s | FileCheck %s
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootUri":"test:///","capabilities":{},"initializationOptions":{"fallbackFlags":["-std=c++20","-fmodule-file=Missing=missing.pcm","-fmodule-file=Another=another-missing.pcm"]}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///main.cppm","languageId":"cpp","version":1,"text":"export module Main;\nexport import Missing;\nexport import Another;\nexport int marker;\n"}}}
++---
++{"jsonrpc":"2.0","id":1,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///main.cppm"}}}
++# CHECK: "id": 1,
++# CHECK: "name": "marker"
++---
++{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///main.cppm","version":2},"contentChanges":[{"text":"export module Main;\nexport int recovered;\n"}]}}
++---
++{"jsonrpc":"2.0","id":2,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///main.cppm"}}}
++# CHECK: "id": 2,
++# CHECK: "name": "recovered"
++---
++{"jsonrpc":"2.0","id":3,"method":"shutdown","params":null}
++---
++{"jsonrpc":"2.0","method":"exit"}
+diff --git a/clang/lib/Lex/Preprocessor.cpp b/clang/lib/Lex/Preprocessor.cpp
+index 427a3826b..41c063b8e 100644
+--- a/clang/lib/Lex/Preprocessor.cpp
++++ b/clang/lib/Lex/Preprocessor.cpp
+@@ -919,6 +919,13 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
+       Identifier.isModuleContextualKeyword() &&
+       HandleModuleContextualKeyword(Identifier)) {
+     HandleDirective(Identifier);
++    // A processed C++ module directive queues its keyword and suffix for the
++    // parser. Consume the original keyword even if a previous named import
++    // failed: returning it here would replay it again from that token stream.
++    // Fatal header/module-loader failures that did not queue a directive still
++    // return the current token so the parser can stop.
++    if (CurTokenLexer && CurTokenLexer->isLexingCXXModuleDirective())
++      return false;
+     // With a fatal failure in the module loader, we abort parsing.
+     return hadModuleLoaderFatalFailure();
+   }
+diff --git a/clang/unittests/Tooling/Syntax/TokensTest.cpp b/clang/unittests/Tooling/Syntax/TokensTest.cpp
+index 4123f4424..2bc51c249 100644
+--- a/clang/unittests/Tooling/Syntax/TokensTest.cpp
++++ b/clang/unittests/Tooling/Syntax/TokensTest.cpp
+@@ -1204,6 +1204,23 @@ TEST_F(TokenCollectorTest, CXX20MalformedModuleDirectiveHasNoEodToken) {
+   }
+ }
+ 
++TEST_F(TokenCollectorTest, CXX20MissingPrebuiltImportsDoNotRepeatKeywords) {
++  LangStandard = "-std=c++20";
++  AllowErrors = true;
++  recordTokens("export module Main;\n"
++               "export import Missing;\n"
++               "export import Another;\n"
++               "export int marker;\n",
++               {"-fmodule-file=Missing=missing.pcm",
++                "-fmodule-file=Another=another-missing.pcm"});
++  EXPECT_EQ(llvm::count_if(Buffer.expandedTokens(), [](const syntax::Token &T) {
++              return T.kind() == tok::kw_import;
++            }),
++            2);
++  ASSERT_FALSE(Buffer.expandedTokens().empty());
++  EXPECT_EQ(Buffer.expandedTokens().back().kind(), tok::eof);
++}
++
+ TEST_F(TokenCollectorTest, CXX20ModuleImportPartition) {
+   LangStandard = "-std=c++20";
+   AllowErrors = true;
+-- 
+2.53.0
+

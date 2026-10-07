@@ -1,0 +1,47 @@
+{
+  "before": {
+    "outcome": "timeout",
+    "exit_code": -9,
+    "responses": [],
+    "last_response_ms": 3.110932000708999,
+    "engine_sha256": "de94d25a8ef2303b4c220a65116a2636300f978b0e73910bd60990965d6b93b9"
+  },
+  "current": {
+    "outcome": "timeout",
+    "exit_code": -9,
+    "responses": [],
+    "last_response_ms": 1.634133997868048
+  },
+  "fixed": {
+    "outcome": "pass",
+    "exit_code": 0,
+    "responses": [],
+    "last_response_ms": 17.52723500248976,
+    "semantic_assertion": {
+      "method": "textDocument/documentSymbol",
+      "result_index": 14,
+      "name": "NameType",
+      "kind": 10
+    }
+  },
+  "actual_host": "linux-x64",
+  "qualification": "normalized explicit missing BMI hints; native historical Windows baseline remains unqualified",
+  "live_stack_before_and_current": [
+    "clang::syntax::TokenCollector::consume()",
+    "clang::clangd::ParsedAST::build()",
+    "ASTWorker::generateDiagnostics()"
+  ],
+  "diagnostic_tokens": {
+    "indices": [
+      9,
+      10
+    ],
+    "kind": "kw_import",
+    "raw_location": 55,
+    "identical": true
+  },
+  "fixed_engine_sha256": "3cfae8edab527c6fdf41f446b4154f255838928b71fc747c8e8a52b0a2358997",
+  "comparison_deadline_seconds": 12,
+  "minimal_lit_before_exit_code": 124,
+  "minimal_lit_fixed_filecheck_exit_code": 0
+}

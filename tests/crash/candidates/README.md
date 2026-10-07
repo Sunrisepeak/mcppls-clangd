@@ -10,7 +10,7 @@ UP-12 contains the original GPPDefines.ixx from GalTranslPP commit
 It is attributed to the GalTranslPP contributors; the source is unmodified.
 Historical evidence records source SHA, exact original compile command,
 archived --check exit 0x80000003 and CI/artifact identity. The replay normalizes
-machine-specific paths, strips include/SDK locations and missing BMI hints,
+machine-specific paths, strips include/SDK locations and keeps the explicit unresolved BMI hints,
 and retains Windows target, C++23, optimization/debug/LTO flags and the
 missing -c that distinguished E3a from E3b. These differences must be qualified,
 not assumed harmless. No third-party dependency or std BMI is supplied: this
@@ -42,3 +42,11 @@ CDB. That run is ineligible, and exposed a missing replay premise rather than
 an engine fix. The candidate now writes a real compile_commands.json before
 opening the source and restores/removes it on exit. The updated native
 baseline verdict is required. The local Linux replay passes with that disk CDB.
+
+The disk-CDB native attempt (37674275741) also passed on the historical
+binary, despite reproducing the LTO scanner failure. The next candidate
+preserves all six original -fmodule-file hints, directed at explicitly absent
+BMI paths. The former normalization omitted those ASTReader inputs, so its
+passing result cannot qualify a crash regression. Native qualification is
+still required; these retained failure conditions are not invented corrupt
+BMIs or forced process kills.

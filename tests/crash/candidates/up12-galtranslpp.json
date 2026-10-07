@@ -26,7 +26,7 @@
     {
       "action": "write-file",
       "file": "compile_commands.json",
-      "contents": "[\n  {\n    \"directory\": \"${PROJECT_PATH}\",\n    \"file\": \"${PROJECT_PATH}/GPPDefines.ixx\",\n    \"arguments\": [\n      \"clang++\",\n      \"--target=x86_64-pc-windows-msvc\",\n      \"-std=c++23\",\n      \"-O3\",\n      \"-g\",\n      \"-flto\",\n      \"-x\",\n      \"c++-module\",\n      \"${PROJECT_PATH}/GPPDefines.ixx\"\n    ]\n  }\n]"
+      "contents": "[\n  {\n    \"directory\": \"${PROJECT_PATH}\",\n    \"file\": \"${PROJECT_PATH}/GPPDefines.ixx\",\n    \"arguments\": [\n      \"clang++\",\n      \"--target=x86_64-pc-windows-msvc\",\n      \"-std=c++23\",\n      \"-O3\",\n      \"-g\",\n      \"-flto\",\n      \"-x\",\n      \"c++-module\",\n      \"-fmodule-file=AbslContainers=${PROJECT_PATH}/absent-bmis/AbslContainers.pcm\",\n      \"-fmodule-file=GPPI18n=${PROJECT_PATH}/absent-bmis/GPPI18n.pcm\",\n      \"-fmodule-file=jpcre2=${PROJECT_PATH}/absent-bmis/jpcre2.pcm\",\n      \"-fmodule-file=nlohmann.json=${PROJECT_PATH}/absent-bmis/nlohmann.json.pcm\",\n      \"-fmodule-file=spdlog=${PROJECT_PATH}/absent-bmis/spdlog.pcm\",\n      \"-fmodule-file=std=${PROJECT_PATH}/absent-bmis/std.pcm\",\n      \"${PROJECT_PATH}/GPPDefines.ixx\"\n    ]\n  }\n]"
     },
     {
       "method": "textDocument/didOpen",
