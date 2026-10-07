@@ -28,7 +28,10 @@ python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --p
 
 if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   cd "$BUILD_DIR"
-  ./bin/llvm-lit -sv \
+  # POSIX builds generate the llvm-lit shell wrapper, MSVC builds a .cmd.
+  LIT=./bin/llvm-lit
+  [[ -f "$LIT" ]] || LIT=./bin/llvm-lit.cmd
+  "$LIT" -sv \
     tools/clang/tools/extra/clangd/test/module-directive-recovery.test \
     tools/clang/tools/extra/clangd/test/mcpp-format-style.test \
     tools/clang/tools/extra/clangd/test/mcpp-format-fallback.test \
