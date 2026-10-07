@@ -45,7 +45,8 @@ def main():
     if not re.search(r'clangd version ' + re.escape(args.version) + r'(?:\s|$)', version):
         parser.error(f'binary does not report expected identity: {version.strip()}')
     subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', 'HEAD', '--',
-                    'UPSTREAM', 'patches', 'overlay', 'ci/scripts', 'ci/package_identity.py'], check=True,
+                    'UPSTREAM', 'patches', 'overlay', 'ci/scripts', 'ci/package_identity.py',
+                    'tests/e2e/module_directive_diagnostics.py'], check=True,
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')], text=True).strip()
@@ -70,10 +71,23 @@ def main():
     if (formatted.returncode != 0 or not re.search(
             r'"id":\s*1,.*?"result":\s*\[\s*\]', formatted.stdout, re.S)):
         parser.error('final package bytes failed mcpp formatting fallback canary')
+    directive_report = args.build_dir / 'module-directive-package-canary.json'
+    directive = subprocess.run([
+        'python3', str(ROOT / 'tests/e2e/module_directive_diagnostics.py'),
+        '--engine', str(engine.resolve()), '--output', str(directive_report.resolve())],
+        text=True, capture_output=True, timeout=30)
+    if directive.returncode != 0:
+        parser.error('final package bytes failed module directive diagnostic range canary: '
+                     + directive.stderr.strip())
+    verified_directive = json.loads(directive_report.read_text())
+    if (verified_directive.get('outcome') != 'pass' or
+            verified_directive.get('engine_sha256') != sha(engine)):
+        parser.error('module directive canary does not identify the final package binary')
     metadata = {'engine-version': args.version, 'llvm-base-version': base,
                 'llvm-commit': commit, 'fork-commit': fork, 'patch-series-sha256': series,
                 'platform': args.platform, 'sha256': sha(engine),
-                'features': ['semantic-tokens-range', 'format-style-mcpp'],
+                'features': ['semantic-tokens-range', 'format-style-mcpp',
+                             'module-directive-diagnostic-ranges'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}
     (args.directory / 'engine.json').write_text(json.dumps(metadata, indent=2) + '\n')

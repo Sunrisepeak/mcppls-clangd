@@ -1,0 +1,303 @@
+{
+  "captured": true,
+  "natural_exit_hex": "0x80000003",
+  "second_chance_handler_executed": true,
+  "exception_codes": [
+    "80000003"
+  ],
+  "symbolized_frames": [
+    "_Cnd_wait+0x28 [D:\\a\\_work\\1\\s\\src\\vctools\\crt\\github\\stl\\src\\cond.cpp @ 58]",
+    "__acrt_stdio_refill_and_read_narrow_nolock+0xa3 [minkernel\\crts\\ucrt\\src\\appcrt\\stdio\\_filbuf.cpp @ 180]",
+    "__scrt_common_main_seh+0x10c [D:\\a\\_work\\1\\s\\src\\vctools\\crt\\vcstartup\\src\\startup\\exe_common.inl @ 288]",
+    "_read+0x10e [minkernel\\crts\\ucrt\\src\\appcrt\\lowio\\read.cpp @ 396]",
+    "_read_nolock+0x2f7 [minkernel\\crts\\ucrt\\src\\appcrt\\lowio\\read.cpp @ 566]",
+    "`anonymous namespace'::RealFile::getBuffer+0x36 [D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\VirtualFileSystem.cpp @ 245]",
+    "`anonymous namespace'::profileAttrArg<clang::VarDecl *> [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\AST\\AttrImpl.cpp @ 394]",
+    "`clang::clangd::`anonymous namespace'::ASTWorker::updatePreamble'::`2'::<lambda_1>::operator()+0x1dc [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp @ 1148]",
+    "`clang::clangd::`anonymous namespace'::UpdateIndexCallbacks::indexStdlib'::`2'::<lambda_1>::operator()+0xc0 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ClangdServer.cpp @ 124]",
+    "clang::ASTFrontendAction::ExecuteAction+0xac [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Frontend\\FrontendAction.cpp @ 1464]",
+    "clang::FileManager::getBufferForFile+0x176 [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Basic\\FileManager.cpp @ 546]",
+    "clang::FrontendAction::Execute+0x14 [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Frontend\\FrontendAction.cpp @ 1348]",
+    "clang::Lexer::LexTokenInternal+0x2ae0 [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\Lexer.cpp @ 4632]",
+    "clang::ParseAST+0x1e0 [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Parse\\ParseAST.cpp @ 166]",
+    "clang::Preprocessor::EnterSourceFile+0xeb [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPLexerChange.cpp @ 80]",
+    "clang::Preprocessor::HandleDirective+0x48a [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPDirectives.cpp @ 1433]",
+    "clang::Preprocessor::HandleHeaderIncludeOrImport+0x1aa7 [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPDirectives.cpp @ 2810]",
+    "clang::Preprocessor::HandleIncludeDirective+0x16b [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPDirectives.cpp @ 2214]",
+    "clang::Preprocessor::Lex+0x2f [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\Preprocessor.cpp @ 933]",
+    "clang::SrcMgr::ContentCache::getBufferOrNone+0xb2 [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Basic\\SourceManager.cpp @ 146]",
+    "clang::clangd::ClangdLSPServer::run+0x28 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ClangdLSPServer.cpp @ 1762]",
+    "clang::clangd::DirectoryBasedGlobalCompilationDatabase::BroadcastThread::run+0x91 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\GlobalCompilationDatabase.cpp @ 509]",
+    "clang::clangd::ParsedAST::build+0x1a25 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ParsedAST.cpp @ 744]",
+    "clang::clangd::`anonymous namespace'::ASTWorker::generateDiagnostics+0x3bf [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp @ 1215]",
+    "clang::clangd::`anonymous namespace'::ASTWorker::run+0xaa8 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp @ 1462]",
+    "clang::clangd::`anonymous namespace'::ASTWorker::runTask+0x13b [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp @ 1328]",
+    "clang::clangd::`anonymous namespace'::JSONTransport::loop+0xb8 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\JSONTransport.cpp @ 111]",
+    "clang::clangd::`anonymous namespace'::JSONTransport::readStandardMessage+0xb4 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\JSONTransport.cpp @ 233]",
+    "clang::clangd::`anonymous namespace'::PreambleThread::run+0x8f [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp @ 481]",
+    "clang::clangd::`anonymous namespace'::VolatileFileSystem::VolatileFile::getBuffer+0x25 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\support\\ThreadsafeFS.cpp @ 58]",
+    "clang::clangd::`anonymous namespace'::readLine+0x82 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\JSONTransport.cpp @ 209]",
+    "clang::clangd::clangdMain+0x1da5 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\tool\\ClangdMain.cpp @ 1097]",
+    "clang::clangd::indexStandardLibrary+0x546 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\index\\StdLib.cpp @ 236]",
+    "clang::clangd::indexStandardLibrary+0x64 [D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\index\\StdLib.cpp @ 269]",
+    "clang::syntax::TokenCollector::Builder::build+0x2ff [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Tooling\\Syntax\\Tokens.cpp @ 750]",
+    "clang::syntax::TokenCollector::consume+0xfa [D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Tooling\\Syntax\\Tokens.cpp @ 913]",
+    "common_fgets<char>+0x9d [minkernel\\crts\\ucrt\\src\\appcrt\\stdio\\fgets.cpp @ 51]",
+    "getOpenFileImpl<llvm::MemoryBuffer>+0x29b [D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\MemoryBuffer.cpp @ 557]",
+    "llvm::MemoryBuffer::getOpenFile+0x41 [D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\MemoryBuffer.cpp @ 576]",
+    "llvm::sys::fs::readNativeFileSlice+0x68 [D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\Windows\\Path.inc @ 1564]",
+    "llvm::thread::ThreadProxy<std::tuple<`clang::clangd::AsyncTaskRunner::runAsync'::`2'::<lambda_2> > >+0x42 [D:\\a\\clangd\\clangd\\llvm-project\\llvm\\include\\llvm\\Support\\thread.h @ 74]",
+    "std::thread::_Invoke<std::tuple<`clang::clangd::DirectoryBasedGlobalCompilationDatabase::BroadcastThread::BroadcastThread'::`1'::<lambda_7_> >,0>+0x11 [C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.44.35207\\include\\thread @ 61]",
+    "thread_start<unsigned int (__cdecl*)(void *),1>+0x4f [minkernel\\crts\\ucrt\\src\\appcrt\\startup\\thread.cpp @ 97]"
+  ],
+  "minidump_valid": true,
+  "source_lines": [
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\AST\\AttrImpl.cpp",
+      "394"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Tooling\\Syntax\\Tokens.cpp",
+      "750"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Tooling\\Syntax\\Tokens.cpp",
+      "913"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ParsedAST.cpp",
+      "744"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1215"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1148"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1328"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1462"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\include\\llvm\\Support\\thread.h",
+      "74"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\startup\\thread.cpp",
+      "97"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\lowio\\read.cpp",
+      "566"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\lowio\\read.cpp",
+      "396"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\stdio\\_filbuf.cpp",
+      "180"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\stdio\\fgets.cpp",
+      "51"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\JSONTransport.cpp",
+      "209"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\JSONTransport.cpp",
+      "233"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\JSONTransport.cpp",
+      "111"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ClangdLSPServer.cpp",
+      "1762"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\tool\\ClangdMain.cpp",
+      "1097"
+    ],
+    [
+      "D:\\a\\_work\\1\\s\\src\\vctools\\crt\\github\\stl\\src\\cond.cpp",
+      "58"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\GlobalCompilationDatabase.cpp",
+      "509"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\startup\\thread.cpp",
+      "97"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\AST\\AttrImpl.cpp",
+      "394"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Tooling\\Syntax\\Tokens.cpp",
+      "750"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Tooling\\Syntax\\Tokens.cpp",
+      "913"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ParsedAST.cpp",
+      "744"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1215"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1148"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1328"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "1462"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\include\\llvm\\Support\\thread.h",
+      "74"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\startup\\thread.cpp",
+      "97"
+    ],
+    [
+      "D:\\a\\_work\\1\\s\\src\\vctools\\crt\\github\\stl\\src\\cond.cpp",
+      "58"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\TUScheduler.cpp",
+      "481"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\include\\llvm\\Support\\thread.h",
+      "74"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\startup\\thread.cpp",
+      "97"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\MemoryBuffer.cpp",
+      "557"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\MemoryBuffer.cpp",
+      "576"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\lib\\Support\\VirtualFileSystem.cpp",
+      "245"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\support\\ThreadsafeFS.cpp",
+      "58"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Basic\\FileManager.cpp",
+      "546"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Basic\\SourceManager.cpp",
+      "146"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPLexerChange.cpp",
+      "80"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPDirectives.cpp",
+      "2810"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPDirectives.cpp",
+      "2214"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\PPDirectives.cpp",
+      "1433"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\Lexer.cpp",
+      "4632"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Lex\\Preprocessor.cpp",
+      "933"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Parse\\ParseAST.cpp",
+      "166"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Frontend\\FrontendAction.cpp",
+      "1464"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang\\lib\\Frontend\\FrontendAction.cpp",
+      "1348"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\index\\StdLib.cpp",
+      "236"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\index\\StdLib.cpp",
+      "269"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\clang-tools-extra\\clangd\\ClangdServer.cpp",
+      "124"
+    ],
+    [
+      "D:\\a\\clangd\\clangd\\llvm-project\\llvm\\include\\llvm\\Support\\thread.h",
+      "74"
+    ],
+    [
+      "minkernel\\crts\\ucrt\\src\\appcrt\\startup\\thread.cpp",
+      "97"
+    ]
+  ],
+  "debugger_forced_termination": false,
+  "actual_host": "win32-x64",
+  "scope": "historical stock Windows baseline; no fork/native-fixed claim",
+  "engine_sha256": "dbd52c13d21ef9d284f4f0627efe76c81adf2fe0998f230127f554a54fc9dde7",
+  "debugger_exit_code": 2147483651,
+  "run": "https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/37688373724",
+  "symbols": {
+    "guid": "{CFB2B616-1775-4D3B-B9E2-96969829C52A}",
+    "age": 1,
+    "codeview": "\nFile: D:\\a\\mcppls-clangd\\mcppls-clangd\\stock-windows\\engine\\clangd_23.1.0\\bin\\clangd.exe\nFormat: COFF-x86-64\nArch: x86_64\nAddressSize: 64bit\nDebugDirectory [\n  DebugEntry {\n    Characteristics: 0x0\n    TimeDateStamp: 2026-09-02 09:52:15 (0x6A97F1CF)\n    MajorVersion: 0x0\n    MinorVersion: 0x0\n    Type: CodeView (0x2)\n    SizeOfData: 0x48\n    AddressOfRawData: 0x2DEC288\n    PointerToRawData: 0x2DEAC88\n    PDBInfo {\n      PDBSignature: 0x53445352\n      PDBGUID: {CFB2B616-1775-4D3B-B9E2-96969829C52A}\n      PDBAge: 1\n      PDBFileName: D:\\a\\clangd\\clangd\\clangd_23.1.0\\bin\\clangd.pdb\n    }\n  }\n  DebugEntry {\n    Characteristics: 0x0\n    TimeDateStamp: 2026-09-02 09:52:15 (0x6A97F1CF)\n    MajorVersion: 0x0\n    MinorVersion: 0x0\n    Type: VCFeature (0xC)\n    SizeOfData: 0x14\n    AddressOfRawData: 0x2DEC2D0\n    PointerToRawData: 0x2DEACD0\n    RawData (\n      0000: 00000000 630C0000 630C0000 00000000  |....c...c.......|\n      0010: 9F010000                             |....|\n    )\n  }\n  DebugEntry {\n    Characteristics: 0x0\n    TimeDateStamp: 2026-09-02 09:52:15 (0x6A97F1CF)\n    MajorVersion: 0x0\n    MinorVersion: 0x0\n    Type: POGO (0xD)\n    SizeOfData: 0x4F4\n    AddressOfRawData: 0x2DEC2E4\n    PointerToRawData: 0x2DEACE4\n    RawData (\n      0000: 00000000 00100000 90980200 2E746578  |.............tex|\n      0010: 74000000 90A80200 F0470400 2E746578  |t........G...tex|\n      0020: 74246469 00000000 80F00600 40885A02  |t$di........@.Z.|\n      0030: 2E746578 74246D6E 00000000 C0786102  |.text$mn.....xa.|\n      0040: 10020000 2E746578 74246D6E 24303000  |.....text$mn$00.|\n      0050: D07A6102 50120000 2E746578 74246D6E  |.za.P....text$mn|\n      0060: 24323100 208D6102 F0EB0000 2E746578  |$21. .a......tex|\n      0070: 74247800 10796202 34CB0000 2E746578  |t$x..yb.4....tex|\n      0080: 74247964 00000000 00506302 F8070000  |t$yd.....Pc.....|\n      0090: 2E696461 74612435 00000000 F8576302  |.idata$5.....Wc.|\n      00A0: 38000000 2E303063 66670000 30586302  |8....00cfg..0Xc.|\n      00B0: 08000000 2E435254 24584341 00000000  |.....CRT$XCA....|\n      00C0: 38586302 08000000 2E435254 24584341  |8Xc......CRT$XCA|\n      00D0: 41000000 40586302 28000000 2E435254  |A...@Xc.(....CRT|\n      00E0: 24584343 00000000 68586302 10000000  |$XCC....hXc.....|\n      00F0: 2E435254 2458434C 00000000 78586302  |.CRT$XCL....xXc.|\n      0100: D01F0000 2E435254 24584355 00000000  |.....CRT$XCU....|\n      0110: 48786302 08000000 2E435254 2458435A  |Hxc......CRT$XCZ|\n      0120: 00000000 50786302 08000000 2E435254  |....Pxc......CRT|\n      0130: 24584441 00000000 58786302 08000000  |$XDA....Xxc.....|\n      0140: 2E435254 2458445A 00000000 60786302  |.CRT$XDZ....`xc.|\n      0150: 08000000 2E435254 24584941 00000000  |.....CRT$XIA....|\n      0160: 68786302 08000000 2E435254 24584941  |hxc......CRT$XIA|\n      0170: 41000000 70786302 08000000 2E435254  |A...pxc......CRT|\n      0180: 24584941 43000000 78786302 30000000  |$XIAC...xxc.0...|\n      0190: 2E435254 24584943 00000000 A8786302  |.CRT$XIC.....xc.|\n      01A0: 08000000 2E435254 2458495A 00000000  |.....CRT$XIZ....|\n      01B0: B0786302 08000000 2E435254 24584C41  |.xc......CRT$XLA|\n      01C0: 00000000 B8786302 10000000 2E435254  |.....xc......CRT|\n      01D0: 24584C43 00000000 C8786302 08000000  |$XLC.....xc.....|\n      01E0: 2E435254 24584C44 00000000 D0786302  |.CRT$XLD.....xc.|\n      01F0: 08000000 2E435254 24584C5A 00000000  |.....CRT$XLZ....|\n      0200: D8786302 08000000 2E435254 24585041  |.xc......CRT$XPA|\n      0210: 00000000 E0786302 10000000 2E435254  |.....xc......CRT|\n      0220: 24585058 00000000 F0786302 08000000  |$XPX.....xc.....|\n      0230: 2E435254 24585058 41000000 F8786302  |.CRT$XPXA....xc.|\n      0240: 08000000 2E435254 2458505A 00000000  |.....CRT$XPZ....|\n      0250: 00796302 08000000 2E435254 24585441  |.yc......CRT$XTA|\n      0260: 00000000 08796302 F8060000 2E435254  |.....yc......CRT|\n      0270: 2458545A 00000000 00806302 409E7700  |$XTZ......c.@.w.|\n      0280: 2E726461 74610000 401EDB02 C0010000  |.rdata..@.......|\n      0290: 2E726461 74612430 30000000 0020DB02  |.rdata$00.... ..|\n      02A0: 30000000 2E726461 74612454 00000000  |0....rdata$T....|\n      02B0: 3020DB02 A4100100 2E726461 74612472  |0 .......rdata$r|\n      02C0: 00000000 D430DC02 B4910200 2E726461  |.....0.......rda|\n      02D0: 74612476 6F6C746D 64000000 88C2DE02  |ta$voltmd.......|\n      02E0: 88050000 2E726461 7461247A 7A7A6462  |.....rdata$zzzdb|\n      02F0: 67000000 10C8DE02 08000000 2E727463  |g............rtc|\n      0300: 24494141 00000000 18C8DE02 08000000  |$IAA............|\n      0310: 2E727463 24495A5A 00000000 20C8DE02  |.rtc$IZZ.... ...|\n      0320: 08000000 2E727463 24544141 00000000  |.....rtc$TAA....|\n      0330: 28C8DE02 18000000 2E727463 24545A5A  |(........rtc$TZZ|\n      0340: 00000000 40C8DE02 40000000 2E746C73  |....@...@....tls|\n      0350: 00000000 80C8DE02 48020000 2E746C73  |........H....tls|\n      0360: 24000000 C8CADE02 08000000 2E746C73  |$............tls|\n      0370: 245A5A5A 00000000 D0CADE02 D0991700  |$ZZZ............|\n      0380: 2E786461 74610000 A064F602 1C070000  |.xdata...d......|\n      0390: 2E786461 74612478 00000000 BC6BF602  |.xdata$x.....k..|\n      03A0: 40000000 2E646964 61742432 00000000  |@....didat$2....|\n      03B0: FC6BF602 24000000 2E646964 61742433  |.k..$....didat$3|\n      03C0: 00000000 206CF602 40000000 2E646964  |.... l..@....did|\n      03D0: 61742434 00000000 606CF602 70000000  |at$4....`l..p...|\n      03E0: 2E646964 61742436 00000000 D06CF602  |.didat$6.....l..|\n      03F0: 48010000 2E646964 61742437 00000000  |H....didat$7....|\n      0400: 186EF602 A0000000 2E696461 74612432  |.n.......idata$2|\n      0410: 00000000 B86EF602 18000000 2E696461  |.....n.......ida|\n      0420: 74612433 00000000 D06EF602 F8070000  |ta$3.....n......|\n      0430: 2E696461 74612434 00000000 C876F602  |.idata$4.....v..|\n      0440: B6110000 2E696461 74612436 00000000  |.....idata$6....|\n      0450: 0090F602 20CA0200 2E646174 61000000  |.... ....data...|\n      0460: 205AF902 E0710200 2E646174 61247200  | Z...q...data$r.|\n      0470: 00CCFB02 50AA0000 2E646174 61247273  |....P....data$rs|\n      0480: 00000000 5076FC02 70000000 2E646964  |....Pv..p....did|\n      0490: 61742435 00000000 C076FC02 5C230200  |at$5.....v..\\#..|\n      04A0: 2E627373 00000000 00A0FE02 94011600  |.bss............|\n      04B0: 2E706461 74610000 00B01403 00010000  |.pdata..........|\n      04C0: 2E667074 61626C65 00000000 00C01403  |.fptable........|\n      04D0: A0000000 2E727372 63243031 00000000  |.....rsrc$01....|\n      04E0: A0C01403 90030000 2E727372 63243032  |.........rsrc$02|\n      04F0: 00000000                             |....|\n    )\n  }\n]\n",
+    "pdb_summary": "\n\n                          Summary                           \n============================================================\n  Block Size: 4096\n  Number of blocks: 137589\n  Number of streams: 3277\n  Signature: 1788342721\n  Age: 1\n  GUID: {CFB2B616-1775-4D3B-B9E2-96969829C52A}\n  Features: 0x1\n  Has Debug Info: true\n  Has Types: true\n  Has IDs: true\n  Has Globals: true\n  Has Publics: true\n  Is incrementally linked: false\n  Has conflicting types: false\n  Is stripped: false\n\n",
+    "files": {
+      "clangd.exe": "dbd52c13d21ef9d284f4f0627efe76c81adf2fe0998f230127f554a54fc9dde7",
+      "clangd.pdb": "ca585a82a0b1f087df7243602c82f25a5cc68af8b640f26a67747deae8e24848"
+    },
+    "symbol_lookup": "clangdMain",
+    "upstream_assets": {
+      "clangd-windows-23.1.0.zip": "23412a240756a162e7b98a282f36aa2a23a88db5ce16a0cbc4fef7253768c810",
+      "clangd-debug-symbols-windows-23.1.0.7z": "63ed86924ee2300448555319c32cd0dbb75f223dc91441351f58f688f32ecfd4"
+    }
+  },
+  "minidump_sha256": "9eee74bac5d918fe760766e152ec24888ef901cbf792947f1206bd5e8b9a1e18",
+  "minidump_bytes": 73707
+}
