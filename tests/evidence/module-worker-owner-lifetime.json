@@ -1,6 +1,6 @@
 {
   "source_commit": "72c2ac57acae267d2217d1235074af0af417f3fa",
-  "scope": "private Linux changed-TU proof; root integration pending",
+  "scope": "private real owner-death proof plus integrated Linux related units; default builder unwired",
   "owner_death": {
     "parent_pid": 786378,
     "parent_exit": -9,
@@ -41,5 +41,53 @@
     "Windows and Darwin not executed",
     "no hard memory limit",
     "production builder unwired"
-  ]
+  ],
+  "ordered_source_comparison": {
+    "patch_count": 37,
+    "source_commit": "9d639ceb3ba21f8e8409f0a6daa432d667c67555",
+    "patch_paths_compared": 70,
+    "mismatches": [],
+    "scope": "ordered touched-source comparison; changed dependent TUs rebuilt and linked"
+  },
+  "integrated_units": {
+    "passed": 92,
+    "elapsed_ms": 567,
+    "source_commit": "9d639ceb3ba21f8e8409f0a6daa432d667c67555",
+    "log_sha256": "a6a587e6a430faecf71b08ba56f1137a3dc361cdc95ada118c4e21e066e583fd"
+  },
+  "integrated_actual_supervision": [
+    {
+      "mode": "success",
+      "exit_code": 0,
+      "stdout": "elapsed_ms=21 other_alive=1 no_children=1 output=1\nworker_success=1\n",
+      "stderr": "",
+      "new_unit_dirs": []
+    },
+    {
+      "mode": "timeout",
+      "exit_code": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\nmodule worker timed out (pid 802701): /tmp/mcppls-root-worker37-supervision/timeout/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "new_unit_dirs": []
+    },
+    {
+      "mode": "cancel",
+      "exit_code": 0,
+      "stdout": "elapsed_ms=103 other_alive=1 no_children=1 output=0\nmodule worker cancelled (pid 802705): /tmp/mcppls-root-worker37-supervision/cancel/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "new_unit_dirs": []
+    }
+  ],
+  "integrated_actual_owner_death": {
+    "parent_pid": 802804,
+    "parent_exit": -9,
+    "worker_pid": 802805,
+    "worker_exit": 1,
+    "owner_death_to_reap_ms": 7.26,
+    "frontend_marker": "/tmp/mcppls-root-worker37-supervision/owner-death/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n",
+    "orphan_directory": "/tmp/clangd-module-worker-2e431b",
+    "orphan_directory_exists": true,
+    "staged_output_exists": false
+  },
+  "integrated_engine_sha256": "1585b20a7c9cd572ca0daa8a80ba92dc464eda0e93ffda6c8767200d8822b602"
 }

@@ -149,3 +149,11 @@ neither SIGKILL nor immediate worker exit runs cleanup. Following collection
 must acquire both parent/worker leases, protect same-process active units and
 leave unmarked legacy units untouched. Native Windows/Darwin execution,
 orphan sweep and actual default server policy remain unqualified.
+
+Actual root development integration after 0037 repeats all 92 related units
+(567 ms), real child success (21 ms), frontend timeout (102 ms) and cancellation
+(103 ms). All normal paths reap only the worker, preserve another child and
+leave no new unit directory. Killing the actual supervisor during marked
+frontend work causes natural worker exit 1 and adopted reap in 7.26 ms; its
+unit remains and no staged PCM exists. tests/evidence/module-worker-owner-lifetime.json
+records current engine identity and separate private/root evidence.
