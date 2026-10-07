@@ -64,9 +64,7 @@ jobs:
           set -e
           case "${{ matrix.platform }}" in
             linux-*)
-              apt_options=(-o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::Retries=3 -o DPkg::Lock::Timeout=60)
-              sudo apt-get "${apt_options[@]}" update
-              sudo apt-get "${apt_options[@]}" install -y ninja-build ccache
+              sudo bash ci/scripts/apt-install.sh ninja-build ccache
               ;;
             darwin-*) brew install ninja ccache ;;
             win32-*)  pip install ninja ;;
