@@ -98,7 +98,7 @@ jobs:
           python3 tests/e2e/completion_quality.py \
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-quality"
+            --workdir "${{ runner.temp }}/module-quality" --async-scheduling
 
       - name: Unsaved module export regression
         shell: bash
@@ -106,7 +106,7 @@ jobs:
           python3 tests/e2e/completion_quality.py \
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-drafts" --unsaved-update
+            --workdir "${{ runner.temp }}/module-drafts" --unsaved-update --async-scheduling
 
       - name: Show ccache stats
         shell: bash

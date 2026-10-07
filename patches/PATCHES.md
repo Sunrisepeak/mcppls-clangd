@@ -24,3 +24,5 @@ they live here and in patch *filenames* only.
 | 0011-UP-25-validation-memo-respects-drafts.patch | UP-25 | stabilizing | clangd/test/modules-validation-overlay.test (in-patch); tests/e2e/completion_quality.py --unsaved-update; product inferred/C7 | drop when upstream memo verifies the request VFS identities before accepting a disk verdict |
 
 | 0012-mcpp-fallback-style.patch | FEATURE-43 | stabilizing | clang-tools-extra/clangd/test/mcpp-format-style.test; clang-tools-extra/clangd/test/mcpp-format-fallback.test; clang/unittests/Format/ConfigParseTest.cpp | Upstream supports the pinned mcpp preset or an equivalent explicit fallback configuration |
+
+| 0013-UP-25-completion-refreshes-module-dependencies.patch | UP-25 | stabilizing | tests/e2e/completion_quality.py | Upstream completion validates module dependencies against the request filesystem and refreshes stale BMI views |

@@ -1,0 +1,101 @@
+From 5922b288f3222acdea05c2409fa547f2a48115ea Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 09:08:47 +0900
+Subject: [PATCH] Refresh stale module dependencies for semantic completion
+
+---
+ clang-tools-extra/clangd/ClangdServer.cpp |  2 ++
+ clang-tools-extra/clangd/CodeComplete.cpp | 31 +++++++++++++++++------
+ 2 files changed, 25 insertions(+), 8 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index 37eb82116..67a360cd1 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -449,6 +449,7 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
+       }
+     }
+     ParseInputs ParseInput{IP->Command, &getHeaderFS(), IP->Contents.str()};
++    ParseInput.ModulesManager = ModulesManager;
+     // FIXME: Add traling new line if there is none at eof, workaround a crash,
+     // see https://github.com/clangd/clangd/issues/332
+     if (!IP->Contents.ends_with("\n"))
+@@ -512,6 +513,7 @@ void ClangdServer::signatureHelp(PathRef File, Position Pos,
+       return CB(error("Failed to parse includes"));
+ 
+     ParseInputs ParseInput{IP->Command, &getHeaderFS(), IP->Contents.str()};
++    ParseInput.ModulesManager = ModulesManager;
+     // FIXME: Add traling new line if there is none at eof, workaround a crash,
+     // see https://github.com/clangd/clangd/issues/332
+     if (!IP->Contents.ends_with("\n"))
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 7e59f67ab..18f597554 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1388,6 +1388,21 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+       return false;
+     }
+   }
++  auto RequestVFS = Input.ParseInput.TFS->view(
++      Input.ParseInput.CompileCommand.Directory);
++  const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
++  std::unique_ptr<PrerequisiteModules> FreshModules;
++  bool ReusePreamble = true;
++  // Body edits can safely use a stale preamble, but dependency edits cannot:
++  // its copy-on-read BMIs describe the old exports even after the current AST
++  // update has noticed the invalidation. Validate against this request's VFS.
++  if (RequiredModules && Input.ParseInput.ModulesManager &&
++      !RequiredModules->canReuse(*CI, RequestVFS)) {
++    FreshModules = Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
++        Input.FileName, *Input.ParseInput.TFS);
++    RequiredModules = FreshModules.get();
++    ReusePreamble = false;
++  }
+   auto &FrontendOpts = CI->getFrontendOpts();
+   FrontendOpts.SkipFunctionBodies = true;
+   // Disable typo correction in Sema.
+@@ -1420,25 +1435,24 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+   bool CompletingInPreamble = Input.Offset < PreambleRegion.Size ||
+                               (!PreambleRegion.PreambleEndsAtStartOfLine &&
+                                Input.Offset == PreambleRegion.Size);
+-  if (Input.Patch)
++  if (Input.Patch && ReusePreamble)
+     Input.Patch->apply(*CI);
+   // NOTE: we must call BeginSourceFile after prepareCompilerInstance. Otherwise
+   // the remapped buffers do not get freed.
+-  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS =
+-      Input.ParseInput.TFS->view(Input.ParseInput.CompileCommand.Directory);
+-  if (Input.Preamble.StatCache)
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS = std::move(RequestVFS);
++  if (Input.Preamble.StatCache && ReusePreamble)
+     VFS = Input.Preamble.StatCache->getConsumingFS(std::move(VFS));
+   auto Clang = prepareCompilerInstance(
+       std::move(CI),
+-      (!CompletingInPreamble && !Input.ParseInput.Opts.SkipPreambleBuild)
++      (ReusePreamble && !CompletingInPreamble && !Input.ParseInput.Opts.SkipPreambleBuild)
+           ? &Input.Preamble.Preamble
+           : nullptr,
+       std::move(ContentsBuffer), std::move(VFS), IgnoreDiags);
+   Clang->getPreprocessorOpts().SingleFileParseMode = CompletingInPreamble;
+   Clang->setCodeCompletionConsumer(Consumer.release());
+ 
+-  if (Input.Preamble.RequiredModules)
+-    Input.Preamble.RequiredModules->adjustHeaderSearchOptions(
++  if (RequiredModules)
++    RequiredModules->adjustHeaderSearchOptions(
+         Clang->getHeaderSearchOpts());
+ 
+   SyntaxOnlyAction Action;
+@@ -1453,7 +1467,8 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+   //  - but Sema code complete won't see them: as part of the preamble, they're
+   //    deserialized only when mentioned.
+   // Force them to be deserialized so SemaCodeComplete sees them.
+-  loadMainFilePreambleMacros(Clang->getPreprocessor(), Input.Preamble);
++  if (ReusePreamble)
++    loadMainFilePreambleMacros(Clang->getPreprocessor(), Input.Preamble);
+   if (Includes)
+     Includes->collect(*Clang);
+   if (llvm::Error Err = Action.Execute()) {
+-- 
+2.53.0
+
