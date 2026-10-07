@@ -1,0 +1,393 @@
+{
+  "status": "local-before-after-proof",
+  "source_commit": "5ad3947e1",
+  "candidate_sha256": "ee56afe6c8a2a1cf5ceccd891d6c35df906f9ff0a2f4c2111a42a1c8cba38bd5",
+  "baseline_sha256": "c917b2b3358d07c76a44e2eadf2f8ed178170830a1dcdb81fb4056df193e05d3",
+  "candidate": {
+    "id": "live-owner-close",
+    "outcome": "pass",
+    "responses": [],
+    "raw_responses": [
+      {
+        "method": "initialize",
+        "reply": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "astProvider": true,
+              "callHierarchyProvider": true,
+              "clangdInlayHintsProvider": true,
+              "codeActionProvider": true,
+              "compilationDatabase": {
+                "automaticReload": true
+              },
+              "completionProvider": {
+                "resolveProvider": false,
+                "triggerCharacters": [
+                  ".",
+                  "<",
+                  ">",
+                  ":",
+                  "\"",
+                  "/",
+                  "*"
+                ]
+              },
+              "declarationProvider": true,
+              "definitionProvider": true,
+              "documentFormattingProvider": true,
+              "documentHighlightProvider": true,
+              "documentLinkProvider": {
+                "resolveProvider": false
+              },
+              "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": []
+              },
+              "documentRangeFormattingProvider": {
+                "rangesSupport": true
+              },
+              "documentSymbolProvider": true,
+              "executeCommandProvider": {
+                "commands": [
+                  "clangd.applyFix",
+                  "clangd.applyRename",
+                  "clangd.applyTweak"
+                ]
+              },
+              "foldingRangeProvider": true,
+              "hoverProvider": true,
+              "implementationProvider": true,
+              "inactiveRegionsProvider": true,
+              "inlayHintProvider": true,
+              "memoryUsageProvider": true,
+              "referencesProvider": true,
+              "renameProvider": true,
+              "selectionRangeProvider": true,
+              "semanticTokensProvider": {
+                "full": {
+                  "delta": true
+                },
+                "legend": {
+                  "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "deprecated",
+                    "deduced",
+                    "readonly",
+                    "static",
+                    "abstract",
+                    "virtual",
+                    "dependentName",
+                    "defaultLibrary",
+                    "usedAsMutableReference",
+                    "usedAsMutablePointer",
+                    "constructorOrDestructor",
+                    "userDefined",
+                    "functionScope",
+                    "classScope",
+                    "fileScope",
+                    "globalScope"
+                  ],
+                  "tokenTypes": [
+                    "variable",
+                    "variable",
+                    "parameter",
+                    "function",
+                    "method",
+                    "function",
+                    "property",
+                    "variable",
+                    "class",
+                    "interface",
+                    "enum",
+                    "enumMember",
+                    "type",
+                    "type",
+                    "unknown",
+                    "namespace",
+                    "typeParameter",
+                    "concept",
+                    "type",
+                    "macro",
+                    "modifier",
+                    "operator",
+                    "bracket",
+                    "label",
+                    "comment"
+                  ]
+                },
+                "range": true
+              },
+              "signatureHelpProvider": {
+                "triggerCharacters": [
+                  "(",
+                  ")",
+                  "{",
+                  "}",
+                  "<",
+                  ">",
+                  ","
+                ]
+              },
+              "standardTypeHierarchyProvider": true,
+              "textDocumentSync": {
+                "change": 2,
+                "openClose": true,
+                "save": true
+              },
+              "typeDefinitionProvider": true,
+              "typeHierarchyProvider": true,
+              "workspaceSymbolProvider": true
+            },
+            "serverInfo": {
+              "name": "clangd",
+              "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+            }
+          }
+        },
+        "elapsed_ms": 1.808641478419304
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 8,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 0
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 0
+                  }
+                },
+                "uri": "file:///tmp/joint-live-module-lock/Healthy.cpp"
+              },
+              "name": "healthy"
+            }
+          ]
+        },
+        "elapsed_ms": 11.021309532225132
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "error": {
+            "code": -32800,
+            "message": "Request cancelled"
+          },
+          "id": 4,
+          "jsonrpc": "2.0"
+        },
+        "elapsed_ms": 1023.4915781766176
+      }
+    ],
+    "exit_code": 0,
+    "stderr": "I[01:23:20.415] clangd version 23.1.0-mcppls.0\nI[01:23:20.415] Features: linux\nI[01:23:20.415] PID: 3114713\nI[01:23:20.415] Working directory: /tmp/joint-live-module-lock\nI[01:23:20.415] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:23:20.415] argv[1]: --experimental-modules-support\nI[01:23:20.415] argv[2]: --background-index=false\nI[01:23:20.415] argv[3]: --log=verbose\nI[01:23:20.415] argv[4]: -j=2\nV[01:23:20.415] User config file is /home/speak/.config/clangd/config.yaml\nI[01:23:20.415] Starting LSP over stdin/stdout\nV[01:23:20.415] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///tmp/joint-live-module-lock\"}}\n\nI[01:23:20.415] <-- initialize(1)\nI[01:23:20.415] --> reply:initialize(1) 0 ms\nV[01:23:20.415] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[01:23:20.415] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[01:23:20.415] <-- initialized\nV[01:23:20.415] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import A;\\nint marker;\\n\",\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\",\"version\":1}}}\n\nI[01:23:20.415] <-- textDocument/didOpen\nI[01:23:20.415] Loaded compilation database from /tmp/joint-live-module-lock/compile_commands.json\nV[01:23:20.417] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\"}}}\n\nI[01:23:20.417] <-- textDocument/documentSymbol(4)\nI[01:23:20.417] ASTWorker building file /tmp/joint-live-module-lock/Use.cpp version 1 with command \n[/tmp/joint-live-module-lock]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-live-module-lock/Use.cpp\nV[01:23:20.417] Broadcasting compilation database from /tmp/joint-live-module-lock\nV[01:23:20.418] Ignored diagnostic. argument unused during compilation: '-c'\nV[01:23:20.418] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/joint-live-module-lock -fcoverage-compilation-dir=/tmp/joint-live-module-lock -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/joint-live-module-lock/Use.cpp\nV[01:23:20.418] Building first preamble for /tmp/joint-live-module-lock/Use.cpp version 1\nI[01:23:20.421] Built preamble of size 268820 for file /tmp/joint-live-module-lock/Use.cpp version 1 in 0.00 seconds\nV[01:23:20.424] Ignored diagnostic. argument unused during compilation: '-c'\nI[01:23:20.426] Running GC pass for clangd built module files under /tmp/joint-live-module-lock/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[01:23:20.426] Done running GC pass for clangd built module files under /tmp/joint-live-module-lock/.cache/clangd/modules\nI[01:23:21.426] Still waiting for module lock /tmp/joint-live-module-lock/.cache/clangd/modules/.locks/3D60D9467DEE0863 after 1s\nV[01:23:21.428] <<< {\"jsonrpc\":\"2.0\",\"method\":\"$/cancelRequest\",\"params\":{\"id\":4}}\n\nI[01:23:21.428] <-- $/cancelRequest\nV[01:23:21.428] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didClose\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\"}}}\n\nI[01:23:21.428] <-- textDocument/didClose\nI[01:23:21.428] --> textDocument/publishDiagnostics\nV[01:23:21.428] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\"}}\n\nV[01:23:21.428] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"int healthy;\\n\",\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\",\"version\":1}}}\n\nI[01:23:21.428] <-- textDocument/didOpen\nI[01:23:21.428] --> reply:textDocument/documentSymbol(4) 1011 ms, error: Task was cancelled.\nV[01:23:21.428] >>> {\"error\":{\"code\":-32800,\"message\":\"Request cancelled\"},\"id\":4,\"jsonrpc\":\"2.0\"}\n\nV[01:23:21.429] <<< {\"id\":8,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\"}}}\n\nI[01:23:21.429] <-- textDocument/documentSymbol(8)\nI[01:23:21.429] ASTWorker building file /tmp/joint-live-module-lock/Healthy.cpp version 1 with command \n[/tmp/joint-live-module-lock]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-live-module-lock/Healthy.cpp\nV[01:23:21.430] Ignored diagnostic. argument unused during compilation: '-c'\nV[01:23:21.430] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Healthy.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/joint-live-module-lock -fcoverage-compilation-dir=/tmp/joint-live-module-lock -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/joint-live-module-lock/Healthy.cpp\nV[01:23:21.430] Building first preamble for /tmp/joint-live-module-lock/Healthy.cpp version 1\nI[01:23:21.434] Built preamble of size 268832 for file /tmp/joint-live-module-lock/Healthy.cpp version 1 in 0.00 seconds\nI[01:23:21.435] Built prerequisite modules for file /tmp/joint-live-module-lock/Healthy.cpp in 0.00 seconds\nV[01:23:21.435] indexed preamble AST for /tmp/joint-live-module-lock/Healthy.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[01:23:21.436] Indexing c++20 standard library in the context of /tmp/joint-live-module-lock/Healthy.cpp\nV[01:23:21.439] indexed file AST for /tmp/joint-live-module-lock/Healthy.cpp version 1:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[01:23:21.439] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[01:23:21.439] --> textDocument/publishDiagnostics\nV[01:23:21.439] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\",\"version\":1}}\n\nV[01:23:21.439] ASTWorker running DocumentSymbols on version 1 of /tmp/joint-live-module-lock/Healthy.cpp\nI[01:23:21.439] --> reply:textDocument/documentSymbol(8) 9 ms\nV[01:23:21.439] >>> {\"id\":8,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":13,\"location\":{\"range\":{\"end\":{\"character\":11,\"line\":0},\"start\":{\"character\":0,\"line\":0}},\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\"},\"name\":\"healthy\"}]}\n\nV[01:23:21.439] <<< {\"id\":9,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[01:23:21.439] <-- shutdown(9)\nI[01:23:21.439] --> reply:shutdown(9) 0 ms\nV[01:23:21.439] >>> {\"id\":9,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[01:23:21.439] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[01:23:21.439] <-- exit\nI[01:23:21.439] LSP finished, exiting with status 0\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:49:too many arguments provided to function-like macro invocation\nV[01:23:21.717] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:90:9:macro 'atomic_is_lock_free' defined here\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:5:redefinition of 'atomic_is_lock_free' as different kind of symbol\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1294:5:previous definition is here\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:105:7:expected expression\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:109:6:expected ';' after top level declarator\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected parameter declarator\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected ')'\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:to match this '('\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:41:too many arguments provided to function-like macro invocation\nV[01:23:21.717] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:144:9:macro 'atomic_load' defined here\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:5:redefinition of 'atomic_load' as different kind of symbol\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1397:5:previous definition is here\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:7:expected expression\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:69:expected ';' after top level declarator\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected parameter declarator\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected ')'\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:to match this '('\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:47:too many arguments provided to function-like macro invocation\nV[01:23:21.717] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:141:9:macro 'atomic_store' defined here\nV[01:23:21.717] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:5:variable has incomplete type 'void'\nV[01:23:21.719] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:34:use of undeclared identifier '__p'; did you mean '_Lp'?\nV[01:23:21.719] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:187:39:'_Lp' declared here\nV[01:23:21.721] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:49:use of undeclared identifier '__r'\nV[01:23:21.721] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:76:unexpected ';' before '}'\nV[01:23:21.721] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:79:expected ';' after top level declarator\nV[01:23:21.721] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:212:5:expected parameter declarator\nV[01:23:21.721] Ignored diagnostic. too many errors emitted, stopping now\nV[01:23:22.039] indexed preamble AST for /tmp/joint-live-module-lock/Healthy.cpp version :\n  symbol slab: 27769 symbols, 8900112 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 702 relations, 17432 bytes\nI[01:23:22.050] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nV[01:23:22.066] Build dynamic index for header symbols with estimated memory usage of 9536056 bytes\nI[01:23:22.426] Still waiting for module lock /tmp/joint-live-module-lock/.cache/clangd/modules/.locks/3D60D9467DEE0863 after 2s\nE[01:23:22.426] Failed to build module A; due to Task was cancelled.\nI[01:23:22.426] Built prerequisite modules for file /tmp/joint-live-module-lock/Use.cpp in 2.01 seconds\nV[01:23:22.427] indexed preamble AST for /tmp/joint-live-module-lock/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\n",
+    "live_lock_preserved": true
+  },
+  "baseline": {
+    "id": "live-owner-close",
+    "outcome": "timeout",
+    "responses": [],
+    "raw_responses": [
+      {
+        "method": "initialize",
+        "reply": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "astProvider": true,
+              "callHierarchyProvider": true,
+              "clangdInlayHintsProvider": true,
+              "codeActionProvider": true,
+              "compilationDatabase": {
+                "automaticReload": true
+              },
+              "completionProvider": {
+                "resolveProvider": false,
+                "triggerCharacters": [
+                  ".",
+                  "<",
+                  ">",
+                  ":",
+                  "\"",
+                  "/",
+                  "*"
+                ]
+              },
+              "declarationProvider": true,
+              "definitionProvider": true,
+              "documentFormattingProvider": true,
+              "documentHighlightProvider": true,
+              "documentLinkProvider": {
+                "resolveProvider": false
+              },
+              "documentOnTypeFormattingProvider": {
+                "firstTriggerCharacter": "\n",
+                "moreTriggerCharacter": []
+              },
+              "documentRangeFormattingProvider": {
+                "rangesSupport": true
+              },
+              "documentSymbolProvider": true,
+              "executeCommandProvider": {
+                "commands": [
+                  "clangd.applyFix",
+                  "clangd.applyRename",
+                  "clangd.applyTweak"
+                ]
+              },
+              "foldingRangeProvider": true,
+              "hoverProvider": true,
+              "implementationProvider": true,
+              "inactiveRegionsProvider": true,
+              "inlayHintProvider": true,
+              "memoryUsageProvider": true,
+              "referencesProvider": true,
+              "renameProvider": true,
+              "selectionRangeProvider": true,
+              "semanticTokensProvider": {
+                "full": {
+                  "delta": true
+                },
+                "legend": {
+                  "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "deprecated",
+                    "deduced",
+                    "readonly",
+                    "static",
+                    "abstract",
+                    "virtual",
+                    "dependentName",
+                    "defaultLibrary",
+                    "usedAsMutableReference",
+                    "usedAsMutablePointer",
+                    "constructorOrDestructor",
+                    "userDefined",
+                    "functionScope",
+                    "classScope",
+                    "fileScope",
+                    "globalScope"
+                  ],
+                  "tokenTypes": [
+                    "variable",
+                    "variable",
+                    "parameter",
+                    "function",
+                    "method",
+                    "function",
+                    "property",
+                    "variable",
+                    "class",
+                    "interface",
+                    "enum",
+                    "enumMember",
+                    "type",
+                    "type",
+                    "unknown",
+                    "namespace",
+                    "typeParameter",
+                    "concept",
+                    "type",
+                    "macro",
+                    "modifier",
+                    "operator",
+                    "bracket",
+                    "label",
+                    "comment"
+                  ]
+                },
+                "range": true
+              },
+              "signatureHelpProvider": {
+                "triggerCharacters": [
+                  "(",
+                  ")",
+                  "{",
+                  "}",
+                  "<",
+                  ">",
+                  ","
+                ]
+              },
+              "standardTypeHierarchyProvider": true,
+              "textDocumentSync": {
+                "change": 2,
+                "openClose": true,
+                "save": true
+              },
+              "typeDefinitionProvider": true,
+              "typeHierarchyProvider": true,
+              "workspaceSymbolProvider": true
+            },
+            "serverInfo": {
+              "name": "clangd",
+              "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+            }
+          }
+        },
+        "elapsed_ms": 1.303517259657383
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "id": 8,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "containerName": "",
+              "kind": 13,
+              "location": {
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 0
+                  },
+                  "start": {
+                    "character": 0,
+                    "line": 0
+                  }
+                },
+                "uri": "file:///tmp/joint-live-module-lock/Healthy.cpp"
+              },
+              "name": "healthy"
+            }
+          ]
+        },
+        "elapsed_ms": 11.189637705683708
+      },
+      {
+        "method": "textDocument/documentSymbol",
+        "reply": {
+          "error": {
+            "code": -32800,
+            "message": "Request cancelled"
+          },
+          "id": 4,
+          "jsonrpc": "2.0"
+        },
+        "elapsed_ms": 10026.726267300546
+      }
+    ],
+    "exit_code": -9,
+    "stderr": "I[01:23:31.204] clangd version 23.1.0-mcppls.0\nI[01:23:31.204] Features: linux\nI[01:23:31.204] PID: 3114757\nI[01:23:31.204] Working directory: /tmp/joint-live-module-lock\nI[01:23:31.204] argv[0]: /tmp/joint-before-import-root-clangd\nI[01:23:31.204] argv[1]: --experimental-modules-support\nI[01:23:31.204] argv[2]: --background-index=false\nI[01:23:31.204] argv[3]: --log=verbose\nI[01:23:31.204] argv[4]: -j=2\nV[01:23:31.204] User config file is /home/speak/.config/clangd/config.yaml\nI[01:23:31.204] Starting LSP over stdin/stdout\nV[01:23:31.204] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///tmp/joint-live-module-lock\"}}\n\nI[01:23:31.204] <-- initialize(1)\nV[01:23:31.204] Auto-detected standard resource directory '/lib/clang/23' doesn't exist\nV[01:23:31.204] Auto-detected using clang path '/home/speak/.xlings/bin/xlings' resource directory '/home/speak/.xlings/lib/clang/23' doesn't exist\nE[01:23:31.204] Failed to auto-detect resource directory, specify it manually via --resource-dir command line argument\nI[01:23:31.204] --> reply:initialize(1) 0 ms\nV[01:23:31.204] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[01:23:31.204] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[01:23:31.204] <-- initialized\nV[01:23:31.204] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import A;\\nint marker;\\n\",\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\",\"version\":1}}}\n\nI[01:23:31.204] <-- textDocument/didOpen\nI[01:23:31.205] Loaded compilation database from /tmp/joint-live-module-lock/compile_commands.json\nV[01:23:31.206] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\"}}}\n\nI[01:23:31.206] <-- textDocument/documentSymbol(4)\nI[01:23:31.206] ASTWorker building file /tmp/joint-live-module-lock/Use.cpp version 1 with command \n[/tmp/joint-live-module-lock]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 -c -- /tmp/joint-live-module-lock/Use.cpp\nV[01:23:31.206] Broadcasting compilation database from /tmp/joint-live-module-lock\nV[01:23:31.207] Ignored diagnostic. argument unused during compilation: '-c'\nV[01:23:31.207] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/joint-live-module-lock -fcoverage-compilation-dir=/tmp/joint-live-module-lock -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/joint-live-module-lock/Use.cpp\nV[01:23:31.207] Building first preamble for /tmp/joint-live-module-lock/Use.cpp version 1\nI[01:23:31.211] Built preamble of size 268820 for file /tmp/joint-live-module-lock/Use.cpp version 1 in 0.00 seconds\nV[01:23:31.215] Ignored diagnostic. argument unused during compilation: '-c'\nI[01:23:31.217] Running GC pass for clangd built module files under /tmp/joint-live-module-lock/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[01:23:31.217] Done running GC pass for clangd built module files under /tmp/joint-live-module-lock/.cache/clangd/modules\nI[01:23:41.217] Still waiting for module lock /tmp/joint-live-module-lock/.cache/clangd/modules/.locks/3D60D9467DEE0863 after 10s\nV[01:23:41.220] <<< {\"jsonrpc\":\"2.0\",\"method\":\"$/cancelRequest\",\"params\":{\"id\":4}}\n\nI[01:23:41.220] <-- $/cancelRequest\nV[01:23:41.220] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didClose\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\"}}}\n\nI[01:23:41.220] <-- textDocument/didClose\nI[01:23:41.220] --> textDocument/publishDiagnostics\nV[01:23:41.220] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/joint-live-module-lock/Use.cpp\"}}\n\nV[01:23:41.220] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"int healthy;\\n\",\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\",\"version\":1}}}\n\nI[01:23:41.220] <-- textDocument/didOpen\nI[01:23:41.220] --> reply:textDocument/documentSymbol(4) 10014 ms, error: Task was cancelled.\nV[01:23:41.220] >>> {\"error\":{\"code\":-32800,\"message\":\"Request cancelled\"},\"id\":4,\"jsonrpc\":\"2.0\"}\n\nV[01:23:41.221] <<< {\"id\":8,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\"}}}\n\nI[01:23:41.221] <-- textDocument/documentSymbol(8)\nI[01:23:41.221] ASTWorker building file /tmp/joint-live-module-lock/Healthy.cpp version 1 with command \n[/tmp/joint-live-module-lock]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang -std=c++20 -c -- /tmp/joint-live-module-lock/Healthy.cpp\nV[01:23:41.222] Ignored diagnostic. argument unused during compilation: '-c'\nV[01:23:41.222] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Healthy.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/tmp/joint-live-module-lock -fcoverage-compilation-dir=/tmp/joint-live-module-lock -resource-dir /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13 -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /tmp/joint-live-module-lock/Healthy.cpp\nV[01:23:41.222] Building first preamble for /tmp/joint-live-module-lock/Healthy.cpp version 1\nI[01:23:41.226] Built preamble of size 268832 for file /tmp/joint-live-module-lock/Healthy.cpp version 1 in 0.00 seconds\nI[01:23:41.227] Built prerequisite modules for file /tmp/joint-live-module-lock/Healthy.cpp in 0.00 seconds\nV[01:23:41.227] indexed preamble AST for /tmp/joint-live-module-lock/Healthy.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[01:23:41.228] Indexing c++20 standard library in the context of /tmp/joint-live-module-lock/Healthy.cpp\nV[01:23:41.231] indexed file AST for /tmp/joint-live-module-lock/Healthy.cpp version 1:\n  symbol slab: 1 symbols, 4432 bytes\n  ref slab: 1 symbols, 1 refs, 4232 bytes\n  relations slab: 0 relations, 24 bytes\nV[01:23:41.231] Build dynamic index for main-file symbols with estimated memory usage of 11504 bytes\nI[01:23:41.231] --> textDocument/publishDiagnostics\nV[01:23:41.231] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\",\"version\":1}}\n\nV[01:23:41.231] ASTWorker running DocumentSymbols on version 1 of /tmp/joint-live-module-lock/Healthy.cpp\nI[01:23:41.231] --> reply:textDocument/documentSymbol(8) 9 ms\nV[01:23:41.231] >>> {\"id\":8,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":13,\"location\":{\"range\":{\"end\":{\"character\":11,\"line\":0},\"start\":{\"character\":0,\"line\":0}},\"uri\":\"file:///tmp/joint-live-module-lock/Healthy.cpp\"},\"name\":\"healthy\"}]}\n\nV[01:23:41.231] <<< {\"id\":9,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[01:23:41.231] <-- shutdown(9)\nI[01:23:41.231] --> reply:shutdown(9) 0 ms\nV[01:23:41.231] >>> {\"id\":9,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[01:23:41.231] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[01:23:41.231] <-- exit\nI[01:23:41.231] LSP finished, exiting with status 0\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:49:too many arguments provided to function-like macro invocation\nV[01:23:41.511] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:90:9:macro 'atomic_is_lock_free' defined here\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:102:5:redefinition of 'atomic_is_lock_free' as different kind of symbol\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1294:5:previous definition is here\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:105:7:expected expression\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:109:6:expected ';' after top level declarator\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected parameter declarator\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:expected ')'\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:137:5:to match this '('\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:41:too many arguments provided to function-like macro invocation\nV[01:23:41.511] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:144:9:macro 'atomic_load' defined here\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:150:5:redefinition of 'atomic_load' as different kind of symbol\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/atomic:1397:5:previous definition is here\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:7:expected expression\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:151:69:expected ';' after top level declarator\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected parameter declarator\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:expected ')'\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:174:5:to match this '('\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:47:too many arguments provided to function-like macro invocation\nV[01:23:41.511] Ignored diagnostic. /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/stdatomic.h:141:9:macro 'atomic_store' defined here\nV[01:23:41.511] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:189:5:variable has incomplete type 'void'\nV[01:23:41.514] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:34:use of undeclared identifier '__p'; did you mean '_Lp'?\nV[01:23:41.514] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:187:39:'_Lp' declared here\nV[01:23:41.516] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:49:use of undeclared identifier '__r'\nV[01:23:41.516] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:76:unexpected ';' before '}'\nV[01:23:41.516] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:190:79:expected ';' after top level declarator\nV[01:23:41.516] Ignored diagnostic. /usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/bits/shared_ptr_atomic.h:212:5:expected parameter declarator\nV[01:23:41.516] Ignored diagnostic. too many errors emitted, stopping now\nV[01:23:41.837] indexed preamble AST for /tmp/joint-live-module-lock/Healthy.cpp version :\n  symbol slab: 27769 symbols, 8900112 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 702 relations, 17432 bytes\nI[01:23:41.849] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nV[01:23:41.865] Build dynamic index for header symbols with estimated memory usage of 9547992 bytes\n",
+    "live_lock_preserved": true
+  },
+  "limits": [
+    "Local unstripped Linux binary only; final floor package and native CI remain pending.",
+    "This proves document-close cancellation of live-owner lock waits; arbitrary compiler work and superseded draft generations remain open.",
+    "Baseline timed out after healthy-document response and shutdown reply; forced teardown is a failure, never successful shutdown."
+  ]
+}

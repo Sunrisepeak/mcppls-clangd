@@ -1,0 +1,92 @@
+From 5ad3947e162179463adb5b751904d508fcef6bea Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 10:23:53 +0900
+Subject: [PATCH] fix(clangd): document close cancels module cache lock waits
+
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 7 ++++++-
+ clang-tools-extra/clangd/TUScheduler.cpp    | 8 ++++++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 2e4fcd218..a596bd7a7 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -11,6 +11,7 @@
+ #include "Compiler.h"
+ #include "SourceCode.h"
+ #include "support/Logger.h"
++#include "support/Cancellation.h"
+ #include "clang/Frontend/FrontendAction.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+@@ -297,7 +298,7 @@ class ScopedModuleSourceLock {
+ public:
+   static llvm::Expected<ScopedModuleSourceLock>
+   acquire(PathRef ModuleUnitFileName, const GlobalCompilationDatabase &CDB) {
+-    constexpr auto LockWaitInterval = std::chrono::seconds(10);
++    constexpr auto LockWaitInterval = std::chrono::seconds(1);
+     llvm::SmallString<256> LockPath =
+         getModuleSourceHashLockPath(ModuleUnitFileName, CDB);
+     if (llvm::Error Err = ensureLockAnchorFileExists(LockPath))
+@@ -306,6 +307,8 @@ public:
+     auto Waited = std::chrono::seconds::zero();
+ 
+     while (true) {
++      if (int Reason = isCancelled())
++        return llvm::make_error<CancelledError>(Reason);
+       auto Lock = std::make_unique<llvm::LockFileManager>(LockPath);
+       auto TryLock = Lock->tryLock();
+       if (!TryLock)
+@@ -1331,6 +1334,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
+   // Get Required modules in topological order.
+   auto ReqModuleNames = getAllRequiredModules(RequiredSource, MDB, ModuleName);
+   for (llvm::StringRef ReqModuleName : ReqModuleNames) {
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
+     if (BuiltModuleFiles.isModuleUnitBuilt(ReqModuleName))
+       continue;
+ 
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 0661ecb58..01f8da037 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -501,6 +501,10 @@ public:
+ 
+         CurrentReq = std::move(*NextReq);
+         NextReq.reset();
++        // Keep cancellation independent of the moved build request so stop()
++        // can release module-cache waits during document close and shutdown.
++        WithContext RequestContext(CurrentReq->Ctx.clone());
++        std::tie(CurrentReq->Ctx, ActiveBuildCanceler) = cancelableTask();
+       }
+ 
+       {
+@@ -518,6 +522,7 @@ public:
+       {
+         std::lock_guard<std::mutex> Lock(Mutex);
+         CurrentReq.reset();
++        ActiveBuildCanceler = nullptr;
+         IsEmpty = !NextReq;
+       }
+       if (IsEmpty) {
+@@ -539,6 +544,8 @@ public:
+     {
+       std::lock_guard<std::mutex> Lock(Mutex);
+       Done = true;
++      if (ActiveBuildCanceler)
++        ActiveBuildCanceler();
+       NextReq.reset();
+     }
+     // Let the worker thread know that it should stop.
+@@ -572,6 +579,7 @@ private:
+ 
+   mutable std::mutex Mutex;
+   bool Done = false;                  /* GUARDED_BY(Mutex) */
++  Canceler ActiveBuildCanceler;       /* GUARDED_BY(Mutex) */
+   std::optional<Request> NextReq;     /* GUARDED_BY(Mutex) */
+   std::optional<Request> CurrentReq;  /* GUARDED_BY(Mutex) */
+   // Signaled whenever a thread populates NextReq or worker thread builds a
+-- 
+2.53.0
+

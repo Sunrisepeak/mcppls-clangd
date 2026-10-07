@@ -71,7 +71,7 @@ def replay(engine, manifest):
     log = bytearray()
 
     def stderr():
-        while chunk := proc.stderr.read(4096):
+        while chunk := proc.stderr.read1(4096):
             if len(log) < 1048576:
                 log.extend(chunk[:1048576-len(log)])
 
@@ -100,7 +100,30 @@ def replay(engine, manifest):
     rid = 0
     result = {"id": case["id"], "outcome": "error", "responses": [], "raw_responses": []}
 
-    def send(method, params=None, notify=False):
+    pending = {}
+    aliases = {}
+
+    def wait_reply(request_id, allow_error=False):
+        while True:
+            if request_id in pending:
+                reply = pending.pop(request_id)
+            else:
+                if time.monotonic() >= deadline:
+                    raise queue.Empty
+                reply = messages.get(timeout=max(0.001, deadline-time.monotonic()))
+                if isinstance(reply, Exception):
+                    raise reply
+                if "id" not in reply or not ("result" in reply or "error" in reply):
+                    continue
+                if reply["id"] != request_id:
+                    pending[reply["id"]] = reply
+                    continue
+            if "error" in reply:
+                if not allow_error or reply["error"].get("code") not in (-32800, -32801):
+                    raise ValueError(f"request failed: {reply['error']}")
+            return reply
+
+    def send(method, params=None, notify=False, defer=False, allow_error=False):
         nonlocal rid
         rid += 1
         msg = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -111,19 +134,12 @@ def replay(engine, manifest):
         proc.stdin.flush()
         if notify:
             return None
-        while True:
-            if time.monotonic() >= deadline:
-                raise queue.Empty
-            reply = messages.get(timeout=max(0.001, deadline-time.monotonic()))
-            if isinstance(reply, Exception):
-                raise reply
-            if reply.get("id") == rid and ("result" in reply or "error" in reply):
-                if "error" in reply:
-                    raise ValueError(f"request failed: {reply['error']}")
-                return reply
+        return rid if defer else wait_reply(rid, allow_error)
 
     def expand(value):
         if isinstance(value, str):
+            if value.startswith("${REQUEST:") and value.endswith("}"):
+                return aliases[value[10:-1]][0]
             return value.replace("${PROJECT_URI}", project.as_uri())
         if isinstance(value, list):
             return [expand(v) for v in value]
@@ -134,6 +150,24 @@ def replay(engine, manifest):
     originals = {}
     try:
         for step in sequence:
+            if step.get("action") == "await-log":
+                expected = step["contains"].encode()
+                while expected not in log:
+                    if time.monotonic() >= deadline:
+                        raise queue.Empty
+                    if proc.poll() is not None:
+                        raise ValueError("engine exited before the required log event")
+                    time.sleep(0.01)
+                continue
+            if step.get("action") == "await":
+                request_id, method, started = aliases.pop(step["request"])
+                response = wait_reply(request_id, step.get("allow_error", False))
+                result["raw_responses"].append({"method": method, "reply": response,
+                                                "elapsed_ms": (time.monotonic()-started)*1000})
+                for path, expected in step.get("expect", {}).items():
+                    if pointer(response, path) != expand(expected):
+                        raise ValueError(f"deferred response failed assertion {path}")
+                continue
             if step.get("action") == "replace-file":
                 path = (project / step["file"]).resolve()
                 if not path.is_relative_to(project):
@@ -157,7 +191,13 @@ def replay(engine, manifest):
             if step["method"] in ("shutdown", "exit"):
                 raise ValueError("shutdown is managed by the replay harness")
             started = time.monotonic()
-            response = send(step["method"], expand(step.get("params")), step.get("notify", False))
+            response = send(step["method"], expand(step.get("params")), step.get("notify", False),
+                            bool(step.get("defer")), step.get("allow_error", False))
+            if step.get("defer"):
+                if step.get("notify") or step["defer"] in aliases:
+                    raise ValueError("deferred request requires a unique name")
+                aliases[step["defer"]] = (response, step["method"], started)
+                continue
             if response is not None:
                 result["raw_responses"].append({"method": step["method"], "reply": response,
                                                 "elapsed_ms": (time.monotonic()-started)*1000})
@@ -187,6 +227,8 @@ def replay(engine, manifest):
                 actual = pointer(response, path)
                 if actual != expand(expected):
                     raise ValueError(f"{path}: expected {expected!r}, observed {actual!r}")
+        if aliases:
+            raise ValueError("deferred requests must be awaited before shutdown")
         send("shutdown")
         send("exit", notify=True)
         proc.stdin.close()
