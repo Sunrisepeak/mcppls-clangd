@@ -109,6 +109,21 @@ jobs:
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-drafts" --unsaved-update --async-scheduling
 
+      - name: Cyclic module dependency recovery
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cycle.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-cycle"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-cycle-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-cycle/results.json
+          if-no-files-found: error
+
       - name: Document close cancels live-owner module lock wait
         shell: bash
         run: |

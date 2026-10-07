@@ -45,3 +45,7 @@ python3 tests/e2e/module_directive_recovery.py \
 python3 tests/e2e/module_lock_close.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-module-lock-close"
+
+python3 tests/e2e/module_cycle.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-module-cycle"

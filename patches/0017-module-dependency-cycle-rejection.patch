@@ -1,0 +1,75 @@
+From 5c9bd05e3f1e5957caf14e20c6dfa1b813433dae Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 10:28:45 +0900
+Subject: [PATCH] fix(clangd): cyclic module prerequisites fail before bmi
+ construction
+
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 41 +++++++++++++--------
+ 1 file changed, 25 insertions(+), 16 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index a596bd7a7..edb0aef48 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -1136,24 +1136,31 @@ private:
+ /// Collect the directly and indirectly required module names for \param
+ /// ModuleName in topological order. The \param ModuleName is guaranteed to
+ /// be the last element in \param ModuleNames.
+-llvm::SmallVector<std::string> getAllRequiredModules(PathRef RequiredSource,
+-                                                     CachingProjectModules &MDB,
+-                                                     StringRef ModuleName) {
++llvm::Expected<llvm::SmallVector<std::string>>
++getAllRequiredModules(PathRef RequiredSource, CachingProjectModules &MDB,
++                      StringRef ModuleName) {
+   llvm::SmallVector<std::string> ModuleNames;
+-  llvm::StringSet<> ModuleNamesSet;
++  llvm::StringSet<> Completed, Active;
+ 
+-  auto VisitDeps = [&](StringRef ModuleName, auto Visitor) -> void {
+-    ModuleNamesSet.insert(ModuleName);
+-
+-    for (StringRef RequiredModuleName : MDB.getRequiredModules(
+-             MDB.getSourceForModuleName(ModuleName, RequiredSource)))
+-      if (ModuleNamesSet.insert(RequiredModuleName).second)
+-        Visitor(RequiredModuleName, Visitor);
+-
+-    ModuleNames.push_back(ModuleName.str());
++  auto VisitDeps = [&](StringRef Name, auto Visitor) -> llvm::Error {
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
++    if (Completed.contains(Name))
++      return llvm::Error::success();
++    if (!Active.insert(Name).second)
++      return llvm::createStringError(
++          llvm::formatv("Cyclic module dependency involving {0}", Name));
++    llvm::scope_exit RemoveActive([&] { Active.erase(Name); });
++    for (StringRef Dependency : MDB.getRequiredModules(
++             MDB.getSourceForModuleName(Name, RequiredSource)))
++      if (llvm::Error Err = Visitor(Dependency, Visitor))
++        return Err;
++    Completed.insert(Name);
++    ModuleNames.push_back(Name.str());
++    return llvm::Error::success();
+   };
+-  VisitDeps(ModuleName, VisitDeps);
+-
++  if (llvm::Error Err = VisitDeps(ModuleName, VisitDeps))
++    return std::move(Err);
+   return ModuleNames;
+ }
+ 
+@@ -1333,7 +1340,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
+ 
+   // Get Required modules in topological order.
+   auto ReqModuleNames = getAllRequiredModules(RequiredSource, MDB, ModuleName);
+-  for (llvm::StringRef ReqModuleName : ReqModuleNames) {
++  if (!ReqModuleNames)
++    return ReqModuleNames.takeError();
++  for (llvm::StringRef ReqModuleName : *ReqModuleNames) {
+     if (int Reason = isCancelled())
+       return llvm::make_error<CancelledError>(Reason);
+     if (BuiltModuleFiles.isModuleUnitBuilt(ReqModuleName))
+-- 
+2.53.0
+
