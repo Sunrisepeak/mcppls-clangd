@@ -34,3 +34,19 @@ With third-party imports kept textual and the preamble retained for files
 that load no BMI, the same probe measures a ~50 ms warm steady state (first
 request ~0.4 s, one-time index+verdict cost). See ci/third-party-imports.md
 for the behavioral evidence and the remaining acceptance limits.
+
+
+The probe now accepts --phases to distinguish the immediate first completion
+following didOpen, AST-settled warm requests, and completion following edits.
+Cold-open means a new engine process; existing persistent BMIs are not cleared.
+Each phase reports requested, answered and missing counts, p50/p95 and raw
+latencies. Failed semantic replies remain in the raw evidence and fail the run;
+missing and timed-out requests are not silently removed to obtain a passing
+latency result. The overall semantic-pass field must accompany any statistics.
+Without --phases the original edited-request mode remains available.
+
+--resources samples the owned Linux engine process via /proc every 100 ms,
+retaining CPU time and observed VmRSS/VmHWM. Sampling is a CPU lower bound and
+can miss the final process peak; it does not measure descendants, enforce a
+memory ceiling or establish cross-platform release acceptance. Sampler errors
+and shutdown are recorded. Process hashes use bounded streaming reads.
