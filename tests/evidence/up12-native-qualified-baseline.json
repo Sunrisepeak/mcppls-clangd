@@ -1,0 +1,162 @@
+{
+  "platform": "win32-x64",
+  "baseline_engine_sha256": "dbd52c13d21ef9d284f4f0627efe76c81adf2fe0998f230127f554a54fc9dde7",
+  "qualified": true,
+  "results": [
+    {
+      "id": "UP-12-galtranslpp-unresolved-imports",
+      "outcome": "crash",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": false
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0 (https://github.com/llvm/llvm-project ea7d852a70e8bdfaf601d6626a760f9771b2c4b4) windows+grpc x86_64-pc-windows-msvc"
+              }
+            }
+          },
+          "elapsed_ms": 47.000000000025466
+        }
+      ],
+      "detail": "server stdout closed",
+      "readers_stopped": true,
+      "exit_code": 2147483651,
+      "stderr": "I[20:57:57.199] clangd version 23.1.0 (https://github.com/llvm/llvm-project ea7d852a70e8bdfaf601d6626a760f9771b2c4b4)\r\nI[20:57:57.200] Features: windows+grpc\r\nI[20:57:57.200] PID: 792\r\nI[20:57:57.200] Working directory: D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\r\nI[20:57:57.200] argv[0]: D:\\a\\mcppls-clangd\\mcppls-clangd\\baseline-engine\\clangd_23.1.0\\bin\\clangd.exe\r\nI[20:57:57.200] argv[1]: --experimental-modules-support\r\nI[20:57:57.200] argv[2]: --background-index=false\r\nI[20:57:57.200] argv[3]: -j=2\r\nI[20:57:57.204] Starting LSP over stdin/stdout\r\nI[20:57:57.205] <-- initialize(1)\r\nI[20:57:57.222] --> reply:initialize(1) 17 ms\r\nI[20:57:57.222] <-- initialized\r\nI[20:57:57.230] <-- textDocument/didOpen\r\nI[20:57:57.231] Loaded compilation database from D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\compile_commands.json\r\nE[20:57:57.624] Scanning modules dependencies for D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx failed: error: LTO requires -fuse-ld=lld\r\n\r\nE[20:57:57.624] The command line the scanning tool use is: C:\\Program Files\\LLVM\\bin\\clang++ --driver-mode=g++ --target=x86_64-pc-windows-msvc -std=c++23 -O3 -g -flto -x c++-module -fmodule-file=AbslContainers=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/AbslContainers.pcm -fmodule-file=GPPI18n=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/GPPI18n.pcm -fmodule-file=jpcre2=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/jpcre2.pcm -fmodule-file=nlohmann.json=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/nlohmann.json.pcm -fmodule-file=spdlog=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/spdlog.pcm -fmodule-file=std=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/std.pcm -resource-dir=D:\\a\\mcppls-clangd\\mcppls-clangd\\baseline-engine\\clangd_23.1.0\\lib\\clang\\23 -- D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx \r\nI[20:57:57.624] <-- textDocument/documentSymbol(4)\r\nI[20:57:57.624] ASTWorker building file D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx version 1 with command \r\n[D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp]\r\n\"C:\\\\Program Files\\\\LLVM\\\\bin\\\\clang++\" --driver-mode=g++ --target=x86_64-pc-windows-msvc -std=c++23 -O3 -g -flto -x c++-module -fmodule-file=AbslContainers=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/AbslContainers.pcm -fmodule-file=GPPI18n=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/GPPI18n.pcm -fmodule-file=jpcre2=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/jpcre2.pcm -fmodule-file=nlohmann.json=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/nlohmann.json.pcm -fmodule-file=spdlog=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/spdlog.pcm -fmodule-file=std=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/std.pcm \"-resource-dir=D:\\\\a\\\\mcppls-clangd\\\\mcppls-clangd\\\\baseline-engine\\\\clangd_23.1.0\\\\lib\\\\clang\\\\23\" -- \"D:\\\\a\\\\mcppls-clangd\\\\mcppls-clangd\\\\tests\\\\crash\\\\candidates\\\\up12-galtranslpp\\\\GPPDefines.ixx\"\r\nI[20:57:57.642] Built preamble of size 273952 for file D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx version 1 in 0.01 seconds\r\nE[20:57:57.653] Scanning modules dependencies for D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx failed: error: LTO requires -fuse-ld=lld\r\n\r\nE[20:57:57.653] The command line the scanning tool use is: C:\\Program Files\\LLVM\\bin\\clang++ --driver-mode=g++ --target=x86_64-pc-windows-msvc -std=c++23 -O3 -g -flto -x c++-module -fmodule-file=AbslContainers=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/AbslContainers.pcm -fmodule-file=GPPI18n=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/GPPI18n.pcm -fmodule-file=jpcre2=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/jpcre2.pcm -fmodule-file=nlohmann.json=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/nlohmann.json.pcm -fmodule-file=spdlog=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/spdlog.pcm -fmodule-file=std=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/std.pcm -resource-dir=D:\\a\\mcppls-clangd\\mcppls-clangd\\baseline-engine\\clangd_23.1.0\\lib\\clang\\23 -- D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx \r\nI[20:57:57.654] Built prerequisite modules for file D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx in 0.01 seconds\r\nI[20:57:57.712] Indexing c++23 standard library in the context of D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx\r\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.\r\nSignalled during AST worker action: Build AST\r\n  Filename: D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/GPPDefines.ixx\r\n  Directory: D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp\r\n  Command Line: C:\\Program Files\\LLVM\\bin\\clang++ --driver-mode=g++ --target=x86_64-pc-windows-msvc -std=c++23 -O3 -g -flto -x c++-module -fmodule-file=AbslContainers=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/AbslContainers.pcm -fmodule-file=GPPI18n=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/GPPI18n.pcm -fmodule-file=jpcre2=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/jpcre2.pcm -fmodule-file=nlohmann.json=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/nlohmann.json.pcm -fmodule-file=spdlog=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/spdlog.pcm -fmodule-file=std=D:/a/mcppls-clangd/mcppls-clangd/tests/crash/candidates/up12-galtranslpp/absent-bmis/std.pcm -resource-dir=D:\\a\\mcppls-clangd\\mcppls-clangd\\baseline-engine\\clangd_23.1.0\\lib\\clang\\23 -- D:\\a\\mcppls-clangd\\mcppls-clangd\\tests\\crash\\candidates\\up12-galtranslpp\\GPPDefines.ixx\r\n  Version: 1\r\n"
+    }
+  ],
+  "run": "https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/37685946237",
+  "artifact_id": 11511490657,
+  "scope": "Historical baseline qualification only; no native fixed-engine pass or symbolized stack."
+}

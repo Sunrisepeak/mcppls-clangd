@@ -59,4 +59,7 @@ observed termination. Replay now waits briefly for natural exit after EOF;
 a controlled delayed-crash regression requires exit9, while clean early EOF
 remains a failed semantic replay. A forced kill cannot qualify a crash.
 The native exit record is retained in tests/evidence/up12-native-baseline-crash.json.
-Corrected-harness replay and native fork validation remain pending.
+Corrected-harness native run 37685946237 now qualifies this crash, retaining
+exit 0x80000003, the exact engine SHA, raw initialization and reaped readers
+in tests/evidence/up12-native-qualified-baseline.json. Native fork validation
+and symbolized crash stacks remain pending.
