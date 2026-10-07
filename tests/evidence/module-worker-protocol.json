@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "platform": "linux-x64",
+  "source": {
+    "patch_count": 34,
+    "source_commit": "49a3caca83ac7ac427b0da0bb1a447aa24cac9f2",
+    "patch_paths_compared": 66,
+    "overlay_paths_compared": 3,
+    "mismatches": [],
+    "scope": "All touched pinned-source paths applied in series order and byte-matched, plus unchanged repository overlays; not a full-source release build."
+  },
+  "patch_series_sha256": "9872aa0d9e000004dc3e6dfbde221675d24143e0363929df64239203e6333ea4",
+  "engine_sha256": "f777e002314c410a719ebccf87fd7aa16a3c68a2ba54049f6791c03bfc0ee6b3",
+  "integrated_units": {
+    "passed": 82,
+    "elapsed_ms": 607,
+    "log_sha256": "8713351bfc4bec13e0f78507d0c82c31103a922bec9d4b9ca98034146bc223a7",
+    "scope": "Full prerequisites, global and cache CDB tests, diagnostics, fallback and selected scheduler cases."
+  },
+  "actual_child": {
+    "engine_sha256": "f777e002314c410a719ebccf87fd7aa16a3c68a2ba54049f6791c03bfc0ee6b3",
+    "cases": [
+      {
+        "request": "request.json",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "staged_output_exists": true,
+        "pcm_bytes": 34648
+      },
+      {
+        "request": "request-invalid.json",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "missing value at (root).directory\n",
+        "staged_output_exists": false,
+        "pcm_bytes": 0
+      },
+      {
+        "request": "request-failure.json",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "/tmp/mcppls-integrated-worker34/M.cppm:1:2: error: captured failure\n    1 | #error captured failure\n      |  ^\n/tmp/mcppls-integrated-worker34/M.cppm:1:1: error: missing 'export module' declaration in module interface unit\n    1 | #error captured failure\n      | ^\n2 errors generated.\nmodule worker compilation failed\n",
+        "staged_output_exists": false,
+        "pcm_bytes": 0
+      }
+    ],
+    "scope": "Actual worker entry with captured main/header differing from disk; supervisor is harness containment only, not production deadline/RSS enforcement."
+  },
+  "limitations": "Internal protocol foundation is not enabled in ModulesBuilder; production supervisor, complete VFS export, kill/reap, parent lifetime and hard resource qualification remain required. Incremental development link is not an immutable floor/native release build."
+}

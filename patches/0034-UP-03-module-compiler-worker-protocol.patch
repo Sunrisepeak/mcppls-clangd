@@ -1,0 +1,359 @@
+From 49a3caca83ac7ac427b0da0bb1a447aa24cac9f2 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:06:59 +0900
+Subject: [PATCH] Add an internal module compiler worker request protocol
+
+Serialize finalized CC1 arguments and explicit captured filesystem inputs, using binary snapshot files for main contents and ordered YAML overlays. Unsupported filesystem export is the default and process-local remapped buffers are rejected. The internal clangd worker mode reconstructs the invocation and request view before compiling a staged BMI, and discards failed output.
+
+This foundation is not enabled in ModulesBuilder. The parent must still supervise cancellation and deadlines, terminate and reap the specific child, retain prerequisite read leases, capture the entire filesystem view, and clean up killed-worker outputs and caches. It provides no hard runtime or RSS guarantee by itself.
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |   1 +
+ .../clangd/ModuleBuildWorker.cpp              | 163 ++++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |  53 ++++++
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  |  10 ++
+ .../unittests/PrerequisiteModulesTest.cpp     |  52 ++++++
+ 5 files changed, 279 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorker.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorker.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index 890562dde..ab7a7a215 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -96,6 +96,7 @@ add_clang_library(clangDaemon STATIC
+   IncludeFixer.cpp
+   InlayHints.cpp
+   JSONTransport.cpp
++  ModuleBuildWorker.cpp
+   ModulesBuilder.cpp
+   PathMapping.cpp
+   ProjectModules.cpp
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+new file mode 100644
+index 000000000..55a3f6a19
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -0,0 +1,163 @@
++//===--- ModuleBuildWorker.cpp - isolated compiler protocol
++//----------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#include "ModuleBuildWorker.h"
++#include "Compiler.h"
++#include "clang/Frontend/FrontendActions.h"
++#include "clang/Frontend/TextDiagnosticPrinter.h"
++#include "clang/Lex/PreprocessorOptions.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/JSON.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/VirtualFileSystem.h"
++
++namespace clang::clangd {
++namespace {
++constexpr int ProtocolVersion = 1;
++constexpr llvm::StringLiteral CapturedFileSystem =
++    "disk-with-captured-overlays";
++
++llvm::Error validateInputs(const ModuleBuildWorkerInputs &Inputs) {
++  if (Inputs.FileSystem !=
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays)
++    return llvm::createStringError(
++        "module worker requires a captured request filesystem");
++  for (StringRef Path :
++       {StringRef(Inputs.WorkingDirectory), StringRef(Inputs.MainFile),
++        StringRef(Inputs.MainContentsFile)})
++    if (!llvm::sys::path::is_absolute(Path) || Path.contains('\0'))
++      return llvm::createStringError(
++          "module worker input paths must be absolute");
++  for (StringRef Path : Inputs.OverlayFiles)
++    if (!llvm::sys::path::is_absolute(Path) || Path.contains('\0'))
++      return llvm::createStringError(
++          "module worker overlay paths must be absolute");
++  return llvm::Error::success();
++}
++
++llvm::Error validateInvocation(const CompilerInvocation &Invocation,
++                               const ModuleBuildWorkerInputs &Inputs) {
++  const auto &Frontend = Invocation.getFrontendOpts();
++  if (Frontend.Inputs.size() != 1 || !Frontend.Inputs[0].isFile() ||
++      Frontend.Inputs[0].getFile() != Inputs.MainFile)
++    return llvm::createStringError(
++        "module worker requires exactly its captured main file");
++  if (!llvm::sys::path::is_absolute(Frontend.OutputFile) ||
++      StringRef(Frontend.OutputFile).contains('\0') ||
++      Frontend.OutputFile == Inputs.MainFile ||
++      Frontend.OutputFile == Inputs.MainContentsFile)
++    return llvm::createStringError(
++        "module worker requires a separate staged output path");
++  if (!Invocation.getPreprocessorOpts().RemappedFileBuffers.empty())
++    return llvm::createStringError(
++        "module worker cannot serialize remapped buffer pointers");
++  return llvm::Error::success();
++}
++} // namespace
++
++llvm::Expected<std::string>
++serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
++                                  const ModuleBuildWorkerInputs &Inputs) {
++  if (auto Err = validateInputs(Inputs))
++    return std::move(Err);
++  if (auto Err = validateInvocation(Invocation, Inputs))
++    return std::move(Err);
++  llvm::json::Object Request{
++      {"version", ProtocolVersion},
++      {"filesystem", CapturedFileSystem},
++      {"directory", Inputs.WorkingDirectory},
++      {"mainFile", Inputs.MainFile},
++      {"mainContentsFile", Inputs.MainContentsFile},
++      {"overlays", llvm::json::Array(Inputs.OverlayFiles)},
++      {"cc1Arguments", llvm::json::Array(Invocation.getCC1CommandLine())}};
++  return llvm::formatv("{0}", llvm::json::Value(std::move(Request))).str();
++}
++
++llvm::Error runModuleBuildWorker(PathRef RequestFile) {
++  auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
++  if (!Buffer)
++    return llvm::errorCodeToError(Buffer.getError());
++  auto Request = llvm::json::parse((*Buffer)->getBuffer());
++  if (!Request)
++    return Request.takeError();
++  const auto *Object = Request->getAsObject();
++  if (!Object || Object->getInteger("version") != ProtocolVersion ||
++      Object->getString("filesystem") != CapturedFileSystem)
++    return llvm::createStringError(
++        "unsupported module worker request protocol");
++  ModuleBuildWorkerInputs Inputs;
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  std::vector<std::string> Arguments;
++  llvm::json::Path::Root Root;
++  llvm::json::ObjectMapper Mapper(*Request, Root);
++  if (!Mapper.map("directory", Inputs.WorkingDirectory) ||
++      !Mapper.map("mainFile", Inputs.MainFile) ||
++      !Mapper.map("mainContentsFile", Inputs.MainContentsFile) ||
++      !Mapper.map("overlays", Inputs.OverlayFiles) ||
++      !Mapper.map("cc1Arguments", Arguments))
++    return Root.getError();
++  if (auto Err = validateInputs(Inputs))
++    return Err;
++
++  DiagnosticOptions DiagnosticOpts;
++  TextDiagnosticPrinter Printer(llvm::errs(), DiagnosticOpts);
++  DiagnosticsEngine Diags(new DiagnosticIDs(), DiagnosticOpts, &Printer, false);
++  std::vector<const char *> ArgumentRefs;
++  for (const auto &Arg : Arguments) {
++    if (StringRef(Arg).contains('\0'))
++      return llvm::createStringError(
++          "module worker arguments cannot contain NUL");
++    ArgumentRefs.push_back(Arg.c_str());
++  }
++  auto Invocation = std::make_unique<CompilerInvocation>();
++  if (!CompilerInvocation::CreateFromArgs(*Invocation, ArgumentRefs, Diags))
++    return llvm::createStringError("invalid module worker compiler invocation");
++  if (auto Err = validateInvocation(*Invocation, Inputs))
++    return Err;
++
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS(
++      llvm::vfs::createPhysicalFileSystem().release());
++  if (auto EC = VFS->setCurrentWorkingDirectory(Inputs.WorkingDirectory))
++    return llvm::errorCodeToError(EC);
++  for (StringRef Path : Inputs.OverlayFiles) {
++    auto YAML = llvm::MemoryBuffer::getFile(Path);
++    if (!YAML)
++      return llvm::errorCodeToError(YAML.getError());
++    auto Overlay = llvm::vfs::getVFSFromYAML(std::move(*YAML), nullptr, Path,
++                                             nullptr, VFS);
++    if (!Overlay)
++      return llvm::createStringError(
++          "invalid captured module worker filesystem overlay");
++    VFS = llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>(Overlay.release());
++  }
++  auto Main = llvm::MemoryBuffer::getFile(Inputs.MainContentsFile);
++  if (!Main)
++    return llvm::errorCodeToError(Main.getError());
++  const std::string Output = Invocation->getFrontendOpts().OutputFile;
++  bool Success = false;
++  auto Cleanup = llvm::scope_exit([&] {
++    if (!Success)
++      llvm::sys::fs::remove(Output);
++  });
++  auto Clang =
++      prepareCompilerInstance(std::move(Invocation), nullptr, std::move(*Main),
++                              std::move(VFS), Printer);
++  if (!Clang)
++    return llvm::createStringError("failed to prepare module worker compiler");
++  GenerateReducedModuleInterfaceAction Action;
++  if (!Clang->ExecuteAction(Action) ||
++      Clang->getDiagnostics().hasErrorOccurred() ||
++      !llvm::sys::fs::exists(Output))
++    return llvm::createStringError("module worker compilation failed");
++  Success = true;
++  return llvm::Error::success();
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+new file mode 100644
+index 000000000..69987c96f
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -0,0 +1,53 @@
++//===--- ModuleBuildWorker.h - isolated compiler protocol --------*- C++
++//-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKER_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKER_H
++
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include <string>
++#include <vector>
++
++namespace clang {
++class CompilerInvocation;
++namespace clangd {
++
++// These files belong to the parent until the child has been reaped. The main
++// buffer and every virtual overlay backing file must contain the exact request
++// bytes, including unsaved drafts. Keep prerequisite ModuleFile owners alive
++// too: their copy-on-read leases are not transferred to the child.
++struct ModuleBuildWorkerInputs {
++  enum class FileSystemKind { Unsupported, DiskWithCapturedOverlays };
++  FileSystemKind FileSystem = FileSystemKind::Unsupported;
++  std::string WorkingDirectory;
++  std::string MainFile;
++  std::string MainContentsFile;
++  std::vector<std::string> OverlayFiles;
++};
++
++// Only opt into DiskWithCapturedOverlays if it reproduces the entire request
++// filesystem. Arbitrary ThreadsafeFS implementations cannot be serialized by
++// assuming disk contents. Serialize the finalized invocation before
++// prepareCompilerInstance adds its process-local remapped-buffer pointers.
++llvm::Expected<std::string>
++serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
++                                  const ModuleBuildWorkerInputs &Inputs);
++
++// Internal clangd executable mode. Never publishes the staged output. Clang
++// may also write its configured implicit-module cache, which the parent must
++// redirect into the worker-owned temporary directory. Failed compilation
++// removes the staged output. The parent must
++// independently own launch, cancellation, timeout, termination, specific-child
++// reap, and cleanup after a crash/kill. This entry alone provides no hard
++// bound.
++llvm::Error runModuleBuildWorker(PathRef RequestFile);
++
++} // namespace clangd
++} // namespace clang
++#endif
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 51c3b017c..d5f5873e9 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -15,6 +15,7 @@
+ #include "Feature.h"
+ #include "FeatureModule.h"
+ #include "IncludeCleaner.h"
++#include "ModuleBuildWorker.h"
+ #include "PathMapping.h"
+ #include "Protocol.h"
+ #include "TidyProvider.h"
+@@ -789,6 +790,15 @@ int clangdMain(int argc, char *argv[]) {
+   clang::noteBottomOfStack();
+   llvm::InitLLVM X(argc, argv);
+   llvm::InitializeAllTargetInfos();
++  // The internal compiler worker has no LSP transport or inherited clangd
++  // configuration. Its sole input is the versioned captured-request file.
++  if (argc == 3 && llvm::StringRef(argv[1]) == "--module-build-worker") {
++    if (auto Err = runModuleBuildWorker(argv[2])) {
++      llvm::errs() << llvm::toString(std::move(Err)) << "\n";
++      return 1;
++    }
++    return 0;
++  }
+   llvm::sys::AddSignalHandler(
+       [](void *) {
+         ThreadCrashReporter::runCrashHandlers();
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 9d86a7ab7..15d09ff54 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -14,6 +14,7 @@
+ #include "Annotations.h"
+ #include "CodeComplete.h"
+ #include "Compiler.h"
++#include "ModuleBuildWorker.h"
+ #include "ModuleDependencyScanCache.h"
+ #include "ModulesBuilder.h"
+ #include "Preamble.h"
+@@ -406,6 +407,57 @@ export module M;
+   }
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ModuleWorkerPreservesCapturedInputs) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "#error disk main must not be read\n");
++  CDB.addFile("header.h", "#error disk header must not be read\n");
++  CDB.addFile("header.snapshot", "inline constexpr int Captured = 42;\n");
++  CDB.addFile("main.snapshot", R"cpp(module;
++#include "header.h"
++export module M;
++static_assert(Captured == 42);
++export int value() { return Captured; }
++)cpp");
++  CDB.addFile("staged.pcm", "");
++  llvm::vfs::YAMLVFSWriter Writer;
++  Writer.setUseExternalNames(false);
++  Writer.addFileMapping(getFullPath("header.h"),
++                        getFullPath("header.snapshot"));
++  std::string YAML;
++  llvm::raw_string_ostream OS(YAML);
++  Writer.write(OS);
++  CDB.addFile("snapshot.yaml", YAML);
++
++  auto Invocation =
++      buildCompilerInvocation(getInputs("M.cppm", CDB), DiagConsumer);
++  ASSERT_TRUE(Invocation);
++  Invocation->getFrontendOpts().OutputFile = getFullPath("staged.pcm");
++  ModuleBuildWorkerInputs Inputs;
++  auto Unsupported = serializeModuleBuildWorkerRequest(*Invocation, Inputs);
++  ASSERT_FALSE(static_cast<bool>(Unsupported));
++  EXPECT_THAT(llvm::toString(Unsupported.takeError()),
++              testing::HasSubstr("captured request filesystem"));
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  Inputs.WorkingDirectory = TestDir.str().str();
++  Inputs.MainFile = getFullPath("M.cppm");
++  Inputs.MainContentsFile = getFullPath("main.snapshot");
++  Inputs.OverlayFiles = {getFullPath("snapshot.yaml")};
++  auto Request = serializeModuleBuildWorkerRequest(*Invocation, Inputs);
++  ASSERT_TRUE(static_cast<bool>(Request))
++      << llvm::toString(Request.takeError());
++  CDB.addFile("request.json", *Request);
++  auto Err = runModuleBuildWorker(getFullPath("request.json"));
++  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
++  EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++  // A failed attempt must not leave the earlier output looking successful.
++  CDB.addFile("main.snapshot", "#error captured failure\n");
++  Err = runModuleBuildWorker(getFullPath("request.json"));
++  ASSERT_TRUE(static_cast<bool>(Err));
++  llvm::consumeError(std::move(Err));
++  EXPECT_FALSE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++}
++
+ TEST_F(PrerequisiteModulesTests, NonModularTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+
