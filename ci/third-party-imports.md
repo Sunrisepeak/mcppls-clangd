@@ -56,3 +56,11 @@ state. Evidence: tests/evidence/w1-full-matrix/*.json. The plan's
 200/300 ms budgets hold with margin on this machine; a same-methodology
 pre-fix A/B binary and the VS Code product layer remain to be run for
 the release record.
+
+Patch 0020 adds the provider-gain closure: an empty prerequisite set is
+stamped with the compile-command generation it resolved under, and
+`canReuse` rejects a stale generation before consulting BMI freshness.
+The scenario drives the change in one process: `dep2` is forbidden in
+completion while it has no compile command, then the database gains the
+entry, the directory CDB reloads after its five-second revalidation
+interval, and `dep2_value` completes semantically from the rebuilt BMI.

@@ -1,0 +1,116 @@
+From 8ad2e46c8f2d58c0356228a1e0a14aad06168cb6 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 14:04:42 +0900
+Subject: [PATCH] fix(clangd): prerequisite reuse dies with the compile-command
+ generation
+
+An empty prerequisite set - every direct import resolved to a textual
+third-party one - stayed reusable forever: canReuse held as long as the
+import-name set was unchanged, so a provider appearing through a
+compile-command change never reached files that had already resolved to
+nothing.
+
+The builder now counts command-change broadcasts and stamps each
+reusable prerequisite set with that generation; canReuse rejects a
+stale generation before consulting BMI freshness, so the next update
+re-resolves the imports and builds the newly available units. The
+provider-gain scenario in tests/e2e/third_party_import.py drives the
+whole path in one process across the directory CDB's five-second
+revalidation interval.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 31 +++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 20b84bb5c..3447731bd 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -16,6 +16,8 @@
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+ #include "clang/Serialization/ModuleCache.h"
++#include <atomic>
++
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/StringExtras.h"
+@@ -652,6 +654,12 @@ public:
+     DirectModuleNames.insert_range(Names);
+   }
+ 
++  void
++  setCommandGeneration(const std::atomic<uint64_t> *Source, uint64_t AtBuild) {
++    CommandGenerationSource = Source;
++    CommandGenerationAtBuild = AtBuild;
++  }
++
+   llvm::StringSet<> getRequiredModuleNames() const override {
+     return DirectModuleNames;
+   }
+@@ -662,6 +670,10 @@ private:
+   llvm::StringSet<> BuiltModuleNames;
+   // The directly required module names as scanned from the source file.
+   llvm::StringSet<> DirectModuleNames;
++  // Compile-command generation this set was resolved against; a mismatch
++  // means the resolution itself may be stale, regardless of BMI freshness.
++  const std::atomic<uint64_t> *CommandGenerationSource = nullptr;
++  uint64_t CommandGenerationAtBuild = 0;
+ };
+ 
+ /// Records the (size, mtime) identity of every user input file a successful
+@@ -905,6 +917,11 @@ copyModuleFileForRead(llvm::StringRef ModuleName,
+ bool ReusablePrerequisiteModules::canReuse(
+     const CompilerInvocation &CI,
+     llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) const {
++  // An empty set is only valid for the command generation that could not
++  // resolve any unit: a new generation may make an import buildable.
++  if (CommandGenerationSource &&
++      CommandGenerationSource->load() != CommandGenerationAtBuild)
++    return false;
+   if (RequiredModules.empty())
+     return true;
+ 
+@@ -1245,14 +1262,21 @@ public:
+     // preamble-safety verdicts die with it.
+     CommandWatcher = getCDB().watch(
+         [this](const std::vector<std::string> &) {
+-          std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
+-          BuildableRequiredModulesVerdicts.clear();
++          {
++            std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++            BuildableRequiredModulesVerdicts.clear();
++          }
++          // A command change may make a previously textual import buildable
++          // (or break a built one), so reusable prerequisite sets die with
++          // their generation instead of serving stale emptiness forever.
++          ++CommandGeneration;
+         });
+   }
+ 
+   ModuleNameToSourceCache &getProjectModulesCache() {
+     return ProjectModulesCache;
+   }
++  std::atomic<uint64_t> &commandGeneration() { return CommandGeneration; }
+   const GlobalCompilationDatabase &getCDB() const { return Cache.getCDB(); }
+ 
+   /// Whether any directly imported module of \p File can produce a BMI here.
+@@ -1332,6 +1356,7 @@ private:
+   };
+   std::mutex BuildableVerdictsMutex;
+   llvm::StringMap<FileBuildability> BuildableRequiredModulesVerdicts;
++  std::atomic<uint64_t> CommandGeneration{1};
+   GlobalCompilationDatabase::CommandChanged::Subscription CommandWatcher;
+ };
+ 
+@@ -1577,6 +1602,8 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+ 
+   auto RequiredModules = std::make_unique<ReusablePrerequisiteModules>();
+   RequiredModules->setDirectModuleNames(RequiredModuleNames);
++  RequiredModules->setCommandGeneration(&Impl->commandGeneration(),
++                                        Impl->commandGeneration().load());
+   for (llvm::StringRef RequiredModuleName : RequiredModuleNames) {
+     // Return early if there is any error.
+     if (llvm::Error Err = Impl->getOrBuildModuleFile(
+-- 
+2.43.0
+

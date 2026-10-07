@@ -38,3 +38,5 @@ they live here and in patch *filenames* only.
 | 0018-completion-stage-tracing.patch | UP-25 | stabilizing | tests/probes/project_completion.py --trace; ci/project-completion-performance.md | Upstream completion tracing independently reports module validation and semantic execution for real project optimization |
 
 | 0019-third-party-imports-keep-resolvable-modules.patch | UP-25 | stabilizing | tests/e2e/third_party_import.py | Upstream keeps resolvable module BMIs and the textual-import file preamble when a direct import has no buildable unit in the project; the skip verdict re-derives on file or command changes |
+
+| 0020-prerequisite-reuse-dies-with-command-generation.patch | UP-25 | stabilizing | tests/e2e/third_party_import.py | Upstream reusable prerequisite sets record the compile-command generation and stop being reused after a command-change broadcast, so a provider appearing later reaches files that resolved to nothing |
