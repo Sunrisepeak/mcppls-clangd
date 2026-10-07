@@ -176,5 +176,30 @@
     "attribution": "Both binaries pass this real M\u2192N response-edit regression. It does not prove the earlier provider-generation defect."
   },
   "matched_mockfs_baseline_attribution": "Same final focused test object with original GCD fails at the initial -DOLD checks because the original response loader uses real FS rather than supplied MockFS; later provider and race assertions are not reached.",
-  "limitations": "Forced full inventory validation is O(R) exact reads. Unique response bytes and per-source references are not a hard memory ceiling. Conservative @response positive-scan admission remains declined. Worker isolation and final release gates stay open."
+  "limitations": "Forced full inventory validation is O(R) exact reads. Unique response bytes and per-source references are not a hard memory ceiling. Conservative @response positive-scan admission remains declined. Worker isolation and final release gates stay open.",
+  "real_disk_matched_counterexample": {
+    "identity": {
+      "baseline_source_commit": "71e1f97c6",
+      "test_source_commit": "b134f4201a12ca323ca1061dcc5a98af926ee061",
+      "test_object_sha256": "223dda23ab1305281ca339ae5a4606c1574cdf634a5eb08fc3d5dff4f2c290d9",
+      "test_object_same_as_fixed_binary": true,
+      "baseline_engine_object_sha256": "9910af16542ee73a8c6d98a4d7f8d6d9b360f554392dabdd58a1c700a76b3f69",
+      "baseline_binary_sha256": "069c1e5aee1ce0a0311207df329f609d49a13fcca696aa95e7027a6fdcf46233",
+      "filter": "DirectoryBasedGlobalCompilationDatabaseCacheTest.RealResponseEditRefreshesProviderGeneration",
+      "test_exit_code": 1,
+      "identity_caveat": "Both fixed and baseline link the exact same final test object before native archives. Baseline replaces only GCD.cpp with historical 71e1f97c6. Current native archives remain mixed-tree, not an immutable complete baseline build.",
+      "fixed_binary_sha256": "e20e78c5e7c10fbb9d9476595bc2cf9d3d80ae3d2d329d05d41a9b2f5efa2844",
+      "observed_baseline_failures": [
+        "Old == New CDB owner",
+        "Old expanded command mutated from M to N",
+        "New module facade reports N Missing"
+      ],
+      "initial_control_M_succeeded": true,
+      "same_size_and_full_mtime_assertions_succeeded": true,
+      "fixed_test_exit_code": 0
+    },
+    "baseline": "Initial M control and exact same-size/full-mtime assertions pass; same owner, mutated old commands and missing N provider assertions then fail.",
+    "fixed": "Same test object passes with fixed GlobalCDB object.",
+    "scope": "Real response files and actual provider generation API; not a native editor or completion speedup claim."
+  }
 }

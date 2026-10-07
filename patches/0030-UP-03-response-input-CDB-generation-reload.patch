@@ -1,14 +1,15 @@
-From 668ad08cc77c1a946a75e217829941d1603ce712 Mon Sep 17 00:00:00 2001
+From 7cf3c1fd386fc786c414b3e7917ded860300c65e Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
-Date: Thu, 8 Oct 2026 08:01:14 +0900
+Date: Thu, 8 Oct 2026 08:13:07 +0900
 Subject: [PATCH] clangd: reload immutable CDB generations when response inputs
  change
 
+Retain response bytes per generation, detect nested and failed inputs, and refresh provider inventories on exact input changes. Validate coherent publication and preserve old generation commands. Include actual disk same-size/full-mtime provider association regression.
 ---
- .../clangd/GlobalCompilationDatabase.cpp      | 137 ++++++++++----
- .../clangd/ResponseFileSnapshot.h             | 170 ++++++++++++++++++
- .../GlobalCompilationDatabaseTests.cpp        | 113 +++++++++++-
- 3 files changed, 373 insertions(+), 47 deletions(-)
+ .../clangd/GlobalCompilationDatabase.cpp      | 137 +++++++++----
+ .../clangd/ResponseFileSnapshot.h             | 170 ++++++++++++++++
+ .../GlobalCompilationDatabaseTests.cpp        | 185 +++++++++++++++++-
+ 3 files changed, 445 insertions(+), 47 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ResponseFileSnapshot.h
 
 diff --git a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
@@ -419,10 +420,10 @@ index 000000000..b25e9f9fd
 +} // namespace clang::clangd
 +#endif
 diff --git a/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp b/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
-index 0c880589f..1eea778b6 100644
+index 0c880589f..f6a65207d 100644
 --- a/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
 +++ b/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
-@@ -10,6 +10,7 @@
+@@ -10,14 +10,17 @@
  
  #include "CompileCommands.h"
  #include "Config.h"
@@ -430,7 +431,17 @@ index 0c880589f..1eea778b6 100644
  #include "TestFS.h"
  #include "support/Path.h"
  #include "support/ThreadsafeFS.h"
-@@ -494,13 +495,9 @@ TEST(GlobalCompilationDatabaseTest, InferenceWithResponseFile) {
+ #include "clang/Tooling/CompilationDatabase.h"
+ #include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringRef.h"
+ #include "llvm/Support/FormatVariadic.h"
++#include "llvm/Support/JSON.h"
+ #include "llvm/Support/Path.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+@@ -494,13 +497,9 @@ TEST(GlobalCompilationDatabaseTest, InferenceWithResponseFile) {
    };
    EXPECT_THAT(Command("foo.cc"), IsEmpty());
  
@@ -447,7 +458,7 @@ index 0c880589f..1eea778b6 100644
  
    const char *const CDB =
        R"cdb(
-@@ -530,9 +527,11 @@ protected:
+@@ -530,9 +529,11 @@ protected:
    std::shared_ptr<const tooling::CompilationDatabase>
    lookupCDB(const DirectoryBasedGlobalCompilationDatabase &GDB,
              llvm::StringRef Path,
@@ -460,7 +471,7 @@ index 0c880589f..1eea778b6 100644
      Req.FreshTime = Req.FreshTimeMissing = FreshTime;
      if (auto Result = GDB.lookupCDB(Req))
        return std::move(Result->CDB);
-@@ -560,6 +559,104 @@ auto hasFlag(llvm::StringRef Flag) {
+@@ -560,6 +561,174 @@ auto hasFlag(llvm::StringRef Flag) {
    return hasFlag(Flag, "mock_file_name.cc");
  }
  
@@ -560,6 +571,76 @@ index 0c880589f..1eea778b6 100644
 +  auto New = lookupCDB(GDB, File, Stale);
 +  EXPECT_NE(Old, New);
 +  EXPECT_THAT(New, hasFlag("-DNEW", File));
++}
++
++TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest,
++       RealResponseEditRefreshesProviderGeneration) {
++  auto ProcessFS = llvm::vfs::getRealFileSystem();
++  auto OriginalCWD = ProcessFS->getCurrentWorkingDirectory();
++  ASSERT_TRUE(OriginalCWD);
++  llvm::SmallString<256> Dir;
++  ASSERT_FALSE(
++      llvm::sys::fs::createUniqueDirectory("clangd-response-generation", Dir));
++  auto Cleanup = llvm::scope_exit([&] {
++    EXPECT_FALSE(ProcessFS->setCurrentWorkingDirectory(*OriginalCWD));
++    EXPECT_FALSE(llvm::sys::fs::remove_directories(Dir));
++  });
++  auto Path = [&](llvm::StringRef Filename) {
++    llvm::SmallString<256> Result(Dir);
++    llvm::sys::path::append(Result, Filename);
++    return Result.str().str();
++  };
++  auto Write = [&](llvm::StringRef Filename, llvm::StringRef Contents) {
++    std::error_code EC;
++    llvm::raw_fd_ostream Stream(Path(Filename), EC);
++    if (EC)
++      return EC;
++    Stream << Contents;
++    Stream.close();
++    return Stream.error();
++  };
++  auto Use = Path("Use.cc"), Producer = Path("Producer.cc");
++  llvm::json::Array Commands;
++  Commands.emplace_back(llvm::json::Object{
++      {"directory", Dir.str().str()},
++      {"file", Use},
++      {"arguments", llvm::json::Array{"clang", "@args.rsp", Use}}});
++  Commands.emplace_back(llvm::json::Object{
++      {"directory", Dir.str().str()},
++      {"file", Producer},
++      {"arguments", llvm::json::Array{"clang", "--precompile", "-o",
++                                      "module.pcm", Producer}}});
++  auto JSON =
++      llvm::formatv("{0}", llvm::json::Value(std::move(Commands))).str();
++  ASSERT_FALSE(Write("compile_commands.json", JSON));
++  ASSERT_FALSE(Write("args.rsp", "@nested.rsp"));
++  ASSERT_FALSE(Write("nested.rsp", "-fmodule-file=M=module.pcm"));
++  RealThreadsafeFS FS;
++  DirectoryBasedGlobalCompilationDatabase GDB(FS);
++  auto Stale = std::chrono::steady_clock::now() - std::chrono::minutes(1);
++  auto Old = lookupCDB(GDB, Use, Stale);
++  ASSERT_THAT(Old, hasFlag("-fmodule-file=M=module.pcm", Use));
++  auto OldModules = GDB.getProjectModules(Use);
++  ASSERT_EQ(OldModules->getModuleNameState("M"),
++            ProjectModules::ModuleNameState::Unique);
++  llvm::sys::fs::file_status Before, After;
++  ASSERT_FALSE(llvm::sys::fs::status(Path("nested.rsp"), Before));
++  ASSERT_FALSE(Write("nested.rsp", "-fmodule-file=N=module.pcm"));
++  ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++      Path("nested.rsp"), Before.getLastAccessedTime(),
++      Before.getLastModificationTime()));
++  ASSERT_FALSE(llvm::sys::fs::status(Path("nested.rsp"), After));
++  ASSERT_EQ(Before.getSize(), After.getSize());
++  ASSERT_EQ(Before.getLastModificationTime(), After.getLastModificationTime());
++  auto New = lookupCDB(GDB, Use, Stale);
++  EXPECT_NE(Old, New);
++  EXPECT_THAT(Old, hasFlag("-fmodule-file=M=module.pcm", Use));
++  EXPECT_THAT(New, hasFlag("-fmodule-file=N=module.pcm", Use));
++  auto NewModules = GDB.getProjectModules(Use);
++  EXPECT_EQ(NewModules->getModuleNameState("N"),
++            ProjectModules::ModuleNameState::Unique);
++  EXPECT_EQ(OldModules->getModuleNameState("M"),
++            ProjectModules::ModuleNameState::Unique);
 +}
 +
  TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest, Cacheable) {
