@@ -1,0 +1,188 @@
+From 74226b4f2e0f5d37ecc62415d83667546c3227f2 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 07:49:16 +0900
+Subject: [PATCH] Discard cancelled module builds at compiler boundaries
+
+A request cancelled after acquiring its source lock or while ExecuteAction compiled a module could still publish the staged BMI and return a reusable prerequisite. Observe cancellation after lock acquisition, main-file reads, compiler preparation and action completion; the existing scope guard removes the uncommitted temporary output.
+
+Exercise cancellation deterministically through request filesystem reads, separately while fetching the module source and while ExecuteAction reads a header. Both cases must leave no PCM and permit an uncancelled retry using the same builder. ExecuteAction remains synchronous: these checks neither interrupt the action nor enforce a hard runtime or RSS bound.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  14 +++
+ .../unittests/PrerequisiteModulesTest.cpp     | 106 ++++++++++++++++++
+ 2 files changed, 120 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index df27ab385..5a436d52d 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -876,6 +876,8 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                 const ReusablePrerequisiteModules &BuiltModuleFiles,
+                 bool &PublishedExistingModuleFile) {
+   PublishedExistingModuleFile = false;
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+   llvm::SmallString<256> ModuleFilesPrefix(ModuleFilePath);
+   llvm::sys::path::remove_filename(ModuleFilesPrefix);
+   if (std::error_code EC = llvm::sys::fs::create_directories(ModuleFilesPrefix))
+@@ -907,6 +909,9 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   if (!Buf)
+     return llvm::createStringError("Failed to create buffer");
+ 
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
++
+   // In clang's driver, we will suppress the check for ODR violation in GMF.
+   // See the implementation of RenderModulesOptions in Clang.cpp.
+   CI->getLangOpts().SkipODRCheckInGMF = true;
+@@ -925,8 +930,15 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   if (!Clang)
+     return llvm::createStringError("Failed to prepare compiler instance");
+ 
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+   GenerateReducedModuleInterfaceAction Action;
+   Clang->ExecuteAction(Action);
++  // ExecuteAction is synchronous and cannot be interrupted here. If its
++  // request was cancelled while compiling, discard the staged BMI rather
++  // than publishing it or letting dependent module builds consume it.
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+ 
+   if (Clang->getDiagnostics().hasErrorOccurred()) {
+     std::string Cmds;
+@@ -1548,6 +1560,8 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+   auto SourceLock = ScopedModuleSourceLock::acquire(ModuleSource, getCDB());
+   if (!SourceLock)
+     return SourceLock.takeError();
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+ 
+   std::shared_ptr<const ModuleFile> Cached =
+       Cache.getModule(ModuleName, ModuleSource, CommandHash);
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 132084cb9..f542dc287 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -20,6 +20,7 @@
+ #include "ProjectModules.h"
+ #include "TestFS.h"
+ #include "TestTU.h"
++#include "support/Cancellation.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
+ #include "clang/Tooling/Tooling.h"
+@@ -300,6 +301,111 @@ public:
+   DiagnosticConsumer DiagConsumer;
+ };
+ 
++// Keep dependency discovery separate from compiler IO so cancellation can be
++// triggered specifically at the main-file read or inside ExecuteAction.
++class CancellationModulesCDB : public MockDirectoryCompilationDatabase {
++public:
++  using MockDirectoryCompilationDatabase::MockDirectoryCompilationDatabase;
++  std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
++    class Modules : public ProjectModules {
++    public:
++      explicit Modules(std::string Source) : Source(std::move(Source)) {}
++      std::vector<std::string> getRequiredModules(PathRef File) override {
++        return File == Source ? std::vector<std::string>{}
++                              : std::vector<std::string>{"M"};
++      }
++      std::string getModuleNameForSource(PathRef File) override {
++        return File == Source ? "M" : "";
++      }
++      std::string getSourceForModuleName(StringRef Name, PathRef) override {
++        return Name == "M" ? Source : "";
++      }
++
++    private:
++      std::string Source;
++    };
++    return std::make_unique<Modules>((Directory + "/M.cppm").str());
++  }
++};
++
++class CancelOnReadFS : public ThreadsafeFS {
++public:
++  CancelOnReadFS(const ThreadsafeFS &Base, std::string Target, Canceler Cancel)
++      : Base(Base), Target(std::move(Target)), Cancel(std::move(Cancel)) {}
++  mutable std::atomic<unsigned> Triggered{0};
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    class View : public llvm::vfs::ProxyFileSystem {
++    public:
++      View(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
++           const CancelOnReadFS &Owner)
++          : ProxyFileSystem(std::move(FS)), Owner(Owner) {}
++      llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
++      openFileForRead(const llvm::Twine &Path) override {
++        auto File = ProxyFileSystem::openFileForRead(Path);
++        if (File && llvm::sys::path::filename(Path.str()) ==
++                        llvm::sys::path::filename(Owner.Target)) {
++          ++Owner.Triggered;
++          Owner.Cancel();
++        }
++        return File;
++      }
++
++    private:
++      const CancelOnReadFS &Owner;
++    };
++    return llvm::makeIntrusiveRefCnt<View>(Base.view(std::nullopt), *this);
++  }
++  const ThreadsafeFS &Base;
++  const std::string Target;
++  const Canceler Cancel;
++};
++
++TEST_F(PrerequisiteModulesTests, CancellationAtCompilerBoundaries) {
++  CancellationModulesCDB CDB(TestDir, FS);
++  CDB.addFile("cancel.h", "inline int value() { return 42; }");
++  CDB.addFile("M.cppm", R"cpp(module;
++#include "cancel.h"
++export module M;
++)cpp");
++  CDB.addFile("Use.cpp", "import M;\n");
++  for (StringRef Target : {"M.cppm", "cancel.h"}) {
++    SCOPED_TRACE(Target);
++    ModulesBuilder Builder(CDB);
++    auto Task = cancelableTask();
++    CancelOnReadFS RequestFS(FS, getFullPath(Target), Task.second);
++    std::unique_ptr<PrerequisiteModules> Result;
++    {
++      WithContext Context(std::move(Task.first));
++      Result = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"),
++                                                   RequestFS);
++    }
++    ASSERT_GT(RequestFS.Triggered.load(), 0u);
++    EXPECT_FALSE(Result->canReuse(CompilerInvocation(), FS.view(TestDir)));
++    HeaderSearchOptions HS;
++    Result->adjustHeaderSearchOptions(HS);
++    EXPECT_TRUE(HS.PrebuiltModuleFiles.empty());
++    std::error_code EC;
++    for (llvm::sys::fs::recursive_directory_iterator I(TestDir, EC), End;
++         I != End && !EC; I.increment(EC))
++      EXPECT_FALSE(StringRef(I->path()).contains(".pcm")) << I->path();
++    ASSERT_FALSE(EC);
++    // The cancelled attempt did not poison the builder or its persistent cache.
++    auto Retry =
++        Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++    Retry->adjustHeaderSearchOptions(HS);
++    EXPECT_EQ(HS.PrebuiltModuleFiles.count("M"), 1u);
++    // Use a fresh cache for the second cancellation point.
++    HS.PrebuiltModuleFiles.clear();
++    Retry.reset();
++    Result.reset();
++    llvm::SmallString<256> CacheDir(TestDir);
++    llvm::sys::path::append(CacheDir, ".cache");
++    ASSERT_FALSE(llvm::sys::fs::remove_directories(CacheDir));
++  }
++}
++
+ TEST_F(PrerequisiteModulesTests, NonModularTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

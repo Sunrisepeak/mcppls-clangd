@@ -57,3 +57,7 @@ they live here and in patch *filenames* only.
 | 0028-UP-03-verified-module-dependency-scan-memo.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp PositiveScanMemo* (in-patch); tests/e2e/module_scan_memo.py; ci/module-scan-memo.md | Upstream verifies every observed scan input, command/CDB/environment and alias relation with bounded retained ownership, while unsupported target/discovery inputs decline reuse; compiler/deadline/RSS admission remains separate |
 
 | 0029-UP-03-observe-module-scan-builtin-expansions.patch | UP-03 | stabilizing | tests/e2e/module_scan_builtins.py; ci/module-scan-builtins.md | Upstream observes actual time-dependent builtin expansions before positive scan reuse, while keeping the driver and filesystem observation contract |
+
+| 0031-W3-module-build-cancellation-boundaries.patch | W3 | stabilizing | PrerequisiteModulesTests.CancellationAtCompilerBoundaries; ci/module-build-cancellation.md | Upstream discards observed cancellation at compiler boundaries and cleans temporary PCMs before publication |
+
+

@@ -1,0 +1,9 @@
+# Cooperative module cancellation (0031) and owner-lease fixture (0033)
+
+0031 checks cancellation after acquiring the source lock, fetching the compiler source, preparing the compiler instance and completing ExecuteAction. Cancelled builds return CancelledError before publication and existing scope-exit cleanup removes their temporary PCM. A cancelled request no longer leaves a reusable result after cancellation has been observed at these boundaries.
+
+The deterministic CancellationAtCompilerBoundaries test opens unchanged real source files and invokes the actual task Canceler when M.cppm is fetched or cancel.h is opened within ExecuteAction. The matched original ModulesBuilder object fails both cases, publishing stable/read-copy PCMs. The fixed object leaves no PCMs and the same builder retries normally. This is cooperative: ExecuteAction remains synchronous and there is a cancellation/rename race after the final check. Hard deadline, total RSS and terminating compiler workers remain open.
+
+0033 is a test-only correction to the older GC fixture after owner leases were introduced in 0022. File atime cannot prove a reader has died; an arbitrary unleased Orphan.pcm must be retained. The fixture now creates a genuine read-copy with a closed kernel lease and asserts that its PCM and sidecar are reclaimed. It also asserts that old stable published bytes, their original timestamp and a currently leased read-copy remain intact. Production GC policy is unchanged; published-cache disk growth remains an independent open resource concern.
+
+Isolated full prerequisite validation passes all 34 tests (695 ms). Earlier 33/34 evidence exposed the outdated orphan fixture and is not concealed as a passing suite. Root integrated focused cancellation, fallback and preamble tests pass ten cases (127 ms). Final integrated full-suite evidence is recorded separately. Tests do not establish native release/editor acceptance or a hard resource bound.
