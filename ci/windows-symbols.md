@@ -40,3 +40,27 @@ References: [sccache MSVC guidance](https://github.com/mozilla/sccache/blob/main
 and [CMake debug-information format](https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_DEBUG_INFORMATION_FORMAT.html).
 Native build, identity and CDB lookup must all pass before claiming usable
 clangd symbols; the failed /Zi build did not reach those checks.
+
+
+## Fast historical upstream capture
+
+`win-historical-crash-capture.yml` investigates UP-12 using the official
+23.1.0 Windows executable and official debug-symbol archive. Both downloads
+are SHA-pinned; executable/PDB GUID and age, debug/public streams and an actual
+clangdMain lookup are required before capture. This does not build the fork
+or count as native fixed-engine validation.
+
+The replay retains its LSP stdin/stdout while CDB attaches by PID before any
+protocol traffic. Attachment consumes the same replay deadline and failed
+setup still reaps the engine/readers. The initial attach breakpoint is handled;
+later genuine second-chance exceptions emit the exception record, context,
+symbolic stacks and minidump, then continue unhandled so the OS supplies the
+natural crash exit. This follows Microsoft's [exception-command semantics](https://learn.microsoft.com/en-us/windows-hardware/drivers/debuggercmds/sx--sxd--sxe--sxi--sxn--sxr--sx---set-exceptions-)
+and [last-chance termination contract](https://learn.microsoft.com/en-us/windows/win32/debug/debugger-exception-handling).
+
+Capture requires the actual 0x80000003 replay exit, executed second-chance
+marker and exception record, real symbolic stack rows, MDMP header, stopped
+readers and no forced debugger termination. Echoed commands and lookup output
+do not qualify as stack frames. Controlled classifier and launch-cleanup
+checks pass on Linux; they are explicitly synthetic and do not prove native
+capture. The fast native workflow remains required.

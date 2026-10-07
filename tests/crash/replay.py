@@ -46,7 +46,7 @@ def pointer(value, path):
     return value
 
 
-def replay(engine, manifest):
+def replay(engine, manifest, process_started=None):
     case = json.loads(manifest.read_text())
     if case.get("platform") != platform_name():
         raise ValueError(f"{manifest}: wrong platform")
@@ -156,6 +156,10 @@ def replay(engine, manifest):
 
     originals = {}
     try:
+        # Debugger attachment runs before any protocol traffic, with this replay's
+        # deadline and cleanup ownership. Its console must never share LSP pipes.
+        if process_started is not None:
+            process_started(proc, deadline)
         for step in sequence:
             if step.get("action") == "sleep":
                 slept_until = time.monotonic() + float(step["seconds"])
