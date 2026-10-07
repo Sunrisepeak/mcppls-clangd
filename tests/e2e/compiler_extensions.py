@@ -30,6 +30,7 @@ def main():
         ('gnu-cleanup', 'cle', 'void release(int*);\nvoid f() { int value __attribute__((cle)); }\n', linux, ['cleanup'], ['__try']),
         ('gnu-cleanup-function', 'rel', 'void release(int*);\nvoid releaseWrong();\nvoid releaseValue(int);\nvoid releasePair(int*, int);\nint releaseData;\nvoid f() { int value __attribute__((cleanup(rel))); }\n', linux, ['release'], ['cleanup', '__try', '__attribute__', 'releaseWrong', 'releaseValue', 'releasePair', 'releaseData']),
         ('windows-seh', '__tr', 'void f() {\n  __tr\n}\n', windows, ['__try'], []),
+        ('visible-gnu-macro', '__tr', '#define __try 1\nvoid f() { int value = __tr; }\n', linux, ['__try'], []),
         ('linux-no-seh', '__tr', 'void f() {\n  __tr\n}\n', linux + ['-fms-extensions'], [], ['__try']),
         ('windows-mode-off', '__tr', 'void f() {\n  __tr\n}\n', windows[:-1] + ['-fno-ms-extensions'], [], ['__try']),
         ('expression-not-attribute', '__attr', 'void f() { int value = __attr; }\n', linux, [], ['__attribute__', 'cleanup', '__try']),

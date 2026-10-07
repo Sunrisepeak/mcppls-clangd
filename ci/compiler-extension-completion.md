@@ -17,10 +17,11 @@ Clang extension and this patch does not add a dedicated qualified-name path.
 
 Unmatched index entries named __try/__except/__finally/__leave are excluded
 from semantic completion. This stops a libstdc++ macro being mistaken for SEH
-on Linux. Visible declarations/macros already supplied by Sema remain present.
+on Linux. Visible declarations/macros already supplied by Sema remain present; a Linux
+macro declaration is a positive canary for that preservation.
 
 Run tests/e2e/compiler_extensions.py with --engine, --clang and --workdir.
-Ten asserted raw LSP cases check grammar and target boundaries. The probe
+Eleven asserted raw LSP cases check grammar and target boundaries. The probe
 applies the actual edits and fills snippet fields, then compiles those results:
 GNU introducer, cleanup attribute, cleanup function reference and Windows SEH.
 A minimal unsupported Linux SEH example must fail for the specific target

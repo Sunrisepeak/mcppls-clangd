@@ -1,0 +1,757 @@
+{
+  "identity": {
+    "engine-version": "23.1.0-mcppls.0",
+    "llvm-base-version": "23.1.0",
+    "llvm-commit": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+    "fork-commit": "67baa4217804397ce91ef3c6c9a461be59b02eb4",
+    "patch-series-sha256": "acee9bd6376e4659c58035852600460baa9efefc85367b938259ebd11b857063",
+    "platform": "linux-x64",
+    "sha256": "aadcbc3839779d3751d9396a594f135170a2ff1d3830552056f8ad90f0be94b9",
+    "features": [
+      "semantic-tokens-range",
+      "format-style-mcpp"
+    ],
+    "build-binary-sha256": "441965348f949314a673dae3f3910741ba3068a5c90e7873089dbd4ebb17e6c1",
+    "cmake-cache-sha256": "feb446bbe879aa77fbc477438b1afe9fc2767283fc3df4858aa5cf0a71ba6536"
+  },
+  "portability": {
+    "engine_sha256": "aadcbc3839779d3751d9396a594f135170a2ff1d3830552056f8ad90f0be94b9",
+    "runtime": "glibc 2.31",
+    "interpreter": "/lib64/ld-linux-x86-64.so.2",
+    "max_glibc": [
+      2,
+      29
+    ],
+    "dependencies": "\tlinux-vdso.so.1 (0x00007ffc3617d000)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x000072f9eedb5000)\n\tlibrt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x000072f9eedab000)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x000072f9eeda5000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000072f9eec56000)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x000072f9eec3a000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000072f9eea46000)\n\t/lib64/ld-linux-x86-64.so.2 (0x000072f9eedde000)\n",
+    "version": "clangd version 23.1.0-mcppls.0\nFeatures: linux\nPlatform: x86_64-unknown-linux-gnu\n",
+    "problems": []
+  },
+  "compiler_extensions": {
+    "schema": 1,
+    "scope": "compiler extensions, self-contained semantic and syntax checks",
+    "engine_sha256": "aadcbc3839779d3751d9396a594f135170a2ff1d3830552056f8ad90f0be94b9",
+    "results": [
+      {
+        "id": "gnu-introducer",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__attribute__"
+            ],
+            "elapsed_ms": 400.9996699169278,
+            "completion_items": {
+              "__attribute__": [
+                {
+                  "filterText": "__attribute__",
+                  "insertText": "__attribute__(($0))",
+                  "insertTextFormat": 2,
+                  "kind": 15,
+                  "label": " __attribute__((attribute))",
+                  "score": 0.7722705602645874,
+                  "sortText": "40ba4c7a__attribute__",
+                  "textEdit": {
+                    "newText": "__attribute__(($0))",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 0
+                      },
+                      "start": {
+                        "character": 0,
+                        "line": 0
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:02.005] clangd version 23.1.0-mcppls.0\nI[00:47:02.005] Features: linux\nI[00:47:02.005] PID: 86\nI[00:47:02.005] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer\nI[00:47:02.005] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:02.005] argv[1]: --sync\nI[00:47:02.005] argv[2]: --background-index=false\nI[00:47:02.005] argv[3]: --header-insertion=never\nI[00:47:02.005] Starting LSP over stdin/stdout\nI[00:47:02.005] <-- initialize(1)\nI[00:47:02.005] --> reply:initialize(1) 0 ms\nI[00:47:02.005] <-- initialized\nI[00:47:02.005] <-- textDocument/didOpen\nI[00:47:02.005] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer/compile_commands.json\nI[00:47:02.005] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer/test.cpp\nI[00:47:02.010] Built preamble of size 252280 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer/test.cpp version 1 in 0.00 seconds\nI[00:47:02.010] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer/test.cpp\nI[00:47:02.377] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:02.404] --> textDocument/publishDiagnostics\nI[00:47:02.404] <-- textDocument/completion(4)\nI[00:47:02.406] Code complete: sema context TopLevel, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:02.406] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:47:02.406] --> reply:textDocument/completion(4) 1 ms\nI[00:47:02.406] <-- shutdown(5)\nI[00:47:02.406] --> reply:shutdown(5) 0 ms\nI[00:47:02.406] <-- exit\nI[00:47:02.406] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "gnu-cleanup",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__cleanup__",
+              "cleanup"
+            ],
+            "elapsed_ms": 397.4207853898406,
+            "completion_items": {
+              "cleanup": [
+                {
+                  "filterText": "cleanup",
+                  "insertText": "cleanup($0)",
+                  "insertTextFormat": 2,
+                  "kind": 15,
+                  "label": " cleanup(FunctionDecl)",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681cleanup",
+                  "textEdit": {
+                    "newText": "cleanup($0)",
+                    "range": {
+                      "end": {
+                        "character": 39,
+                        "line": 1
+                      },
+                      "start": {
+                        "character": 36,
+                        "line": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:02.434] clangd version 23.1.0-mcppls.0\nI[00:47:02.434] Features: linux\nI[00:47:02.434] PID: 92\nI[00:47:02.434] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup\nI[00:47:02.434] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:02.434] argv[1]: --sync\nI[00:47:02.434] argv[2]: --background-index=false\nI[00:47:02.434] argv[3]: --header-insertion=never\nI[00:47:02.434] Starting LSP over stdin/stdout\nI[00:47:02.434] <-- initialize(1)\nI[00:47:02.434] --> reply:initialize(1) 0 ms\nI[00:47:02.435] <-- initialized\nI[00:47:02.435] <-- textDocument/didOpen\nI[00:47:02.435] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup/compile_commands.json\nI[00:47:02.435] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup/test.cpp\nI[00:47:02.439] Built preamble of size 252276 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup/test.cpp version 1 in 0.00 seconds\nI[00:47:02.440] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup/test.cpp\nI[00:47:02.803] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:02.830] --> textDocument/publishDiagnostics\nI[00:47:02.830] <-- textDocument/completion(4)\nI[00:47:02.832] Code complete: sema context Attribute, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:02.832] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:47:02.832] --> reply:textDocument/completion(4) 2 ms\nI[00:47:02.832] <-- shutdown(5)\nI[00:47:02.832] --> reply:shutdown(5) 0 ms\nI[00:47:02.832] <-- exit\nI[00:47:02.832] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "gnu-cleanup-function",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "release"
+            ],
+            "elapsed_ms": 394.14987061172724,
+            "completion_items": {
+              "release": [
+                {
+                  "detail": "void",
+                  "filterText": "release",
+                  "insertText": "release",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " release(int *)",
+                  "score": 0.501885175704956,
+                  "sortText": "40ff8474release",
+                  "textEdit": {
+                    "newText": "release",
+                    "range": {
+                      "end": {
+                        "character": 47,
+                        "line": 5
+                      },
+                      "start": {
+                        "character": 44,
+                        "line": 5
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": ""
+      },
+      {
+        "id": "windows-seh",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "__try"
+            ],
+            "elapsed_ms": 16.362602822482586,
+            "completion_items": {
+              "__try": [
+                {
+                  "filterText": "__try",
+                  "insertText": "__try {\n${1:statements}\n} __except(${2:filter-expression}) {\n$0\n}",
+                  "insertTextFormat": 2,
+                  "kind": 15,
+                  "label": " __try {statements} __except(filter-expression) {handler-statements}",
+                  "score": 0.8373723030090332,
+                  "sortText": "40a9a1f8__try",
+                  "textEdit": {
+                    "newText": "__try {\n${1:statements}\n} __except(${2:filter-expression}) {\n$0\n}",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 1
+                      },
+                      "start": {
+                        "character": 2,
+                        "line": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:03.267] clangd version 23.1.0-mcppls.0\nI[00:47:03.267] Features: linux\nI[00:47:03.267] PID: 104\nI[00:47:03.267] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh\nI[00:47:03.267] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:03.267] argv[1]: --sync\nI[00:47:03.267] argv[2]: --background-index=false\nI[00:47:03.267] argv[3]: --header-insertion=never\nI[00:47:03.267] Starting LSP over stdin/stdout\nI[00:47:03.267] <-- initialize(1)\nI[00:47:03.268] --> reply:initialize(1) 0 ms\nI[00:47:03.268] <-- initialized\nI[00:47:03.268] <-- textDocument/didOpen\nI[00:47:03.268] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh/compile_commands.json\nI[00:47:03.268] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-pc-windows-msvc -fms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh/test.cpp\nI[00:47:03.279] Built preamble of size 256644 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh/test.cpp version 1 in 0.01 seconds\nI[00:47:03.282] --> textDocument/publishDiagnostics\nI[00:47:03.282] <-- textDocument/completion(4)\nI[00:47:03.284] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:03.284] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:47:03.284] --> reply:textDocument/completion(4) 1 ms\nI[00:47:03.284] <-- shutdown(5)\nI[00:47:03.284] --> reply:shutdown(5) 0 ms\nI[00:47:03.284] <-- exit\nI[00:47:03.284] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "linux-no-seh",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 396.5655555948615,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:03.297] clangd version 23.1.0-mcppls.0\nI[00:47:03.297] Features: linux\nI[00:47:03.297] PID: 110\nI[00:47:03.297] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh\nI[00:47:03.297] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:03.297] argv[1]: --sync\nI[00:47:03.297] argv[2]: --background-index=false\nI[00:47:03.297] argv[3]: --header-insertion=never\nI[00:47:03.297] Starting LSP over stdin/stdout\nI[00:47:03.297] <-- initialize(1)\nI[00:47:03.297] --> reply:initialize(1) 0 ms\nI[00:47:03.297] <-- initialized\nI[00:47:03.297] <-- textDocument/didOpen\nI[00:47:03.297] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh/compile_commands.json\nI[00:47:03.297] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -fms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh/test.cpp\nI[00:47:03.301] Built preamble of size 258144 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh/test.cpp version 1 in 0.00 seconds\nI[00:47:03.302] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-no-seh/test.cpp\nI[00:47:03.665] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:03.691] --> textDocument/publishDiagnostics\nI[00:47:03.692] <-- textDocument/completion(4)\nI[00:47:03.693] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:03.693] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:47:03.693] --> reply:textDocument/completion(4) 1 ms\nI[00:47:03.694] <-- shutdown(5)\nI[00:47:03.694] --> reply:shutdown(5) 0 ms\nI[00:47:03.694] <-- exit\nI[00:47:03.694] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "windows-mode-off",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 8.877008222043514,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:03.700] clangd version 23.1.0-mcppls.0\nI[00:47:03.700] Features: linux\nI[00:47:03.700] PID: 115\nI[00:47:03.700] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-mode-off\nI[00:47:03.700] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:03.700] argv[1]: --sync\nI[00:47:03.700] argv[2]: --background-index=false\nI[00:47:03.700] argv[3]: --header-insertion=never\nI[00:47:03.700] Starting LSP over stdin/stdout\nI[00:47:03.700] <-- initialize(1)\nI[00:47:03.700] --> reply:initialize(1) 0 ms\nI[00:47:03.700] <-- initialized\nI[00:47:03.700] <-- textDocument/didOpen\nI[00:47:03.700] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-mode-off/compile_commands.json\nI[00:47:03.700] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-mode-off/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-mode-off]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-pc-windows-msvc -fno-ms-extensions -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-mode-off/test.cpp\nI[00:47:03.704] Built preamble of size 251672 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-mode-off/test.cpp version 1 in 0.00 seconds\nI[00:47:03.707] --> textDocument/publishDiagnostics\nI[00:47:03.707] <-- textDocument/completion(4)\nI[00:47:03.709] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:03.709] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:47:03.709] --> reply:textDocument/completion(4) 1 ms\nI[00:47:03.709] <-- shutdown(5)\nI[00:47:03.709] --> reply:shutdown(5) 0 ms\nI[00:47:03.709] <-- exit\nI[00:47:03.709] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "expression-not-attribute",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 394.0589139238,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:03.713] clangd version 23.1.0-mcppls.0\nI[00:47:03.713] Features: linux\nI[00:47:03.713] PID: 120\nI[00:47:03.713] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute\nI[00:47:03.713] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:03.713] argv[1]: --sync\nI[00:47:03.713] argv[2]: --background-index=false\nI[00:47:03.713] argv[3]: --header-insertion=never\nI[00:47:03.713] Starting LSP over stdin/stdout\nI[00:47:03.713] <-- initialize(1)\nI[00:47:03.713] --> reply:initialize(1) 0 ms\nI[00:47:03.713] <-- initialized\nI[00:47:03.713] <-- textDocument/didOpen\nI[00:47:03.713] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute/compile_commands.json\nI[00:47:03.713] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute/test.cpp\nI[00:47:03.717] Built preamble of size 252316 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute/test.cpp version 1 in 0.00 seconds\nI[00:47:03.718] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/expression-not-attribute/test.cpp\nI[00:47:04.079] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:04.105] --> textDocument/publishDiagnostics\nI[00:47:04.105] <-- textDocument/completion(4)\nI[00:47:04.107] Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int\nI[00:47:04.107] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:47:04.107] --> reply:textDocument/completion(4) 1 ms\nI[00:47:04.107] <-- shutdown(5)\nI[00:47:04.107] --> reply:shutdown(5) 0 ms\nI[00:47:04.108] <-- exit\nI[00:47:04.108] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "ordinary-cleanup",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "atomic_flag_clear",
+              "atomic_flag_clear_explicit",
+              "clearenv",
+              "clearerr",
+              "clearerr_unlocked"
+            ],
+            "elapsed_ms": 398.43914471566677,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:04.120] clangd version 23.1.0-mcppls.0\nI[00:47:04.120] Features: linux\nI[00:47:04.120] PID: 125\nI[00:47:04.120] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup\nI[00:47:04.120] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:04.120] argv[1]: --sync\nI[00:47:04.120] argv[2]: --background-index=false\nI[00:47:04.120] argv[3]: --header-insertion=never\nI[00:47:04.120] Starting LSP over stdin/stdout\nI[00:47:04.120] <-- initialize(1)\nI[00:47:04.120] --> reply:initialize(1) 0 ms\nI[00:47:04.120] <-- initialized\nI[00:47:04.120] <-- textDocument/didOpen\nI[00:47:04.120] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup/compile_commands.json\nI[00:47:04.120] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup/test.cpp\nI[00:47:04.124] Built preamble of size 252292 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup/test.cpp version 1 in 0.00 seconds\nI[00:47:04.125] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/ordinary-cleanup/test.cpp\nI[00:47:04.490] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:04.516] --> textDocument/publishDiagnostics\nI[00:47:04.516] <-- textDocument/completion(4)\nI[00:47:04.518] Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:04.518] Code complete: 0 results from Sema, 10 from Index, 0 matched, 0 from identifiers, 10 returned.\nI[00:47:04.518] --> reply:textDocument/completion(4) 1 ms\nI[00:47:04.519] <-- shutdown(5)\nI[00:47:04.519] --> reply:shutdown(5) 0 ms\nI[00:47:04.519] <-- exit\nI[00:47:04.519] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "comment",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 396.89425844699144,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:04.525] clangd version 23.1.0-mcppls.0\nI[00:47:04.525] Features: linux\nI[00:47:04.525] PID: 130\nI[00:47:04.525] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment\nI[00:47:04.525] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:04.525] argv[1]: --sync\nI[00:47:04.525] argv[2]: --background-index=false\nI[00:47:04.525] argv[3]: --header-insertion=never\nI[00:47:04.525] Starting LSP over stdin/stdout\nI[00:47:04.525] <-- initialize(1)\nI[00:47:04.525] --> reply:initialize(1) 0 ms\nI[00:47:04.525] <-- initialized\nI[00:47:04.525] <-- textDocument/didOpen\nI[00:47:04.525] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment/compile_commands.json\nI[00:47:04.525] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment/test.cpp\nI[00:47:04.529] Built preamble of size 252264 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment/test.cpp version 1 in 0.00 seconds\nI[00:47:04.530] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/comment/test.cpp\nI[00:47:04.894] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:04.920] --> textDocument/publishDiagnostics\nI[00:47:04.920] <-- textDocument/completion(4)\nI[00:47:04.922] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:47:04.922] --> reply:textDocument/completion(4) 1 ms\nI[00:47:04.922] <-- shutdown(5)\nI[00:47:04.922] --> reply:shutdown(5) 0 ms\nI[00:47:04.922] <-- exit\nI[00:47:04.922] LSP finished, exiting with status 0\n"
+      },
+      {
+        "id": "string",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [],
+            "elapsed_ms": 394.28945537656546,
+            "completion_items": {}
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:04.932] clangd version 23.1.0-mcppls.0\nI[00:47:04.932] Features: linux\nI[00:47:04.932] PID: 135\nI[00:47:04.932] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string\nI[00:47:04.932] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:04.932] argv[1]: --sync\nI[00:47:04.932] argv[2]: --background-index=false\nI[00:47:04.932] argv[3]: --header-insertion=never\nI[00:47:04.932] Starting LSP over stdin/stdout\nI[00:47:04.932] <-- initialize(1)\nI[00:47:04.932] --> reply:initialize(1) 0 ms\nI[00:47:04.933] <-- initialized\nI[00:47:04.933] <-- textDocument/didOpen\nI[00:47:04.933] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string/compile_commands.json\nI[00:47:04.933] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string/test.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string]\n/usr/lib/llvm-12/bin/clang -std=c++20 --target=x86_64-unknown-linux-gnu -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string/test.cpp\nI[00:47:04.937] Built preamble of size 252256 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string/test.cpp version 1 in 0.00 seconds\nI[00:47:04.937] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/string/test.cpp\nI[00:47:05.299] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[00:47:05.325] --> textDocument/publishDiagnostics\nI[00:47:05.325] <-- textDocument/completion(4)\nI[00:47:05.326] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[00:47:05.327] --> reply:textDocument/completion(4) 1 ms\nI[00:47:05.327] <-- shutdown(5)\nI[00:47:05.327] --> reply:shutdown(5) 0 ms\nI[00:47:05.327] <-- exit\nI[00:47:05.327] LSP finished, exiting with status 0\n"
+      }
+    ],
+    "compilation": [
+      {
+        "id": "gnu",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "windows",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-pc-windows-msvc",
+          "-fms-extensions",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "linux-rejects-seh",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fms-extensions",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-rejects-seh.cpp"
+        ],
+        "exit_code": 1,
+        "stderr": "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/linux-rejects-seh.cpp:1:12: error: SEH '__try' is not supported on this target\nvoid f() { __try {} __except (1) {} }\n           ^\n1 error generated.\n",
+        "ok": true
+      }
+    ],
+    "inserted_compilation": [
+      {
+        "id": "gnu-introducer",
+        "actual_edit": {
+          "newText": "__attribute__(($0))",
+          "range": {
+            "end": {
+              "character": 6,
+              "line": 0
+            },
+            "start": {
+              "character": 0,
+              "line": 0
+            }
+          }
+        },
+        "expanded_source": "__attribute__((used))\nint marker;\n",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-introducer/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "gnu-cleanup",
+        "actual_edit": {
+          "newText": "cleanup($0)",
+          "range": {
+            "end": {
+              "character": 39,
+              "line": 1
+            },
+            "start": {
+              "character": 36,
+              "line": 1
+            }
+          }
+        },
+        "expanded_source": "void release(int*);\nvoid f() { int value __attribute__((cleanup(release))); }\n",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "gnu-cleanup-function",
+        "actual_edit": {
+          "newText": "release",
+          "range": {
+            "end": {
+              "character": 47,
+              "line": 5
+            },
+            "start": {
+              "character": 44,
+              "line": 5
+            }
+          }
+        },
+        "expanded_source": "void release(int*);\nvoid releaseWrong();\nvoid releaseValue(int);\nvoid releasePair(int*, int);\nint releaseData;\nvoid f() { int value __attribute__((cleanup(release))); }\n",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-unknown-linux-gnu",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/gnu-cleanup-function/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      },
+      {
+        "id": "windows-seh",
+        "actual_edit": {
+          "newText": "__try {\n${1:statements}\n} __except(${2:filter-expression}) {\n$0\n}",
+          "range": {
+            "end": {
+              "character": 6,
+              "line": 1
+            },
+            "start": {
+              "character": 2,
+              "line": 1
+            }
+          }
+        },
+        "expanded_source": "void f() {\n  __try {\nint value = 0; (void)value;\n} __except(1) {\n\n}\n}\n",
+        "command": [
+          "/usr/lib/llvm-12/bin/clang",
+          "-std=c++20",
+          "--target=x86_64-pc-windows-msvc",
+          "-fms-extensions",
+          "-fsyntax-only",
+          "/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-compiler-extensions/windows-seh/inserted.cpp"
+        ],
+        "exit_code": 0,
+        "stderr": "",
+        "ok": true
+      }
+    ]
+  },
+  "asynchronous_drafts": {
+    "engine_sha256": "aadcbc3839779d3751d9396a594f135170a2ff1d3830552056f8ad90f0be94b9",
+    "platform": "linux-x64",
+    "results": [
+      {
+        "id": "member",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "addHelpOption",
+              "addOption"
+            ],
+            "elapsed_ms": 4.012007266283035,
+            "completion_items": {
+              "addHelpOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ],
+              "addOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addOption",
+                  "insertText": "addOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addOption()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addOption",
+                  "textEdit": {
+                    "newText": "addOption",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "addHelpOption",
+              "addOption"
+            ],
+            "elapsed_ms": 3.254333510994911,
+            "completion_items": {
+              "addHelpOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ],
+              "addOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addOption",
+                  "insertText": "addOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addOption()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addOption",
+                  "textEdit": {
+                    "newText": "addOption",
+                    "range": {
+                      "end": {
+                        "character": 6,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "freshItem"
+            ],
+            "elapsed_ms": 10.025927796959877,
+            "completion_items": {
+              "freshItem": [
+                {
+                  "detail": "void",
+                  "filterText": "freshItem",
+                  "insertText": "freshItem",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " freshItem()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60freshItem",
+                  "textEdit": {
+                    "newText": "freshItem",
+                    "range": {
+                      "end": {
+                        "character": 9,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:05.436] clangd version 23.1.0-mcppls.0\nI[00:47:05.436] Features: linux\nI[00:47:05.436] PID: 145\nI[00:47:05.436] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\nI[00:47:05.436] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:05.436] argv[1]: --experimental-modules-support\nI[00:47:05.436] argv[2]: --background-index=false\nI[00:47:05.436] argv[3]: --header-insertion=never\nI[00:47:05.436] argv[4]: --log=verbose\nI[00:47:05.436] argv[5]: --use-dirty-headers\nI[00:47:05.436] argv[6]: -j=2\nV[00:47:05.436] User config file is /root/.config/clangd/config.yaml\nI[00:47:05.436] Starting LSP over stdin/stdout\nV[00:47:05.436] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\"}}\n\nI[00:47:05.436] <-- initialize(1)\nI[00:47:05.437] --> reply:initialize(1) 0 ms\nV[00:47:05.437] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[00:47:05.437] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[00:47:05.437] <-- initialized\nV[00:47:05.437] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import Api;\\nvoid qVersion();\\nvoid Counter();\\nvoid AdlTester();\\nvoid f() {\\n  Cli cli;\\n  Cli* ptr = &cli;\\n  cli.\\n}\\n// This final line is unrelated to the completion context.\\n\",\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":1}}}\n\nI[00:47:05.437] <-- textDocument/didOpen\nI[00:47:05.437] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/compile_commands.json\nV[00:47:05.439] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.439] <-- textDocument/documentSymbol(4)\nI[00:47:05.439] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality]\n/usr/bin/x86_64-linux-gnu-g++-9 --target=x86_64-linux-gnu --driver-mode=g++ -std=c++20 -c -o /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.439] Broadcasting compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\nV[00:47:05.440] Ignored diagnostic. argument unused during compilation: '-c'\nV[00:47:05.440] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -fcoverage-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -resource-dir /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.440] Building first preamble for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1\nI[00:47:05.445] Built preamble of size 252292 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1 in 0.00 seconds\nI[00:47:05.452] Running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[00:47:05.452] Failed to scan module cache directory /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules: No such file or directory\nI[00:47:05.452] Done running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules\nI[00:47:05.454] Built module Api to /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api-20261007-004705-454358.pcm\nI[00:47:05.454] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp in 0.01 seconds\nV[00:47:05.454] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[00:47:05.455] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.458] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1:\n  symbol slab: 4 symbols, 5128 bytes\n  ref slab: 4 symbols, 4 refs, 4304 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.459] Build dynamic index for main-file symbols with estimated memory usage of 13064 bytes\nI[00:47:05.459] --> textDocument/publishDiagnostics\nV[00:47:05.459] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"expected_unqualified_id\",\"message\":\"Expected unqualified-id\",\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":8}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":1}}\n\nV[00:47:05.459] ASTWorker running DocumentSymbols on version 1 of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nI[00:47:05.459] --> reply:textDocument/documentSymbol(4) 19 ms\nV[00:47:05.459] >>> {\"id\":4,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":15,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"qVersion\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":14,\"line\":2},\"start\":{\"character\":0,\"line\":2}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"Counter\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":16,\"line\":3},\"start\":{\"character\":0,\"line\":3}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"AdlTester\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":4}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"f\"}]}\n\nV[00:47:05.459] <<< {\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":6,\"line\":7},\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.459] <-- textDocument/completion(5)\nV[00:47:05.461] Ignored diagnostic. argument unused during compilation: '-c'\nI[00:47:05.462] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:05.462] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:47:05.462] --> reply:textDocument/completion(5) 3 ms\nV[00:47:05.462] >>> {\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"void\",\"filterText\":\"addHelpOption\",\"insertText\":\"addHelpOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addHelpOption()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60addHelpOption\",\"textEdit\":{\"newText\":\"addHelpOption\",\"range\":{\"end\":{\"character\":6,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}},{\"detail\":\"void\",\"filterText\":\"addOption\",\"insertText\":\"addOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addOption()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60addOption\",\"textEdit\":{\"newText\":\"addOption\",\"range\":{\"end\":{\"character\":6,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}}]}}\n\nV[00:47:05.463] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didChange\",\"params\":{\"contentChanges\":[{\"text\":\"import Api;\\nvoid qVersion();\\nvoid Counter();\\nvoid AdlTester();\\nvoid f() {\\n  Cli cli;\\n  Cli* ptr = &cli;\\n  cli.\\n}\\n// This final line is unrelated to the completion context.\\n// warm validation\\n\"}],\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":2}}}\n\nI[00:47:05.463] <-- textDocument/didChange\nV[00:47:05.464] <<< {\"id\":7,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.464] <-- textDocument/documentSymbol(7)\nI[00:47:05.464] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 2 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality]\n/usr/bin/x86_64-linux-gnu-g++-9 --target=x86_64-linux-gnu --driver-mode=g++ -std=c++20 -c -o /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.464] Ignored diagnostic. argument unused during compilation: '-c'\nV[00:47:05.464] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -fcoverage-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -resource-dir /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nI[00:47:05.464] Module file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api.pcm is up to date via the validation cache\nV[00:47:05.465] Reusing preamble version 1 for version 2 of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.466] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 2:\n  symbol slab: 4 symbols, 5128 bytes\n  ref slab: 4 symbols, 4 refs, 4304 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.466] Build dynamic index for main-file symbols with estimated memory usage of 13064 bytes\nI[00:47:05.466] --> textDocument/publishDiagnostics\nV[00:47:05.466] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"expected_unqualified_id\",\"message\":\"Expected unqualified-id\",\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":8}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":2}}\n\nV[00:47:05.466] ASTWorker running DocumentSymbols on version 2 of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nI[00:47:05.466] --> reply:textDocument/documentSymbol(7) 2 ms\nV[00:47:05.466] >>> {\"id\":7,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":15,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"qVersion\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":14,\"line\":2},\"start\":{\"character\":0,\"line\":2}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"Counter\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":16,\"line\":3},\"start\":{\"character\":0,\"line\":3}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"AdlTester\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":4}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"f\"}]}\n\nV[00:47:05.466] <<< {\"id\":8,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":6,\"line\":7},\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.466] <-- textDocument/completion(8)\nV[00:47:05.469] Ignored diagnostic. argument unused during compilation: '-c'\nI[00:47:05.469] Module file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api.pcm is up to date via the validation cache\nI[00:47:05.470] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:05.470] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:47:05.470] --> reply:textDocument/completion(8) 3 ms\nV[00:47:05.470] >>> {\"id\":8,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"void\",\"filterText\":\"addHelpOption\",\"insertText\":\"addHelpOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addHelpOption()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60addHelpOption\",\"textEdit\":{\"newText\":\"addHelpOption\",\"range\":{\"end\":{\"character\":6,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}},{\"detail\":\"void\",\"filterText\":\"addOption\",\"insertText\":\"addOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addOption()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60addOption\",\"textEdit\":{\"newText\":\"addOption\",\"range\":{\"end\":{\"character\":6,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}}]}}\n\nV[00:47:05.470] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"export module Api;\\nexport struct Cli {\\n  void addHelpOption();\\n  void freshItem();\\n};\\n\",\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm\",\"version\":1}}}\n\nI[00:47:05.470] <-- textDocument/didOpen\nV[00:47:05.471] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didChange\",\"params\":{\"contentChanges\":[{\"text\":\"import Api;\\nvoid qVersion();\\nvoid Counter();\\nvoid AdlTester();\\nvoid f() {\\n  Cli cli;\\n  Cli* ptr = &cli;\\n  cli.fre\\n}\\n// This final line is unrelated to the completion context.\\n\"}],\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":3}}}\n\nI[00:47:05.471] <-- textDocument/didChange\nI[00:47:05.471] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality]\n/usr/bin/x86_64-linux-gnu-g++-9 --target=x86_64-linux-gnu --driver-mode=g++ -std=c++20 -c -o /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm\nV[00:47:05.472] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Api.cppm -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -fcoverage-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -resource-dir /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fmodules-reduced-bmi -fmodule-output=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm.pcm -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm\nV[00:47:05.472] Building first preamble for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm version 1\nV[00:47:05.472] <<< {\"id\":11,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.472] <-- textDocument/documentSymbol(11)\nI[00:47:05.472] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 3 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality]\n/usr/bin/x86_64-linux-gnu-g++-9 --target=x86_64-linux-gnu --driver-mode=g++ -std=c++20 -c -o /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.472] Ignored diagnostic. argument unused during compilation: '-c'\nV[00:47:05.473] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -fcoverage-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -resource-dir /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.473] Rebuilding invalidated preamble for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 3 (previous was version 1)\nV[00:47:05.474] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 3:\n  symbol slab: 4 symbols, 5128 bytes\n  ref slab: 4 symbols, 4 refs, 4304 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.474] Build dynamic index for main-file symbols with estimated memory usage of 13064 bytes\nI[00:47:05.474] --> textDocument/publishDiagnostics\nV[00:47:05.474] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"no_member\",\"message\":\"No member named 'fre' in 'Cli'\",\"range\":{\"end\":{\"character\":9,\"line\":7},\"start\":{\"character\":6,\"line\":7}},\"severity\":1,\"source\":\"clang\"},{\"code\":\"expected_semi_after_expr\",\"message\":\"Expected ';' after expression (fix available)\",\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":8}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":3}}\n\nV[00:47:05.474] ASTWorker running DocumentSymbols on version 3 of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nI[00:47:05.474] --> reply:textDocument/documentSymbol(11) 2 ms\nV[00:47:05.475] >>> {\"id\":11,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":15,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"qVersion\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":14,\"line\":2},\"start\":{\"character\":0,\"line\":2}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"Counter\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":16,\"line\":3},\"start\":{\"character\":0,\"line\":3}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"AdlTester\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":4}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"f\"}]}\n\nV[00:47:05.475] <<< {\"id\":12,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":9,\"line\":7},\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.475] <-- textDocument/completion(12)\nI[00:47:05.476] Built preamble of size 252292 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 3 in 0.00 seconds\nI[00:47:05.476] Built preamble of size 251492 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm version 1 in 0.00 seconds\nV[00:47:05.478] Ignored diagnostic. argument unused during compilation: '-c'\nI[00:47:05.478] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm in 0.00 seconds\nV[00:47:05.478] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[00:47:05.481] Built module Api to /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api-20261007-004705-481508.pcm\nV[00:47:05.481] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm version 1:\n  symbol slab: 2 symbols, 4664 bytes\n  ref slab: 2 symbols, 2 refs, 4256 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.481] Build dynamic index for main-file symbols with estimated memory usage of 22512 bytes\nI[00:47:05.481] --> textDocument/publishDiagnostics\nI[00:47:05.481] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp in 0.01 seconds\nV[00:47:05.481] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Api.cppm\",\"version\":1}}\n\nV[00:47:05.481] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 3:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.483] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 3:\n  symbol slab: 4 symbols, 5128 bytes\n  ref slab: 4 symbols, 4 refs, 4304 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.483] Build dynamic index for main-file symbols with estimated memory usage of 22512 bytes\nI[00:47:05.483] --> textDocument/publishDiagnostics\nV[00:47:05.483] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"no_member\",\"message\":\"No member named 'fre' in 'Cli'\",\"range\":{\"end\":{\"character\":9,\"line\":7},\"start\":{\"character\":6,\"line\":7}},\"severity\":1,\"source\":\"clang\"},{\"code\":\"expected_semi_after_expr\",\"message\":\"Expected ';' after expression (fix available)\",\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":8}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":3}}\n\nI[00:47:05.484] Reusing module Api from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api-20261007-004705-481508.pcm\nI[00:47:05.484] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:05.484] Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.\nI[00:47:05.485] --> reply:textDocument/completion(12) 9 ms\nV[00:47:05.485] >>> {\"id\":12,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"void\",\"filterText\":\"freshItem\",\"insertText\":\"freshItem\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" freshItem()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60freshItem\",\"textEdit\":{\"newText\":\"freshItem\",\"range\":{\"end\":{\"character\":9,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}}]}}\n\nV[00:47:05.485] <<< {\"id\":13,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[00:47:05.485] <-- shutdown(13)\nI[00:47:05.485] --> reply:shutdown(13) 0 ms\nV[00:47:05.485] >>> {\"id\":13,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[00:47:05.485] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[00:47:05.485] <-- exit\nI[00:47:05.485] LSP finished, exiting with status 0\nV[00:47:05.705] Ignored diagnostic. /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/parallel_backend_tbb.h:19:10:'tbb/blocked_range.h' file not found\nV[00:47:05.810] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version :\n  symbol slab: 14790 symbols, 4627416 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 605 relations, 17432 bytes\nI[00:47:05.821] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nV[00:47:05.835] Build dynamic index for header symbols with estimated memory usage of 8805000 bytes\n"
+      },
+      {
+        "id": "member-prefix",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "addHelpOption",
+              "addOption"
+            ],
+            "elapsed_ms": 3.729645162820816,
+            "completion_items": {
+              "addHelpOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption",
+                    "range": {
+                      "end": {
+                        "character": 8,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ],
+              "addOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addOption",
+                  "insertText": "addOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addOption()",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addOption",
+                  "textEdit": {
+                    "newText": "addOption",
+                    "range": {
+                      "end": {
+                        "character": 8,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 6,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:05.852] clangd version 23.1.0-mcppls.0\nI[00:47:05.852] Features: linux\nI[00:47:05.852] PID: 161\nI[00:47:05.852] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\nI[00:47:05.852] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:05.852] argv[1]: --experimental-modules-support\nI[00:47:05.852] argv[2]: --background-index=false\nI[00:47:05.852] argv[3]: --header-insertion=never\nI[00:47:05.852] argv[4]: --log=verbose\nI[00:47:05.852] argv[5]: --use-dirty-headers\nI[00:47:05.852] argv[6]: -j=2\nV[00:47:05.852] User config file is /root/.config/clangd/config.yaml\nI[00:47:05.852] Starting LSP over stdin/stdout\nV[00:47:05.852] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\"}}\n\nI[00:47:05.852] <-- initialize(1)\nI[00:47:05.853] --> reply:initialize(1) 0 ms\nV[00:47:05.853] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[00:47:05.853] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[00:47:05.853] <-- initialized\nV[00:47:05.853] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import Api;\\nvoid qVersion();\\nvoid Counter();\\nvoid AdlTester();\\nvoid f() {\\n  Cli cli;\\n  Cli* ptr = &cli;\\n  cli.ad\\n}\\n// This final line is unrelated to the completion context.\\n\",\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":1}}}\n\nI[00:47:05.853] <-- textDocument/didOpen\nI[00:47:05.853] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/compile_commands.json\nV[00:47:05.856] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.856] <-- textDocument/documentSymbol(4)\nV[00:47:05.856] Broadcasting compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\nI[00:47:05.856] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality]\n/usr/bin/x86_64-linux-gnu-g++-9 --target=x86_64-linux-gnu --driver-mode=g++ -std=c++20 -c -o /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.856] Ignored diagnostic. argument unused during compilation: '-c'\nV[00:47:05.856] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -fcoverage-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -resource-dir /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.856] Building first preamble for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1\nI[00:47:05.862] Built preamble of size 252292 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1 in 0.00 seconds\nI[00:47:05.867] Running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[00:47:05.867] Done running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules\nI[00:47:05.868] Built module Api to /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api-20261007-004705-868604.pcm\nI[00:47:05.868] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp in 0.01 seconds\nV[00:47:05.868] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[00:47:05.869] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:05.872] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1:\n  symbol slab: 4 symbols, 5128 bytes\n  ref slab: 4 symbols, 4 refs, 4304 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:05.872] Build dynamic index for main-file symbols with estimated memory usage of 13064 bytes\nI[00:47:05.872] --> textDocument/publishDiagnostics\nV[00:47:05.872] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"no_member\",\"message\":\"No member named 'ad' in 'Cli'\",\"range\":{\"end\":{\"character\":8,\"line\":7},\"start\":{\"character\":6,\"line\":7}},\"severity\":1,\"source\":\"clang\"},{\"code\":\"expected_semi_after_expr\",\"message\":\"Expected ';' after expression (fix available)\",\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":8}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":1}}\n\nV[00:47:05.873] ASTWorker running DocumentSymbols on version 1 of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nI[00:47:05.873] --> reply:textDocument/documentSymbol(4) 16 ms\nV[00:47:05.873] >>> {\"id\":4,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":15,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"qVersion\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":14,\"line\":2},\"start\":{\"character\":0,\"line\":2}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"Counter\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":16,\"line\":3},\"start\":{\"character\":0,\"line\":3}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"AdlTester\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":4}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"f\"}]}\n\nV[00:47:05.873] <<< {\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":8,\"line\":7},\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:05.873] <-- textDocument/completion(5)\nV[00:47:05.875] Ignored diagnostic. argument unused during compilation: '-c'\nI[00:47:05.876] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:05.876] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:47:05.876] --> reply:textDocument/completion(5) 3 ms\nV[00:47:05.876] >>> {\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"void\",\"filterText\":\"addHelpOption\",\"insertText\":\"addHelpOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addHelpOption()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60addHelpOption\",\"textEdit\":{\"newText\":\"addHelpOption\",\"range\":{\"end\":{\"character\":8,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}},{\"detail\":\"void\",\"filterText\":\"addOption\",\"insertText\":\"addOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addOption()\",\"score\":0.93680763244628906,\"sortText\":\"40902d60addOption\",\"textEdit\":{\"newText\":\"addOption\",\"range\":{\"end\":{\"character\":8,\"line\":7},\"start\":{\"character\":6,\"line\":7}}}}]}}\n\nV[00:47:05.876] <<< {\"id\":6,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[00:47:05.876] <-- shutdown(6)\nI[00:47:05.876] --> reply:shutdown(6) 0 ms\nV[00:47:05.876] >>> {\"id\":6,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[00:47:05.877] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[00:47:05.877] <-- exit\nI[00:47:05.877] LSP finished, exiting with status 0\nV[00:47:06.119] Ignored diagnostic. /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/parallel_backend_tbb.h:19:10:'tbb/blocked_range.h' file not found\nV[00:47:06.223] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version :\n  symbol slab: 14790 symbols, 4627416 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 605 relations, 17432 bytes\nI[00:47:06.234] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nV[00:47:06.248] Build dynamic index for header symbols with estimated memory usage of 8805608 bytes\n"
+      },
+      {
+        "id": "pointer",
+        "outcome": "pass",
+        "responses": [
+          {
+            "method": "textDocument/completion",
+            "symbols": [
+              "addHelpOption",
+              "addOption"
+            ],
+            "elapsed_ms": 4.6484265476465225,
+            "completion_items": {
+              "addHelpOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 0.9312639832496643,
+                  "sortText": "409198afaddHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption",
+                    "range": {
+                      "end": {
+                        "character": 7,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 7,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ],
+              "addOption": [
+                {
+                  "detail": "void",
+                  "filterText": "addOption",
+                  "insertText": "addOption",
+                  "insertTextFormat": 1,
+                  "kind": 2,
+                  "label": " addOption()",
+                  "score": 0.9312639832496643,
+                  "sortText": "409198afaddOption",
+                  "textEdit": {
+                    "newText": "addOption",
+                    "range": {
+                      "end": {
+                        "character": 7,
+                        "line": 7
+                      },
+                      "start": {
+                        "character": 7,
+                        "line": 7
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "exit_code": 0,
+        "stderr": "I[00:47:06.295] clangd version 23.1.0-mcppls.0\nI[00:47:06.295] Features: linux\nI[00:47:06.295] PID: 171\nI[00:47:06.295] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\nI[00:47:06.295] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[00:47:06.295] argv[1]: --experimental-modules-support\nI[00:47:06.295] argv[2]: --background-index=false\nI[00:47:06.295] argv[3]: --header-insertion=never\nI[00:47:06.295] argv[4]: --log=verbose\nI[00:47:06.295] argv[5]: --use-dirty-headers\nI[00:47:06.295] argv[6]: -j=2\nV[00:47:06.295] User config file is /root/.config/clangd/config.yaml\nI[00:47:06.295] Starting LSP over stdin/stdout\nV[00:47:06.295] <<< {\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"rootUri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\"}}\n\nI[00:47:06.295] <-- initialize(1)\nI[00:47:06.295] --> reply:initialize(1) 0 ms\nV[00:47:06.295] >>> {\"id\":1,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"astProvider\":true,\"callHierarchyProvider\":true,\"clangdInlayHintsProvider\":true,\"codeActionProvider\":true,\"compilationDatabase\":{\"automaticReload\":true},\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\"<\",\">\",\":\",\"\\\"\",\"/\",\"*\"]},\"declarationProvider\":true,\"definitionProvider\":true,\"documentFormattingProvider\":true,\"documentHighlightProvider\":true,\"documentLinkProvider\":{\"resolveProvider\":false},\"documentOnTypeFormattingProvider\":{\"firstTriggerCharacter\":\"\\n\",\"moreTriggerCharacter\":[]},\"documentRangeFormattingProvider\":{\"rangesSupport\":true},\"documentSymbolProvider\":true,\"executeCommandProvider\":{\"commands\":[\"clangd.applyFix\",\"clangd.applyRename\",\"clangd.applyTweak\"]},\"foldingRangeProvider\":true,\"hoverProvider\":true,\"implementationProvider\":true,\"inactiveRegionsProvider\":true,\"inlayHintProvider\":true,\"memoryUsageProvider\":true,\"referencesProvider\":true,\"renameProvider\":true,\"selectionRangeProvider\":true,\"semanticTokensProvider\":{\"full\":{\"delta\":true},\"legend\":{\"tokenModifiers\":[\"declaration\",\"definition\",\"deprecated\",\"deduced\",\"readonly\",\"static\",\"abstract\",\"virtual\",\"dependentName\",\"defaultLibrary\",\"usedAsMutableReference\",\"usedAsMutablePointer\",\"constructorOrDestructor\",\"userDefined\",\"functionScope\",\"classScope\",\"fileScope\",\"globalScope\"],\"tokenTypes\":[\"variable\",\"variable\",\"parameter\",\"function\",\"method\",\"function\",\"property\",\"variable\",\"class\",\"interface\",\"enum\",\"enumMember\",\"type\",\"type\",\"unknown\",\"namespace\",\"typeParameter\",\"concept\",\"type\",\"macro\",\"modifier\",\"operator\",\"bracket\",\"label\",\"comment\"]},\"range\":true},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\")\",\"{\",\"}\",\"<\",\">\",\",\"]},\"standardTypeHierarchyProvider\":true,\"textDocumentSync\":{\"change\":2,\"openClose\":true,\"save\":true},\"typeDefinitionProvider\":true,\"typeHierarchyProvider\":true,\"workspaceSymbolProvider\":true},\"serverInfo\":{\"name\":\"clangd\",\"version\":\"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"}}}\n\nV[00:47:06.295] <<< {\"jsonrpc\":\"2.0\",\"method\":\"initialized\",\"params\":{}}\n\nI[00:47:06.295] <-- initialized\nV[00:47:06.295] <<< {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/didOpen\",\"params\":{\"textDocument\":{\"languageId\":\"cpp\",\"text\":\"import Api;\\nvoid qVersion();\\nvoid Counter();\\nvoid AdlTester();\\nvoid f() {\\n  Cli cli;\\n  Cli* ptr = &cli;\\n  ptr->\\n}\\n// This final line is unrelated to the completion context.\\n\",\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":1}}}\n\nI[00:47:06.295] <-- textDocument/didOpen\nI[00:47:06.295] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/compile_commands.json\nV[00:47:06.297] <<< {\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/documentSymbol\",\"params\":{\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:06.297] <-- textDocument/documentSymbol(4)\nI[00:47:06.297] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality]\n/usr/bin/x86_64-linux-gnu-g++-9 --target=x86_64-linux-gnu --driver-mode=g++ -std=c++20 -c -o /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:06.297] Broadcasting compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality\nV[00:47:06.297] Ignored diagnostic. argument unused during compilation: '-c'\nV[00:47:06.298] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Use.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -fcoverage-compilation-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality -resource-dir /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-extensions/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:06.298] Building first preamble for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1\nI[00:47:06.302] Built preamble of size 252292 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1 in 0.00 seconds\nI[00:47:06.307] Running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[00:47:06.307] Done running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules\nI[00:47:06.308] Reusing persistent module Api from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/.cache/clangd/modules/Api.cppm-ED1E9BBA08D87201/3FED836A6E1A079B/Api.pcm\nI[00:47:06.308] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp in 0.01 seconds\nV[00:47:06.308] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nI[00:47:06.309] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nV[00:47:06.312] indexed file AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version 1:\n  symbol slab: 4 symbols, 5128 bytes\n  ref slab: 4 symbols, 4 refs, 4304 bytes\n  relations slab: 0 relations, 24 bytes\nV[00:47:06.312] Build dynamic index for main-file symbols with estimated memory usage of 13064 bytes\nI[00:47:06.312] --> textDocument/publishDiagnostics\nV[00:47:06.312] >>> {\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"diagnostics\":[{\"code\":\"expected_unqualified_id\",\"message\":\"Expected unqualified-id\",\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":8}},\"severity\":1,\"source\":\"clang\"}],\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\",\"version\":1}}\n\nV[00:47:06.312] ASTWorker running DocumentSymbols on version 1 of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\nI[00:47:06.312] --> reply:textDocument/documentSymbol(4) 15 ms\nV[00:47:06.312] >>> {\"id\":4,\"jsonrpc\":\"2.0\",\"result\":[{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":15,\"line\":1},\"start\":{\"character\":0,\"line\":1}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"qVersion\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":14,\"line\":2},\"start\":{\"character\":0,\"line\":2}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"Counter\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":16,\"line\":3},\"start\":{\"character\":0,\"line\":3}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"AdlTester\"},{\"containerName\":\"\",\"kind\":12,\"location\":{\"range\":{\"end\":{\"character\":1,\"line\":8},\"start\":{\"character\":0,\"line\":4}},\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"},\"name\":\"f\"}]}\n\nV[00:47:06.312] <<< {\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"textDocument/completion\",\"params\":{\"position\":{\"character\":7,\"line\":7},\"textDocument\":{\"uri\":\"file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp\"}}}\n\nI[00:47:06.312] <-- textDocument/completion(5)\nV[00:47:06.315] Ignored diagnostic. argument unused during compilation: '-c'\nI[00:47:06.316] Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[00:47:06.317] Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.\nI[00:47:06.317] --> reply:textDocument/completion(5) 4 ms\nV[00:47:06.317] >>> {\"id\":5,\"jsonrpc\":\"2.0\",\"result\":{\"isIncomplete\":false,\"items\":[{\"detail\":\"void\",\"filterText\":\"addHelpOption\",\"insertText\":\"addHelpOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addHelpOption()\",\"score\":0.93126398324966431,\"sortText\":\"409198afaddHelpOption\",\"textEdit\":{\"newText\":\"addHelpOption\",\"range\":{\"end\":{\"character\":7,\"line\":7},\"start\":{\"character\":7,\"line\":7}}}},{\"detail\":\"void\",\"filterText\":\"addOption\",\"insertText\":\"addOption\",\"insertTextFormat\":1,\"kind\":2,\"label\":\" addOption()\",\"score\":0.93126398324966431,\"sortText\":\"409198afaddOption\",\"textEdit\":{\"newText\":\"addOption\",\"range\":{\"end\":{\"character\":7,\"line\":7},\"start\":{\"character\":7,\"line\":7}}}}]}}\n\nV[00:47:06.317] <<< {\"id\":6,\"jsonrpc\":\"2.0\",\"method\":\"shutdown\",\"params\":null}\n\nI[00:47:06.317] <-- shutdown(6)\nI[00:47:06.317] --> reply:shutdown(6) 0 ms\nV[00:47:06.317] >>> {\"id\":6,\"jsonrpc\":\"2.0\",\"result\":null}\n\nV[00:47:06.317] <<< {\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}\n\nI[00:47:06.317] <-- exit\nI[00:47:06.317] LSP finished, exiting with status 0\nV[00:47:06.567] Ignored diagnostic. /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/parallel_backend_tbb.h:19:10:'tbb/blocked_range.h' file not found\nV[00:47:06.672] indexed preamble AST for /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-extensions-module-quality/Use.cpp version :\n  symbol slab: 14790 symbols, 4627416 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 605 relations, 17432 bytes\nI[00:47:06.683] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nV[00:47:06.697] Build dynamic index for header symbols with estimated memory usage of 8792744 bytes\n"
+      }
+    ]
+  },
+  "source_reconciliation": "0001-UP-05-backport-handling-merging-predefined-decls-from-std.patch bb4fc9fa7b524d82b7fd0f653ec1ac8e6cf96a9a 58dd8b6b8cbbefb88271ae9fb6a9d11e1e5091e6\n0002-UP-25-memoize-module-file-validation-across-requests.patch 150367aeb01cc567d909ca4d904eff97f6cc3cb3 5cc431d8471f6e18bd6f6972e6792aac5f53d1e0\n0003-UP-18-break-module-cache-locks-whose-owner-died.patch 6b5483dad1765189c00d4c2ddd0224cc7dbe6cd4 07fd7b2def34d51a136db1c7d7efadebee70c089\n0004-UP-09-semantic-tokens-range.patch 2f58350d7004a2c334800b26d289122580c4f643 2b2a4fbeb7c6c6c5b8fe7e94c1b9b3dc887a7d7a\n0005-UP-22-const-correctness-ranges-pipeline.patch 141fff3a2a7a63777d2f35b677687e8f1b399216 810f7991170e1871d7a438ef2a6cee12f08a739c\n0006-UP-25-completion-index-fast-path.patch f173c8d41ed80a9832c745aab7817f50476964f1 dca34171b408e9e2a89f400df766094768bcc8ea\n0007-UP-13-windows-crash-dumps.patch 23a76c7c61f75772aa0fcc0daca0be6c3ed4f5af d695c4dc7290cbbe596104fd832065080b47a4f1\n0008-UP-25-semantic-module-completion-default.patch bf2c1b7f698c999128985635569c01b99b4d67b9 c04771b1a89dc4cd6366a0cc0deb99aadf89e5d5\n0009-UP-25-precise-validation-input-identity.patch 846e648fd8b97b76a5adcc22be7e604d6fedb04c 7a6960f30a95740b200ac8868c907c2ba27fe5e5\n0010-UP-13-crash-dump-declaration.patch 4e83e0df750aa7e611187d672d16ad3860c8c2d1 9cbc0f161e7f01260687083f0875e2c6f1e78b87\n0011-UP-25-validation-memo-respects-drafts.patch 07d1384ad742d51289079fc609022b9f1c155ece f84f90a9cdc8127f6c62c56c4f41b54e2521425c\n0012-mcpp-fallback-style.patch e0a589fa2537ce5e1d9f06f99c2e621e5071f127 77bac23419e78f2490f69e57f1f65cc36c6520ed\n0013-UP-25-completion-refreshes-module-dependencies.patch 5922b288f3222acdea05c2409fa547f2a48115ea 31c62feabcd6982ccc2410ded89e2f33bf1d6c96\n0014-compiler-extension-semantic-completion.patch 1e0eaf4cccaf07465dcc266cfbf532560eaee470 97d3cf0557147f4e68ce8546cb0a120bc997bf43\nverified appended source identity acee9bd6376e4659c58035852600460baa9efefc85367b938259ebd11b857063\n",
+  "limits": [
+    "Final packaged engine part only; product server/VSIX identity changed separately.",
+    "Not a native Windows compiler run or real-project performance gate.",
+    "The final floor probe preceded the additional visible GNU macro canary; that case passes on the unstripped Linux development binary.",
+    "Build identity rejected the old marker first; explicit local verification matched all 14 ordered patch IDs, unchanged old marker and exact overlay before restamping. CI retains fail-closed stale-source rejection."
+  ]
+}
