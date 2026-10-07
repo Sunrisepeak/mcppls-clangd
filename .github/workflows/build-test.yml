@@ -119,6 +119,20 @@ jobs:
           path: ${{ runner.temp }}/const-correctness/result.json
           if-no-files-found: error
 
+      - name: Module DAG compilation has shared worker and dependency bounds
+        shell: bash
+        run: |
+          python3 tests/e2e/module_dag.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "build-${{ matrix.platform }}/module-dag"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-dag-${{ matrix.platform }}
+          path: build-${{ matrix.platform }}/module-dag/results.json
+          if-no-files-found: warn
+
       - name: BMI reader leases protect live copies and reclaim crash orphans
         shell: bash
         run: |
