@@ -1,0 +1,107 @@
+From 67b79d62b28cf97ccca5bbdddfe69c3e523b4717 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 06:24:15 +0900
+Subject: [PATCH] fix(diagnostics): missing module separators stay on their
+ directive
+
+---
+ clang-tools-extra/clangd/Diagnostics.cpp      |  4 +++-
+ .../clangd/unittests/DiagnosticsTests.cpp     | 21 +++++++++++++++++++
+ clang/lib/Lex/PPDirectives.cpp                | 19 ++++++++++++++---
+ .../missing-module-semicolon-location.cpp     |  7 +++++++
+ 4 files changed, 47 insertions(+), 4 deletions(-)
+ create mode 100644 clang/test/Modules/missing-module-semicolon-location.cpp
+
+diff --git a/clang-tools-extra/clangd/Diagnostics.cpp b/clang-tools-extra/clangd/Diagnostics.cpp
+index d0baf0224..bbfd24119 100644
+--- a/clang-tools-extra/clangd/Diagnostics.cpp
++++ b/clang-tools-extra/clangd/Diagnostics.cpp
+@@ -139,7 +139,9 @@ std::optional<Range> diagnosticRange(const clang::Diagnostic &D,
+   // If we can't get the token at the location, fall back to using the location
+   auto R = CharSourceRange::getCharRange(Loc);
+   Token Tok;
+-  if (!Lexer::getRawToken(Loc, Tok, M, L, true) && Tok.isNot(tok::comment))
++  // Whitespace at the diagnostic location is an insertion position, not a
++  // request to highlight the next token (possibly on another line).
++  if (!Lexer::getRawToken(Loc, Tok, M, L, false) && Tok.isNot(tok::comment))
+     R = CharSourceRange::getTokenRange(Tok.getLocation(), Tok.getEndLoc());
+   return halfOpenToRange(M, PatchedRange(R));
+ }
+diff --git a/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp b/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp
+index 6d91ac1ef..390398124 100644
+--- a/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp
++++ b/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp
+@@ -211,6 +211,27 @@ o]]();
+                             "change 'fod' to 'foo'")))));
+ }
+ 
++TEST(DiagnosticsTest, ModuleDirectiveMissingSemicolonRange) {
++  for (const auto &Case : std::vector<std::pair<StringRef, StringRef>>{
++           {"expected_semi_after_module_or_import",
++            "import A[[]]\nimport B;\n"},
++           {"expected_semi_after_module_or_import",
++            "import \\\n  A[[]]\nimport B;\n"},
++           {"pp_unexpected_tok_after_module_name",
++            "export module M[[]] // pending\nint marker;\n"},
++           {"pp_unexpected_tok_after_module_name",
++            "export module \\\n  M[[]]\nint marker;\n"}}) {
++    Annotations Code(Case.second);
++    auto TU = TestTU::withCode(Code.code());
++    TU.Code += "\n// error-ok\n";
++    TU.ExtraArgs.push_back("-std=c++20");
++    EXPECT_THAT(TU.build().getDiagnostics(),
++                Contains(AllOf(diagName(Case.first), hasRange(Code.range()),
++                               withFix(Fix(Code.range(), ";", "insert ';'")))))
++        << Case.second;
++  }
++}
++
+ // Verify that the -Wswitch case-not-covered diagnostic range covers the
+ // whole expression. This is important because the "populate-switch" tweak
+ // fires for the full expression range (see tweaks/PopulateSwitchTests.cpp).
+diff --git a/clang/lib/Lex/PPDirectives.cpp b/clang/lib/Lex/PPDirectives.cpp
+index c161f6a03..5e4635526 100644
+--- a/clang/lib/Lex/PPDirectives.cpp
++++ b/clang/lib/Lex/PPDirectives.cpp
+@@ -4431,9 +4431,22 @@ void Preprocessor::HandleCXXModuleDirective(Token ModuleTok) {
+     if (NextPPTok->is(tok::raw_identifier))
+       LookUpIdentifierInfo(*NextPPTok);
+     if (!NextPPTok->isOneOf(tok::semi, tok::eod, tok::l_square,
+-                            tok::kw_private))
+-      Diag(*NextPPTok, diag::err_pp_unexpected_tok_after_module_name)
+-          << getSpelling(*NextPPTok);
++                          tok::kw_private)) {
++      if (DirToks.back().is(tok::eod)) {
++        // The unexpected token belongs to the following line. Diagnose the
++        // missing separator at the end of this directive, before any comment.
++        const Token &Last = DirToks[DirToks.size() - 2];
++        SourceLocation End = getLocForEndOfToken(
++            Last.isAnnotation() ? Last.getAnnotationEndLoc()
++                                : Last.getLocation());
++        Diag(End, diag::err_pp_unexpected_tok_after_module_name)
++            << getSpelling(*NextPPTok)
++            << FixItHint::CreateInsertion(End, ";");
++      } else {
++        Diag(*NextPPTok, diag::err_pp_unexpected_tok_after_module_name)
++            << getSpelling(*NextPPTok);
++      }
++    }
+   }
+ 
+   if (!DirToks.back().isOneOf(tok::semi, tok::eod)) {
+diff --git a/clang/test/Modules/missing-module-semicolon-location.cpp b/clang/test/Modules/missing-module-semicolon-location.cpp
+new file mode 100644
+index 000000000..3c8f0f53b
+--- /dev/null
++++ b/clang/test/Modules/missing-module-semicolon-location.cpp
+@@ -0,0 +1,7 @@
++// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %s
++
++// A physical continuation and trailing comment must not move the diagnostic
++// onto the next declaration. The insertion belongs immediately after M.
++export module \
++  M // expected-error {{unexpected preprocessing token 'int' after module name}}
++int marker;
+-- 
+2.53.0
+

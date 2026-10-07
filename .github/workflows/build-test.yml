@@ -165,6 +165,35 @@ jobs:
           path: ${{ runner.temp }}/module-cache-lease/results.json
           if-no-files-found: error
 
+      - name: Exact request module inputs
+        shell: bash
+        run: |
+          python3 tests/e2e/module_request_inputs.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-request-inputs"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-request-inputs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-request-inputs/result.json
+          if-no-files-found: error
+
+      - name: Module directive diagnostic ranges
+        shell: bash
+        run: |
+          python3 tests/e2e/module_directive_diagnostics.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --output "${{ runner.temp }}/module-directive-diagnostics.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-directive-diagnostics-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-directive-diagnostics.json
+          if-no-files-found: error
+
       - name: Module member semantic regression
         shell: bash
         run: |
