@@ -1,0 +1,408 @@
+{
+  "identity": {
+    "engine-version": "23.1.0-mcppls.0",
+    "llvm-base-version": "23.1.0",
+    "llvm-commit": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+    "fork-commit": "93a91f16cc2d343447779e284f1a6408177ac538",
+    "patch-series-sha256": "2faf6a4d03b0371c54f4c324be07524542a1d833c6d89310e5692060d8fc7ef9",
+    "platform": "linux-x64",
+    "sha256": "0d78a51df2a5a2dd0bf4588e86286a8b5f69928b04135e55aec29e3db2102f82",
+    "features": [
+      "semantic-tokens-range",
+      "format-style-mcpp"
+    ],
+    "build-binary-sha256": "4986699897dd443cf6b26767ab9c5b01d1c9ee09f7f04e33a3f17ac970b49f56",
+    "cmake-cache-sha256": "feb446bbe879aa77fbc477438b1afe9fc2767283fc3df4858aa5cf0a71ba6536"
+  },
+  "portability": {
+    "engine_sha256": "0d78a51df2a5a2dd0bf4588e86286a8b5f69928b04135e55aec29e3db2102f82",
+    "runtime": "glibc 2.31",
+    "interpreter": "/lib64/ld-linux-x86-64.so.2",
+    "max_glibc": [
+      2,
+      29
+    ],
+    "dependencies": "\tlinux-vdso.so.1 (0x00007ffffad0f000)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x0000709a22b22000)\n\tlibrt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x0000709a22b18000)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x0000709a22b12000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x0000709a229c3000)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x0000709a229a7000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0000709a227b3000)\n\t/lib64/ld-linux-x86-64.so.2 (0x0000709a22b4b000)\n",
+    "version": "clangd version 23.1.0-mcppls.0\nFeatures: linux\nPlatform: x86_64-unknown-linux-gnu\n",
+    "problems": []
+  },
+  "module_lock_close": {
+    "schema": 1,
+    "engine_sha256": "0d78a51df2a5a2dd0bf4588e86286a8b5f69928b04135e55aec29e3db2102f82",
+    "warmup": {
+      "id": "live-owner-close",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.6479771584272385
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 1
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 1
+                    }
+                  },
+                  "uri": "file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 18.70727725327015
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:25:36.972] clangd version 23.1.0-mcppls.0\nI[01:25:36.972] Features: linux\nI[01:25:36.972] PID: 107\nI[01:25:36.972] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close\nI[01:25:36.972] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-cancellation/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[01:25:36.972] argv[1]: --experimental-modules-support\nI[01:25:36.972] argv[2]: --background-index=false\nI[01:25:36.972] argv[3]: -j=2\nI[01:25:36.972] Starting LSP over stdin/stdout\nI[01:25:36.972] <-- initialize(1)\nI[01:25:36.972] --> reply:initialize(1) 0 ms\nI[01:25:36.972] <-- initialized\nI[01:25:36.973] <-- textDocument/didOpen\nI[01:25:36.973] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/compile_commands.json\nI[01:25:36.975] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close]\n/usr/lib/llvm-12/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-cancellation/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp\nI[01:25:36.975] <-- textDocument/documentSymbol(4)\nI[01:25:36.980] Built preamble of size 252232 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp version 1 in 0.00 seconds\nI[01:25:36.986] Running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[01:25:36.986] Failed to scan module cache directory /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules: No such file or directory\nI[01:25:36.986] Done running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules\nI[01:25:36.987] Built module A to /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules/A.cppm-EC4E8B51C16F9362/0154FBFF2F5CAA92/A-20261007-012536-987823.pcm\nI[01:25:36.987] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp in 0.01 seconds\nI[01:25:36.988] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp\nI[01:25:36.991] --> textDocument/publishDiagnostics\nI[01:25:36.991] --> reply:textDocument/documentSymbol(4) 16 ms\nI[01:25:36.991] <-- shutdown(5)\nI[01:25:36.991] --> reply:shutdown(5) 0 ms\nI[01:25:36.991] <-- exit\nI[01:25:36.991] LSP finished, exiting with status 0\nI[01:25:37.361] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\n"
+    },
+    "result": {
+      "id": "live-owner-close",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.2959251180291176
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 11,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Healthy.cpp"
+                },
+                "name": "healthy"
+              }
+            ]
+          },
+          "elapsed_ms": 11.100503616034985
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "error": {
+              "code": -32800,
+              "message": "Request cancelled"
+            },
+            "id": 4,
+            "jsonrpc": "2.0"
+          },
+          "elapsed_ms": 1029.0742814540863
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:25:37.409] clangd version 23.1.0-mcppls.0\nI[01:25:37.409] Features: linux\nI[01:25:37.409] PID: 116\nI[01:25:37.409] Working directory: /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close\nI[01:25:37.409] argv[0]: /home/speak/workspace/github/mcppls-clangd/dist/linux-floor-cancellation/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[01:25:37.409] argv[1]: --experimental-modules-support\nI[01:25:37.409] argv[2]: --background-index=false\nI[01:25:37.409] argv[3]: -j=2\nI[01:25:37.409] Starting LSP over stdin/stdout\nI[01:25:37.409] <-- initialize(1)\nI[01:25:37.409] --> reply:initialize(1) 0 ms\nI[01:25:37.409] <-- initialized\nI[01:25:37.409] <-- textDocument/didOpen\nI[01:25:37.409] Loaded compilation database from /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/compile_commands.json\nI[01:25:37.411] <-- textDocument/documentSymbol(4)\nI[01:25:37.411] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close]\n/usr/lib/llvm-12/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-cancellation/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp\nI[01:25:37.416] Built preamble of size 252232 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp version 1 in 0.00 seconds\nI[01:25:37.424] Running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[01:25:37.424] Done running GC pass for clangd built module files under /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules\nI[01:25:38.425] Still waiting for module lock /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules/.locks/EC4E8B51C16F9362 after 1s\nI[01:25:38.427] <-- $/cancelRequest\nI[01:25:38.427] <-- textDocument/didClose\nI[01:25:38.427] --> textDocument/publishDiagnostics\nI[01:25:38.427] <-- textDocument/didOpen\nI[01:25:38.427] --> reply:textDocument/documentSymbol(4) 1016 ms, error: Task was cancelled.\nI[01:25:38.428] <-- textDocument/documentSymbol(8)\nI[01:25:38.428] ASTWorker building file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Healthy.cpp version 1 with command \n[/home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close]\n/usr/lib/llvm-12/bin/clang -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/dist/linux-floor-cancellation/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Healthy.cpp\nI[01:25:38.433] Built preamble of size 252244 for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Healthy.cpp version 1 in 0.00 seconds\nI[01:25:38.434] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Healthy.cpp in 0.00 seconds\nI[01:25:38.435] Indexing c++20 standard library in the context of /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Healthy.cpp\nI[01:25:38.438] --> textDocument/publishDiagnostics\nI[01:25:38.438] --> reply:textDocument/documentSymbol(8) 9 ms\nI[01:25:38.438] <-- shutdown(9)\nI[01:25:38.438] --> reply:shutdown(9) 0 ms\nI[01:25:38.438] <-- exit\nI[01:25:38.438] LSP finished, exiting with status 0\nI[01:25:38.808] Indexed c++20 standard library (incomplete due to errors): 13500 symbols, 1290 filtered\nI[01:25:39.425] Still waiting for module lock /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/.cache/clangd/modules/.locks/EC4E8B51C16F9362 after 2s\nE[01:25:39.425] Failed to build module A; due to Task was cancelled.\nI[01:25:39.425] Built prerequisite modules for file /home/speak/workspace/github/mcppls-clangd/build-linux-x64-ubuntu20/portable-module-lock-close/Use.cpp in 2.01 seconds\n",
+      "live_lock_preserved": true
+    }
+  },
+  "source_reconciliation": "0001-UP-05-backport-handling-merging-predefined-decls-from-std.patch bb4fc9fa7b524d82b7fd0f653ec1ac8e6cf96a9a 58dd8b6b8cbbefb88271ae9fb6a9d11e1e5091e6\n0002-UP-25-memoize-module-file-validation-across-requests.patch 150367aeb01cc567d909ca4d904eff97f6cc3cb3 5cc431d8471f6e18bd6f6972e6792aac5f53d1e0\n0003-UP-18-break-module-cache-locks-whose-owner-died.patch 6b5483dad1765189c00d4c2ddd0224cc7dbe6cd4 07fd7b2def34d51a136db1c7d7efadebee70c089\n0004-UP-09-semantic-tokens-range.patch 2f58350d7004a2c334800b26d289122580c4f643 2b2a4fbeb7c6c6c5b8fe7e94c1b9b3dc887a7d7a\n0005-UP-22-const-correctness-ranges-pipeline.patch 141fff3a2a7a63777d2f35b677687e8f1b399216 810f7991170e1871d7a438ef2a6cee12f08a739c\n0006-UP-25-completion-index-fast-path.patch f173c8d41ed80a9832c745aab7817f50476964f1 dca34171b408e9e2a89f400df766094768bcc8ea\n0007-UP-13-windows-crash-dumps.patch 23a76c7c61f75772aa0fcc0daca0be6c3ed4f5af d695c4dc7290cbbe596104fd832065080b47a4f1\n0008-UP-25-semantic-module-completion-default.patch bf2c1b7f698c999128985635569c01b99b4d67b9 c04771b1a89dc4cd6366a0cc0deb99aadf89e5d5\n0009-UP-25-precise-validation-input-identity.patch 846e648fd8b97b76a5adcc22be7e604d6fedb04c 7a6960f30a95740b200ac8868c907c2ba27fe5e5\n0010-UP-13-crash-dump-declaration.patch 4e83e0df750aa7e611187d672d16ad3860c8c2d1 9cbc0f161e7f01260687083f0875e2c6f1e78b87\n0011-UP-25-validation-memo-respects-drafts.patch 07d1384ad742d51289079fc609022b9f1c155ece f84f90a9cdc8127f6c62c56c4f41b54e2521425c\n0012-mcpp-fallback-style.patch e0a589fa2537ce5e1d9f06f99c2e621e5071f127 77bac23419e78f2490f69e57f1f65cc36c6520ed\n0013-UP-25-completion-refreshes-module-dependencies.patch 5922b288f3222acdea05c2409fa547f2a48115ea 31c62feabcd6982ccc2410ded89e2f33bf1d6c96\n0014-compiler-extension-semantic-completion.patch 1e0eaf4cccaf07465dcc266cfbf532560eaee470 97d3cf0557147f4e68ce8546cb0a120bc997bf43\n0015-UP-01-module-directive-token-recovery.patch f63ebde69494eb403400fc7a8091d5bca1e2493e 806fbb8447f4c1418fa628da4d95dcd33594ca6f\n0016-module-lock-wait-cancellation.patch 5ad3947e162179463adb5b751904d508fcef6bea 433fd55980e7eb08b058fb044889453b99e79b97\nverified appended source identity 2faf6a4d03b0371c54f4c324be07524542a1d833c6d89310e5692060d8fc7ef9\n",
+  "limits": [
+    "Final stripped Linux engine bytes, built and run offline in Ubuntu 20.04 userspace.",
+    "Native Windows/macOS, final installed product VSIX, other lifecycle roots and full release gates remain open.",
+    "Previous directive and extension reports prove patch 0015 bytes, not this new package."
+  ]
+}
