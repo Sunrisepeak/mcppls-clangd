@@ -29,6 +29,12 @@ python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$PWD/llvm-proj
 python3 ci/portability_linux.py \
   "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --output "$DIST_DIR/portability-linux-x64.json"
+python3 tests/e2e/module_request_inputs.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-request-inputs"
+python3 tests/e2e/module_dag.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-dag"
 python3 tests/e2e/completion_quality.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang /usr/bin/g++ --workdir "$BUILD_DIR/portable-module-quality" --unsaved-update --async-scheduling
