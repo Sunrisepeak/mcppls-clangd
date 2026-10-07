@@ -63,10 +63,17 @@ def main():
     data = re.search(r'"id":\s*1,.*?"data":\s*(\[.*?\])', response.stdout, re.S)
     if response.returncode != 0 or not data or json.loads(data.group(1)) != [1, 4, 1, 0, 131075, 1, 4, 1, 0, 131075]:
         parser.error('final package bytes failed semantic-tokens-range capability canary')
+    format_canary = ROOT / 'llvm-project/clang-tools-extra/clangd/test/mcpp-format-fallback.test'
+    formatted = subprocess.run([str(engine.resolve()), '-lit-test', '-fallback-style=mcpp'],
+                               input=format_canary.read_text(), text=True,
+                               capture_output=True, timeout=20)
+    if (formatted.returncode != 0 or not re.search(
+            r'"id":\s*1,.*?"result":\s*\[\s*\]', formatted.stdout, re.S)):
+        parser.error('final package bytes failed mcpp formatting fallback canary')
     metadata = {'engine-version': args.version, 'llvm-base-version': base,
                 'llvm-commit': commit, 'fork-commit': fork, 'patch-series-sha256': series,
                 'platform': args.platform, 'sha256': sha(engine),
-                'features': ['semantic-tokens-range'],
+                'features': ['semantic-tokens-range', 'format-style-mcpp'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}
     (args.directory / 'engine.json').write_text(json.dumps(metadata, indent=2) + '\n')

@@ -23,6 +23,7 @@ args = parser.parse_args()
 REPO = args.repo.resolve()
 STATES = {"draft", "stabilizing", "steady", "upstream-submitted", "landed (dropped)"}
 ROW_ID = re.compile(r"\bUP-\d+\b")
+REGISTER_ID = re.compile(r"(?:UP|FEATURE)-\d+")
 
 def fail(msg):
     print(f"check_ledger: FAIL {msg}")
@@ -68,8 +69,8 @@ for entry in series:
         fail(f"{name}: no ledger row in PATCHES.md")
     cells = ledger_rows[name]
     row_id, state, tests, drop = cells[1], cells[2], cells[3], cells[4]
-    if not ROW_ID.fullmatch(row_id):
-        fail(f"{name}: ledger row id {row_id!r} is not a UP-xx id")
+    if not REGISTER_ID.fullmatch(row_id):
+        fail(f"{name}: ledger row id {row_id!r} is not an upstream defect or product feature id")
     if state not in STATES:
         fail(f"{name}: unknown state {state!r}")
     if state not in ("draft",) and not tests:

@@ -22,3 +22,5 @@ they live here and in patch *filenames* only.
 | 0009-UP-25-precise-validation-input-identity.patch | UP-25 | draft | tests/e2e/completion_quality.py | drop when upstream validation memo tracks precise input identity |
 | 0010-UP-13-crash-dump-declaration.patch | UP-13 | draft | ci/ci_build.sh | drop together with the Windows crash capture implementation |
 | 0011-UP-25-validation-memo-respects-drafts.patch | UP-25 | stabilizing | clangd/test/modules-validation-overlay.test (in-patch); tests/e2e/completion_quality.py --unsaved-update; product inferred/C7 | drop when upstream memo verifies the request VFS identities before accepting a disk verdict |
+
+| 0012-mcpp-fallback-style.patch | FEATURE-43 | stabilizing | clang-tools-extra/clangd/test/mcpp-format-style.test; clang-tools-extra/clangd/test/mcpp-format-fallback.test; clang/unittests/Format/ConfigParseTest.cpp | Upstream supports the pinned mcpp preset or an equivalent explicit fallback configuration |

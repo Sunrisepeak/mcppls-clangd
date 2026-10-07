@@ -18,7 +18,7 @@ source ci/scripts/env.sh
 
 if [[ "${TEST:-0}" = "1" ]]; then
   # clangd + the clang driver (module lit tests compile with it) + lit helpers
-  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clangd-validation-overlay-probe FileCheck not count split-file llvm-config -j "${JOBS:-4}"
+  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format clangd-validation-overlay-probe FileCheck not count split-file llvm-config -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
@@ -29,6 +29,8 @@ python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --p
 if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   cd "$BUILD_DIR"
   ./bin/llvm-lit -sv \
+    tools/clang/tools/extra/clangd/test/mcpp-format-style.test \
+    tools/clang/tools/extra/clangd/test/mcpp-format-fallback.test \
     tools/clang/tools/extra/clangd/test/modules-validation-cache.test \
     tools/clang/tools/extra/clangd/test/modules-validation-overlay.test \
     tools/clang/tools/extra/clangd/test/modules-stale-lock.test \
