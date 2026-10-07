@@ -77,7 +77,11 @@ jobs:
           path: llvm-project
           key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
+      - uses: ./.github/actions/linux-floor
+        if: matrix.platform == 'linux-x64'
+
       - name: Build fork clangd
+        if: matrix.platform != 'linux-x64'
         shell: bash
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -86,6 +90,7 @@ jobs:
         run: ./ci/ci_build.sh
 
       - name: Package payload part
+        if: matrix.platform != 'linux-x64'
         shell: bash
         env:
           PLATFORM: ${{ matrix.platform }}
