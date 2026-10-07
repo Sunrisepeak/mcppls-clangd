@@ -1,0 +1,189 @@
+From 5ec838c31840f0c02d96e4ba72eb90c90cbf6a12 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 03:55:14 +0900
+Subject: [PATCH] fix(clangd): copy-on-read BMIs remain protected by reader
+ leases
+
+Access time does not prove that a copy is unused and the old collector also removed published BMIs. Each new immutable reader copy carries a unique sidecar protected by a kernel lock for its full shared lifetime. GC only reclaims copies after it acquires their abandoned leases; stable and legacy unleased files remain untouched.
+
+An in-process ownership set also prevents POSIX fcntl descriptor aliasing from dropping the live process lock. Crash cleanup no longer waits three days or trusts a reused PID.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 111 ++++++++++++++------
+ 1 file changed, 79 insertions(+), 32 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 3447731bd..404f4c37f 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -49,8 +49,8 @@ llvm::cl::opt<bool> DebugModulesBuilder(
+ 
+ llvm::cl::opt<unsigned> VersionedModuleFileGCThresholdSeconds(
+     "modules-builder-versioned-gc-threshold-seconds",
+-    llvm::cl::desc("Delete versioned copy-on-read module files whose last "
+-                   "access time is older than this many seconds."),
++    llvm::cl::desc("Legacy compatibility option; copy-on-read GC now uses "
++                   "owner leases rather than access time."),
+     llvm::cl::init(3 * 24 * 60 * 60));
+ 
+ llvm::cl::opt<unsigned> ModuleLockStaleBreakSeconds(
+@@ -540,18 +540,46 @@ public:
+   }
+ };
+ 
++// fcntl locks are process-scoped on POSIX: opening and closing another FD
++// for a live lease can release its lock. Serialize local ownership/GC and
++// skip our live paths before opening them. Other processes are excluded by
++// the kernel lease; PID reuse and wall-clock age do not establish ownership.
++std::mutex ModuleReadLeasesMutex;
++llvm::StringSet<> ActiveModuleReadLeases;
++
++class ModuleReadLease {
++  int FD;
++  std::string Path;
++
++public:
++  ModuleReadLease(int FD, PathRef Path) : FD(FD), Path(Path) {}
++  ~ModuleReadLease() {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    ActiveModuleReadLeases.erase(Path);
++    llvm::sys::fs::unlockFile(FD);
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    // If Windows could not remove a still-mapped copy, leave its lease
++    // behind so a later process can safely collect it after the mapping dies.
++    StringRef Copy = StringRef(Path).drop_back(StringRef(".lease").size());
++    if (!llvm::sys::fs::exists(Copy))
++      llvm::sys::fs::remove(Path);
++  }
++};
++
+ /// Represents a versioned copy of a published BMI handed to clangd readers.
+ /// The copy is removed when the last reader releases it.
+ class CopyOnReadModuleFile final : public ModuleFile {
+ private:
+   struct CtorTag {};
+   std::optional<ModuleValidationCache::FileIdentity> PublishedSourceIdentity;
++  std::unique_ptr<ModuleReadLease> Lease;
+ 
+ public:
+   CopyOnReadModuleFile(StringRef ModuleName, PathRef PublishedModuleFilePath,
+-                       PathRef CopyOnReadModuleFilePath, CtorTag)
++                       PathRef CopyOnReadModuleFilePath,
++                       std::unique_ptr<ModuleReadLease> Lease, CtorTag)
+       : ModuleFile(ModuleName, CopyOnReadModuleFilePath,
+-                   PublishedModuleFilePath) {
++                   PublishedModuleFilePath), Lease(std::move(Lease)) {
+     // The published file is a stable path on disk; record its identity at
+     // copy time so later readers can tell when it was replaced.
+     if (auto ID = ModuleValidationCache::identityOf(PublishedModuleFilePath))
+@@ -572,10 +600,11 @@ public:
+ 
+   static std::shared_ptr<CopyOnReadModuleFile>
+   make(StringRef ModuleName, PathRef PublishedModuleFilePath,
+-       PathRef CopyOnReadModuleFilePath) {
++       PathRef CopyOnReadModuleFilePath,
++       std::unique_ptr<ModuleReadLease> Lease) {
+     return std::make_shared<CopyOnReadModuleFile>(
+         ModuleName, PublishedModuleFilePath, CopyOnReadModuleFilePath,
+-        CtorTag{});
++        std::move(Lease), CtorTag{});
+   }
+ };
+ 
+@@ -903,15 +932,34 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+ llvm::Expected<std::shared_ptr<CopyOnReadModuleFile>>
+ copyModuleFileForRead(llvm::StringRef ModuleName,
+                       PathRef PublishedModuleFilePath) {
+-  llvm::SmallString<256> VersionedModuleFilePath =
+-      getCopyOnReadModuleFilePath(PublishedModuleFilePath);
++  // Claim a unique generation and lock it before publishing any copy. The
++  // sidecar keeps Windows byte-range locks away from Clang's actual BMI reads.
++  llvm::SmallString<256> LeasePath;
++  int LeaseFD = -1;
++  std::unique_ptr<ModuleReadLease> Lease;
++  {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    auto Model = getCopyOnReadModuleFilePath(PublishedModuleFilePath);
++    llvm::sys::path::replace_extension(Model, "-%%%%%%.pcm.lease");
++    if (auto EC = llvm::sys::fs::createUniqueFile(Model, LeaseFD, LeasePath))
++      return llvm::createStringError(EC, "Failed to create BMI read lease");
++    if (auto EC = llvm::sys::fs::tryLockFile(LeaseFD)) {
++      llvm::sys::Process::SafelyCloseFileDescriptor(LeaseFD);
++      llvm::sys::fs::remove(LeasePath);
++      return llvm::createStringError(EC, "Failed to lock BMI read lease");
++    }
++    ActiveModuleReadLeases.insert(LeasePath);
++    Lease = std::make_unique<ModuleReadLease>(LeaseFD, LeasePath);
++  }
++  llvm::SmallString<256> VersionedModuleFilePath(
++      StringRef(LeasePath).drop_back(StringRef(".lease").size()));
+   if (std::error_code EC = llvm::sys::fs::copy_file(PublishedModuleFilePath,
+                                                     VersionedModuleFilePath))
+     return llvm::createStringError(llvm::formatv(
+         "Failed to copy module file {0} to {1}: {2}", PublishedModuleFilePath,
+         VersionedModuleFilePath, EC.message()));
+   return CopyOnReadModuleFile::make(ModuleName, PublishedModuleFilePath,
+-                                    VersionedModuleFilePath);
++                                    VersionedModuleFilePath, std::move(Lease));
+ }
+ 
+ bool ReusablePrerequisiteModules::canReuse(
+@@ -1221,34 +1269,33 @@ std::vector<std::string> collectModuleFiles(PathRef CacheRoot) {
+ /// Performs one GC pass over a persistent module cache root.
+ void garbageCollectModuleCache(PathRef CacheRoot) {
+   for (const auto &ModuleFilePath : collectModuleFiles(CacheRoot)) {
+-    llvm::sys::fs::file_status Status;
+-    if (std::error_code EC = llvm::sys::fs::status(ModuleFilePath, Status)) {
+-      log("Failed to stat cached module file {0} for GC: {1}", ModuleFilePath,
+-          EC.message());
+-      continue;
+-    }
+-
+-    llvm::sys::TimePoint<> LastAccess = Status.getLastAccessedTime();
+-    llvm::sys::TimePoint<> Now = std::chrono::system_clock::now();
+-    if (LastAccess > Now)
++    const std::string LeasePath = ModuleFilePath + ".lease";
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    if (ActiveModuleReadLeases.contains(LeasePath))
+       continue;
+-    auto Age =
+-        std::chrono::duration_cast<std::chrono::seconds>(Now - LastAccess);
+-    auto Threshold =
+-        std::chrono::seconds(VersionedModuleFileGCThresholdSeconds);
+-    if (Age <= Threshold)
++    // Published BMIs and legacy copies have no verifiable owner lease.
++    // Leave them untouched; atime alone never proves that a reader is dead.
++    int FD = -1;
++    if (llvm::sys::fs::openFileForReadWrite(
++            LeasePath, FD, llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None))
+       continue;
+-
+-    if (!llvm::sys::fs::exists(ModuleFilePath))
++    auto Close = llvm::scope_exit([&] {
++      llvm::sys::fs::unlockFile(FD);
++      llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    });
++    if (llvm::sys::fs::tryLockFile(FD))
+       continue;
+-
+-    constexpr llvm::StringLiteral Reason = "file older than GC threshold";
+-    if (std::error_code EC = llvm::sys::fs::remove(ModuleFilePath)) {
+-      log("Failed to remove cached module file {0} ({1}): {2}", ModuleFilePath,
+-          Reason, EC.message());
++    if (auto EC = llvm::sys::fs::remove(ModuleFilePath)) {
++      vlog("Failed to reclaim unowned BMI copy {0}: {1}", ModuleFilePath,
++           EC.message());
+       continue;
+     }
+-    log("Removed cached module file {0} ({1})", ModuleFilePath, Reason);
++    // Closing happens first on Windows, where open sidecars cannot be removed.
++    Close.release();
++    llvm::sys::fs::unlockFile(FD);
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    llvm::sys::fs::remove(LeasePath);
++    log("Removed unowned copy-on-read module file {0}", ModuleFilePath);
+   }
+ }
+ 
+-- 
+2.53.0
+

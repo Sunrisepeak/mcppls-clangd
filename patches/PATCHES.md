@@ -42,3 +42,5 @@ they live here and in patch *filenames* only.
 | 0020-prerequisite-reuse-dies-with-command-generation.patch | UP-25 | stabilizing | tests/e2e/third_party_import.py | Upstream reusable prerequisite sets record the compile-command generation and stop being reused after a command-change broadcast, so a provider appearing later reaches files that resolved to nothing |
 
 | 0021-UP-22-semantic-const-range-constraints.patch | UP-22 | stabilizing | clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp; tests/e2e/const_correctness.py; ci/const-correctness.md | Upstream checks const iterator/adaptor overload viability with instantiated constraints while preserving valid ordinary pipe and const-capable range suggestions |
+
+| 0022-UP-24-copy-on-read-owner-leases.patch | UP-24 | stabilizing | tests/e2e/module_cache_lease.py; ci/module-read-leases.md | Upstream copy-on-read lifetime has kernel-backed owner leases, immediate crash-orphan reclamation, and protection of live readers and published BMIs |
