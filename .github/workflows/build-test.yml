@@ -124,6 +124,21 @@ jobs:
           path: ${{ runner.temp }}/module-cycle/results.json
           if-no-files-found: error
 
+      - name: Third-party imports keep resolvable modules and the preamble
+        shell: bash
+        run: |
+          python3 tests/e2e/third_party_import.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/third-party-import"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: third-party-import-${{ matrix.platform }}
+          path: ${{ runner.temp }}/third-party-import/results.json
+          if-no-files-found: error
+
       - name: Document close cancels live-owner module lock wait
         shell: bash
         run: |
