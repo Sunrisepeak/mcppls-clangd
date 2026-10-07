@@ -1,0 +1,231 @@
+From 71e1f97c67d328e98fbf0f9e8dd4a69901e2970c Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 07:36:00 +0900
+Subject: [PATCH] Observe actual time-dependent builtin expansions before
+ caching module scans
+
+---
+ .../clangd/ModuleDependencyScanCache.h        | 40 +-----------
+ clang-tools-extra/clangd/ProjectModules.cpp   | 65 ++++++++++++++++++-
+ .../clang/Tooling/DependencyScanningTool.h    | 18 +++++
+ clang/lib/Tooling/DependencyScanningTool.cpp  | 12 +++-
+ 4 files changed, 93 insertions(+), 42 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index fc67f7da0..1d7209526 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -49,43 +49,6 @@ public:
+   static constexpr size_t ProbeLimit = 2048;
+   static constexpr size_t ByteLimit = 32 * 1024 * 1024;
+   using Digest = std::array<uint8_t, 32>;
+-  // Wall-clock macro expansion is not a filesystem input. Conservatively
+-  // decline raw sources/commands that can spell or construct these builtins.
+-  // A PPCallbacks dependency hook can make this narrower in a follow-up.
+-  static bool supportedTokens(llvm::StringRef Bytes) {
+-    std::string Logical;
+-    Logical.reserve(Bytes.size());
+-    for (size_t I = 0; I < Bytes.size(); ++I) {
+-      char C = Bytes[I];
+-      if (C == '?' && I + 2 < Bytes.size() && Bytes[I + 1] == '?' &&
+-          (Bytes[I + 2] == '/' || Bytes[I + 2] == '=')) {
+-        C = Bytes[I + 2] == '/' ? '\\' : '#';
+-        I += 2;
+-      }
+-      if (C == '\\') {
+-        size_t Next = I + 1;
+-        // Clang also accepts horizontal whitespace before an escaped newline.
+-        while (Next < Bytes.size() &&
+-               (Bytes[Next] == ' ' || Bytes[Next] == '\t' ||
+-                Bytes[Next] == '\v' || Bytes[Next] == '\f'))
+-          ++Next;
+-        if (Next < Bytes.size() &&
+-            (Bytes[Next] == '\r' || Bytes[Next] == '\n')) {
+-          I = Next;
+-          if (Bytes[I] == '\r' && I + 1 < Bytes.size() && Bytes[I + 1] == '\n')
+-            ++I;
+-          continue;
+-        }
+-      }
+-      Logical.push_back(C);
+-    }
+-    llvm::StringRef Text(Logical);
+-    return !Text.contains("__DATE__") && !Text.contains("__TIME__") &&
+-           !Text.contains("__TIMESTAMP__") && !Text.contains("##") &&
+-           !Text.contains("%:%:") && !Text.contains("\\N") &&
+-           !Text.contains("\\u") && !Text.contains("\\U");
+-  }
+-
+   static Digest fingerprint(llvm::StringRef Bytes) {
+     llvm::SHA256 Hash;
+     Hash.update(Bytes);
+@@ -486,8 +449,7 @@ private:
+       if (Result) {
+         // Default driver .cfg files can redirect to an unobserved native
+         // toolchain. Their absence is replayable; a present file declines.
+-        if (llvm::StringRef(Path).ends_with(".cfg") ||
+-            !ModuleScanManifest::supportedTokens((*Result)->getBuffer()))
++        if (llvm::StringRef(Path).ends_with(".cfg"))
+           Manifest->Complete = false;
+         O.Size = (*Result)->getBufferSize();
+         O.Bytes = ModuleScanManifest::fingerprint((*Result)->getBuffer());
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 7f65ee16f..b34d02155 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -12,6 +12,11 @@
+ #include "support/Logger.h"
+ #include "clang/DependencyScanning/DependencyScanningService.h"
+ #include "clang/Driver/ToolChain.h"
++#include "clang/Frontend/CompilerInstance.h"
++#include "clang/Frontend/Utils.h"
++#include "clang/Lex/MacroInfo.h"
++#include "clang/Lex/PPCallbacks.h"
++#include "clang/Lex/Preprocessor.h"
+ #include "clang/Tooling/DependencyScanningTool.h"
+ #include "clang/Tooling/Tooling.h"
+ #include "llvm/ADT/SmallString.h"
+@@ -257,6 +262,59 @@ bool hasObservableDriverInputs(const tooling::CompileCommand &Command) {
+   }
+   return Target.isOSLinux() && !Target.isAndroid();
+ }
++// Filesystem replay cannot reproduce wall-clock builtin expansion. Observe
++// actual preprocessing: comments, strings, inactive branches and ordinary
++// token pasting need not prevent otherwise verified reuse.
++class ModuleScanBuiltinCollector : public DependencyCollector {
++  class Callbacks : public PPCallbacks {
++  public:
++    explicit Callbacks(std::shared_ptr<ModuleScanManifest> Inputs)
++        : Inputs(std::move(Inputs)) {}
++    void MacroExpands(const Token &Tok, const MacroDefinition &Definition,
++                      SourceRange, const MacroArgs *) override {
++      const MacroInfo *Info = Definition.getMacroInfo();
++      if (!Info || !Info->isBuiltinMacro() || !Tok.getIdentifierInfo())
++        return;
++      llvm::StringRef Name = Tok.getIdentifierInfo()->getName();
++      if (Name == "__DATE__" || Name == "__TIME__" || Name == "__TIMESTAMP__")
++        Inputs->Complete = false;
++    }
++
++  private:
++    std::shared_ptr<ModuleScanManifest> Inputs;
++  };
++
++public:
++  explicit ModuleScanBuiltinCollector(std::shared_ptr<ModuleScanManifest> Inputs)
++      : Inputs(std::move(Inputs)) {}
++  void attachToPreprocessor(Preprocessor &PP) override {
++    PP.addPPCallbacks(std::make_unique<Callbacks>(Inputs));
++  }
++
++private:
++  std::shared_ptr<ModuleScanManifest> Inputs;
++};
++
++class ModuleScanController : public dependencies::DependencyActionController {
++public:
++  explicit ModuleScanController(std::shared_ptr<ModuleScanManifest> Inputs)
++      : Inputs(std::move(Inputs)) {}
++  std::unique_ptr<dependencies::DependencyActionController> clone() const override {
++    return std::make_unique<ModuleScanController>(Inputs);
++  }
++  std::string lookupModuleOutput(const dependencies::ModuleDeps &,
++                                dependencies::ModuleOutputKind) override {
++    return {};
++  }
++  bool initialize(CompilerInstance &CI, CompilerInvocation &) override {
++    if (Inputs)
++      CI.addDependencyCollector(std::make_shared<ModuleScanBuiltinCollector>(Inputs));
++    return true;
++  }
++
++private:
++  std::shared_ptr<ModuleScanManifest> Inputs;
++};
+ 
+ /// A scanner to query the dependency information for C++20 Modules.
+ ///
+@@ -339,7 +397,9 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+         llvm::StringRef(Arg).starts_with("-fplugin=") ||
+         llvm::StringRef(Arg).starts_with("-fpass-plugin=") || Arg == "-load" ||
+         Arg == "-plugin" || Arg == "-add-plugin" ||
+-        !ModuleScanManifest::supportedTokens(Arg))
++        llvm::StringRef(Arg).starts_with("-Xclang=-load") ||
++        llvm::StringRef(Arg).starts_with("-Xclang=-plugin") ||
++        llvm::StringRef(Arg).starts_with("-Xclang=-add-plugin"))
+       Cacheable = false;
+   auto RequestFS = TFS.view(Cmd->Directory);
+   ModuleScanManifest::Digest MainBytes = {};
+@@ -384,8 +444,9 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+       DiagOpts.ShowCarets = false;
+       TextDiagnosticPrinter DiagConsumer(OS, DiagOpts);
+ 
++      ModuleScanController Controller(Manifest);
+       ScanningResult = ScanningTool.getP1689ModuleDependencyFile(
+-          *Cmd, Cmd->Directory, DiagConsumer);
++          *Cmd, Cmd->Directory, DiagConsumer, Controller);
+     }
+     // Destroy the worker/service before finalizing the manifest: file closes
+     // and any deferred filesystem observations must precede publication.
+diff --git a/clang/include/clang/Tooling/DependencyScanningTool.h b/clang/include/clang/Tooling/DependencyScanningTool.h
+index 90216d8f1..4dcaea0bc 100644
+--- a/clang/include/clang/Tooling/DependencyScanningTool.h
++++ b/clang/include/clang/Tooling/DependencyScanningTool.h
+@@ -66,6 +66,24 @@ public:
+                                std::string &MakeformatOutput,
+                                std::string &MakeformatOutputPath,
+                                DiagnosticConsumer &DiagConsumer);
++  /// Scan with a caller-provided controller, for observing or configuring the
++  /// compiler instance. The controller must outlive this synchronous call.
++  std::optional<P1689Rule>
++  getP1689ModuleDependencyFile(
++      const CompileCommand &Command, StringRef CWD,
++      std::string &MakeformatOutput, std::string &MakeformatOutputPath,
++      DiagnosticConsumer &DiagConsumer,
++      dependencies::DependencyActionController *Controller);
++  std::optional<P1689Rule>
++  getP1689ModuleDependencyFile(
++      const CompileCommand &Command, StringRef CWD,
++      DiagnosticConsumer &DiagConsumer,
++      dependencies::DependencyActionController &Controller) {
++    std::string MakeformatOutput, MakeformatOutputPath;
++    return getP1689ModuleDependencyFile(Command, CWD, MakeformatOutput,
++                                        MakeformatOutputPath, DiagConsumer,
++                                        &Controller);
++  }
+   std::optional<P1689Rule>
+   getP1689ModuleDependencyFile(const CompileCommand &Command, StringRef CWD,
+                                DiagnosticConsumer &DiagConsumer) {
+diff --git a/clang/lib/Tooling/DependencyScanningTool.cpp b/clang/lib/Tooling/DependencyScanningTool.cpp
+index 11b225830..f2d327416 100644
+--- a/clang/lib/Tooling/DependencyScanningTool.cpp
++++ b/clang/lib/Tooling/DependencyScanningTool.cpp
+@@ -208,6 +208,15 @@ std::optional<std::string> DependencyScanningTool::getDependencyFile(
+ std::optional<P1689Rule> DependencyScanningTool::getP1689ModuleDependencyFile(
+     const CompileCommand &Command, StringRef CWD, std::string &MakeformatOutput,
+     std::string &MakeformatOutputPath, DiagnosticConsumer &DiagConsumer) {
++  return getP1689ModuleDependencyFile(Command, CWD, MakeformatOutput,
++                                      MakeformatOutputPath, DiagConsumer,
++                                      nullptr);
++}
++
++std::optional<P1689Rule> DependencyScanningTool::getP1689ModuleDependencyFile(
++    const CompileCommand &Command, StringRef CWD, std::string &MakeformatOutput,
++    std::string &MakeformatOutputPath, DiagnosticConsumer &DiagConsumer,
++    DependencyActionController *ProvidedController) {
+   class P1689ModuleDependencyPrinterConsumer
+       : public MakeDependencyPrinterConsumer {
+   public:
+@@ -252,7 +261,8 @@ std::optional<P1689Rule> DependencyScanningTool::getP1689ModuleDependencyFile(
+ 
+   P1689Rule Rule;
+   P1689ModuleDependencyPrinterConsumer Consumer(Rule, Command);
+-  P1689ActionController Controller;
++  P1689ActionController DefaultController;
++  auto &Controller = ProvidedController ? *ProvidedController : DefaultController;
+   if (!computeDependencies(Worker, CWD, Command.CommandLine, Consumer,
+                            Controller, DiagConsumer))
+     return std::nullopt;
+-- 
+2.53.0
+

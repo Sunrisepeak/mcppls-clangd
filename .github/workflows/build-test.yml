@@ -149,6 +149,26 @@ jobs:
           path: ${{ runner.temp }}/module-provider-cache/result.json
           if-no-files-found: warn
 
+      - name: Verified module scans replay inputs and observe actual builtins
+        if: matrix.platform == 'linux-x64'
+        shell: bash
+        run: |
+          python3 tests/e2e/module_scan_memo.py \
+            --engine build-linux-x64/bin/clangd --clang build-linux-x64/bin/clang \
+            --workdir "${{ runner.temp }}/module-scan-memo"
+          python3 tests/e2e/module_scan_builtins.py \
+            --engine build-linux-x64/bin/clangd --clang build-linux-x64/bin/clang \
+            --workdir "${{ runner.temp }}/module-scan-builtins"
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.platform == 'linux-x64'
+        with:
+          name: verified-module-scans-linux-x64
+          path: |
+            ${{ runner.temp }}/module-scan-memo/result.json
+            ${{ runner.temp }}/module-scan-builtins/summary.json
+            ${{ runner.temp }}/module-scan-builtins/case-*/result.json
+          if-no-files-found: warn
+
       - name: BMI reader leases protect live copies and reclaim crash orphans
         shell: bash
         run: |

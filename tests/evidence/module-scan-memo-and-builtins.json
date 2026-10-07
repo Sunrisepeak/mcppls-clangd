@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "platform": "linux-x64",
+  "source": {
+    "patch_count": 29,
+    "source_commit": "71e1f97c67d328e98fbf0f9e8dd4a69901e2970c",
+    "paths_compared": 62,
+    "mismatches": [],
+    "scope": "All 62 touched patch paths independently applied from pinned base, plus all three repository overlay paths; not an immutable full-source release build.",
+    "overlay_paths_compared": 3
+  },
+  "engine_sha256": "d693f0de3235cd34761ecadd43390d5bf2b2d275634c1ba4ac93cf9724b235fd",
+  "patch_series_sha256": "eaa997cb34371b2d1ed3b3f0b20171d678a5bdad7037e5da8de923a4d61f085e",
+  "build_scope": "Existing native development build; recompiled GlobalCompilationDatabase, ProjectModules, DependencyScanningTool, PrerequisiteModulesTest and relinked clangd/ClangdTests. Not an Ubuntu20 or immutable final release package.",
+  "unit_tests": {
+    "filter": "DiagnosticsTest.*:PrerequisiteModulesTests.PositiveScanMemo*:PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer:PrerequisiteModulesTests.Provider*:GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration",
+    "passed": 32,
+    "elapsed_ms": 151,
+    "log_sha256": "3f2ecf8e026be2cf2ab8c3c940550b73da9dd2fc6c522554ac9587b1cb36116a"
+  },
+  "memo": {
+    "outcome": "pass",
+    "exit_code": 0,
+    "readers_stopped": true,
+    "memo_hits": 79,
+    "memo_invalidations": 4,
+    "main_contents_unchanged": true
+  },
+  "memo_raw_sha256": "20506b2f7f63c4aee175cd24f490f1d48c77f832699849e77767d2641e4f214e",
+  "builtins": {
+    "ok": true,
+    "scope": "Warm scans only: documentSymbol waits for AST before completion. No cold completion, native registry, deadline or RSS claim.",
+    "results": [
+      {
+        "id": "macro",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "use_hits": 12,
+        "use_stores": 1,
+        "use_declines": 0
+      },
+      {
+        "id": "std-header",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "use_hits": 12,
+        "use_stores": 1,
+        "use_declines": 0
+      },
+      {
+        "id": "inactive-and-literal",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "use_hits": 12,
+        "use_stores": 1,
+        "use_declines": 0
+      },
+      {
+        "id": "pasted-builtin",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "use_hits": 0,
+        "use_stores": 0,
+        "use_declines": 13
+      },
+      {
+        "id": "direct-builtin",
+        "outcome": "pass",
+        "exit_code": 0,
+        "readers_stopped": true,
+        "use_hits": 0,
+        "use_stores": 0,
+        "use_declines": 13
+      }
+    ]
+  },
+  "builtin_raw_sha256": {
+    "macro": "3be2f3587c8fae7a00712cde33340fe4c8b9a2e6bb1a04659c7f84c0653bf34f",
+    "std-header": "84ebb5b991d400533e981d3328cd149aa28b8ddcba4e5fde5e3c5299aff7a1cf",
+    "inactive-and-literal": "987ed2df3465410da205c328bbe03b0dffdad00725a9843d31eddc705fc364be",
+    "pasted-builtin": "0b8d8855ef0fd3a00aa1dc340def47303f757f9e71c72e7808c72c7ed8885628",
+    "direct-builtin": "6c5d28c845d00ad3087bb411caa815a6762a57684890798a29f711feeb28be42"
+  },
+  "remaining": "Full native package proofs, response-file reload, compiler deadlines/RSS admission, historical native crash qualification, final joint release gates remain open."
+}

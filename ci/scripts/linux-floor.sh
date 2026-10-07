@@ -35,6 +35,12 @@ python3 tests/e2e/module_request_inputs.py \
 python3 tests/e2e/module_dag.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-dag"
+python3 tests/e2e/module_scan_memo.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-scan-memo"
+python3 tests/e2e/module_scan_builtins.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-scan-builtins"
 python3 tests/e2e/completion_quality.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang /usr/bin/g++ --workdir "$BUILD_DIR/portable-module-quality" --unsaved-update --async-scheduling
