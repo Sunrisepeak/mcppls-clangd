@@ -41,7 +41,7 @@ jobs:
           SYMBOLS: "1"
           SCCACHE_GHA_ENABLED: "true"
           SCCACHE_IDLE_TIMEOUT: "0"
-          CMAKE_EXTRA: -DLLVM_ENABLE_PDB=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          CMAKE_EXTRA: -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
         run: ./ci/ci_build.sh
 
       - name: Verify linked PDB identity and debugger symbol lookup

@@ -30,6 +30,15 @@ case "$PLATFORM" in
     EXTRA+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
             -DLLVM_USE_CRT_RELEASE=MT -DLLVM_ENABLE_ZSTD=OFF
             -DLLVM_ENABLE_LIBXML2=OFF)
+    if [[ "${SYMBOLS:-0}" = "1" ]]; then
+      # sccache requires per-object debug information: /Zi's shared compiler
+      # PDB fails under parallel cached CL invocations even with /FS. /Z7
+      # embeds it in each object; /DEBUG still produces the linked PDB.
+      EXTRA+=(-DCMAKE_POLICY_DEFAULT_CMP0141=NEW
+              -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded
+              -DLLVM_ENABLE_PDB=OFF
+              "-DCMAKE_EXE_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF")
+    fi
     ;;
 esac
 
