@@ -211,6 +211,12 @@ def replay(engine, manifest, process_started=None):
                     raise ValueError("fixture replacement must match exactly once")
                 updated = original.replace(old, new, 1)
                 path.write_bytes(updated)
+                if step.get("preserve-mtime"):
+                    if len(updated) != len(original):
+                        raise ValueError("preserved-mtime regression requires same size")
+                    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+                    if path.stat().st_mtime_ns != stat.st_mtime_ns:
+                        raise ValueError("filesystem did not preserve exact timestamp")
                 if step.get("same-second"):
                     if len(updated) != len(original):
                         raise ValueError("same-second regression requires same size")

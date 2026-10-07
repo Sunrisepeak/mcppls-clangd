@@ -55,6 +55,9 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   CLANGD_TESTS=./tools/clang/tools/extra/clangd/unittests/ClangdTests
   [[ -x "$CLANGD_TESTS" ]] || CLANGD_TESTS+=.exe
   "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer:PrerequisiteModulesTests.Provider*:GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration:DiagnosticsTest.*'
+  if [[ "$PLATFORM" == "linux-x64" ]]; then
+    "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.PositiveScanMemo*'
+  fi
 fi
 
 if [[ -n "${PACKAGE:-}" ]]; then
