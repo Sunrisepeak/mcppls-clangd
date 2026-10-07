@@ -37,3 +37,7 @@ python3 tests/e2e/completion_quality.py \
 python3 tests/e2e/compiler_extensions.py \
   --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
   --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-compiler-extensions"
+
+python3 tests/e2e/module_directive_recovery.py \
+  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
+  --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-module-directive-recovery"

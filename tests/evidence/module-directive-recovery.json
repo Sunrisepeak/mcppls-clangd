@@ -1,0 +1,1627 @@
+{
+  "schema": 1,
+  "engine_sha256": "7cae5c5df7aed972a0d59509f8211102795f15316d7f3a7a6ab141ac3c7e5446",
+  "results": [
+    {
+      "id": "import-dot",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.9652312621474266
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": []
+          },
+          "elapsed_ms": 650.7234936580062
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-dot/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 2.3878756910562515
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-dot/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 14.780674129724503
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:01:30.023] clangd version 23.1.0-mcppls.0\nI[01:01:30.023] Features: linux\nI[01:01:30.023] PID: 3106901\nI[01:01:30.023] Working directory: /tmp/joint-import-root/recovery/import-dot\nI[01:01:30.023] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:01:30.023] argv[1]: --sync\nI[01:01:30.023] argv[2]: --background-index=false\nI[01:01:30.023] Starting LSP over stdin/stdout\nI[01:01:30.023] <-- initialize(1)\nI[01:01:30.024] --> reply:initialize(1) 0 ms\nI[01:01:30.024] <-- initialized\nI[01:01:30.024] <-- textDocument/didOpen\nI[01:01:30.024] Loaded compilation database from /tmp/joint-import-root/recovery/import-dot/compile_commands.json\nI[01:01:30.024] ASTWorker building file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/import-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-dot/Use.cpp\nI[01:01:30.027] Built preamble of size 268864 for file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 1 in 0.00 seconds\nI[01:01:30.028] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/import-dot/Use.cpp\nI[01:01:30.646] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[01:01:30.674] --> textDocument/publishDiagnostics\nI[01:01:30.674] <-- textDocument/documentSymbol(4)\nI[01:01:30.674] --> reply:textDocument/documentSymbol(4) 0 ms\nI[01:01:30.675] <-- textDocument/didChange\nI[01:01:30.675] ASTWorker building file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 2 with command \n[/tmp/joint-import-root/recovery/import-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-dot/Use.cpp\nI[01:01:30.677] --> textDocument/publishDiagnostics\nI[01:01:30.677] <-- textDocument/documentSymbol(6)\nI[01:01:30.677] --> reply:textDocument/documentSymbol(6) 0 ms\nI[01:01:30.677] <-- textDocument/didClose\nI[01:01:30.677] --> textDocument/publishDiagnostics\nI[01:01:30.677] <-- textDocument/didOpen\nI[01:01:30.677] ASTWorker building file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 3 with command \n[/tmp/joint-import-root/recovery/import-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-dot/Use.cpp\nI[01:01:30.679] Built preamble of size 268864 for file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 3 in 0.00 seconds\nI[01:01:30.692] --> textDocument/publishDiagnostics\nI[01:01:30.692] <-- textDocument/documentSymbol(9)\nI[01:01:30.692] --> reply:textDocument/documentSymbol(9) 0 ms\nI[01:01:30.692] <-- textDocument/didClose\nI[01:01:30.692] --> textDocument/publishDiagnostics\nI[01:01:30.692] <-- shutdown(11)\nI[01:01:30.692] --> reply:shutdown(11) 0 ms\nI[01:01:30.692] <-- exit\nI[01:01:30.692] LSP finished, exiting with status 0\n"
+    },
+    {
+      "id": "module-dot",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.7417464405298233
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": []
+          },
+          "elapsed_ms": 646.5701442211866
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/module-dot/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 2.4729762226343155
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/module-dot/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 15.083977952599525
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:01:34.710] clangd version 23.1.0-mcppls.0\nI[01:01:34.710] Features: linux\nI[01:01:34.710] PID: 3106935\nI[01:01:34.710] Working directory: /tmp/joint-import-root/recovery/module-dot\nI[01:01:34.710] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:01:34.710] argv[1]: --sync\nI[01:01:34.710] argv[2]: --background-index=false\nI[01:01:34.710] Starting LSP over stdin/stdout\nI[01:01:34.710] <-- initialize(1)\nI[01:01:34.710] --> reply:initialize(1) 0 ms\nI[01:01:34.710] <-- initialized\nI[01:01:34.710] <-- textDocument/didOpen\nI[01:01:34.710] Loaded compilation database from /tmp/joint-import-root/recovery/module-dot/compile_commands.json\nI[01:01:34.710] ASTWorker building file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/module-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/module-dot/Use.cpp\nI[01:01:34.714] Built preamble of size 268864 for file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 1 in 0.00 seconds\nI[01:01:34.714] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/module-dot/Use.cpp\nI[01:01:35.328] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[01:01:35.356] --> textDocument/publishDiagnostics\nI[01:01:35.356] <-- textDocument/documentSymbol(4)\nI[01:01:35.356] --> reply:textDocument/documentSymbol(4) 0 ms\nI[01:01:35.357] <-- textDocument/didChange\nI[01:01:35.357] ASTWorker building file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 2 with command \n[/tmp/joint-import-root/recovery/module-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/module-dot/Use.cpp\nI[01:01:35.359] --> textDocument/publishDiagnostics\nI[01:01:35.359] <-- textDocument/documentSymbol(6)\nI[01:01:35.359] --> reply:textDocument/documentSymbol(6) 0 ms\nI[01:01:35.359] <-- textDocument/didClose\nI[01:01:35.359] --> textDocument/publishDiagnostics\nI[01:01:35.359] <-- textDocument/didOpen\nI[01:01:35.360] ASTWorker building file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 3 with command \n[/tmp/joint-import-root/recovery/module-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/module-dot/Use.cpp\nI[01:01:35.362] Built preamble of size 268864 for file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 3 in 0.00 seconds\nI[01:01:35.374] --> textDocument/publishDiagnostics\nI[01:01:35.374] <-- textDocument/documentSymbol(9)\nI[01:01:35.374] --> reply:textDocument/documentSymbol(9) 0 ms\nI[01:01:35.374] <-- textDocument/didClose\nI[01:01:35.375] --> textDocument/publishDiagnostics\nI[01:01:35.375] <-- shutdown(11)\nI[01:01:35.375] --> reply:shutdown(11) 0 ms\nI[01:01:35.375] <-- exit\nI[01:01:35.375] LSP finished, exiting with status 0\n"
+    },
+    {
+      "id": "qualified-import",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 2.003525383770466
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": []
+          },
+          "elapsed_ms": 678.3274244517088
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/qualified-import/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 2.5038355961441994
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/qualified-import/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 14.957442879676819
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:01:39.401] clangd version 23.1.0-mcppls.0\nI[01:01:39.401] Features: linux\nI[01:01:39.401] PID: 3106956\nI[01:01:39.401] Working directory: /tmp/joint-import-root/recovery/qualified-import\nI[01:01:39.401] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:01:39.401] argv[1]: --sync\nI[01:01:39.401] argv[2]: --background-index=false\nI[01:01:39.401] Starting LSP over stdin/stdout\nI[01:01:39.401] <-- initialize(1)\nI[01:01:39.401] --> reply:initialize(1) 0 ms\nI[01:01:39.401] <-- initialized\nI[01:01:39.401] <-- textDocument/didOpen\nI[01:01:39.402] Loaded compilation database from /tmp/joint-import-root/recovery/qualified-import/compile_commands.json\nI[01:01:39.402] ASTWorker building file /tmp/joint-import-root/recovery/qualified-import/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/qualified-import]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/qualified-import/Use.cpp\nI[01:01:39.405] Built preamble of size 268880 for file /tmp/joint-import-root/recovery/qualified-import/Use.cpp version 1 in 0.00 seconds\nI[01:01:39.405] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/qualified-import/Use.cpp\nI[01:01:40.050] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[01:01:40.080] --> textDocument/publishDiagnostics\nI[01:01:40.080] <-- textDocument/documentSymbol(4)\nI[01:01:40.080] --> reply:textDocument/documentSymbol(4) 0 ms\nI[01:01:40.080] <-- textDocument/didChange\nI[01:01:40.080] ASTWorker building file /tmp/joint-import-root/recovery/qualified-import/Use.cpp version 2 with command \n[/tmp/joint-import-root/recovery/qualified-import]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/qualified-import/Use.cpp\nI[01:01:40.082] --> textDocument/publishDiagnostics\nI[01:01:40.082] <-- textDocument/documentSymbol(6)\nI[01:01:40.082] --> reply:textDocument/documentSymbol(6) 0 ms\nI[01:01:40.082] <-- textDocument/didClose\nI[01:01:40.083] --> textDocument/publishDiagnostics\nI[01:01:40.083] <-- textDocument/didOpen\nI[01:01:40.083] ASTWorker building file /tmp/joint-import-root/recovery/qualified-import/Use.cpp version 3 with command \n[/tmp/joint-import-root/recovery/qualified-import]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/qualified-import/Use.cpp\nI[01:01:40.085] Built preamble of size 268880 for file /tmp/joint-import-root/recovery/qualified-import/Use.cpp version 3 in 0.00 seconds\nI[01:01:40.097] --> textDocument/publishDiagnostics\nI[01:01:40.097] <-- textDocument/documentSymbol(9)\nI[01:01:40.097] --> reply:textDocument/documentSymbol(9) 0 ms\nI[01:01:40.097] <-- textDocument/didClose\nI[01:01:40.097] --> textDocument/publishDiagnostics\nI[01:01:40.098] <-- shutdown(11)\nI[01:01:40.098] --> reply:shutdown(11) 0 ms\nI[01:01:40.098] <-- exit\nI[01:01:40.098] LSP finished, exiting with status 0\n"
+    },
+    {
+      "id": "import-comment",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.919824630022049
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": []
+          },
+          "elapsed_ms": 676.1773563921452
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-comment/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 2.3217927664518356
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-comment/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 14.946496114134789
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:01:40.108] clangd version 23.1.0-mcppls.0\nI[01:01:40.108] Features: linux\nI[01:01:40.108] PID: 3106969\nI[01:01:40.108] Working directory: /tmp/joint-import-root/recovery/import-comment\nI[01:01:40.108] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:01:40.108] argv[1]: --sync\nI[01:01:40.108] argv[2]: --background-index=false\nI[01:01:40.108] Starting LSP over stdin/stdout\nI[01:01:40.108] <-- initialize(1)\nI[01:01:40.108] --> reply:initialize(1) 0 ms\nI[01:01:40.108] <-- initialized\nI[01:01:40.108] <-- textDocument/didOpen\nI[01:01:40.108] Loaded compilation database from /tmp/joint-import-root/recovery/import-comment/compile_commands.json\nI[01:01:40.108] ASTWorker building file /tmp/joint-import-root/recovery/import-comment/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/import-comment]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-comment/Use.cpp\nI[01:01:40.113] Built preamble of size 268876 for file /tmp/joint-import-root/recovery/import-comment/Use.cpp version 1 in 0.00 seconds\nI[01:01:40.113] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/import-comment/Use.cpp\nI[01:01:40.754] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[01:01:40.784] --> textDocument/publishDiagnostics\nI[01:01:40.784] <-- textDocument/documentSymbol(4)\nI[01:01:40.784] --> reply:textDocument/documentSymbol(4) 0 ms\nI[01:01:40.784] <-- textDocument/didChange\nI[01:01:40.784] ASTWorker building file /tmp/joint-import-root/recovery/import-comment/Use.cpp version 2 with command \n[/tmp/joint-import-root/recovery/import-comment]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-comment/Use.cpp\nI[01:01:40.786] --> textDocument/publishDiagnostics\nI[01:01:40.787] <-- textDocument/documentSymbol(6)\nI[01:01:40.787] --> reply:textDocument/documentSymbol(6) 0 ms\nI[01:01:40.787] <-- textDocument/didClose\nI[01:01:40.787] --> textDocument/publishDiagnostics\nI[01:01:40.787] <-- textDocument/didOpen\nI[01:01:40.787] ASTWorker building file /tmp/joint-import-root/recovery/import-comment/Use.cpp version 3 with command \n[/tmp/joint-import-root/recovery/import-comment]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-comment/Use.cpp\nI[01:01:40.789] Built preamble of size 268876 for file /tmp/joint-import-root/recovery/import-comment/Use.cpp version 3 in 0.00 seconds\nI[01:01:40.801] --> textDocument/publishDiagnostics\nI[01:01:40.801] <-- textDocument/documentSymbol(9)\nI[01:01:40.801] --> reply:textDocument/documentSymbol(9) 0 ms\nI[01:01:40.802] <-- textDocument/didClose\nI[01:01:40.802] --> textDocument/publishDiagnostics\nI[01:01:40.802] <-- shutdown(11)\nI[01:01:40.802] --> reply:shutdown(11) 0 ms\nI[01:01:40.802] <-- exit\nI[01:01:40.802] LSP finished, exiting with status 0\n"
+    },
+    {
+      "id": "import-next-line-semicolon",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.8607564270496368
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 23,
+                      "line": 2
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 2
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp"
+                },
+                "name": "discardedByRecovery"
+              }
+            ]
+          },
+          "elapsed_ms": 637.9640437662601
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 2.5233877822756767
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 14.865837059915066
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:01:40.812] clangd version 23.1.0-mcppls.0\nI[01:01:40.812] Features: linux\nI[01:01:40.812] PID: 3106975\nI[01:01:40.812] Working directory: /tmp/joint-import-root/recovery/import-next-line-semicolon\nI[01:01:40.812] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:01:40.812] argv[1]: --sync\nI[01:01:40.812] argv[2]: --background-index=false\nI[01:01:40.812] Starting LSP over stdin/stdout\nI[01:01:40.812] <-- initialize(1)\nI[01:01:40.812] --> reply:initialize(1) 0 ms\nI[01:01:40.812] <-- initialized\nI[01:01:40.812] <-- textDocument/didOpen\nI[01:01:40.812] Loaded compilation database from /tmp/joint-import-root/recovery/import-next-line-semicolon/compile_commands.json\nI[01:01:40.812] ASTWorker building file /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/import-next-line-semicolon]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp\nI[01:01:40.816] Built preamble of size 268912 for file /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp version 1 in 0.00 seconds\nI[01:01:40.816] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp\nI[01:01:41.422] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[01:01:41.450] --> textDocument/publishDiagnostics\nI[01:01:41.450] <-- textDocument/documentSymbol(4)\nI[01:01:41.450] --> reply:textDocument/documentSymbol(4) 0 ms\nI[01:01:41.450] <-- textDocument/didChange\nI[01:01:41.450] ASTWorker building file /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp version 2 with command \n[/tmp/joint-import-root/recovery/import-next-line-semicolon]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp\nI[01:01:41.453] --> textDocument/publishDiagnostics\nI[01:01:41.453] <-- textDocument/documentSymbol(6)\nI[01:01:41.453] --> reply:textDocument/documentSymbol(6) 0 ms\nI[01:01:41.453] <-- textDocument/didClose\nI[01:01:41.453] --> textDocument/publishDiagnostics\nI[01:01:41.453] <-- textDocument/didOpen\nI[01:01:41.453] ASTWorker building file /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp version 3 with command \n[/tmp/joint-import-root/recovery/import-next-line-semicolon]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp\nI[01:01:41.455] Built preamble of size 268912 for file /tmp/joint-import-root/recovery/import-next-line-semicolon/Use.cpp version 3 in 0.00 seconds\nI[01:01:41.468] --> textDocument/publishDiagnostics\nI[01:01:41.468] <-- textDocument/documentSymbol(9)\nI[01:01:41.468] --> reply:textDocument/documentSymbol(9) 0 ms\nI[01:01:41.468] <-- textDocument/didClose\nI[01:01:41.468] --> textDocument/publishDiagnostics\nI[01:01:41.468] <-- shutdown(11)\nI[01:01:41.468] --> reply:shutdown(11) 0 ms\nI[01:01:41.468] <-- exit\nI[01:01:41.468] LSP finished, exiting with status 0\n"
+    },
+    {
+      "id": "global-fragment-module",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.7655342817306519
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": []
+          },
+          "elapsed_ms": 638.4977111592889
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/global-fragment-module/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 14.840220101177692
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 10,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/joint-import-root/recovery/global-fragment-module/Use.cpp"
+                },
+                "name": "marker"
+              }
+            ]
+          },
+          "elapsed_ms": 14.743161387741566
+        }
+      ],
+      "exit_code": 0,
+      "stderr": "I[01:01:41.478] clangd version 23.1.0-mcppls.0\nI[01:01:41.478] Features: linux\nI[01:01:41.478] PID: 3106982\nI[01:01:41.478] Working directory: /tmp/joint-import-root/recovery/global-fragment-module\nI[01:01:41.478] argv[0]: /home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd\nI[01:01:41.478] argv[1]: --sync\nI[01:01:41.478] argv[2]: --background-index=false\nI[01:01:41.478] Starting LSP over stdin/stdout\nI[01:01:41.478] <-- initialize(1)\nI[01:01:41.478] --> reply:initialize(1) 0 ms\nI[01:01:41.478] <-- initialized\nI[01:01:41.478] <-- textDocument/didOpen\nI[01:01:41.478] Loaded compilation database from /tmp/joint-import-root/recovery/global-fragment-module/compile_commands.json\nI[01:01:41.478] ASTWorker building file /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/global-fragment-module]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp\nI[01:01:41.483] Built preamble of size 268908 for file /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp version 1 in 0.00 seconds\nI[01:01:41.484] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp\nI[01:01:42.088] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\nI[01:01:42.116] --> textDocument/publishDiagnostics\nI[01:01:42.116] <-- textDocument/documentSymbol(4)\nI[01:01:42.116] --> reply:textDocument/documentSymbol(4) 0 ms\nI[01:01:42.117] <-- textDocument/didChange\nI[01:01:42.117] ASTWorker building file /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp version 2 with command \n[/tmp/joint-import-root/recovery/global-fragment-module]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp\nI[01:01:42.119] Built preamble of size 268900 for file /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp version 2 in 0.00 seconds\nI[01:01:42.131] --> textDocument/publishDiagnostics\nI[01:01:42.131] <-- textDocument/documentSymbol(6)\nI[01:01:42.131] --> reply:textDocument/documentSymbol(6) 0 ms\nI[01:01:42.132] <-- textDocument/didClose\nI[01:01:42.132] --> textDocument/publishDiagnostics\nI[01:01:42.132] <-- textDocument/didOpen\nI[01:01:42.132] ASTWorker building file /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp version 3 with command \n[/tmp/joint-import-root/recovery/global-fragment-module]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp\nI[01:01:42.134] Built preamble of size 268900 for file /tmp/joint-import-root/recovery/global-fragment-module/Use.cpp version 3 in 0.00 seconds\nI[01:01:42.146] --> textDocument/publishDiagnostics\nI[01:01:42.146] <-- textDocument/documentSymbol(9)\nI[01:01:42.146] --> reply:textDocument/documentSymbol(9) 0 ms\nI[01:01:42.146] <-- textDocument/didClose\nI[01:01:42.147] --> textDocument/publishDiagnostics\nI[01:01:42.147] <-- shutdown(11)\nI[01:01:42.147] --> reply:shutdown(11) 0 ms\nI[01:01:42.147] <-- exit\nI[01:01:42.147] LSP finished, exiting with status 0\n"
+    }
+  ],
+  "baseline_sha256": "c917b2b3358d07c76a44e2eadf2f8ed178170830a1dcdb81fb4056df193e05d3",
+  "controls": [
+    {
+      "id": "import-dot",
+      "outcome": "timeout",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.990542747080326
+        }
+      ],
+      "exit_code": -9,
+      "stderr": "I[01:01:30.701] clangd version 23.1.0-mcppls.0\nI[01:01:30.701] Features: linux\nI[01:01:30.701] PID: 3106908\nI[01:01:30.701] Working directory: /tmp/joint-import-root/recovery/import-dot\nI[01:01:30.701] argv[0]: /tmp/joint-before-import-root-clangd\nI[01:01:30.701] argv[1]: --sync\nI[01:01:30.701] argv[2]: --background-index=false\nI[01:01:30.701] Starting LSP over stdin/stdout\nI[01:01:30.702] <-- initialize(1)\nE[01:01:30.702] Failed to auto-detect resource directory, specify it manually via --resource-dir command line argument\nI[01:01:30.702] --> reply:initialize(1) 0 ms\nI[01:01:30.702] <-- initialized\nI[01:01:30.702] <-- textDocument/didOpen\nI[01:01:30.702] Loaded compilation database from /tmp/joint-import-root/recovery/import-dot/compile_commands.json\nI[01:01:30.702] ASTWorker building file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/import-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -- /tmp/joint-import-root/recovery/import-dot/Use.cpp\nI[01:01:30.706] Built preamble of size 268864 for file /tmp/joint-import-root/recovery/import-dot/Use.cpp version 1 in 0.00 seconds\nI[01:01:30.706] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/import-dot/Use.cpp\nI[01:01:31.319] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\n"
+    },
+    {
+      "id": "module-dot",
+      "outcome": "timeout",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.4570606872439384
+        }
+      ],
+      "exit_code": -9,
+      "stderr": "I[01:01:35.384] clangd version 23.1.0-mcppls.0\nI[01:01:35.384] Features: linux\nI[01:01:35.384] PID: 3106942\nI[01:01:35.384] Working directory: /tmp/joint-import-root/recovery/module-dot\nI[01:01:35.384] argv[0]: /tmp/joint-before-import-root-clangd\nI[01:01:35.384] argv[1]: --sync\nI[01:01:35.384] argv[2]: --background-index=false\nI[01:01:35.384] Starting LSP over stdin/stdout\nI[01:01:35.384] <-- initialize(1)\nE[01:01:35.384] Failed to auto-detect resource directory, specify it manually via --resource-dir command line argument\nI[01:01:35.384] --> reply:initialize(1) 0 ms\nI[01:01:35.384] <-- initialized\nI[01:01:35.384] <-- textDocument/didOpen\nI[01:01:35.385] Loaded compilation database from /tmp/joint-import-root/recovery/module-dot/compile_commands.json\nI[01:01:35.385] ASTWorker building file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 1 with command \n[/tmp/joint-import-root/recovery/module-dot]\n/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clang-23 -std=c++20 -c -- /tmp/joint-import-root/recovery/module-dot/Use.cpp\nI[01:01:35.388] Built preamble of size 268864 for file /tmp/joint-import-root/recovery/module-dot/Use.cpp version 1 in 0.00 seconds\nI[01:01:35.389] Indexing c++20 standard library in the context of /tmp/joint-import-root/recovery/module-dot/Use.cpp\nI[01:01:35.993] Indexed c++20 standard library (incomplete due to errors): 15510 symbols, 12259 filtered\n"
+    }
+  ],
+  "limits": [
+    "No cancellation or missing-module deadlock claim."
+  ],
+  "evidence_limits": [
+    "Local Linux unstripped bytes; native Windows and final packaged bytes pending.",
+    "Syntax unit regression added but not executed; raw clangd lit passed.",
+    "Controlled fatal instrumentation identified tok::eod, then was removed; not a crash corpus sample.",
+    "No invalid-source symbol preservation, cancellation or missing-module deadlock claim."
+  ]
+}

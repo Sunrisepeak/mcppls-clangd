@@ -98,7 +98,7 @@ def replay(engine, manifest):
     threading.Thread(target=stderr, daemon=True).start()
     deadline = time.monotonic() + timeout
     rid = 0
-    result = {"id": case["id"], "outcome": "error", "responses": []}
+    result = {"id": case["id"], "outcome": "error", "responses": [], "raw_responses": []}
 
     def send(method, params=None, notify=False):
         nonlocal rid
@@ -158,6 +158,9 @@ def replay(engine, manifest):
                 raise ValueError("shutdown is managed by the replay harness")
             started = time.monotonic()
             response = send(step["method"], expand(step.get("params")), step.get("notify", False))
+            if response is not None:
+                result["raw_responses"].append({"method": step["method"], "reply": response,
+                                                "elapsed_ms": (time.monotonic()-started)*1000})
             if step.get("expected_symbols") or step.get("forbidden_symbols"):
                 items = response.get("result") or []
                 if isinstance(items, dict):

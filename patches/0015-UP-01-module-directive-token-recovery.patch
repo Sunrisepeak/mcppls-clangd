@@ -1,0 +1,96 @@
+From f63ebde69494eb403400fc7a8091d5bca1e2493e Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 10:02:35 +0900
+Subject: [PATCH] Exclude module directive delimiters from collected C++ tokens
+
+---
+ .../test/module-directive-recovery.test       | 33 +++++++++++++++++++
+ clang/lib/Tooling/Syntax/Tokens.cpp           |  5 +++
+ clang/unittests/Tooling/Syntax/TokensTest.cpp | 15 +++++++++
+ 3 files changed, 53 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/test/module-directive-recovery.test
+
+diff --git a/clang-tools-extra/clangd/test/module-directive-recovery.test b/clang-tools-extra/clangd/test/module-directive-recovery.test
+new file mode 100644
+index 000000000..a7c6590dd
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/module-directive-recovery.test
+@@ -0,0 +1,33 @@
++# A malformed directive's logical eod delimiter must not enter TokenBuffer.
++# RUN: clangd -lit-test < %s | FileCheck %s
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootUri":"test:///","capabilities":{},"initializationOptions":{"fallbackFlags":["-std=c++20"]}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///use.cpp","languageId":"cpp","version":1,"text":"import hello.\nint marker;\n"}}}
++---
++{"jsonrpc":"2.0","id":1,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///use.cpp"}}}
++# CHECK: "id": 1,
++# CHECK: "result": []
++---
++{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///use.cpp","version":2},"contentChanges":[{"text":"int marker;\n"}]}}
++---
++{"jsonrpc":"2.0","id":2,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///use.cpp"}}}
++# CHECK: "id": 2,
++# CHECK: "name": "marker"
++---
++{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"test:///use.cpp"}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///module.cppm","languageId":"cpp","version":1,"text":"export module hello.\n"}}}
++---
++{"jsonrpc":"2.0","id":3,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///module.cppm"}}}
++# CHECK: "id": 3,
++# CHECK: "result": []
++---
++{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///module.cppm","version":2},"contentChanges":[{"text":"export module hello;\nexport int marker;\n"}]}}
++---
++{"jsonrpc":"2.0","id":4,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///module.cppm"}}}
++# CHECK: "id": 4,
++# CHECK: "name": "marker"
++---
++{"jsonrpc":"2.0","id":5,"method":"shutdown","params":null}
++---
++{"jsonrpc":"2.0","method":"exit"}
+diff --git a/clang/lib/Tooling/Syntax/Tokens.cpp b/clang/lib/Tooling/Syntax/Tokens.cpp
+index 927333fda..17430a344 100644
+--- a/clang/lib/Tooling/Syntax/Tokens.cpp
++++ b/clang/lib/Tooling/Syntax/Tokens.cpp
+@@ -681,6 +681,11 @@ private:
+ TokenCollector::TokenCollector(Preprocessor &PP) : PP(PP) {
+   // Collect the expanded token stream during preprocessing.
+   PP.setTokenWatcher([this](const clang::Token &T) {
++    // Error recovery in a module directive may replay its end-of-directive
++    // delimiter to the watcher. This logical newline is not a C++ source
++    // token and has no counterpart in the raw spelled-token stream.
++    if (T.is(tok::eod))
++      return;
+     if (T.is(tok::annot_module_name)) {
+       auto &SM = this->PP.getSourceManager();
+       StringRef Text = Lexer::getSourceText(
+diff --git a/clang/unittests/Tooling/Syntax/TokensTest.cpp b/clang/unittests/Tooling/Syntax/TokensTest.cpp
+index 6418cc8f8..4123f4424 100644
+--- a/clang/unittests/Tooling/Syntax/TokensTest.cpp
++++ b/clang/unittests/Tooling/Syntax/TokensTest.cpp
+@@ -1189,6 +1189,21 @@ TEST_F(TokenCollectorTest, CXX20ModuleImportModule) {
+                           Kind(tok::semi), Kind(tok::eof)));
+ }
+ 
++TEST_F(TokenCollectorTest, CXX20MalformedModuleDirectiveHasNoEodToken) {
++  LangStandard = "-std=c++20";
++  AllowErrors = true;
++
++  for (const char *Source : {"import Non.Existent.\n",
++                             "export module Non.Existent.\n",
++                             "module Non.Existent.\n"}) {
++    recordTokens(Source);
++    EXPECT_THAT(Buffer.expandedTokens(),
++                Not(Contains(Kind(tok::eod))));
++    ASSERT_FALSE(Buffer.expandedTokens().empty());
++    EXPECT_EQ(Buffer.expandedTokens().back().kind(), tok::eof);
++  }
++}
++
+ TEST_F(TokenCollectorTest, CXX20ModuleImportPartition) {
+   LangStandard = "-std=c++20";
+   AllowErrors = true;
+-- 
+2.53.0
+

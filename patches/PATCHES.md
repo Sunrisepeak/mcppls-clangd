@@ -28,3 +28,5 @@ they live here and in patch *filenames* only.
 | 0013-UP-25-completion-refreshes-module-dependencies.patch | UP-25 | stabilizing | tests/e2e/completion_quality.py | Upstream completion validates module dependencies against the request filesystem and refreshes stale BMI views |
 
 | 0014-compiler-extension-semantic-completion.patch | FEATURE-44 | stabilizing | tests/e2e/compiler_extensions.py | Upstream offers declaration attribute introducers, cleanup function references and target/context-aware SEH without index-only keyword pollution |
+
+| 0015-UP-01-module-directive-token-recovery.patch | UP-01 | stabilizing | clang-tools-extra/clangd/test/module-directive-recovery.test; tests/e2e/module_directive_recovery.py; clang/unittests/Tooling/Syntax/TokensTest.cpp | Upstream token collection ignores logical end-of-directive tokens and raw malformed module directives recover without hanging |

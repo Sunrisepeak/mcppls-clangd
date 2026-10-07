@@ -109,6 +109,21 @@ jobs:
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-drafts" --unsaved-update --async-scheduling
 
+      - name: Malformed module directive recovery
+        shell: bash
+        run: |
+          python3 tests/e2e/module_directive_recovery.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-directive-recovery"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-directive-recovery-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-directive-recovery/results.json
+          if-no-files-found: error
+
       - name: Compiler extension semantics and actual insertion
         shell: bash
         run: |
