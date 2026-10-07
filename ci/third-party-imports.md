@@ -1,0 +1,40 @@
+# Third-party module imports keep resolvable prerequisites and the preamble
+
+`tests/e2e/third_party_import.py` covers two behaviors the qt-demo real
+project exposed through the completion stage trace (`0018`):
+
+1. A direct import whose module unit the project cannot supply — a toolchain
+   `std` whose unit source the scanner cannot resolve, or a registry wrapper
+   outside the project without a compile command — must not discard the
+   modules that did resolve. Before the fix the prerequisite builder returned
+   `FailedPrerequisiteModules` forever: `canReuse` never held, every request
+   re-ran the dependency build (the ~300 ms validation stage) and the parse
+   ran without any BMI and without the preamble (the ~850 ms semantic stage).
+   The probe asserts `dep_value` completes semantically while
+   `third_party_missing` stays textual, and that the unresolved-import log
+   count tracks the preamble-build count instead of the request count.
+2. A file whose imports are all textual never loads a named-module BMI, so
+   the upstream `SkipPreambleBuild` guard against PCH+modules mixing does not
+   apply and the file keeps its real preamble. The probe builds a fat header
+   (20k generated declarations), observes a ~12 MB preamble and a completion
+   of `fat::S3999` through it, then adds `import dep;` on disk. The verdict
+   re-derives (the cache is keyed by the file's on-disk identity plus its
+   import-name set, and compile-command changes clear it), the preamble
+   collapses to the trivial one before any BMI loads, and both `S3999` and
+   `dep_value` complete after the flip.
+
+Real project effect (qt-demo, `std::ve` in `src/main.cpp`, same probe and
+machine as the `ci/project-completion-performance.md` baseline): warm requests
+moved from ~1.0–1.3 s (and ~1.3 s before the stage split) to a ~50 ms steady
+state, with a one-time first request of ~0.4 s covering the c++23 standard
+library index and the initial verdict derivation. `cli.`/`window.` member and
+`std::string` qualified-name contexts return their expected symbols at the
+same steady state. Raw evidence: `tests/evidence/project-qt-std-completion-thirdparty.json`
+and `tests/evidence/third-party-import-reuse.json`.
+
+Limits: this is a single-machine exploratory measurement with 10 rounds and
+one process start, not the release gate. The plan's three starts, 30 rounds
+per context, full context matrix, insertion compilation and baseline
+speedup ratio on identical methodology remain required for acceptance. The
+one-time first-request cost and background AST update costs are visible in
+the raw samples and are not hidden.

@@ -1,0 +1,267 @@
+From 526c8f23e832a49da1a59a58d827544b99f05ab3 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 13:31:42 +0900
+Subject: [PATCH] fix(clangd): third-party imports keep resolvable modules and
+ the preamble
+
+A direct import whose module unit the project cannot supply (a toolchain
+std seen through a foreign compiler profile, or a registry wrapper with
+no compile command) used to discard every already-built module and return
+FailedPrerequisiteModules forever. Every request then re-ran the
+dependency build and parsed without a preamble, which dominated real
+project completion latency.
+
+Such imports now stay textual while resolved units keep their BMIs and
+the prerequisite set stays reusable. Files whose imports are all textual
+never load a named-module BMI, so their parse keeps its preamble: the
+PCH+modules mixing upstream guards against cannot arise. The skip verdict
+is cached per on-disk file identity and import-name set and dies with any
+compile-command change, so a module becoming buildable re-derives it
+before a real PCH can be combined with a loaded BMI.
+---
+ clang-tools-extra/clangd/ClangdServer.cpp   |  16 +--
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 127 +++++++++++++++++++-
+ clang-tools-extra/clangd/ModulesBuilder.h   |   6 +
+ 3 files changed, 139 insertions(+), 10 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index 67a360cd1..c7326f417 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -1197,11 +1197,13 @@ void ClangdServer::profile(MemoryTree &MT) const {
+ }
+ 
+ void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+-  // FIXME: Don't perform optimization when the TU requires C++20
+-  // named modules. Mixing PCH and modules may cause different issues (incorrect
+-  // diagnostics, crashes) due to instability of such scenario support in the
+-  // clang.
+-  auto HasRequiredModules = [this, File]() {
++  // FIXME (upstream): don't skip the preamble when the TU requires C++20
++  // named modules. Mixing PCH and *loaded module files* may cause different
++  // issues (incorrect diagnostics, crashes) due to instability of such
++  // scenario support in clang. A TU whose imports are all third-party never
++  // loads a named-module BMI, so its parse is a plain textual one and the
++  // preamble stays safe there.
++  auto NeedsPreambleSkip = [this, File]() {
+     if (!ModulesManager)
+       return false;
+     // Required modules check uses compile commands extracted from the
+@@ -1210,9 +1212,9 @@ void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+     // command adjustments from the config.
+     WithContext Ctx(ContextProvider ? ContextProvider(File)
+                                     : Context::current().clone());
+-    return ModulesManager->hasRequiredModules(File);
++    return ModulesManager->hasBuildableRequiredModules(File);
+   };
+-  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || HasRequiredModules();
++  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || NeedsPreambleSkip();
+ }
+ 
+ } // namespace clangd
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index edb0aef48..20b84bb5c 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -389,6 +389,26 @@ public:
+   llvm::StringSet<> getRequiredModuleNames() const override { return {}; }
+ };
+ 
++/// Identifies a module whose unit source the project cannot supply, e.g. a
++/// toolchain std module seen through a foreign compiler profile. Its import
++/// stays textual instead of poisoning the whole prerequisite set.
++class ModuleUnitNotFound : public llvm::ErrorInfo<ModuleUnitNotFound> {
++public:
++  static char ID;
++  std::string ModuleName;
++  std::string Reason;
++  ModuleUnitNotFound(std::string Name, std::string Why)
++      : ModuleName(std::move(Name)), Reason(std::move(Why)) {}
++  void log(llvm::raw_ostream &OS) const override {
++    OS << "Don't get the module unit for module " << ModuleName << ": "
++       << Reason;
++  }
++  std::error_code convertToErrorCode() const override {
++    return llvm::inconvertibleErrorCode();
++  }
++};
++char ModuleUnitNotFound::ID = 0;
++
+ /// Represents a reference to a module file (*.pcm).
+ class ModuleFile {
+ protected:
+@@ -1219,13 +1239,74 @@ void garbageCollectModuleCache(PathRef CacheRoot) {
+ 
+ class ModulesBuilder::ModulesBuilderImpl {
+ public:
+-  ModulesBuilderImpl(const GlobalCompilationDatabase &CDB) : Cache(CDB) {}
++  ModulesBuilderImpl(const GlobalCompilationDatabase &CDB) : Cache(CDB) {
++    // A compile-command change is what can turn a textual third-party import
++    // into a buildable module unit (or the reverse), so the per-file
++    // preamble-safety verdicts die with it.
++    CommandWatcher = getCDB().watch(
++        [this](const std::vector<std::string> &) {
++          std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++          BuildableRequiredModulesVerdicts.clear();
++        });
++  }
+ 
+   ModuleNameToSourceCache &getProjectModulesCache() {
+     return ProjectModulesCache;
+   }
+   const GlobalCompilationDatabase &getCDB() const { return Cache.getCDB(); }
+ 
++  /// Whether any directly imported module of \p File can produce a BMI here.
++  /// The verdict is cached per (file, import-name set): the name resolution
++  /// runs a global project scan whose failure paths dominate real projects
++  /// with toolchain modules, and a changed import list must re-derive the
++  /// verdict before any preamble is attached while BMIs load.
++  bool hasBuildableRequiredModulesCached(PathRef File) {
++    // The verdict depends on the file's imports and the project's compile
++    // commands. Keying the cache by the file's precise on-disk identity
++    // keeps keystrokes (draft edits never touch the disk file) at one stat,
++    // while a saved edit or a command change forces a full re-derivation.
++    auto Disk = ModuleValidationCache::identityOf(File);
++    {
++      std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++      auto It = BuildableRequiredModulesVerdicts.find(File);
++      if (It != BuildableRequiredModulesVerdicts.end() &&
++          It->second.DiskIdentity == Disk)
++        return It->second.Verdict;
++    }
++    auto MDB = getCDB().getProjectModules(File);
++    if (!MDB) {
++      std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++      BuildableRequiredModulesVerdicts.insert_or_assign(
++          File, FileBuildability{Disk, {}, false});
++      return false;
++    }
++    CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
++    std::vector<std::string> Names = CachedMDB.getRequiredModules(File);
++    llvm::sort(Names);
++    bool Verdict = false;
++    // Mirrors the third-party bail-outs in getOrBuildModuleFile so the
++    // two never disagree about which imports stay textual.
++    for (llvm::StringRef ModuleName : Names) {
++      std::string UnitFileName =
++          CachedMDB.getSourceForModuleName(ModuleName, File);
++      if (UnitFileName.empty())
++        continue;
++      if (getCDB().getCompileCommand(UnitFileName)) {
++        Verdict = true;
++        break;
++      }
++      auto PI = getCDB().getProjectInfo(UnitFileName);
++      if (PI && !PI->SourceRoot.empty()) {
++        Verdict = true;
++        break;
++      }
++    }
++    std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++    BuildableRequiredModulesVerdicts.insert_or_assign(
++        File, FileBuildability{Disk, std::move(Names), Verdict});
++    return Verdict;
++  }
++
+   llvm::Error
+   getOrBuildModuleFile(PathRef RequiredSource, StringRef ModuleName,
+                        const ThreadsafeFS &TFS, CachingProjectModules &MDB,
+@@ -1244,6 +1325,14 @@ private:
+   ModuleNameToSourceCache ProjectModulesCache;
+   std::mutex GarbageCollectedProjectRootsMutex;
+   llvm::StringSet<> GarbageCollectedProjectRoots;
++  struct FileBuildability {
++    std::optional<ModuleValidationCache::FileIdentity> DiskIdentity;
++    std::vector<std::string> ImportNames;
++    bool Verdict = false;
++  };
++  std::mutex BuildableVerdictsMutex;
++  llvm::StringMap<FileBuildability> BuildableRequiredModulesVerdicts;
++  GlobalCompilationDatabase::CommandChanged::Subscription CommandWatcher;
+ };
+ 
+ void ModulesBuilder::ModulesBuilderImpl::
+@@ -1330,8 +1419,18 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
+   /// third party modules, we should return true instead of false here.
+   /// Currently we simply bail out.
+   if (ModuleUnitFileName.empty())
+-    return llvm::createStringError(
+-        llvm::formatv("Don't get the module unit for module {0}", ModuleName));
++    return llvm::make_error<ModuleUnitNotFound>(
++        ModuleName.str(), "no unit source in this project");
++  // A unit whose source exists but has no compile command and lies outside
++  // the project (e.g. a registry-generated wrapper) is third-party: this
++  // project cannot produce its BMI. Detect it before scanning the unit's
++  // dependency closure, which is expensive for large generated units.
++  if (!getCDB().getCompileCommand(ModuleUnitFileName)) {
++    auto PI = getCDB().getProjectInfo(ModuleUnitFileName);
++    if (!PI || PI->SourceRoot.empty())
++      return llvm::make_error<ModuleUnitNotFound>(
++          ModuleName.str(), "no compile command for " + ModuleUnitFileName);
++  }
+ 
+   /// Try to get prebuilt module files from the compilation database first. This
+   /// helps to avoid building the module files that are already built by the
+@@ -1350,6 +1449,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
+ 
+     std::string ReqFileName =
+         MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
++    if (ReqFileName.empty())
++      return llvm::make_error<ModuleUnitNotFound>(
++          ReqModuleName.str(), "no unit source in this project");
+     auto Cmd = getCDB().getCompileCommand(ReqFileName);
+     if (!Cmd)
+       return llvm::createStringError(
+@@ -1443,6 +1545,10 @@ bool ModulesBuilder::hasRequiredModules(PathRef File) {
+   return !CachedMDB.getRequiredModules(File).empty();
+ }
+ 
++bool ModulesBuilder::hasBuildableRequiredModules(PathRef File) {
++  return Impl->hasBuildableRequiredModulesCached(File);
++}
++
+ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
+   if (!MDB)
+@@ -1475,6 +1581,21 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+     // Return early if there is any error.
+     if (llvm::Error Err = Impl->getOrBuildModuleFile(
+             File, RequiredModuleName, TFS, CachedMDB, *RequiredModules.get())) {
++      // A module with no unit source in the project is third-party: its
++      // import stays textual, while the units that did resolve keep their
++      // BMIs and the prerequisite set stays reusable across requests. The
++      // direct-name set still records it, so a later unit appearing for it
++      // (or new imports) invalidates the reuse through the normal path.
++      bool ThirdParty = false;
++      Err = llvm::handleErrors(
++          std::move(Err), [&](const ModuleUnitNotFound &NotFound) {
++            ThirdParty = true;
++            elog("Keeping import of third-party module {0} textual; no module "
++                 "unit for it in this project",
++                 NotFound.ModuleName);
++          });
++      if (ThirdParty)
++        continue;
+       elog("Failed to build module {0}; due to {1}", RequiredModuleName,
+            toString(std::move(Err)));
+       return std::make_unique<FailedPrerequisiteModules>();
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
+index f44226c2b..9bc448b40 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.h
++++ b/clang-tools-extra/clangd/ModulesBuilder.h
+@@ -118,6 +118,12 @@ public:
+ 
+   bool hasRequiredModules(PathRef File);
+ 
++  /// Whether any directly imported module of \p File can actually produce a
++  /// BMI in this project. Files whose imports are all third-party (no unit
++  /// source, or a source outside the project without a compile command)
++  /// never load named-module BMIs, so their parse may safely keep a preamble.
++  bool hasBuildableRequiredModules(PathRef File);
++
+   /// Returns the list of directly required module names
+   std::vector<std::string> getRequiredModuleNames(PathRef File);
+ 
+-- 
+2.43.0
+
