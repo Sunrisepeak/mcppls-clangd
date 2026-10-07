@@ -85,5 +85,84 @@
     "pasted-builtin": "0b8d8855ef0fd3a00aa1dc340def47303f757f9e71c72e7808c72c7ed8885628",
     "direct-builtin": "6c5d28c845d00ad3087bb411caa815a6762a57684890798a29f711feeb28be42"
   },
-  "remaining": "Full native package proofs, response-file reload, compiler deadlines/RSS admission, historical native crash qualification, final joint release gates remain open."
+  "remaining": "Full native package proofs, response-file reload, compiler deadlines/RSS admission, historical native crash qualification, final joint release gates remain open.",
+  "stripped_development_package": {
+    "identity": {
+      "engine-version": "23.1.0-mcppls.0",
+      "llvm-base-version": "23.1.0",
+      "llvm-commit": "ea7d852a70e8bdfaf601d6626a760f9771b2c4b4",
+      "fork-commit": "b396def06b8289997ade72b2d389effb488dafbd",
+      "patch-series-sha256": "eaa997cb34371b2d1ed3b3f0b20171d678a5bdad7037e5da8de923a4d61f085e",
+      "platform": "linux-x64",
+      "sha256": "44f4e08d2ad66bc9cb28ad35c64a8d9bd322cac04b62e842cb83bacbbdaf3144",
+      "features": [
+        "semantic-tokens-range",
+        "format-style-mcpp",
+        "module-directive-diagnostic-ranges"
+      ],
+      "build-binary-sha256": "d693f0de3235cd34761ecadd43390d5bf2b2d275634c1ba4ac93cf9724b235fd",
+      "cmake-cache-sha256": "a4363c5921cb6f6e27f951e42b17b397bda76beef25e384d951dd644cb07d124"
+    },
+    "memo": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "memo_hits": 79,
+      "memo_invalidations": 5,
+      "main_contents_unchanged": true
+    },
+    "builtins": {
+      "ok": true,
+      "scope": "Warm scans only: documentSymbol waits for AST before completion. No cold completion, native registry, deadline or RSS claim.",
+      "results": [
+        {
+          "id": "macro",
+          "outcome": "pass",
+          "exit_code": 0,
+          "readers_stopped": true,
+          "use_hits": 12,
+          "use_stores": 1,
+          "use_declines": 0
+        },
+        {
+          "id": "std-header",
+          "outcome": "pass",
+          "exit_code": 0,
+          "readers_stopped": true,
+          "use_hits": 12,
+          "use_stores": 1,
+          "use_declines": 0
+        },
+        {
+          "id": "inactive-and-literal",
+          "outcome": "pass",
+          "exit_code": 0,
+          "readers_stopped": true,
+          "use_hits": 12,
+          "use_stores": 1,
+          "use_declines": 0
+        },
+        {
+          "id": "pasted-builtin",
+          "outcome": "pass",
+          "exit_code": 0,
+          "readers_stopped": true,
+          "use_hits": 0,
+          "use_stores": 0,
+          "use_declines": 13
+        },
+        {
+          "id": "direct-builtin",
+          "outcome": "pass",
+          "exit_code": 0,
+          "readers_stopped": true,
+          "use_hits": 0,
+          "use_stores": 0,
+          "use_declines": 13
+        }
+      ]
+    },
+    "capability_canaries": "package_identity.py executed semantic-range, formatting and raw module-directive canaries against these final stripped bytes",
+    "scope": "Development packaging only. Not the final distinct release version, Ubuntu20 floor build or native editor proof."
+  }
 }
