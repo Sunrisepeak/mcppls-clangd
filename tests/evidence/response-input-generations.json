@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "source": {
+    "patch_count": 33,
+    "source_commit": "668ad08cc77c1a946a75e217829941d1603ce712",
+    "patch_paths_compared": 63,
+    "overlay_paths_compared": 3,
+    "mismatches": [],
+    "scope": "Independent ordered application of 33 patches to all touched pinned-source paths, plus three repository overlays; not a full release build."
+  },
+  "patch_series_sha256": "7a2e833744ccad622937f95fd0f16b3abe93b70ae545d870a3c84e55892dd2fd",
+  "engine_sha256": "b07ba3f38094924e37c93f1d5aafc3c4540246411c189d60a0e32112d2d10864",
+  "scope": "Incremental Linux development link, not a final package or native acceptance.",
+  "integrated_units": {
+    "passed": 77,
+    "elapsed_ms": 2328,
+    "log_sha256": "f7569f802f18d72b5500dd9d826728ed05655a530ed9f4b744e94dab450e2626"
+  },
+  "raw_regression": {
+    "candidate": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "cdb_unchanged": true,
+      "disk_importer_unchanged": true,
+      "engine_sha256": "b07ba3f38094924e37c93f1d5aafc3c4540246411c189d60a0e32112d2d10864",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "fn_m"
+          ],
+          "elapsed_ms": 10.446089996548835,
+          "completion_items": {
+            "fn_m": [
+              {
+                "detail": "int",
+                "filterText": "fn_m",
+                "insertText": "fn_m",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fn_m()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efn_m",
+                "textEdit": {
+                  "newText": "fn_m",
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 15,
+                      "line": 5
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "fn_n"
+          ],
+          "elapsed_ms": 8.318075000715908,
+          "completion_items": {
+            "fn_n": [
+              {
+                "detail": "int",
+                "filterText": "fn_n",
+                "insertText": "fn_n",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fn_n()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efn_n",
+                "textEdit": {
+                  "newText": "fn_n",
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 15,
+                      "line": 5
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "baseline": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "cdb_unchanged": true,
+      "disk_importer_unchanged": true,
+      "engine_sha256": "44f4e08d2ad66bc9cb28ad35c64a8d9bd322cac04b62e842cb83bacbbdaf3144",
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "fn_m"
+          ],
+          "elapsed_ms": 6.542184004501905,
+          "completion_items": {
+            "fn_m": [
+              {
+                "detail": "int",
+                "filterText": "fn_m",
+                "insertText": "fn_m",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fn_m()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efn_m",
+                "textEdit": {
+                  "newText": "fn_m",
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 15,
+                      "line": 5
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "fn_n"
+          ],
+          "elapsed_ms": 10.649386000295635,
+          "completion_items": {
+            "fn_n": [
+              {
+                "detail": "int",
+                "filterText": "fn_n",
+                "insertText": "fn_n",
+                "insertTextFormat": 1,
+                "kind": 3,
+                "label": " fn_n()",
+                "score": 0.8084393739700317,
+                "sortText": "40b10a1efn_n",
+                "textEdit": {
+                  "newText": "fn_n",
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 15,
+                      "line": 5
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "attribution": "Both binaries pass this real M\u2192N response-edit regression. It does not prove the earlier provider-generation defect."
+  },
+  "matched_mockfs_baseline_attribution": "Same final focused test object with original GCD fails at the initial -DOLD checks because the original response loader uses real FS rather than supplied MockFS; later provider and race assertions are not reached.",
+  "limitations": "Forced full inventory validation is O(R) exact reads. Unique response bytes and per-source references are not a hard memory ceiling. Conservative @response positive-scan admission remains declined. Worker isolation and final release gates stay open."
+}

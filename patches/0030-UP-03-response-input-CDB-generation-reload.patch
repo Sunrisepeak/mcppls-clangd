@@ -1,0 +1,570 @@
+From 668ad08cc77c1a946a75e217829941d1603ce712 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:01:14 +0900
+Subject: [PATCH] clangd: reload immutable CDB generations when response inputs
+ change
+
+---
+ .../clangd/GlobalCompilationDatabase.cpp      | 137 ++++++++++----
+ .../clangd/ResponseFileSnapshot.h             | 170 ++++++++++++++++++
+ .../GlobalCompilationDatabaseTests.cpp        | 113 +++++++++++-
+ 3 files changed, 373 insertions(+), 47 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ResponseFileSnapshot.h
+
+diff --git a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
+index 38749e642..d87bbcadc 100644
+--- a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
++++ b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
+@@ -10,6 +10,7 @@
+ #include "Config.h"
+ #include "FS.h"
+ #include "ProjectModules.h"
++#include "ResponseFileSnapshot.h"
+ #include "SourceCode.h"
+ #include "support/Logger.h"
+ #include "support/Path.h"
+@@ -25,6 +26,7 @@
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringMap.h"
++#include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include "llvm/TargetParser/Host.h"
+@@ -134,6 +136,8 @@ class DirectoryBasedGlobalCompilationDatabase::DirectoryCache {
+   std::shared_ptr<tooling::CompilationDatabase> CDB;
+   // Unknown/plugin/pre-expanded response inputs cannot admit shared scans.
+   bool ScanInputsKnown = false;
++  llvm::IntrusiveRefCntPtr<ResponseFileSnapshot> Responses;
++  std::string ResponseDatabaseData;
+   // The retained CDB pointer is the generation token, never an unowned address.
+   std::shared_ptr<const tooling::CompilationDatabase> ModuleCommandsCDB;
+   std::shared_ptr<ProjectModulesCommandCache> ModuleCommands;
+@@ -169,7 +173,8 @@ public:
+   // CDB as needing broadcast, and broadcast it next time we can).
+   std::shared_ptr<const tooling::CompilationDatabase>
+   get(const ThreadsafeFS &TFS, bool &ShouldBroadcast,
+-      stopwatch::time_point FreshTime, stopwatch::time_point FreshTimeMissing) {
++      stopwatch::time_point FreshTime, stopwatch::time_point FreshTimeMissing,
++      PathRef QueryFile = {}, bool FullResponses = false) {
+     // Fast path for common case without taking lock.
+     if (stopwatch::time_point(stopwatch::duration(NoCDBAt.load())) >
+         FreshTimeMissing) {
+@@ -191,11 +196,23 @@ public:
+       NeedsBroadcast = false;
+     });
+ 
+-    // If our cache is valid, serve from it.
+-    if (CachePopulatedAt > FreshTime)
++    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS;
++    bool ResponseChanged = false;
++    if (Responses && !QueryFile.empty()) {
++      FS = TFS.view(/*CWD=*/std::nullopt);
++      ResponseChanged = !Responses->matches(
++          *FS, FullResponses || CachePopulatedAt <= FreshTime
++                   ? PathRef{}
++                   : removeDots(QueryFile));
++    }
++    // Broadcast ownership probes don't validate response inputs. A fresh module
++    // inventory validates the distinct complete set once, before provider
++    // walks.
++    if (!ResponseChanged && CachePopulatedAt > FreshTime)
+       return CDB;
+-
+-    if (/*MayCache=*/load(*TFS.view(/*CWD=*/std::nullopt))) {
++    if (!FS)
++      FS = TFS.view(/*CWD=*/std::nullopt);
++    if (/*MayCache=*/load(*FS, ResponseChanged)) {
+       // Use new timestamp, as loading may be slow.
+       CachePopulatedAt = stopwatch::now();
+       NoCDBAt.store((CDB ? stopwatch::time_point::min() : CachePopulatedAt)
+@@ -219,7 +236,7 @@ public:
+ 
+ private:
+   // Updates `CDB` from disk state. Returns false on failure.
+-  bool load(llvm::vfs::FileSystem &FS);
++  bool load(llvm::vfs::FileSystem &FS, bool ResponseChanged);
+ };
+ 
+ DirectoryBasedGlobalCompilationDatabase::DirectoryCache::CachedFile::LoadResult
+@@ -264,28 +281,49 @@ DirectoryBasedGlobalCompilationDatabase::DirectoryCache::CachedFile::load(
+ // Adapt CDB-loading functions to a common interface for DirectoryCache::load().
+ static std::unique_ptr<tooling::CompilationDatabase>
+ parseJSON(PathRef Path, llvm::StringRef Data, std::string &Error,
+-          bool &ScanInputsKnown) {
++          bool &ScanInputsKnown, llvm::vfs::FileSystem &FS,
++          llvm::IntrusiveRefCntPtr<ResponseFileSnapshot> &Responses,
++          bool &Unstable) {
+   ScanInputsKnown = false;
+-  if (auto CDB = tooling::JSONCompilationDatabase::loadFromBuffer(
+-          Data, Error, tooling::JSONCommandLineSyntax::AutoDetect)) {
+-    // Capture provenance BEFORE expansion/inference erases response tokens.
+-    ScanInputsKnown = true;
+-    for (const auto &Command : CDB->getAllCompileCommands())
+-      for (const auto &Arg : Command.CommandLine)
+-        if (llvm::StringRef(Arg).starts_with("@"))
+-          ScanInputsKnown = false;
+-    // FS used for expanding response files.
+-    // FIXME: ExpandResponseFilesDatabase appears not to provide the usual
+-    // thread-safety guarantees, as the access to FS is not locked!
+-    // For now, use the real FS, which is known to be threadsafe (if we don't
+-    // use/change working directory, which ExpandResponseFilesDatabase doesn't).
+-    // NOTE: response files have to be expanded before inference because
+-    // inference needs full command line to check/fix driver mode and file type.
+-    auto FS = llvm::vfs::getRealFileSystem();
+-    return tooling::inferMissingCompileCommands(
+-        expandResponseFiles(std::move(CDB), std::move(FS)));
++  Responses.reset();
++  auto CDB = tooling::JSONCompilationDatabase::loadFromBuffer(
++      Data, Error, tooling::JSONCommandLineSyntax::AutoDetect);
++  if (!CDB)
++    return nullptr;
++  auto Commands = CDB->getAllCompileCommands();
++  ScanInputsKnown = true;
++  for (const auto &Command : Commands)
++    for (const auto &Arg : Command.CommandLine)
++      if (llvm::StringRef(Arg).starts_with("@"))
++        ScanInputsKnown = false;
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> ExpansionFS(&FS);
++  if (!ScanInputsKnown) {
++    Responses = new ResponseFileSnapshot(ExpansionFS);
++    auto Tokenizer = llvm::Triple(llvm::sys::getProcessTriple()).isOSWindows()
++                         ? llvm::cl::TokenizeWindowsCommandLine
++                         : llvm::cl::TokenizeGNUCommandLine;
++    for (auto &Command : Commands) {
++      llvm::SmallString<256> Source(Command.Directory);
++      if (llvm::sys::path::is_absolute(Command.Filename))
++        Source = Command.Filename;
++      else
++        llvm::sys::path::append(Source, Command.Filename);
++      Responses->beginCommand(removeDots(Source));
++      tooling::addExpandedResponseFiles(Command.CommandLine, Command.Directory,
++                                        Tokenizer, *Responses);
++      Responses->endCommand();
++    }
++    Responses->freeze();
++    if (!Responses->matches(FS)) {
++      Unstable = true;
++      return nullptr;
++    }
++    ExpansionFS = Responses;
+   }
+-  return nullptr;
++  // Inference must see expanded commands. Expansion uses immutable response
++  // bytes for this generation, including nested and failed lookup observations.
++  return tooling::inferMissingCompileCommands(
++      expandResponseFiles(std::move(CDB), std::move(ExpansionFS)));
+ }
+ static std::unique_ptr<tooling::CompilationDatabase>
+ parseFixed(PathRef Path, llvm::StringRef Data, std::string &Error,
+@@ -296,7 +334,7 @@ parseFixed(PathRef Path, llvm::StringRef Data, std::string &Error,
+ }
+ 
+ bool DirectoryBasedGlobalCompilationDatabase::DirectoryCache::load(
+-    llvm::vfs::FileSystem &FS) {
++    llvm::vfs::FileSystem &FS, bool ResponseChanged) {
+   dlog("Probing directory {0}", Path);
+   std::string Error;
+ 
+@@ -307,14 +345,11 @@ bool DirectoryBasedGlobalCompilationDatabase::DirectoryCache::load(
+   struct CDBFile {
+     CachedFile *File;
+     // Wrapper for {Fixed,JSON}CompilationDatabase::loadFromBuffer.
+-    std::unique_ptr<tooling::CompilationDatabase> (*Parser)(
+-        PathRef,
+-        /*Data*/ llvm::StringRef,
+-        /*ErrorMsg*/ std::string &, bool &ScanInputsKnown);
++    bool JSON;
+   };
+-  for (const auto &Entry : {CDBFile{&CompileCommandsJson, parseJSON},
+-                            CDBFile{&BuildCompileCommandsJson, parseJSON},
+-                            CDBFile{&CompileFlagsTxt, parseFixed}}) {
++  for (const auto &Entry : {CDBFile{&CompileCommandsJson, true},
++                            CDBFile{&BuildCompileCommandsJson, true},
++                            CDBFile{&CompileFlagsTxt, false}}) {
+     bool Active = ActiveCachedFile == Entry.File;
+     auto Loaded = Entry.File->load(FS, Active);
+     switch (Loaded.Result) {
+@@ -323,6 +358,8 @@ bool DirectoryBasedGlobalCompilationDatabase::DirectoryCache::load(
+         log("Unloaded compilation database from {0}", Entry.File->Path);
+         ActiveCachedFile = nullptr;
+         CDB = nullptr;
++        Responses.reset();
++        ResponseDatabaseData.clear();
+       }
+       // Continue looking at other candidates.
+       break;
+@@ -331,12 +368,33 @@ bool DirectoryBasedGlobalCompilationDatabase::DirectoryCache::load(
+       return false; // Load again next time.
+     case CachedFile::LoadResult::FoundSameData:
+       assert(Active && "CachedFile may not return 'same data' if !HasOldData");
+-      // This is the critical file, and it hasn't changed.
+-      return true;
++      if (!ResponseChanged || !Responses)
++        return true;
++      Loaded.Buffer =
++          llvm::MemoryBuffer::getMemBufferCopy(ResponseDatabaseData);
++      [[fallthrough]];
+     case CachedFile::LoadResult::FoundNewData:
+       // We have a new CDB!
+-      CDB = Entry.Parser(Entry.File->Path, Loaded.Buffer->getBuffer(), Error,
+-                         ScanInputsKnown);
++      {
++        bool Known = false, Unstable = false;
++        llvm::IntrusiveRefCntPtr<ResponseFileSnapshot> NewResponses;
++        auto NewCDB =
++            Entry.JSON ? parseJSON(Entry.File->Path, Loaded.Buffer->getBuffer(),
++                                   Error, Known, FS, NewResponses, Unstable)
++                       : parseFixed(Entry.File->Path,
++                                    Loaded.Buffer->getBuffer(), Error, Known);
++        if (Unstable) {
++          // CachedFile already consumed the new JSON metadata. Force its next
++          // read so an interrupted publication cannot lose newly loaded JSON.
++          Entry.File->Size = CachedFile::NoFileCached;
++          return false;
++        }
++        CDB = std::move(NewCDB);
++        ScanInputsKnown = Known;
++        Responses = std::move(NewResponses);
++        ResponseDatabaseData =
++            Responses ? Loaded.Buffer->getBuffer().str() : std::string();
++      }
+       if (CDB)
+         log("{0} compilation database from {1}", Active ? "Reloaded" : "Loaded",
+             Entry.File->Path);
+@@ -471,7 +529,8 @@ DirectoryBasedGlobalCompilationDatabase::lookupCDB(
+   for (DirectoryCache *Candidate : getDirectoryCaches(SearchDirs)) {
+     bool CandidateShouldBroadcast = Request.ShouldBroadcast;
+     if ((CDB = Candidate->get(Opts.TFS, CandidateShouldBroadcast,
+-                              Request.FreshTime, Request.FreshTimeMissing))) {
++                              Request.FreshTime, Request.FreshTimeMissing,
++                              Request.FileName, Request.WantModuleCommands))) {
+       DirCache = Candidate;
+       ShouldBroadcast = CandidateShouldBroadcast;
+       break;
+diff --git a/clang-tools-extra/clangd/ResponseFileSnapshot.h b/clang-tools-extra/clangd/ResponseFileSnapshot.h
+new file mode 100644
+index 000000000..b25e9f9fd
+--- /dev/null
++++ b/clang-tools-extra/clangd/ResponseFileSnapshot.h
+@@ -0,0 +1,170 @@
++//===--- ResponseFileSnapshot.h ----------------------------------*- C++
++//-*-===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_RESPONSEFILESNAPSHOT_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_RESPONSEFILESNAPSHOT_H
++
++#include "llvm/ADT/StringMap.h"
++#include "llvm/ADT/StringSet.h"
++#include "llvm/Support/VirtualFileSystem.h"
++#include <map>
++#include <optional>
++
++namespace clang::clangd {
++// A generation owns response bytes, including negative observations. Discovery
++// uses the first observation of each spelling; publication revalidates them
++// all. After freeze this filesystem never accesses the underlying filesystem.
++class ResponseFileSnapshot : public llvm::vfs::FileSystem {
++  struct Input {
++    std::optional<llvm::vfs::Status> Stat;
++    std::error_code StatError, ReadError;
++    std::string Bytes;
++    bool Read = false;
++  };
++  llvm::StringMap<Input> Inputs;
++  llvm::StringMap<llvm::StringSet<>> Groups;
++  llvm::StringSet<> *Group = nullptr;
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> Base;
++  llvm::ErrorOr<std::string> CWD;
++  bool Frozen = false;
++
++  Input *observe(const llvm::Twine &Name) {
++    auto Path = Name.str();
++    if (Group)
++      Group->insert(Path);
++    auto It = Inputs.find(Path);
++    if (It != Inputs.end())
++      return &It->second;
++    if (Frozen)
++      return nullptr;
++    auto &I = Inputs[Path];
++    auto S = Base->status(Path);
++    if (S)
++      I.Stat = *S;
++    else
++      I.StatError = S.getError();
++    return &I;
++  }
++  class File : public llvm::vfs::File {
++    Input &I;
++
++  public:
++    explicit File(Input &I) : I(I) {}
++    llvm::ErrorOr<llvm::vfs::Status> status() override {
++      if (I.Stat)
++        return *I.Stat;
++      return I.StatError;
++    }
++    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>>
++    getBuffer(const llvm::Twine &Name, int64_t, bool, bool) override {
++      if (I.ReadError)
++        return I.ReadError;
++      return llvm::MemoryBuffer::getMemBufferCopy(I.Bytes, Name.str());
++    }
++    std::error_code close() override { return {}; }
++  };
++
++public:
++  explicit ResponseFileSnapshot(
++      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS)
++      : Base(std::move(FS)), CWD(Base->getCurrentWorkingDirectory()) {}
++  void beginCommand(llvm::StringRef Filename) { Group = &Groups[Filename]; }
++  void endCommand() { Group = nullptr; }
++  void freeze() {
++    Frozen = true;
++    Base.reset();
++  }
++  llvm::ErrorOr<llvm::vfs::Status> status(const llvm::Twine &Path) override {
++    auto *I = observe(Path);
++    if (!I)
++      return std::make_error_code(std::errc::no_such_file_or_directory);
++    if (I->Stat)
++      return *I->Stat;
++    return I->StatError;
++  }
++  llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
++  openFileForRead(const llvm::Twine &Path) override {
++    auto *I = observe(Path);
++    if (!I)
++      return std::make_error_code(std::errc::no_such_file_or_directory);
++    if (!I->Read) {
++      if (Frozen)
++        return std::make_error_code(std::errc::operation_not_permitted);
++      I->Read = true;
++      auto B = Base->getBufferForFile(Path, -1, true, true);
++      if (B)
++        I->Bytes = (*B)->getBuffer().str();
++      else
++        I->ReadError = B.getError();
++    }
++    if (I->ReadError)
++      return I->ReadError;
++    return std::unique_ptr<llvm::vfs::File>(new File(*I));
++  }
++  llvm::vfs::directory_iterator dir_begin(const llvm::Twine &,
++                                          std::error_code &EC) override {
++    EC = std::make_error_code(std::errc::operation_not_permitted);
++    return {};
++  }
++  std::error_code setCurrentWorkingDirectory(const llvm::Twine &) override {
++    return std::make_error_code(std::errc::operation_not_permitted);
++  }
++  llvm::ErrorOr<std::string> getCurrentWorkingDirectory() const override {
++    return CWD;
++  }
++  // An unknown/inferred source needs the whole set. UID equality also preserves
++  // response recursion detection. Exact bytes detect same-size/mtime rewrites.
++  bool matches(llvm::vfs::FileSystem &FS, llvm::StringRef Source = {}) const {
++    auto G = Groups.find(Source);
++    using ID = std::pair<uint64_t, uint64_t>;
++    std::map<ID, ID> OldToNew, NewToOld;
++    auto Check = [&](llvm::StringRef Path, const Input &I) {
++      auto S = FS.status(Path);
++      if (bool(S) != bool(I.Stat))
++        return false;
++      if (!S) {
++        if (S.getError() != I.StatError)
++          return false;
++      } else {
++        auto OldUID = I.Stat->getUniqueID(), NewUID = S->getUniqueID();
++        ID Old{OldUID.getDevice(), OldUID.getFile()};
++        ID New{NewUID.getDevice(), NewUID.getFile()};
++        auto O = OldToNew.emplace(Old, New), N = NewToOld.emplace(New, Old);
++        if ((!O.second && O.first->second != New) ||
++            (!N.second && N.first->second != Old))
++          return false;
++        if (S->getName() != I.Stat->getName() ||
++            S->getLastModificationTime() != I.Stat->getLastModificationTime() ||
++            S->getSize() != I.Stat->getSize() ||
++            S->getType() != I.Stat->getType() ||
++            S->getPermissions() != I.Stat->getPermissions() ||
++            S->getUser() != I.Stat->getUser() ||
++            S->getGroup() != I.Stat->getGroup() ||
++            S->ExposesExternalVFSPath != I.Stat->ExposesExternalVFSPath)
++          return false;
++      }
++      if (I.Read) {
++        auto B = FS.getBufferForFile(Path, -1, true, true);
++        if (bool(B) != !bool(I.ReadError))
++          return false;
++        if (B ? (*B)->getBuffer() != I.Bytes : B.getError() != I.ReadError)
++          return false;
++      }
++      return true;
++    };
++    if (!Source.empty() && G != Groups.end()) {
++      for (const auto &Path : G->second)
++        if (!Check(Path.first(), Inputs.find(Path.first())->second))
++          return false;
++    } else {
++      for (const auto &KV : Inputs)
++        if (!Check(KV.first(), KV.second))
++          return false;
++    }
++    return true;
++  }
++};
++} // namespace clang::clangd
++#endif
+diff --git a/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp b/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
+index 0c880589f..1eea778b6 100644
+--- a/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
++++ b/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include "CompileCommands.h"
+ #include "Config.h"
++#include "ProjectModules.h"
+ #include "TestFS.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
+@@ -494,13 +495,9 @@ TEST(GlobalCompilationDatabaseTest, InferenceWithResponseFile) {
+   };
+   EXPECT_THAT(Command("foo.cc"), IsEmpty());
+ 
+-  // Have to use real FS for response file.
+-  SmallString<1024> Path;
+-  int FD;
+-  ASSERT_FALSE(llvm::sys::fs::createTemporaryFile("args", "", FD, Path));
+-  llvm::raw_fd_ostream OutStream(FD, true);
+-  OutStream << "-DXYZZY";
+-  OutStream.close();
++  // Response expansion uses the compilation database's request filesystem.
++  auto Path = testPath("args.rsp");
++  FS.Files[Path] = "-DXYZZY";
+ 
+   const char *const CDB =
+       R"cdb(
+@@ -530,9 +527,11 @@ protected:
+   std::shared_ptr<const tooling::CompilationDatabase>
+   lookupCDB(const DirectoryBasedGlobalCompilationDatabase &GDB,
+             llvm::StringRef Path,
+-            std::chrono::steady_clock::time_point FreshTime) {
++            std::chrono::steady_clock::time_point FreshTime,
++            bool WantModuleCommands = false) {
+     DirectoryBasedGlobalCompilationDatabase::CDBLookupRequest Req;
+     Req.FileName = Path;
++    Req.WantModuleCommands = WantModuleCommands;
+     Req.FreshTime = Req.FreshTimeMissing = FreshTime;
+     if (auto Result = GDB.lookupCDB(Req))
+       return std::move(Result->CDB);
+@@ -560,6 +559,104 @@ auto hasFlag(llvm::StringRef Flag) {
+   return hasFlag(Flag, "mock_file_name.cc");
+ }
+ 
++TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest,
++       ResponseInputsPublishImmutableGenerations) {
++  MockFS FS;
++  auto Stale = std::chrono::steady_clock::now() - std::chrono::minutes(1);
++  auto A = testPath("a.cc"), B = testPath("b.cc");
++  FS.Files["compile_commands.json"] =
++      "[{\"directory\":\"" + std::string(testRoot()) +
++      "\",\"file\":\"a.cc\",\"arguments\":[\"clang\",\"@a.rsp\",\"a.cc\"]},"
++      "{\"directory\":\"" +
++      std::string(testRoot()) +
++      "\",\"file\":\"b.cc\",\"arguments\":[\"clang\",\"--precompile\",\"-o\","
++      "\"module.pcm\",\"@b.rsp\",\"b.cc\"]}]";
++  FS.Files["a.rsp"] = "@nested.rsp";
++  FS.Files["nested.rsp"] = "-DOLD -fmodule-file=M=module.pcm";
++  FS.Files["b.rsp"] = "-DBEFORE";
++  DirectoryBasedGlobalCompilationDatabase GDB(FS);
++  auto Old = lookupCDB(GDB, A, Stale);
++  ASSERT_THAT(Old, hasFlag("-DOLD", A));
++  auto OldModules = GDB.getProjectModules(A);
++  ASSERT_EQ(OldModules->getModuleNameState("M"),
++            ProjectModules::ModuleNameState::Unique);
++  FS.Files["nested.rsp"] =
++      "-DNEW -fmodule-file=N=module.pcm"; // Same size/mtime.
++  auto New = lookupCDB(GDB, A, Stale);
++  EXPECT_NE(Old, New);
++  EXPECT_THAT(New, hasFlag("-DNEW", A));
++  auto NewModules = GDB.getProjectModules(A);
++  EXPECT_EQ(NewModules->getModuleNameState("N"),
++            ProjectModules::ModuleNameState::Unique);
++  EXPECT_EQ(OldModules->getModuleNameState("M"),
++            ProjectModules::ModuleNameState::Unique);
++  EXPECT_THAT(Old, hasFlag("-DOLD", A));
++  EXPECT_EQ(New, lookupCDB(GDB, A, Stale)); // Fresh VFS UIDs aren't changes.
++  FS.Files["b.rsp"] = "-DAFTER!";
++  EXPECT_EQ(New, lookupCDB(GDB, A, Stale)); // Query-local response chain.
++  auto Full = lookupCDB(GDB, A, Stale, true);
++  EXPECT_NE(New, Full); // Module inventory validates even unrelated commands.
++  EXPECT_THAT(Full, hasFlag("-DAFTER!", B));
++  FS.Files.erase("nested.rsp");
++  auto Missing = lookupCDB(GDB, A, Stale);
++  EXPECT_NE(Full, Missing);
++  EXPECT_THAT(Missing, hasFlag("@nested.rsp", A));
++  FS.Files["nested.rsp"] = "-DBACK";
++  auto Back = lookupCDB(GDB, A, Stale);
++  EXPECT_NE(Missing, Back);
++  EXPECT_THAT(Back, hasFlag("-DBACK", A));
++}
++
++TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest,
++       UnstableResponsePublicationRetainsPreviousGeneration) {
++  class RacingFS : public MockFS {
++  public:
++    mutable unsigned Reads = 0;
++    bool Race = false;
++    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++      class View : public llvm::vfs::ProxyFileSystem {
++        const RacingFS &Owner;
++        llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> ChangedFS;
++
++      public:
++        View(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
++             const RacingFS &Owner)
++            : ProxyFileSystem(std::move(FS)), Owner(Owner) {}
++        llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
++        openFileForRead(const llvm::Twine &Name) override {
++          // First: old-generation validation; second: new discovery; third:
++          // final publication verification observes a different byte sequence.
++          if (Owner.Race && Name.str() == testPath("args.rsp") &&
++              ++Owner.Reads == 3) {
++            llvm::StringMap<std::string> Changed;
++            Changed[testPath("args.rsp")] = "-DBAD";
++            ChangedFS = buildTestFS(Changed);
++            return ChangedFS->openFileForRead(Name);
++          }
++          return ProxyFileSystem::openFileForRead(Name);
++        }
++      };
++      return new View(MockFS::viewImpl(), *this);
++    }
++  } FS;
++  auto Stale = std::chrono::steady_clock::now() - std::chrono::minutes(1);
++  auto File = testPath("a.cc");
++  FS.Files["compile_commands.json"] =
++      "[{\"directory\":\"" + std::string(testRoot()) +
++      "\",\"file\":\"a.cc\",\"arguments\":[\"clang\",\"@args.rsp\",\"a.cc\"]}]";
++  FS.Files["args.rsp"] = "-DOLD";
++  DirectoryBasedGlobalCompilationDatabase GDB(FS);
++  auto Old = lookupCDB(GDB, File, Stale);
++  ASSERT_THAT(Old, hasFlag("-DOLD", File));
++  FS.Files["args.rsp"] = "-DNEW";
++  FS.Race = true;
++  EXPECT_EQ(Old, lookupCDB(GDB, File, Stale));
++  EXPECT_THAT(Old, hasFlag("-DOLD", File));
++  auto New = lookupCDB(GDB, File, Stale);
++  EXPECT_NE(Old, New);
++  EXPECT_THAT(New, hasFlag("-DNEW", File));
++}
++
+ TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest, Cacheable) {
+   MockFS FS;
+   auto Stale = std::chrono::steady_clock::now() - std::chrono::minutes(1);
+-- 
+2.53.0
+

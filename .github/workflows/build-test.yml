@@ -135,6 +135,20 @@ jobs:
           path: build-${{ matrix.platform }}/module-dag/results.json
           if-no-files-found: warn
 
+      - name: Response edits preserve current module symbols
+        shell: bash
+        run: |
+          python3 tests/e2e/module_response_inputs.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-response-inputs"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-response-inputs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-response-inputs/result.json
+          if-no-files-found: warn
+
       - name: First module completion has semantic imported symbols
         shell: bash
         run: |

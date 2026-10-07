@@ -58,6 +58,8 @@ they live here and in patch *filenames* only.
 
 | 0029-UP-03-observe-module-scan-builtin-expansions.patch | UP-03 | stabilizing | tests/e2e/module_scan_builtins.py; ci/module-scan-builtins.md | Upstream observes actual time-dependent builtin expansions before positive scan reuse, while keeping the driver and filesystem observation contract |
 
+| 0030-UP-03-response-input-CDB-generation-reload.patch | UP-03 | stabilizing | GlobalCompilationDatabaseTest.Response*; ci/response-file-generations.md | Upstream generations own immutable nested response inputs and reload on exact input changes, including forced provider inventory freshness |
+
 | 0031-UP-03-module-build-cancellation-boundaries.patch | UP-03 | stabilizing | PrerequisiteModulesTests.CancellationAtCompilerBoundaries; ci/module-build-cancellation.md | Upstream discards observed cancellation at compiler boundaries and cleans temporary PCMs before publication |
 
 | 0032-UP-25-first-module-completion-commands.patch | UP-25 | stabilizing | tests/e2e/module_cold_completion.py; ci/module-cold-completion.md | Upstream first module completion waits for initial inputs and uses the resolved compile command while preserving explicit fallback |
