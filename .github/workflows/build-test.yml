@@ -13,12 +13,6 @@ on:
         type: choice
         options: [linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, all]
 
-concurrency:
-  group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ github.event.inputs.platform || 'default' }}
-  # Finish expensive native builds so their compiler caches are saved.
-  # New PR revisions queue; only the newest pending revision is retained.
-  cancel-in-progress: false
-
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -51,6 +45,11 @@ jobs:
     name: build ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
+    concurrency:
+      # A long Windows build must not queue newer Linux/macOS results.
+      # Preserve active builds and their caches independently per platform.
+      group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -294,6 +293,9 @@ jobs:
     name: Linux Ubuntu 20.04 package and runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    concurrency:
+      group: build-test-floor-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
