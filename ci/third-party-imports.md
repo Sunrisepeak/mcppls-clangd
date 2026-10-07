@@ -38,3 +38,21 @@ per context, full context matrix, insertion compilation and baseline
 speedup ratio on identical methodology remain required for acceptance. The
 one-time first-request cost and background AST update costs are visible in
 the raw samples and are not hidden.
+
+Full matrix (2026-10-07, local linux-x64 engine, qt-demo, 3 starts × 30
+rounds per context, raw samples retained per request):
+
+| context | p95 | per-start first request |
+|---|---|---|
+| `cli.` member | 26 ms | ~372 ms |
+| `window.` member | 35 ms | ~378 ms |
+| `std::ve` qualified | 59 ms | ~400 ms |
+| `std::str` qualified | 77 ms | ~419 ms |
+
+All 12 start/context outcomes pass with the required symbols. The
+first-request cost is the c++23 standard-library index plus the initial
+verdict derivation; every later request in each start is at the steady
+state. Evidence: tests/evidence/w1-full-matrix/*.json. The plan's
+200/300 ms budgets hold with margin on this machine; a same-methodology
+pre-fix A/B binary and the VS Code product layer remain to be run for
+the release record.
