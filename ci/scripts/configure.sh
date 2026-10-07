@@ -17,6 +17,20 @@ case "$PLATFORM" in
     EXTRA+=(-DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -static-libstdc++ -Wl,--compress-debug-sections=zlib")
     [[ "${FORCE_STATIC_DEPS:-0}" = "1" ]] && EXTRA+=(-DCMAKE_FIND_LIBRARY_SUFFIXES=".a")
     ;;
+  darwin-x64)
+    EXTRA+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=x86_64
+            -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF)
+    ;;
+  darwin-arm64)
+    EXTRA+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=arm64
+            -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF)
+    ;;
+  win32-x64)
+    # Avoid a separately installed Visual C++ runtime on a clean Windows host.
+    EXTRA+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+            -DLLVM_USE_CRT_RELEASE=MT -DLLVM_ENABLE_ZSTD=OFF
+            -DLLVM_ENABLE_LIBXML2=OFF)
+    ;;
 esac
 
 # ccache when available (the CI lever: first build 1-3h, patch iterations minutes)
