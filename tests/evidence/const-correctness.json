@@ -1,0 +1,110 @@
+{
+  "ok": true,
+  "engine_sha256": "de94d25a8ef2303b4c220a65116a2636300f978b0e73910bd60990965d6b93b9",
+  "tidy_sha256": "f3c97b57ecab87247f28736cfe02a2d7e674bab6c2307ea3dadc095187fa805b",
+  "raw_clangd_diagnostics": [
+    {
+      "code": "misc-const-correctness",
+      "codeDescription": {
+        "href": "https://clang.llvm.org/extra/clang-tidy/checks/misc/const-correctness.html"
+      },
+      "message": "Variable 'safe' of type 'transform_view<views::all_t<const std::array<int, 4> &>, (lambda at /tmp/joint-batch-const-final/range.cpp:9:46)>' (aka 'transform_view<ref_view<const std::array<int, 4>>, (lambda at /tmp/joint-batch-const-final/range.cpp:9:46)>') can be declared 'const' (fix available)",
+      "range": {
+        "end": {
+          "character": 6,
+          "line": 8
+        },
+        "start": {
+          "character": 2,
+          "line": 8
+        }
+      },
+      "severity": 2,
+      "source": "clang-tidy"
+    },
+    {
+      "code": "misc-const-correctness",
+      "codeDescription": {
+        "href": "https://clang.llvm.org/extra/clang-tidy/checks/misc/const-correctness.html"
+      },
+      "message": "Variable 'safeAgain' of type 'transform_view<views::all_t<std::ranges::transform_view<std::ranges::ref_view<const std::array<int, 4>>, (lambda at /tmp/joint-batch-const-final/range.cpp:9:46)> &>, (lambda at /tmp/joint-batch-const-final/range.cpp:10:49)>' (aka 'transform_view<std::ranges::transform_view<std::ranges::ref_view<const std::array<int, 4>>, (lambda at /tmp/joint-batch-const-final/range.cpp:9:46)>, (lambda at /tmp/joint-batch-const-final/range.cpp:10:49)>') can be declared 'const' (fix available)",
+      "range": {
+        "end": {
+          "character": 6,
+          "line": 9
+        },
+        "start": {
+          "character": 2,
+          "line": 9
+        }
+      },
+      "severity": 2,
+      "source": "clang-tidy"
+    },
+    {
+      "code": "misc-const-correctness",
+      "codeDescription": {
+        "href": "https://clang.llvm.org/extra/clang-tidy/checks/misc/const-correctness.html"
+      },
+      "message": "Variable 'reference' of type 'std::ranges::ref_view<std::ranges::filter_view<std::ranges::ref_view<const std::array<int, 4>>, (lambda at /tmp/joint-batch-const-final/range.cpp:6:47)>>' (aka 'ref_view<std::ranges::filter_view<std::ranges::ref_view<const std::array<int, 4>>, (lambda at /tmp/joint-batch-const-final/range.cpp:6:47)>>') can be declared 'const' (fix available)",
+      "range": {
+        "end": {
+          "character": 6,
+          "line": 11
+        },
+        "start": {
+          "character": 2,
+          "line": 11
+        }
+      },
+      "severity": 2,
+      "source": "clang-tidy"
+    },
+    {
+      "code": "misc-const-correctness",
+      "codeDescription": {
+        "href": "https://clang.llvm.org/extra/clang-tidy/checks/misc/const-correctness.html"
+      },
+      "message": "Variable 'input' of type 'Number' can be declared 'const' (fix available)",
+      "range": {
+        "end": {
+          "character": 8,
+          "line": 15
+        },
+        "start": {
+          "character": 2,
+          "line": 15
+        }
+      },
+      "severity": 2,
+      "source": "clang-tidy"
+    },
+    {
+      "code": "misc-const-correctness",
+      "codeDescription": {
+        "href": "https://clang.llvm.org/extra/clang-tidy/checks/misc/const-correctness.html"
+      },
+      "message": "Variable 'answer' of type 'int' can be declared 'const' (fix available)",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 17
+        },
+        "start": {
+          "character": 2,
+          "line": 17
+        }
+      },
+      "severity": 2,
+      "source": "clang-tidy"
+    }
+  ],
+  "suggested_variables": [
+    "answer",
+    "input",
+    "reference",
+    "safe",
+    "safeAgain"
+  ],
+  "all_const_fixes_compile": true
+}
