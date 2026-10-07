@@ -36,7 +36,7 @@ new file mode 100644
 index 000000000..e1ef5a6db
 --- /dev/null
 +++ b/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,99 @@
 +//===-- WindowsCrashDumps.cpp -------------------------------------*-C++-*-===//
 +//
 +// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
@@ -74,6 +74,9 @@ index 000000000..e1ef5a6db
 +} // namespace clang
 +
 +#ifdef _WIN32
++// MiniDumpWriteDump lives in dbghelp.dll; link its import library from the
++// translation unit so the support library needs no CMake changes per host.
++#pragma comment(lib, "dbghelp.lib")
 +namespace clang {
 +namespace clangd {
 +namespace {

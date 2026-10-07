@@ -153,6 +153,10 @@ def main():
             'textDocument': {'uri': uri2, 'version': 2},
             'contentChanges': [{'text': text2_flipped}]}},
         {'action': 'await-log', 'contains': f'{source2} version 2'},
+        # documentSymbol waits for the rebuilt AST, so the completions below
+        # observe the re-derived prerequisites instead of racing the update.
+        {'method': 'textDocument/documentSymbol', 'params': document2,
+         'expect': {'/result/0/name': 'probe2'}},
         {'method': 'textDocument/completion',
          'params': {'textDocument': {'uri': uri2},
                     'position': position2(text2_flipped, 'fat::S399'),
