@@ -34,3 +34,5 @@ they live here and in patch *filenames* only.
 | 0016-module-lock-wait-cancellation.patch | UP-21 | stabilizing | tests/e2e/module_lock_close.py | Upstream document close cancels active preamble module-lock waits without deleting live-owner locks |
 
 | 0017-module-dependency-cycle-rejection.patch | UP-03 | stabilizing | tests/e2e/module_cycle.py | Upstream prerequisite graph traversal distinguishes active cycles from completed diamond dependencies and propagates a cycle error before BMI construction |
+
+| 0018-completion-stage-tracing.patch | UP-25 | stabilizing | tests/probes/project_completion.py --trace; ci/project-completion-performance.md | Upstream completion tracing independently reports module validation and semantic execution for real project optimization |

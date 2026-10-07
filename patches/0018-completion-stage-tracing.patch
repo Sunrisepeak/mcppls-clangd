@@ -1,0 +1,59 @@
+From 1263687a9efe1613f775e485d4c8216748a0e92b Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 10:32:47 +0900
+Subject: [PATCH] perf(clangd): completion trace separates dependency
+ validation and semantic execution
+
+---
+ clang-tools-extra/clangd/CodeComplete.cpp | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 3b4417d57..2d35ead1b 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1382,6 +1382,7 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+ 
+   IgnoreDiagnostics IgnoreDiags;
+   if (!CI) {
++    trace::Span InvocationTracer("Completion compiler invocation");
+     CI = buildCompilerInvocation(Input.ParseInput, IgnoreDiags);
+     if (!CI) {
+       elog("Couldn't create CompilerInvocation");
+@@ -1396,12 +1397,14 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+   // Body edits can safely use a stale preamble, but dependency edits cannot:
+   // its copy-on-read BMIs describe the old exports even after the current AST
+   // update has noticed the invalidation. Validate against this request's VFS.
+-  if (RequiredModules && Input.ParseInput.ModulesManager &&
+-      !RequiredModules->canReuse(*CI, RequestVFS)) {
+-    FreshModules = Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
+-        Input.FileName, *Input.ParseInput.TFS);
+-    RequiredModules = FreshModules.get();
+-    ReusePreamble = false;
++  if (RequiredModules && Input.ParseInput.ModulesManager) {
++    trace::Span ModuleTracer("Completion module validation");
++    if (!RequiredModules->canReuse(*CI, RequestVFS)) {
++      FreshModules = Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
++          Input.FileName, *Input.ParseInput.TFS);
++      RequiredModules = FreshModules.get();
++      ReusePreamble = false;
++    }
+   }
+   auto &FrontendOpts = CI->getFrontendOpts();
+   FrontendOpts.SkipFunctionBodies = true;
+@@ -1471,7 +1474,11 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+     loadMainFilePreambleMacros(Clang->getPreprocessor(), Input.Preamble);
+   if (Includes)
+     Includes->collect(*Clang);
+-  if (llvm::Error Err = Action.Execute()) {
++  llvm::Error ExecuteResult = [&] {
++    trace::Span ExecuteTracer("Completion semantic execution");
++    return Action.Execute();
++  }();
++  if (llvm::Error Err = std::move(ExecuteResult)) {
+     log("Execute() failed when running codeComplete for {0}: {1}",
+         Input.FileName, toString(std::move(Err)));
+     return false;
+-- 
+2.53.0
+

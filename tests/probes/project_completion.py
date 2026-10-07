@@ -9,6 +9,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,7 +29,10 @@ def main():
     parser.add_argument('--rounds', type=int, default=3)
     parser.add_argument('--starts', type=int, default=1)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--trace', type=Path, help='clangd trace path (one process only)')
     args = parser.parse_args()
+    if args.trace and args.starts != 1:
+        parser.error('trace requires a single process')
     if args.rounds < 1 or args.starts < 1:
         parser.error('rounds and starts must be positive')
     engine, source, project = replay.executable(args.engine), args.source.resolve(), args.project.resolve()
@@ -67,7 +71,17 @@ def main():
                 'timeout_seconds': max(120, args.rounds * 10),
                 'flags': ['--experimental-modules-support', '--background-index=false',
                           '--header-insertion=never', '-j=4'], 'sequence': sequence}))
-            results.append(replay.replay(engine, manifest))
+            previous_trace = os.environ.get('CLANGD_TRACE')
+            try:
+                if args.trace:
+                    os.environ['CLANGD_TRACE'] = str(args.trace.resolve())
+                results.append(replay.replay(engine, manifest))
+            finally:
+                if args.trace:
+                    if previous_trace is None:
+                        os.environ.pop('CLANGD_TRACE', None)
+                    else:
+                        os.environ['CLANGD_TRACE'] = previous_trace
         samples = [r['elapsed_ms'] for result in results for r in result['responses']]
         ordered = sorted(samples)
         report = {'schema': 1, 'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(),
