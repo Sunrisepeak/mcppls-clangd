@@ -64,3 +64,24 @@ The scenario drives the change in one process: `dep2` is forbidden in
 completion while it has no compile command, then the database gains the
 entry, the directory CDB reloads after its five-second revalidation
 interval, and `dep2_value` completes semantically from the rebuilt BMI.
+
+Same-session A/B (2026-10-07 evening, linux-x64, qt-demo, 3 starts × 30
+rounds per context, identical probe; the pre-0019 binary is the same tree
+before patch 0019, kept beside its clang resource directory):
+
+| context | pre-0019 p95 | post-0019 p95 |
+|---|---|---|
+| `std::ve` qualified | 1323 ms | 59 ms |
+| `cli.` member | 1376 ms | 26 ms |
+| `window.` member | 1368 ms | 35 ms |
+| `std::str` qualified | 1361 ms | 77 ms |
+
+State markers are retained in the raw evidence: the pre runs show the
+per-request `Failed to build module std` loop with a trivial ~271 KB
+preamble, the post runs show the third-party skip logs with a real ~33 MB
+preamble. A methodology note for reruns: the in-process dependency scanner
+resolves its clang resource directory relative to the engine binary, so a
+copied engine must keep `lib/clang/<version>` beside it — without it the
+scan fails inside the toolchain headers and no import is discovered at all,
+which measures a different regime (~160 ms for any engine) rather than the
+module path. Evidence: tests/evidence/w1-full-matrix/pre-0019/*.json.
