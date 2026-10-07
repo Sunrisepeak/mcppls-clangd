@@ -1,0 +1,54 @@
+From ac7ea9b20a9a1fc1cdf2f2792f151d66becc3ceb Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 07:49:31 +0900
+Subject: [PATCH] Fix initial module completion scheduling and resolved compile
+ commands
+
+---
+ clang-tools-extra/clangd/ClangdServer.cpp | 12 ++++++++----
+ clang-tools-extra/clangd/TUScheduler.cpp  |  4 ++++
+ 2 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index ca77c966a..53395887f 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -489,12 +489,16 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
+       SpecFuzzyFind->Result.wait();
+   };
+ 
+-  // We use a potentially-stale preamble because latency is critical here.
++  // Reuse a potentially-stale preamble without waiting for an edit rebuild.
++  // In modules mode, the first preamble owns prerequisite construction: an
++  // absent preamble would silently omit imported declarations from fallback
++  // completion. Wait for that initial build unless parsing was disabled.
++  bool NeedsInitialBuild =
++      Opts.RunParser == CodeCompleteOptions::AlwaysParse ||
++      (ModulesManager && Opts.RunParser != CodeCompleteOptions::NeverParse);
+   WorkScheduler->runWithPreamble(
+       "CodeComplete", File,
+-      (Opts.RunParser == CodeCompleteOptions::AlwaysParse)
+-          ? TUScheduler::Stale
+-          : TUScheduler::StaleOrAbsent,
++      NeedsInitialBuild ? TUScheduler::Stale : TUScheduler::StaleOrAbsent,
+       std::move(Task));
+ }
+ 
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 01f8da037..4c5877396 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -1806,6 +1806,10 @@ void TUScheduler::runWithPreamble(llvm::StringRef Name, PathRef File,
+       // is required. This avoids extra work of processing the preamble
+       // headers in parallel multiple times.
+       Worker->waitForFirstPreamble();
++      // The first update may not have resolved the compilation database when
++      // this task was queued. Use the resolved command paired with the first
++      // preamble, rather than the provisional fallback captured above.
++      Command = Worker->getCurrentCompileCommand();
+     }
+     std::shared_ptr<const ASTSignals> Signals;
+     Preamble = Worker->getPossiblyStalePreamble(&Signals);
+-- 
+2.53.0
+
