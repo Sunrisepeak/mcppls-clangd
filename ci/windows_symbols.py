@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import uuid
 
 
 def run(command):
@@ -21,9 +22,17 @@ def identity(executable, pdb, readobj, pdbutil):
         if not match:
             raise ValueError(f'missing {name}')
         return match.group(1).strip()
-    guid = field(pe, 'PDBGUID').upper()
+    def guid_value(value):
+        # Older llvm-readobj prints CodeView GUID bytes in their PE layout.
+        # Its first three fields are little endian, unlike the final bytes.
+        if re.fullmatch(r'\((?:[0-9a-fA-F]{2}\s+){15}[0-9a-fA-F]{2}\)', value):
+            value = uuid.UUID(bytes_le=bytes.fromhex(value[1:-1]))
+        else:
+            value = uuid.UUID(value)
+        return '{' + str(value).upper() + '}'
+    guid = guid_value(field(pe, 'PDBGUID'))
     age = int(field(pe, 'PDBAge'))
-    if guid != field(info, 'GUID').upper() or age != int(field(info, 'Age')):
+    if guid != guid_value(field(info, 'GUID')) or age != int(field(info, 'Age')):
         raise ValueError('executable CodeView GUID/age does not match linked PDB')
     if field(info, 'Has Debug Info').lower() != 'true' or field(info, 'Has Publics').lower() != 'true':
         raise ValueError('PDB lacks debug or public symbol streams')

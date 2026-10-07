@@ -18,8 +18,10 @@ class Capture(unittest.TestCase):
             dump = Path(temp) / 'exception.dmp'
             dump.write_bytes(b'MDMP' + bytes(64))
             result = {'outcome': 'crash', 'exit_code': 0x80000003, 'readers_stopped': True}
-            log = ('MCPPLS_SECOND_CHANCE\nExceptionCode: 80000003\n'
-                   '00000000`00000000 clangd!clang::syntax::TokenCollector+0x1\n')
+            frame = ('00000030`dcd5c920 00007ff6`b83bf1ba : '
+                     '00000200`3c4a91b0 00000207`3c4a91b0 00000030`dcd5cfe0 00000000`00000000 : '
+                     'clangd!clang::syntax::TokenCollector::Builder::build+0x2ff')
+            log = 'MCPPLS_SECOND_CHANCE\nExceptionCode: 80000003\n' + frame + '\n'
             # Synthetic data exercises the classifier only; it is not native proof.
             self.assertTrue(capture.evidence(result, log, dump, False)['captured'])
             for field, value in [('outcome', 'timeout'), ('exit_code', 1), ('readers_stopped', False)]:
@@ -31,7 +33,7 @@ class Capture(unittest.TestCase):
                 '0:000> .echo MCPPLS_SECOND_CHANCE'), dump, False)['captured'])
             self.assertFalse(capture.evidence(result, log.replace('clangd!', 'clangd+'), dump, False)['captured'])
             self.assertFalse(capture.evidence(result, log.replace(
-                '00000000`00000000 clangd!clang::syntax::TokenCollector+0x1',
+                frame,
                 '0:000> x clangd!clang::syntax::TokenCollector'), dump, False)['captured'])
             dump.write_bytes(b'not-a-minidump')
             self.assertFalse(capture.evidence(result, log, dump, False)['captured'])

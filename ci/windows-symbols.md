@@ -64,3 +64,15 @@ readers and no forced debugger termination. Echoed commands and lookup output
 do not qualify as stack frames. Controlled classifier and launch-cleanup
 checks pass on Linux; they are explicitly synthetic and do not prove native
 capture. The fast native workflow remains required.
+
+Native run 37687209535 loads the official matching PDB and executes the
+second-chance handler with exception 0x80000003 and natural engine exit.
+The actual stack includes TokenCollector::Builder::build, TokenCollector::consume
+and ParsedAST::build, consistent with the Linux missing-BMI token replay
+failure. Full capture eligibility remains false: CDB stripped backslashes
+from the nested dump command and wrote outside the intended artifact path.
+The command now uses forward slashes and parses native colon-separated stack
+rows; rerun is required to verify the minidump. Actual native evidence is in
+tests/evidence/up12-native-symbolic-stack.json. Older llvm-readobj prints raw
+GUID bytes; identity now normalizes that PE little-endian layout, with the
+official pair verified on Linux using both LLVM 18 and the newer reader.

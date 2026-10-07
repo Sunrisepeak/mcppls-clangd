@@ -71,7 +71,9 @@ def debugger_script(dump):
     # Nested exception-command quoting cannot accept arbitrary debugger syntax.
     # The fast workflow uses a workspace path without whitespace; fail before
     # attaching if a caller supplies an incompatible path.
-    path = str(dump.resolve())
+    # CDB unescapes backslashes inside the quoted exception command. Forward
+    # slashes preserve the absolute Windows path through that extra parsing.
+    path = dump.resolve().as_posix()
     if re.search(r'[\s;"\r\n]', path):
         raise ValueError('the debugger dump path must contain no whitespace, quotes or semicolons')
     capture = ('.echo MCPPLS_SECOND_CHANCE; .lastevent; .exr -1; .ecxr; '
@@ -91,8 +93,8 @@ def evidence(result, log, dump, debugger_forced):
     code = int(result.get('exit_code') or 0) & 0xffffffff
     # Only executed stack rows count. Echoed debugger commands and symbol
     # lookup text elsewhere in the log cannot stand in for a crash frame.
-    symbols = re.findall(r'^\s*(?:[0-9a-fA-F]+\s+)?(?:[0-9a-fA-F`]+\s+){1,6}'
-                         r'clangd!([^\s+]+)', log, re.M)
+    symbols = re.findall(r'^\s*[0-9a-fA-F`]+(?:\s+[0-9a-fA-F`]+)?\s+:\s+'
+                         r'(?:[0-9a-fA-F`]+\s+){4}:\s+clangd!([^\r\n]+)', log, re.M)
     dump_ok = dump.is_file() and dump.stat().st_size > 4
     if dump_ok:
         with dump.open('rb') as stream:
