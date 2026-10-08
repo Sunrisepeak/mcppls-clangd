@@ -83,3 +83,5 @@ they live here and in patch *filenames* only.
 | 0041-UP-03-default-supervised-module-workers.patch | UP-03 | stabilizing | tests/e2e/module_worker_default.py; tests/e2e/module_worker_failure.py; tests/e2e/module_cold_completion.py; tests/e2e/module_request_inputs.py; ci/module-worker-isolation.md | Upstream default prerequisite builds supervise exportable worker inputs with shared pool limits, verified optional memory admission and separate bounded unit maintenance |
 
 | 0042-UP-03-relative-worker-inputs-and-fixture-policy.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp ModuleWorkerPreservesCapturedInputs; tests/e2e/module_worker_default.py | Upstream worker protocol preserves legal relative cc1 input spelling and compiler-hook fixtures explicitly select their execution policy |
+
+| 0043-UP-03-collect-owned-worker-memory-budgets.patch | UP-03 | stabilizing | tests/evidence/module-worker-budget-collection.json; ci/module-worker-isolation.md | Upstream configured compiler budgets publish verified kernel ownership leases and independently collect marked crash-orphan cgroups while preserving live, replaced and mismatched groups |

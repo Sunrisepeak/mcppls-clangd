@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "identity": {
+    "source_commit": "7770dec9bfaeaa93aac478b2ba629fbb1f67bcda",
+    "series_sha256": "eaf1a597fa7e6783e6d65d4c0e69c48f154ab46812ecf5c6b4f41835bc9f7f04",
+    "matched_paths": 74,
+    "matched_overlays": 3,
+    "engine_sha256": "87097dfe0b2dbd3038a7ed9e5ef4919866f15709c144903cada6feb728412e5c"
+  },
+  "verification": "Actual changed Budget.cpp rebuilt into root daemon archive; actual clangd and ClangdTests relinked. Proof entry points link only current root archives, no private object overrides.",
+  "root_linux": {
+    "outcome": "pass",
+    "parent_exit": -9,
+    "worker_natural_exit": 1,
+    "owner_monitor_elapsed_ms": 11.4704849984264,
+    "real_frontend_marker": "/tmp/mcppls-root43-budget-collection/frontend/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n",
+    "orphan_cgroup_removed": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1135093-0",
+    "live_budget_retained": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1135087-0",
+    "changed_identity_retained": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1135091-0",
+    "record_restored_then_collected": true,
+    "normal_cleanup": true
+  },
+  "related_units": {
+    "passed": 94,
+    "elapsed_ms": 501
+  },
+  "replacement_negative": {
+    "before_source": "aa84f27c2",
+    "exit_code": -6,
+    "failed_assertion": "replacement-before: /tmp/budget-collection43-build/replacement-probe.cpp:38: int main(int, char**): Assertion `!fstatat(SavedRoot,Name.c_str(),&Replacement,AT_SYMLINK_NOFOLLOW)' failed.\n",
+    "replacement_was_removed": true
+  },
+  "replacement_positive": {
+    "followup_source": "aaf00bb3b",
+    "exit_code": 0,
+    "stdout": "replacement_retained=1 original_removed_by_control=1 old_inode=1079152 new_inode=1079194\n",
+    "stderr": "Retaining changed or unverifiable owned module worker cgroup /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1133333-0\nFailed to remove owned module worker cgroup /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1133333-0\n",
+    "assertions_enabled": true,
+    "control": "first unlinkat replaces actual empty group, returns injected EBUSY; next destructor retry must retain replacement"
+  },
+  "root_replacement": {
+    "exit": 0,
+    "original_inode": 1084810,
+    "replacement_inode": 1084852,
+    "replacement_retained": true
+  },
+  "limits": [
+    "Configured budget maintenance only; no standalone collector when no configured budget exists.",
+    "Crashes before complete ownership publication, unmarked legacy groups and invalid identities remain uncollectable.",
+    "Arbitrary same-UID mutation between final identity check and removal is not atomic conditional unlink.",
+    "Kernel group memory bound excludes parent/scanners/pre-bootstrap charges and may temporarily overshoot.",
+    "Linux development build and delegated domain proof, not final native/floor package acceptance."
+  ]
+}

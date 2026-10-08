@@ -1,0 +1,465 @@
+From 00ce1937105fd8c28bbbac78a560977889554f89 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 09:57:44 +0900
+Subject: [PATCH] Collect verified orphan module worker memory budgets under
+ owner leases
+
+Consolidated patch43 includes original aa84f27 and retry/retirement follow-up aaf00bb. Revalidate actual group identity before every name-based removal retry; preserve locked leases through sidecar retirement.
+---
+ .../clangd/ModuleBuildMemoryBudget.cpp        | 361 +++++++++++++++++-
+ .../clangd/ModuleBuildMemoryBudget.h          |   8 +
+ 2 files changed, 366 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+index 4bed772cf..90b9c2475 100644
+--- a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+@@ -6,15 +6,21 @@
+ #include "support/Logger.h"
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/SmallVector.h"
++#include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/FormatVariadic.h"
++#include "llvm/Support/JSON.h"
+ #include "llvm/Support/Path.h"
+ #include <atomic>
+ #include <chrono>
++#include <condition_variable>
++#include <mutex>
+ #include <thread>
+ #ifdef __linux__
+ #include <cerrno>
++#include <dirent.h>
+ #include <fcntl.h>
+ #include <linux/magic.h>
++#include <sys/file.h>
+ #include <sys/stat.h>
+ #include <sys/statfs.h>
+ #include <unistd.h>
+@@ -24,7 +30,12 @@ struct ModuleBuildWorkerMemoryBudget::Impl {
+   std::string Path, Name;
+   uint64_t Bytes = 0, Device = 0, Inode = 0;
+ #ifdef __linux__
+-  int Root = -1, Group = -1;
++  int Root = -1, Group = -1, Lease = -1;
++  std::string RecordDirectory, RecordRoot;
++  std::mutex MaintenanceMutex;
++  std::condition_variable MaintenanceCV;
++  bool StopMaintenance = false;
++  std::thread Maintenance;
+   ~Impl();
+ #endif
+ };
+@@ -104,20 +115,272 @@ llvm::Error verifyLimits(int FD, uint64_t Bytes) {
+     return Err;
+   return verifyControl(FD, "memory.oom.group", 1);
+ }
++
++// Records live outside cgroupfs, which cannot contain ordinary lease files.
++// This versioned root is private to the effective user; nothing scans /tmp or
++// the delegated controller tree looking for names that merely resemble ours.
++llvm::Expected<std::string> recordRoot() {
++  llvm::SmallString<256> Path;
++  llvm::sys::path::system_temp_directory(false, Path);
++  llvm::sys::path::append(
++      Path,
++      llvm::formatv("clangd-module-worker-budgets-v1-{0}", geteuid()).str());
++  if (mkdir(Path.c_str(), 0700) && errno != EEXIST)
++    return failure("create ownership root");
++  return Path.str().str();
++}
++llvm::Expected<int> openPrivateDirectory(llvm::StringRef Path) {
++  int FD =
++      open(Path.str().c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure("open ownership directory");
++  struct stat Stat;
++  if (fstat(FD, &Stat) || !S_ISDIR(Stat.st_mode) || Stat.st_uid != geteuid() ||
++      (Stat.st_mode & 0777) != 0700) {
++    close(FD);
++    return llvm::createStringError("invalid module worker ownership directory");
++  }
++  return FD;
++}
++bool sameGroup(int Root, const std::string &Name, uint64_t Device,
++               uint64_t Inode) {
++  struct stat Stat;
++  return !fstatat(Root, Name.c_str(), &Stat, AT_SYMLINK_NOFOLLOW) &&
++         S_ISDIR(Stat.st_mode) && uint64_t(Stat.st_dev) == Device &&
++         uint64_t(Stat.st_ino) == Inode;
++}
++llvm::Expected<int> openLease(int Unit, bool Create) {
++  int FD = openat(
++      Unit, "owner.lease",
++      O_RDWR | O_CLOEXEC | O_NOFOLLOW | (Create ? O_CREAT | O_EXCL : 0), 0600);
++  if (FD < 0)
++    return failure("ownership lease");
++  struct stat Stat;
++  if (fstat(FD, &Stat) || !S_ISREG(Stat.st_mode) || Stat.st_uid != geteuid() ||
++      (Stat.st_mode & 0777) != 0600 || Stat.st_nlink != 1) {
++    close(FD);
++    return llvm::createStringError("invalid module worker ownership lease");
++  }
++  return FD;
++}
++llvm::Expected<std::string> readRecord(int Unit) {
++  int FD = openat(Unit, "owned.json", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure("ownership record");
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  struct stat Stat;
++  if (fstat(FD, &Stat) || !S_ISREG(Stat.st_mode) || Stat.st_uid != geteuid() ||
++      (Stat.st_mode & 0777) != 0600 || Stat.st_nlink != 1 || Stat.st_size < 0 ||
++      Stat.st_size > 4096)
++    return llvm::createStringError("invalid module worker ownership record");
++  std::string Text;
++  char Buffer[4096];
++  for (;;) {
++    ssize_t N = read(FD, Buffer, sizeof(Buffer));
++    if (N < 0 && errno == EINTR)
++      continue;
++    if (N < 0)
++      return failure("read ownership record");
++    if (!N)
++      return Text;
++    if (Text.size() + N > 4096)
++      return llvm::createStringError(
++          "module worker ownership record too large");
++    Text.append(Buffer, N);
++  }
++}
++
++// Each maintenance thread owns its directory cursor. Scan a finite number of
++// entries per wake; live entries cannot starve later orphan records.
++void collectRecords(int Records, DIR *Cursor, llvm::StringRef DelegatedRoot) {
++  for (unsigned I = 0; I < 32; ++I) {
++    errno = 0;
++    auto *Entry = readdir(Cursor);
++    if (!Entry) {
++      rewinddir(Cursor);
++      return;
++    }
++    llvm::StringRef Name(Entry->d_name);
++    if (!Name.starts_with("budget-"))
++      continue;
++    int Unit = openat(Records, Entry->d_name,
++                      O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (Unit < 0)
++      continue;
++    auto CloseUnit = llvm::scope_exit([&] { close(Unit); });
++    struct stat UnitStat;
++    if (fstat(Unit, &UnitStat) || UnitStat.st_uid != geteuid() ||
++        (UnitStat.st_mode & 0777) != 0700)
++      continue;
++    auto Lease = openLease(Unit, false);
++    if (!Lease) {
++      vlog("Retaining unrecognized budget record: {0}",
++           llvm::toString(Lease.takeError()));
++      continue;
++    }
++    auto CloseLease = llvm::scope_exit([&] { close(*Lease); });
++    // flock uses independent open file descriptions, including for two
++    // budgets in this same process. Never wait for an active owner.
++    if (flock(*Lease, LOCK_EX | LOCK_NB))
++      continue;
++    auto Text = readRecord(Unit);
++    if (!Text) {
++      vlog("Retaining unrecognized budget record: {0}",
++           llvm::toString(Text.takeError()));
++      continue;
++    }
++    auto Record = llvm::json::parse(*Text);
++    if (!Record) {
++      llvm::consumeError(Record.takeError());
++      continue;
++    }
++    auto *Object = Record->getAsObject();
++    if (!Object)
++      continue;
++    auto Version = Object->getInteger("version");
++    auto RootPath = Object->getString("root");
++    auto GroupName = Object->getString("name");
++    auto RootDevice = Object->getInteger("rootDevice");
++    auto RootInode = Object->getInteger("rootInode");
++    auto Device = Object->getInteger("device");
++    auto Inode = Object->getInteger("inode");
++    auto Bytes = Object->getInteger("bytes");
++    auto LeaseDevice = Object->getInteger("leaseDevice");
++    auto LeaseInode = Object->getInteger("leaseInode");
++    if (!Version || *Version != 1 || !RootPath || *RootPath != DelegatedRoot ||
++        !GroupName || !GroupName->starts_with("clangd-module-workers-") ||
++        GroupName->contains('/') || GroupName->contains('\0') || !RootDevice ||
++        !RootInode || !Device || !Inode || !Bytes || *Bytes <= 0 ||
++        !LeaseDevice || !LeaseInode) {
++      vlog("Retaining invalid module worker budget record {0}", Name);
++      continue;
++    }
++    struct stat LeaseStat;
++    if (fstat(*Lease, &LeaseStat) ||
++        uint64_t(LeaseStat.st_dev) != uint64_t(*LeaseDevice) ||
++        uint64_t(LeaseStat.st_ino) != uint64_t(*LeaseInode)) {
++      vlog("Retaining changed module worker budget lease {0}", Name);
++      continue;
++    }
++    int Root = open(RootPath->str().c_str(),
++                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (Root < 0)
++      continue;
++    auto CloseRoot = llvm::scope_exit([&] { close(Root); });
++    struct stat RootStat;
++    if (fstat(Root, &RootStat) ||
++        uint64_t(RootStat.st_dev) != uint64_t(*RootDevice) ||
++        uint64_t(RootStat.st_ino) != uint64_t(*RootInode)) {
++      vlog("Retaining changed module worker budget root {0}", Name);
++      continue;
++    }
++    if (auto Err = verifyGroup(Root)) {
++      vlog("Retaining invalid budget scope: {0}",
++           llvm::toString(std::move(Err)));
++      continue;
++    }
++    std::string Group = GroupName->str();
++    int FD = openat(Root, Group.c_str(),
++                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (FD < 0) {
++      // A successfully removed group can leave a record if its collector died
++      // before sidecar cleanup. Retire only a still-identical ownership record.
++      if (errno != ENOENT)
++        continue;
++    } else {
++      auto CloseGroup = llvm::scope_exit([&] { close(FD); });
++      struct stat Stat;
++      if (fstat(FD, &Stat) || uint64_t(Stat.st_dev) != uint64_t(*Device) ||
++          uint64_t(Stat.st_ino) != uint64_t(*Inode) ||
++          !sameGroup(Root, Group, *Device, *Inode)) {
++        vlog("Retaining changed module worker budget identity {0}", Name);
++        continue;
++      }
++      if (auto Err = verifyGroup(FD)) {
++        llvm::consumeError(std::move(Err));
++        continue;
++      }
++      if (auto Err = verifyLimits(FD, *Bytes)) {
++        vlog("Retaining changed module worker budget limits: {0}",
++             llvm::toString(std::move(Err)));
++        continue;
++      }
++      auto Current = readRecord(Unit);
++      struct stat CurrentLease;
++      if (!Current || *Current != *Text ||
++          fstatat(Unit, "owner.lease", &CurrentLease, AT_SYMLINK_NOFOLLOW) ||
++          CurrentLease.st_dev != LeaseStat.st_dev ||
++          CurrentLease.st_ino != LeaseStat.st_ino) {
++        if (!Current)
++          llvm::consumeError(Current.takeError());
++        continue;
++      }
++      if (auto Err = writeControl(FD, "cgroup.kill", "1")) {
++        vlog("Retaining orphan budget: {0}", llvm::toString(std::move(Err)));
++        continue;
++      }
++      // Do not wait for descendants on this maintenance pass. Busy groups and
++      // their complete records remain eligible for a later bounded sweep.
++      if (!sameGroup(Root, Group, *Device, *Inode) ||
++          (unlinkat(Root, Group.c_str(), AT_REMOVEDIR) && errno != ENOENT))
++        continue;
++    }
++    auto Current = readRecord(Unit);
++    struct stat CurrentUnit, CurrentLease;
++    if (!Current || *Current != *Text ||
++        fstatat(Unit, "owner.lease", &CurrentLease, AT_SYMLINK_NOFOLLOW) ||
++        CurrentLease.st_dev != LeaseStat.st_dev ||
++        CurrentLease.st_ino != LeaseStat.st_ino ||
++        fstatat(Records, Entry->d_name, &CurrentUnit, AT_SYMLINK_NOFOLLOW) ||
++        CurrentUnit.st_dev != UnitStat.st_dev ||
++        CurrentUnit.st_ino != UnitStat.st_ino) {
++      if (!Current)
++        llvm::consumeError(Current.takeError());
++      continue;
++    }
++    // Keep the locked lease open through record retirement. Factory owners
++    // always create fresh directories; no valid owner may reactivate this unit.
++    // A second collector's independently opened lease conflicts with this one.
++    unlinkat(Unit, "owned.json", 0);
++    unlinkat(Unit, "owner.lease", 0);
++    unlinkat(Records, Entry->d_name, AT_REMOVEDIR);
++  }
++}
+ #endif
+ } // namespace
+ #ifdef __linux__
+ ModuleBuildWorkerMemoryBudget::Impl::~Impl() {
++  {
++    std::lock_guard<std::mutex> Lock(MaintenanceMutex);
++    StopMaintenance = true;
++  }
++  MaintenanceCV.notify_one();
++  if (Maintenance.joinable())
++    Maintenance.join();
++  bool GroupRemoved = Name.empty();
+   if (Group >= 0) {
+     // All top-level worker leases have been released after specific-child reap.
+     // Kill any remaining descendants in OUR private group before removal.
+     if (auto Err = writeControl(Group, "cgroup.kill", "1"))
+       elog("{0}", llvm::toString(std::move(Err)));
+-    close(Group);
++    // Retain the opened group identity until all name-based removal attempts
++    // finish, rather than dropping the reference before a retry.
+   }
+   if (Root >= 0) {
+     bool Removed = Name.empty();
+     for (unsigned I = 0; !Removed && I < 100; ++I) {
++      // Another actor can replace the path between busy retries. Revalidate
++      // each time; never apply a previous iteration's identity to a new group.
++      errno = 0;
++      if (!Inode || !sameGroup(Root, Name, Device, Inode)) {
++        if (Inode && errno == ENOENT) {
++          Removed = true;
++          break;
++        }
++        elog("Retaining changed or unverifiable owned module worker cgroup {0}",
++             Path);
++        break;
++      }
+       if (unlinkat(Root, Name.c_str(), AT_REMOVEDIR) == 0 || errno == ENOENT)
+         Removed = true;
+       else if (errno == EBUSY || errno == ENOTEMPTY)
+@@ -127,8 +390,20 @@ ModuleBuildWorkerMemoryBudget::Impl::~Impl() {
+     }
+     if (!Removed)
+       elog("Failed to remove owned module worker cgroup {0}", Path);
++    GroupRemoved = Removed;
+     close(Root);
+   }
++  if (Group >= 0)
++    close(Group);
++  // Failed cgroup cleanup must preserve its ownership proof for later sweeps.
++  if (GroupRemoved && !RecordDirectory.empty()) {
++    unlink((RecordDirectory + "/owned.json").c_str());
++    unlink((RecordDirectory + "/owner.lease").c_str());
++    unlink((RecordDirectory + "/owned.tmp").c_str());
++    rmdir(RecordDirectory.c_str());
++  }
++  if (Lease >= 0)
++    close(Lease);
+ }
+ #endif
+ ModuleBuildWorkerMemoryBudget::ModuleBuildWorkerMemoryBudget(
+@@ -145,7 +420,8 @@ std::string ModuleBuildWorkerMemoryBudget::bootstrapToken() const {
+ }
+ llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
+ createModuleBuildWorkerMemoryBudget(PathRef Root, uint64_t Bytes) {
+-  if (!Bytes || !llvm::sys::path::is_absolute(Root) || Root.contains('\0'))
++  if (!Bytes || Bytes > uint64_t(INT64_MAX) ||
++      !llvm::sys::path::is_absolute(Root) || Root.contains('\0'))
+     return llvm::createStringError(
+         "module worker budget needs an absolute root and positive bytes");
+ #ifndef __linux__
+@@ -198,6 +474,85 @@ createModuleBuildWorkerMemoryBudget(PathRef Root, uint64_t Bytes) {
+   // Require owned-tree termination support before admitting any process.
+   if (auto Err = writeControl(State->Group, "cgroup.kill", "1"))
+     return std::move(Err);
++  auto RecordsPath = recordRoot();
++  if (!RecordsPath)
++    return RecordsPath.takeError();
++  State->RecordRoot = *RecordsPath;
++  auto RecordsFD = openPrivateDirectory(State->RecordRoot);
++  if (!RecordsFD)
++    return RecordsFD.takeError();
++  auto CloseRecords = llvm::scope_exit([&] { close(*RecordsFD); });
++  std::string Model = State->RecordRoot + "/budget-XXXXXX";
++  if (!mkdtemp(Model.data()))
++    return failure("create ownership directory");
++  State->RecordDirectory = Model;
++  auto Unit = openPrivateDirectory(Model);
++  if (!Unit)
++    return Unit.takeError();
++  auto CloseUnit = llvm::scope_exit([&] { close(*Unit); });
++  auto Lease = openLease(*Unit, true);
++  if (!Lease)
++    return Lease.takeError();
++  State->Lease = *Lease;
++  if (flock(State->Lease, LOCK_EX | LOCK_NB))
++    return failure("lock ownership lease");
++  struct stat RootStat;
++  if (fstat(State->Root, &RootStat))
++    return failure("delegated root identity");
++  struct stat LeaseStat;
++  if (fstat(State->Lease, &LeaseStat))
++    return failure("ownership lease identity");
++  std::string Record =
++      llvm::formatv("{0}", llvm::json::Value(llvm::json::Object{
++                               {"leaseDevice", int64_t(LeaseStat.st_dev)},
++                               {"leaseInode", int64_t(LeaseStat.st_ino)},
++                               {"version", 1},
++                               {"root", Root},
++                               {"name", State->Name},
++                               {"rootDevice", int64_t(RootStat.st_dev)},
++                               {"rootInode", int64_t(RootStat.st_ino)},
++                               {"device", int64_t(State->Device)},
++                               {"inode", int64_t(State->Inode)},
++                               {"bytes", int64_t(Bytes)}}))
++          .str();
++  if (Record.size() > 4096)
++    return llvm::createStringError(
++        "module worker ownership record exceeds its bound");
++  int RecordFD =
++      openat(*Unit, "owned.tmp",
++             O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
++  if (RecordFD < 0)
++    return failure("create ownership record");
++  ssize_t Written;
++  do {
++    Written = write(RecordFD, Record.data(), Record.size());
++  } while (Written < 0 && errno == EINTR);
++  close(RecordFD);
++  if (Written != ssize_t(Record.size()) ||
++      renameat(*Unit, "owned.tmp", *Unit, "owned.json"))
++    return failure("publish ownership record");
++  auto *Live = State.get();
++  std::string DelegatedRoot = Root.str();
++  State->Maintenance = std::thread([Live, DelegatedRoot] {
++    auto FD = openPrivateDirectory(Live->RecordRoot);
++    if (!FD) {
++      elog("{0}", llvm::toString(FD.takeError()));
++      return;
++    }
++    DIR *Cursor = fdopendir(*FD);
++    if (!Cursor) {
++      close(*FD);
++      return;
++    }
++    auto Close = llvm::scope_exit([&] { closedir(Cursor); });
++    for (;;) {
++      collectRecords(dirfd(Cursor), Cursor, DelegatedRoot);
++      std::unique_lock<std::mutex> Lock(Live->MaintenanceMutex);
++      if (Live->MaintenanceCV.wait_for(Lock, std::chrono::seconds(30),
++                                       [&] { return Live->StopMaintenance; }))
++        return;
++    }
++  });
+   return std::shared_ptr<ModuleBuildWorkerMemoryBudget>(
+       new ModuleBuildWorkerMemoryBudget(std::move(State)));
+ #endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+index 5d2cf4f03..362b29d87 100644
+--- a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
++++ b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+@@ -34,6 +34,14 @@ private:
+ // already enabled for children. Creates an owned private child and verifies
+ // memory.max, zero swap, group OOM and group-kill support before returning.
+ // Unavailable platforms, permissions, limits and controller state are errors.
++// Each budget owns a CLOEXEC kernel lease in a versioned private filesystem
++// sidecar root. Its independent maintenance thread scans at most 32 records
++// per 30s wake (also at startup), retaining live, invalid, changed, and unmarked
++// records. Only a closed owner lease plus matching delegated-root/group kernel
++// identity and limits authorizes orphan termination/removal. Failed cleanup
++// preserves ownership proof for a later sweep. No PID or age inference and no
++// scan of arbitrary cgroups is used. A crash before ownership publication is
++// deliberately uncollectable; existing unmarked budgets remain untouched.
+ llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
+ createModuleBuildWorkerMemoryBudget(PathRef DelegatedRoot, uint64_t Bytes);
+ // Internal worker bootstrap, after the owner monitor and before request reads
+-- 
+2.53.0
+

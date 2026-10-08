@@ -87,6 +87,41 @@ limit. Bound failure must fail closed rather than silently launch unlimited.
 
 Persistent published-BMI disk growth remains a separate open lifecycle issue.
 
+## 0043 verified budget orphan collection
+
+Configured Linux cgroup budgets now publish a bounded 4096-byte ownership record
+and hold an independent-description exclusive flock. A private per-user 0700
+versioned temp root contains fresh record directories and 0600 records/leases;
+records bind exact delegated-root path and root/group/lease device and inode,
+group name and checked memory limits. Each budget's separate maintenance thread
+scans at most 32 directory entries at startup and each 30-second wake. It never
+waits for a live owner's lease, changes shared controllers or uses PID/age as
+authority. Busy or unverifiable groups and complete records remain retryable.
+
+Both collection and normal removal validate actual identity before removal;
+normal destruction rechecks identity on every busy retry while holding the
+original group FD. Record retirement rechecks metadata, lease and directory
+identity and keeps the lease locked. A deterministic real-kernel control replaces
+the original empty cgroup after the first removal attempt returns injected EBUSY:
+the earlier implementation deletes the replacement; the corrected implementation
+retains it. The assertion-enabled control supersedes an invalid early control
+whose assert side effects were disabled by NDEBUG.
+
+Root source 7770dec9b matches ordered 1–43 application across 74 affected paths
+and three overlays. The changed Budget.cpp is rebuilt and the actual daemon,
+clangd and unit executable relinked; 94 related units pass in 501 ms. Entry
+points linked against current root archives prove actual frontend entry, parent
+SIGKILL, natural worker exit (11.47 ms in this sample), independently collected
+orphan group/record, retained concurrent live budget and mismatched identity,
+restored identity becoming collectible and normal cleanup. Evidence and exact
+source/series/binary identity: `tests/evidence/module-worker-budget-collection.json`.
+
+This only collects complete marked records when a configured budget starts or
+continues running. Crashes before publication and unmarked legacy groups remain
+uncollectable. Last-check-to-syscall mutation by another actor is not an atomic
+unlink-if-inode guarantee. No standalone daemon, final native/floor acceptance,
+whole-server RSS limit or published-cache disk-growth qualification is claimed.
+
 Integrated Linux development evidence: [module-worker-protocol.json](../tests/evidence/module-worker-protocol.json). All 82 relevant units pass in 607 ms. The actual executable entry compiles a 34648-byte PCM from captured main/header snapshots while disk versions contain #error; malformed protocol and captured compile failure exit normally with errors and no staged output. The child stdout remains empty, and invalid CLANGD_FLAGS cannot contaminate this internal entry. All 66 touched source paths from the ordered 34-patch fixture and three overlays match. No hard limit, default worker selection or release package is claimed.
 
 ## 0035 owned child supervision and actual drafts
