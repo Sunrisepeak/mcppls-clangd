@@ -17,6 +17,16 @@ import time
 from pathlib import Path
 from completion_insertion import apply, compile_insertion
 
+def completion_origins(stderr, count):
+    """Keep one engine summary per request; missing/ambiguous evidence fails closed."""
+    matches = re.findall(r"Code complete: (\d+) results from Sema, (\d+) from Index, "
+                         r"(\d+) matched, (\d+) from identifiers,", stderr)
+    if len(matches) != count:
+        return [None] * count
+    return [dict(zip(('sema', 'index', 'matched', 'identifiers'), map(int, row)))
+            for row in matches]
+
+
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('replay', ROOT / 'tests/crash/replay.py')
 replay = importlib.util.module_from_spec(spec)
@@ -182,19 +192,30 @@ def main():
                 result['requested_phases'] = phases
                 if context:
                     answers = [r for r in result['raw_responses'] if r['method'] == 'textDocument/completion']
+                    origins = completion_origins(result.get('stderr', ''), len(answers))
                     result['context_answers'] = []
                     for index, (phase, answer) in enumerate(zip(phases, answers)):
                         payload = answer['reply'].get('result')
                         items = payload.get('items', []) if isinstance(payload, dict) else payload or []
                         names = {re.split(r'[(<]', item.get('filterText', item.get('label', '')))[0].strip() for item in items}
                         missing = sorted(set(args.expected) - names)
+                        require_sema = context.get('require_sema', False)
+                        origin = origins[index]
+                        semantic_origin_failed = bool(require_sema and
+                            (origin is None or origin['sema'] == 0))
+                        # Identifier fallback items can compile while only guessing a spelling.
+                        typed_names = {re.split(r'[(<]', item.get('filterText', item.get('label', '')))[0].strip()
+                                       for item in items if item.get('kind') not in (None, 1)}
+                        untyped = sorted(set(args.expected) - typed_names) if require_sema else []
                         polluted = sorted(set(context.get('forbidden', [])) & names)
                         empty_failure = bool(context.get('expect_empty') and items)
                         draft_round = (index - 2) // 2 if args.phases else index
                         draft = text if index < 2 and args.phases else text + f'\n// probe {draft_round}\n'
                         result['context_answers'].append({'phase': phase, 'elapsed_ms': answer['elapsed_ms'],
                             'missing': missing, 'polluted': polluted, 'unexpected_nonempty': empty_failure,
-                            'semantic_pass': not (missing or polluted or empty_failure or 'error' in answer['reply']),
+                            'semantic_pass': not (missing or polluted or empty_failure or semantic_origin_failed or untyped or 'error' in answer['reply']),
+                            'origin': origin, 'semantic_origin_failed': semantic_origin_failed,
+                            'untyped_expected': untyped,
                             'isIncomplete': payload.get('isIncomplete') if isinstance(payload, dict) else None,
                             'items': items, 'draft': draft})
                 if resource_result is not None:
@@ -242,7 +263,7 @@ def main():
                         except (ValueError, OSError) as error:
                             proof['error'] = str(error)
                         insertions.append(proof)
-        report = {'schema': 3 if context else 2, 'engine_sha256': digest(engine), 'engine_flags': engine_flags,
+        report = {'schema': 4 if context else 2, 'engine_sha256': digest(engine), 'engine_flags': engine_flags,
                   'source_sha256': hashlib.sha256(original).hexdigest(), 'position': position,
                   'expression': args.expression, 'starts': args.starts, 'rounds': args.rounds,
                   'phases': {phase: statistics(phase_samples.get(phase, []), count)
@@ -253,7 +274,7 @@ def main():
                   'all_insertions_compiled': bool(insertions) and all(p.get('exit_code') == 0 for p in insertions),
                   'raw_results': results,
                   'limits': ['Single context probe; aggregate context/baseline gate requires separate matrix evidence.',
-                             'Cold-open includes fallback responses: missing symbols fail, not excluded.',
+                             'Cold-open includes fallback responses; semantic contexts require per-request Sema evidence and typed expected items.',
                              'Insertion compilation is opt-in; no baseline speedup proof in this individual report.',
                              'Settled-warm is AST-ready, not proof of a particular cache hit.']}
         args.output.write_text(json.dumps(report, indent=2) + '\n')
