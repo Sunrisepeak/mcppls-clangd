@@ -132,7 +132,9 @@ jobs:
         if: always()
         with:
           name: module-dag-${{ matrix.platform }}
-          path: build-${{ matrix.platform }}/module-dag/results.json
+          path: |
+            build-${{ matrix.platform }}/module-dag/results.json
+            build-${{ matrix.platform }}/module-dag/**/replay-result.json
           if-no-files-found: warn
 
       - name: Response edits preserve current module symbols
