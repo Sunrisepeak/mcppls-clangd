@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import re
 from pathlib import Path
 
@@ -104,11 +105,12 @@ def main():
     if result['outcome'] != 'pass':
         return 1
 
-    # A file whose only import is third-party keeps its preamble: the parse
-    # never loads a named-module BMI, so the PCH+modules mixing upstream
-    # guards against cannot arise. Once a buildable import appears on disk,
-    # the verdict re-derives and the preamble collapses back before any BMI
-    # is combined with a real PCH.
+    # A file whose only import is third-party keeps its preamble. Adding a
+    # buildable BODY import must re-derive the prerequisites and preserve its
+    # real symbols. An import-free PCH may survive only with the complete
+    # compiler/input audit introduced in 0066; otherwise the zero-prefix
+    # fallback remains mandatory. A HEADER import below must always collapse
+    # the preamble, since that prefix itself would serialize a named module.
     fat = root / 'fat.h'
     fat_lines = ['#pragma once', '// deterministic declarations proving preamble content']
     fat_lines += [f'namespace fat {{ struct S{i} {{ int v{i}; int w{i}; }}; }}'
@@ -167,13 +169,49 @@ def main():
                     'position': position2(text2_flipped, 'dep_va'),
                     'context': {'triggerKind': 1}},
          'expected_symbols': ['dep_value']},
+        {'action': 'replace-file', 'file': 'fat.h',
+         'from': '#pragma once', 'with': '#pragma once\nimport dep;'},
+        {'method': 'textDocument/didChange', 'notify': True, 'params': {
+            'textDocument': {'uri': uri2, 'version': 3},
+            'contentChanges': [{'text': text2_flipped + '\n// header import\n'}]}},
+        {'action': 'await-log', 'contains': f'{source2} version 3'},
+        {'method': 'textDocument/documentSymbol', 'params': document2,
+         'expect': {'/result/0/name': 'probe2'}},
+        {'method': 'textDocument/completion',
+         'params': {'textDocument': {'uri': uri2},
+                    'position': position2(text2_flipped, 'fat::S399'),
+                    'context': {'triggerKind': 1}},
+         'expected_symbols': ['S3999']},
+        {'method': 'textDocument/completion',
+         'params': {'textDocument': {'uri': uri2},
+                    'position': position2(text2_flipped, 'dep_va'),
+                    'context': {'triggerKind': 1}},
+         'expected_symbols': ['dep_value']},
     ]
     manifest.write_text(json.dumps({
         'id': 'third-party-import-preamble', 'project': '.', 'platform': replay.platform_name(),
         'baseline': 'pass', 'timeout_seconds': 240,
         'flags': ['--experimental-modules-support', '--background-index=false', '-j=2'],
         'sequence': sequence2}))
-    retained = replay.replay(engine, manifest)
+    trace_path = root / 'preamble-trace.json'
+    previous_trace = os.environ.get('CLANGD_TRACE')
+    try:
+        os.environ['CLANGD_TRACE'] = str(trace_path)
+        retained = replay.replay(engine, manifest)
+    finally:
+        if previous_trace is None:
+            os.environ.pop('CLANGD_TRACE', None)
+        else:
+            os.environ['CLANGD_TRACE'] = previous_trace
+    trace_data = json.loads(trace_path.read_text()) if trace_path.exists() else []
+    events = trace_data.get('traceEvents', []) if isinstance(trace_data, dict) else trace_data
+    audits = [event.get('args', {}) for event in events
+              if event.get('name') == 'BuildPreamble' and event.get('ph') == 'X'
+              and event.get('args', {}).get('File') == str(source2)]
+    audit_fields = ('TextualModulePreamble', 'PCHConstructed', 'PCHImportsFree',
+                    'PCHInputsComplete', 'PCHOpenFilesAudited')
+    audited_textual = any(all(audit.get(field) is True for field in audit_fields)
+                          for audit in audits)
     sizes = {}
     for match in re.finditer(r'Built preamble of size (\d+) for file \S+main2\.cpp version (\d+)',
                              retained.get('stderr', '')):
@@ -181,15 +219,39 @@ def main():
     detail2 = retained.get('detail', '')
     first = max(sizes.get(1, [0]))
     second = max(sizes.get(2, [10 ** 9]))
+    # A zero-prefix fallback can be reused after the header edit: its prefix
+    # has no included bytes to invalidate. No new build log means the last
+    # version's preamble remains in effect, not a fabricated version-3 build.
+    third = max(sizes.get(3, [second]))
     if retained['outcome'] == 'pass' and first <= 600000:
         retained['outcome'] = 'error'
         detail2 = f'expected a real fat-header preamble, observed size {first}'
-    if retained['outcome'] == 'pass' and second >= first // 2:
+    if retained['outcome'] == 'pass' and second >= first // 2 and not audited_textual:
         retained['outcome'] = 'error'
-        detail2 = (f'adding a buildable import must collapse the preamble: '
+        detail2 = (f'body import retained a PCH without complete import-free audit: '
                    f'v1={first} v2={second}')
+    if retained['outcome'] == 'pass' and third >= first // 2:
+        retained['outcome'] = 'error'
+        detail2 = f'header import must collapse the preamble: v1={first} v3={third}'
+    origins = re.findall(r'Code complete: (\d+) results from Sema, (\d+) from Index, '
+                         r'(\d+) matched, (\d+) from identifiers, (\d+) returned',
+                         retained.get('stderr', ''))
+    answers = retained.get('responses', [])
+    typed = all(all(any(item.get('kind') in (3, 7) for item in items)
+                    for items in answer.get('completion_items', {}).values())
+                for answer in answers)
+    if retained['outcome'] == 'pass' and (len(origins) != 5 or
+                                         any(int(origin[0]) == 0 for origin in origins) or
+                                         len(answers) != 5 or not typed):
+        retained['outcome'] = 'error'
+        detail2 = 'preamble transitions require five typed actual-Sema completions'
     report['preamble_case'] = retained
     report['preamble_sizes'] = {k: v for k, v in sizes.items()}
+    report['effective_preamble_sizes'] = {1: first, 2: second, 3: third}
+    report['preamble_audits'] = audits
+    report['audited_textual_preamble'] = audited_textual
+    report['completion_origins'] = origins
+    report['preamble_contract'] = 'Body: audited import-free PCH or collapse; header: collapse.'
     (root / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
     print(retained['outcome'], detail2, f"preamble sizes={sizes}")
     if retained['outcome'] != 'pass':

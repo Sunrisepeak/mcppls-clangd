@@ -21,3 +21,18 @@ in both versions and failed the collapse assertion. That native negative is
 not yet explained by this local pass. Investigation must distinguish a valid
 audited import-free PCH from an unsafe/stale retained PCH before changing the
 assertion or implementation.
+
+The strengthened canary now covers both legitimate 0066 outcomes. Final67
+uses zero-prefix fallback (12,204,176 to 268,880 bytes); the private audited
+prefix-frame control retains the 12,204,156-byte import-free PCH for a body
+import, then collapses to 268,868 bytes when the header imports that module.
+Both controls preserve five typed actual-Sema replies across transitions and
+pass third-party reuse/provider-command discovery. Retention requires explicit
+trace proof of construction, complete inputs, import-free emission, audited
+open handles and an accepted textual PCH. Header imports still must collapse.
+This repairs an obsolete unconditional body-collapse premise without treating
+size alone as proof. Final native verification remains pending.
+
+Exact summaries, compressed unmodified replay reports and private build
+identity are in `third-party-contract/`. The private control is not a production
+assisted-scanner implementation or a performance result.
