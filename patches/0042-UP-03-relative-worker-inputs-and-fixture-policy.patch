@@ -1,0 +1,117 @@
+From 777503b85e86923aa786d4c0e80f9b06af907df8 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 09:30:23 +0900
+Subject: [PATCH] Preserve relative compiler inputs and explicit in-process
+ fixture policy
+
+Resolve the captured main path against its working directory while keeping the original cc1 source spelling and rejecting a different captured main. Existing compiler-hook unit fixtures explicitly select in-process execution and restore the prior policy; real LSP coverage separately exercises production worker defaults.
+---
+ .../clangd/ModuleBuildWorker.cpp              | 16 +++++++--
+ .../unittests/PrerequisiteModulesTest.cpp     | 34 +++++++++++++++++++
+ 2 files changed, 48 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 0b37c05a9..76b434768 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -98,11 +98,22 @@ llvm::Error validateInputs(const ModuleBuildWorkerInputs &Inputs) {
+   return llvm::Error::success();
+ }
+ 
++std::string capturedMainPath(PathRef File, PathRef WorkingDirectory) {
++  if (llvm::sys::path::is_absolute(File))
++    return File.str();
++  llvm::SmallString<256> Resolved(WorkingDirectory);
++  llvm::sys::path::append(Resolved, File);
++  // Preserve component spelling and symlink semantics. The invocation keeps
++  // its original relative input and the worker installs this working directory.
++  return Resolved.str().str();
++}
++
+ llvm::Error validateInvocation(const CompilerInvocation &Invocation,
+                                const ModuleBuildWorkerInputs &Inputs) {
+   const auto &Frontend = Invocation.getFrontendOpts();
+   if (Frontend.Inputs.size() != 1 || !Frontend.Inputs[0].isFile() ||
+-      Frontend.Inputs[0].getFile() != Inputs.MainFile)
++      capturedMainPath(Frontend.Inputs[0].getFile(), Inputs.WorkingDirectory) !=
++          Inputs.MainFile)
+     return llvm::createStringError(
+         "module worker requires exactly its captured main file");
+   if (!llvm::sys::path::is_absolute(Frontend.OutputFile) ||
+@@ -433,7 +444,8 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   if (Invocation.getFrontendOpts().Inputs.size() != 1 ||
+       !Invocation.getFrontendOpts().Inputs[0].isFile())
+     return llvm::createStringError("module worker requires a single main file");
+-  Inputs.MainFile = Invocation.getFrontendOpts().Inputs[0].getFile().str();
++  Inputs.MainFile = capturedMainPath(
++      Invocation.getFrontendOpts().Inputs[0].getFile(), WorkingDirectory);
+   Inputs.MainContentsFile = Path("main.snapshot");
+   if (auto Err = writeSnapshot(Inputs.MainContentsFile, MainContents))
+     return std::move(Err);
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 2d44a60c0..a9fdd3f24 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -257,11 +257,25 @@ void MockDirectoryCompilationDatabase::addFile(llvm::StringRef Path,
+ class PrerequisiteModulesTests : public ::testing::Test {
+ protected:
+   void SetUp() override {
++    // These tests exercise module semantics and in-process compiler hooks
++    // (including cancellation triggered by filesystem reads). ClangdTests has
++    // no internal worker entry point. The real LSP module_worker_default.py
++    // fixture covers the production default with an actual clangd child.
++    auto &Options = llvm::cl::getRegisteredOptions();
++    auto It = Options.find("modules-builder-worker-policy");
++    ASSERT_NE(It, Options.end());
++    WorkerPolicyOption =
++        static_cast<llvm::cl::opt<ModuleBuildWorkerOptions::Policy> *>(
++            It->second);
++    OriginalWorkerPolicy = WorkerPolicyOption->getValue();
++    *WorkerPolicyOption = ModuleBuildWorkerOptions::Policy::InProcess;
+     ASSERT_FALSE(llvm::sys::fs::current_path(OriginalWorkingDirectory));
+     ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("modules-test", TestDir));
+   }
+ 
+   void TearDown() override {
++    if (WorkerPolicyOption)
++      *WorkerPolicyOption = OriginalWorkerPolicy;
+     // MockFS overlays the process-wide real filesystem; its scanner changes
+     // the process CWD. Restore it before deleting this request's directory.
+     ASSERT_FALSE(llvm::sys::fs::set_current_path(OriginalWorkingDirectory));
+@@ -295,6 +309,9 @@ public:
+     return Inputs;
+   }
+ 
++  llvm::cl::opt<ModuleBuildWorkerOptions::Policy> *WorkerPolicyOption = nullptr;
++  ModuleBuildWorkerOptions::Policy OriginalWorkerPolicy =
++      ModuleBuildWorkerOptions::Policy::InProcess;
+   SmallString<256> TestDir;
+   SmallString<256> OriginalWorkingDirectory;
+   // FIXME: It will be better to use the MockFS if the scanning process and
+@@ -567,6 +584,23 @@ export int value() { return Captured; }
+   Err = runModuleBuildWorker(getFullPath("request.json"));
+   EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
+   EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++  // Legal relative cc1 inputs keep their spelling and resolve against the
++  // captured working directory, rather than the supervisor's current directory.
++  CompilerInvocation Relative(*Invocation);
++  const auto Kind = Relative.getFrontendOpts().Inputs[0].getKind();
++  Relative.getFrontendOpts().Inputs[0] = FrontendInputFile("M.cppm", Kind);
++  auto RelativeRequest = serializeModuleBuildWorkerRequest(Relative, Inputs);
++  ASSERT_TRUE(static_cast<bool>(RelativeRequest))
++      << llvm::toString(RelativeRequest.takeError());
++  CDB.addFile("request.json", *RelativeRequest);
++  Err = runModuleBuildWorker(getFullPath("request.json"));
++  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
++  EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++  Relative.getFrontendOpts().Inputs[0] = FrontendInputFile("Other.cppm", Kind);
++  auto Mismatch = serializeModuleBuildWorkerRequest(Relative, Inputs);
++  ASSERT_FALSE(static_cast<bool>(Mismatch));
++  EXPECT_THAT(llvm::toString(Mismatch.takeError()),
++              testing::HasSubstr("exactly its captured main file"));
+   // A failed attempt must not leave the earlier output looking successful.
+   CDB.addFile("main.snapshot", "#error captured failure\n");
+   Err = runModuleBuildWorker(getFullPath("request.json"));
+-- 
+2.53.0
+

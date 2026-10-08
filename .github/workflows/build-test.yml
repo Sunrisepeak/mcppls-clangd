@@ -163,6 +163,21 @@ jobs:
           path: ${{ runner.temp }}/module-cold-completion/result.json
           if-no-files-found: warn
 
+      - name: Default Linux module worker preserves dirty headers
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          python3 tests/e2e/module_worker_default.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-default"
+      - uses: actions/upload-artifact@v4
+        if: always() && startsWith(matrix.platform, 'linux-')
+        with:
+          name: module-worker-default-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-worker-default/result.json
+          if-no-files-found: warn
+
       - name: Provider command facts survive fresh module facades
         shell: bash
         run: |

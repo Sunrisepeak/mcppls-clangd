@@ -1,0 +1,138 @@
+{
+  "scope": "Actual Linux root development build with 0041/0042 default integration. Dirty headers explicitly enabled, worker isolation policy left at production Linux default. Not a final stripped/native/floor package.",
+  "source_commit": "777503b85e86923aa786d4c0e80f9b06af907df8",
+  "engine_sha256": "cfa2a39a56c2fb9b1678f5c4f006bcf6e64d22d851f8cb4d5d6fc07c4b403307",
+  "ordered_patch_count": 42,
+  "ordered_paths_compared": 74,
+  "overlays_compared": [
+    "clangd/ModuleValidationCache.h",
+    "clangd/support/WindowsCrashDumps.cpp",
+    "clangd/support/WindowsCrashDumps.h"
+  ],
+  "series_identity": "3c082a8cf58324935d829c19a82e5e4131cff0c1434f3dc3ed6965a8102af725",
+  "related_units": {
+    "passed": 94,
+    "elapsed_ms": 550
+  },
+  "cases": {
+    "default": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "disk_unchanged": true,
+      "observed_workers": {
+        "1104952": {
+          "command": [
+            "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd",
+            "--module-build-worker",
+            "/tmp/mcppls-root-worker42-default/default-worker-svutwc74/.cache/clangd/modules/.workers-v1/unit-94b7f5/request.json",
+            "6"
+          ],
+          "address_space": [
+            "2147483648",
+            "2147483648"
+          ],
+          "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/vte-spawn-84ab2851-08a5-4abd-9592-c922dd2a9e84.scope\n"
+        }
+      },
+      "semantic_responses": [
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "int",
+                  "filterText": "fn_m",
+                  "insertText": "fn_m",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " fn_m()",
+                  "score": 0.8084393739700317,
+                  "sortText": "40b10a1efn_m",
+                  "textEdit": {
+                    "newText": "fn_m",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 1
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 309.5181499957107
+        }
+      ]
+    },
+    "shared-memory": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "disk_unchanged": true,
+      "observed_workers": {
+        "1104955": {
+          "command": [
+            "/home/speak/workspace/github/mcppls-clangd/build-linux-x64/bin/clangd",
+            "--module-build-worker",
+            "/tmp/mcppls-root-worker42-cgroup/default-worker-wklt63st/.cache/clangd/modules/.workers-v1/unit-59982a/request.json",
+            "6",
+            "134217728:29:1035000:/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1104920-0"
+          ],
+          "address_space": [
+            "2147483648",
+            "2147483648"
+          ],
+          "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-1104920-0\n"
+        }
+      },
+      "semantic_responses": [
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "int",
+                  "filterText": "fn_m",
+                  "insertText": "fn_m",
+                  "insertTextFormat": 1,
+                  "kind": 3,
+                  "label": " fn_m()",
+                  "score": 0.8084393739700317,
+                  "sortText": "40b10a1efn_m",
+                  "textEdit": {
+                    "newText": "fn_m",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 1
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 324.286081995524
+        }
+      ]
+    }
+  }
+}

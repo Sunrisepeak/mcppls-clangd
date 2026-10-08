@@ -1,0 +1,347 @@
+From 5b374d201ece86d0483fa32a98809d1b2e71213d Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 09:28:44 +0900
+Subject: [PATCH] Supervise prerequisite module compilers by default on Linux
+
+Finalize the invocation before exporting request overlays and explicit prerequisite paths. Keep publication locks and prerequisite leases through specific-child reap, then recheck cancellation before publishing.
+
+Share a deadline and per-pool address-space policy across jobs, with optional verified aggregate cgroup admission. Configuration failures reject compilation rather than falling back. Keep leased-unit maintenance on a separate bounded thread and drain workers before releasing their shared budget.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 252 +++++++++++++++++---
+ 1 file changed, 217 insertions(+), 35 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index e3054874b..c2f48471e 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -9,6 +9,9 @@
+ #include "ModulesBuilder.h"
+ #include "Compiler.h"
+ #include "ModuleValidationCache.h"
++#include "ModuleBuildMemoryBudget.h"
++#include "ModuleBuildWorker.h"
++#include "ModuleBuildWorkerStorage.h"
+ #include "SourceCode.h"
+ #include "support/Cancellation.h"
+ #include "support/Context.h"
+@@ -37,6 +40,8 @@
+ 
+ #include <chrono>
+ #include <ctime>
++#include <condition_variable>
++#include <thread>
+ 
+ namespace clang {
+ namespace clangd {
+@@ -104,6 +109,44 @@ llvm::cl::opt<unsigned> ModuleBuildWorkers(
+                    "(1-4, limited to physical cores)."),
+     llvm::cl::init(2));
+ 
++using WorkerPolicy = ModuleBuildWorkerOptions::Policy;
++llvm::cl::opt<WorkerPolicy> ModuleWorkerPolicy(
++    "modules-builder-worker-policy",
++    llvm::cl::desc("Prerequisite compiler isolation policy"),
++    llvm::cl::values(
++        clEnumValN(WorkerPolicy::InProcess, "in-process", "Compile in clangd"),
++        clEnumValN(WorkerPolicy::WhenSupported, "when-supported",
++                   "Use supervised workers for exportable filesystems"),
++        clEnumValN(WorkerPolicy::Required, "required",
++                   "Reject inputs that cannot use a supervised worker")),
++#ifdef __linux__
++    llvm::cl::init(WorkerPolicy::WhenSupported));
++#else
++    llvm::cl::init(WorkerPolicy::InProcess));
++#endif
++llvm::cl::opt<unsigned> ModuleWorkerTimeoutSeconds(
++    "modules-builder-worker-timeout-seconds",
++    llvm::cl::desc("Supervised compiler deadline in seconds (must be positive)"),
++    llvm::cl::init(60));
++llvm::cl::opt<unsigned> ModuleWorkerAggregateAddressSpaceMiB(
++    "modules-builder-worker-aggregate-address-space-mib",
++    llvm::cl::desc("Total worker virtual address space in MiB, divided by the "
++                   "build pool concurrency (not an RSS limit)"),
++    llvm::cl::init(4096));
++llvm::cl::opt<std::string> ModuleWorkerExecutable(
++    "modules-builder-worker-executable",
++    llvm::cl::desc("Worker-capable clangd executable (defaults to this executable)"),
++    llvm::cl::init(""));
++llvm::cl::opt<std::string> ModuleWorkerCgroupRoot(
++    "modules-builder-worker-cgroup-root",
++    llvm::cl::desc("Optional delegated cgroup-v2 root for aggregate compiler "
++                   "memory admission; configuration errors forbid fallback"),
++    llvm::cl::init(""));
++llvm::cl::opt<unsigned> ModuleWorkerAggregateMemoryMiB(
++    "modules-builder-worker-aggregate-memory-mib",
++    llvm::cl::desc("Shared cgroup memory limit in MiB when a delegated root is set"),
++    llvm::cl::init(4096));
++
+ llvm::ThreadPoolStrategy moduleBuildStrategy() {
+   auto Strategy = llvm::heavyweight_hardware_concurrency(
+       (std::max)(1u, (std::min)(4u, unsigned(ModuleBuildWorkers))));
+@@ -884,6 +927,7 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                 tooling::CompileCommand Cmd, PathRef ModuleFilePath,
+                 const ThreadsafeFS &TFS,
+                 const ReusablePrerequisiteModules &BuiltModuleFiles,
++                const ModuleBuildWorkerOptions &WorkerOptions,
+                 bool &PublishedExistingModuleFile) {
+   PublishedExistingModuleFile = false;
+   if (int Reason = isCancelled())
+@@ -934,46 +978,66 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   BuiltModuleFiles.adjustHeaderSearchOptions(CI->getHeaderSearchOpts());
+ 
+   CI->getFrontendOpts().OutputFile = Inputs.CompileCommand.Output;
+-  auto Clang =
+-      prepareCompilerInstance(std::move(CI), /*Preamble=*/nullptr,
+-                              std::move(*Buf), std::move(FS), IgnoreDiags);
+-  if (!Clang)
+-    return llvm::createStringError("Failed to prepare compiler instance");
++  // The finalized invocation includes prerequisite BMI paths and the request
++  // filesystem snapshot. The caller retains its source lock and read leases
++  // until this synchronous supervisor has reaped the specific child.
++  auto Worker = buildModuleInWorker(*CI, (*Buf)->getBuffer(), TFS,
++                                   Inputs.CompileCommand.Directory,
++                                   WorkerOptions);
++  if (!Worker) {
++    auto Error = Worker.takeError();
++    if (int Reason = isCancelled()) {
++      llvm::consumeError(std::move(Error));
++      return llvm::make_error<CancelledError>(Reason);
++    }
++    return std::move(Error);
++  }
++  if (!*Worker) {
++    auto Clang =
++        prepareCompilerInstance(std::move(CI), /*Preamble=*/nullptr,
++                                std::move(*Buf), std::move(FS), IgnoreDiags);
++    if (!Clang)
++      return llvm::createStringError("Failed to prepare compiler instance");
+ 
+-  if (int Reason = isCancelled())
+-    return llvm::make_error<CancelledError>(Reason);
+-  GenerateReducedModuleInterfaceAction Action;
+-  Clang->ExecuteAction(Action);
+-  // ExecuteAction is synchronous and cannot be interrupted here. If its
+-  // request was cancelled while compiling, discard the staged BMI rather
+-  // than publishing it or letting dependent module builds consume it.
+-  if (int Reason = isCancelled())
+-    return llvm::make_error<CancelledError>(Reason);
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
++    GenerateReducedModuleInterfaceAction Action;
++    Clang->ExecuteAction(Action);
++    // ExecuteAction is synchronous and cannot be interrupted here. If its
++    // request was cancelled while compiling, discard the staged BMI rather
++    // than publishing it or letting dependent module builds consume it.
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
+ 
+-  if (Clang->getDiagnostics().hasErrorOccurred()) {
+-    std::string Cmds;
+-    for (const auto &Arg : Inputs.CompileCommand.CommandLine) {
+-      if (!Cmds.empty())
+-        Cmds += " ";
+-      Cmds += Arg;
+-    }
++    if (Clang->getDiagnostics().hasErrorOccurred()) {
++      std::string Cmds;
++      for (const auto &Arg : Inputs.CompileCommand.CommandLine) {
++        if (!Cmds.empty())
++          Cmds += " ";
++        Cmds += Arg;
++      }
+ 
+-    clangd::vlog("Failed to compile {0} with command: {1}", ModuleUnitFileName,
+-                 Cmds);
++      clangd::vlog("Failed to compile {0} with command: {1}", ModuleUnitFileName,
++                   Cmds);
+ 
+-    std::string BuiltModuleFilesStr = BuiltModuleFiles.getAsString();
+-    if (!BuiltModuleFilesStr.empty())
+-      clangd::vlog("The actual used module files built by clangd is {0}",
+-                   BuiltModuleFilesStr);
++      std::string BuiltModuleFilesStr = BuiltModuleFiles.getAsString();
++      if (!BuiltModuleFilesStr.empty())
++        clangd::vlog("The actual used module files built by clangd is {0}",
++                     BuiltModuleFilesStr);
+ 
+-    return llvm::createStringError(
+-        llvm::formatv("Failed to compile {0}. Use '--log=verbose' to view "
+-                      "detailed failure reasons. It is helpful to use "
+-                      "'--debug-modules-builder' flag to keep the clangd's "
+-                      "built module files to reproduce the failure for "
+-                      "debugging. Remember to remove them after debugging.",
+-                      ModuleUnitFileName));
++      return llvm::createStringError(
++          llvm::formatv("Failed to compile {0}. Use '--log=verbose' to view "
++                        "detailed failure reasons. It is helpful to use "
++                        "'--debug-modules-builder' flag to keep the clangd's "
++                        "built module files to reproduce the failure for "
++                        "debugging. Remember to remove them after debugging.",
++                        ModuleUnitFileName));
++    }
+   }
++  // This boundary also covers cancellation after successful worker reaping;
++  // neither path may publish a result belonging to a cancelled request.
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+ 
+   if (std::error_code EC =
+           llvm::sys::fs::rename(TemporaryModuleFilePath, ModuleFilePath)) {
+@@ -1409,6 +1473,20 @@ public:
+       // their generation instead of serving stale emptiness forever.
+       ++CommandGeneration;
+     });
++    configureWorkers();
++    WorkerMaintenance = std::thread([this] { maintainWorkerUnits(); });
++  }
++
++  ~ModulesBuilderImpl() {
++    // Drain compilation while configuration, shared budget, and collectors
++    // still live. BuildPool is also declared last so it is destroyed first.
++    BuildPool.wait();
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      StopWorkerMaintenance = true;
++    }
++    WorkerMaintenanceCV.notify_one();
++    WorkerMaintenance.join();
+   }
+ 
+   ModuleNameToSourceCache &getProjectModulesCache() {
+@@ -1455,6 +1533,91 @@ public:
+                         ReusablePrerequisiteModules &BuiltModuleFiles);
+ 
+ private:
++  void configureWorkers() {
++    WorkerConfiguration.Isolation = ModuleWorkerPolicy;
++    WorkerConfiguration.Timeout =
++        std::chrono::seconds(unsigned(ModuleWorkerTimeoutSeconds));
++    WorkerConfiguration.Cancelled = [] { return isCancelled() != 0; };
++    constexpr uint64_t MiB = 1024ULL * 1024;
++    WorkerConfiguration.AddressSpaceLimitBytes =
++        uint64_t(ModuleWorkerAggregateAddressSpaceMiB) * MiB /
++        (std::max)(1u, BuildPool.getMaxConcurrency());
++    static int ExecutableAnchor;
++    WorkerConfiguration.Executable = ModuleWorkerExecutable.empty()
++        ? llvm::sys::fs::getMainExecutable(nullptr, &ExecutableAnchor)
++        : std::string(ModuleWorkerExecutable);
++    if (WorkerConfiguration.Isolation != WorkerPolicy::InProcess &&
++        (!ModuleWorkerTimeoutSeconds ||
++         !WorkerConfiguration.AddressSpaceLimitBytes))
++      WorkerConfigurationError = "Worker timeout and address-space limit must be positive";
++    if (!ModuleWorkerCgroupRoot.empty()) {
++      if (WorkerConfiguration.Isolation == WorkerPolicy::InProcess ||
++          !ModuleWorkerAggregateMemoryMiB) {
++        WorkerConfigurationError = "Cgroup memory admission requires worker isolation and a positive memory limit";
++      } else {
++        auto Budget = createModuleBuildWorkerMemoryBudget(
++            ModuleWorkerCgroupRoot, uint64_t(ModuleWorkerAggregateMemoryMiB) * MiB);
++        if (!Budget)
++          WorkerConfigurationError = llvm::toString(Budget.takeError());
++        else
++          WorkerConfiguration.MemoryBudget = std::move(*Budget);
++      }
++    }
++    if (!WorkerConfigurationError.empty())
++      elog("Module worker configuration failed: {0}", WorkerConfigurationError);
++  }
++
++  void registerWorkerRoot(PathRef Root) {
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      if (!WorkerRoots.insert(Root).second)
++        return;
++      WorkerCollectors.emplace_back(
++          Root.str(), std::make_shared<ModuleBuildWorkerCollector>(Root));
++      ++WorkerRootsGeneration;
++    }
++    WorkerMaintenanceCV.notify_one();
++  }
++
++  void maintainWorkerUnits() {
++    uint64_t SeenGeneration = 0;
++    size_t Cursor = 0;
++    for (;;) {
++      std::vector<std::pair<std::string,
++                            std::shared_ptr<ModuleBuildWorkerCollector>>> Batch;
++      {
++        std::unique_lock<std::mutex> Lock(WorkerMaintenanceMutex);
++        WorkerMaintenanceCV.wait_for(Lock, std::chrono::seconds(5), [&] {
++          return StopWorkerMaintenance ||
++                 WorkerRootsGeneration != SeenGeneration;
++        });
++        if (StopWorkerMaintenance)
++          return;
++        SeenGeneration = WorkerRootsGeneration;
++        // Bound work per cycle even when one server serves many projects.
++        size_t Count = (std::min)(size_t(8), WorkerCollectors.size());
++        for (size_t I = 0; I < Count; ++I) {
++          Cursor %= WorkerCollectors.size();
++          Batch.push_back(WorkerCollectors[Cursor++]);
++        }
++      }
++      // No filesystem I/O under the registry mutex or on request threads.
++      for (const auto &Entry : Batch) {
++        llvm::SmallString<256> Marker(Entry.first);
++        llvm::sys::path::append(Marker, "owned.root");
++        if (!llvm::sys::fs::exists(Marker))
++          continue; // A registered cache may not have launched a worker yet.
++        auto Sweep = Entry.second->collect(32);
++        if (!Sweep)
++          vlog("Module worker collection failed: {0}",
++               llvm::toString(Sweep.takeError()));
++        else if (Sweep->Removed)
++          vlog("Collected {0} orphaned module worker units in {1}",
++               Sweep->Removed, Entry.first);
++      }
++    }
++  }
++
+   llvm::Expected<std::shared_ptr<const ModuleFile>>
+   getOrBuildSingleModule(StringRef ModuleName, PathRef ModuleSource,
+                          tooling::CompileCommand Cmd, const ThreadsafeFS &TFS,
+@@ -1477,6 +1640,17 @@ private:
+   // Shared by all document builds. Per-document pools would multiply memory
+   // use and allow a fan-out edit to spawn an unbounded compilation storm.
+   std::atomic<unsigned> ActiveBuildTasks{0};
++  ModuleBuildWorkerOptions WorkerConfiguration;
++  std::string WorkerConfigurationError;
++  std::mutex WorkerMaintenanceMutex;
++  std::condition_variable WorkerMaintenanceCV;
++  bool StopWorkerMaintenance = false;
++  uint64_t WorkerRootsGeneration = 0;
++  llvm::StringSet<> WorkerRoots;
++  std::vector<std::pair<std::string,
++                        std::shared_ptr<ModuleBuildWorkerCollector>>>
++      WorkerCollectors;
++  std::thread WorkerMaintenance;
+   llvm::DefaultThreadPool BuildPool;
+ };
+ 
+@@ -1554,6 +1728,14 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     const ThreadsafeFS &TFS, const ReusablePrerequisiteModules &Prerequisites) {
+   if (int Reason = isCancelled())
+     return llvm::make_error<CancelledError>(Reason);
++  if (!WorkerConfigurationError.empty())
++    return llvm::createStringError(WorkerConfigurationError);
++  auto WorkerOptions = WorkerConfiguration;
++  auto WorkerRoot = getModuleCacheRoot(ModuleSource, getCDB());
++  llvm::sys::path::append(WorkerRoot, ".workers-v1");
++  WorkerOptions.UnitRoot = WorkerRoot.str().str();
++  if (WorkerOptions.Isolation != WorkerPolicy::InProcess)
++    registerWorkerRoot(WorkerOptions.UnitRoot);
+   unsigned Active = ++ActiveBuildTasks;
+   vlog("Module build task {0} started (active={1}, limit={2})", ModuleName,
+        Active, BuildPool.getMaxConcurrency());
+@@ -1610,7 +1792,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+   bool PublishedExistingModuleFile = false;
+   llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
+       ModuleName, ModuleSource, std::move(Cmd), PublishedModuleFilePath, TFS,
+-      Prerequisites, PublishedExistingModuleFile);
++      Prerequisites, WorkerOptions, PublishedExistingModuleFile);
+   if (llvm::Error Err = MF.takeError())
+     return Err;
+ 
+-- 
+2.53.0
+

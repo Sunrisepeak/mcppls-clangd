@@ -79,3 +79,7 @@ they live here and in patch *filenames* only.
 | 0039-UP-03-collect-leased-module-worker-units.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp ModuleWorkerCollectionRequiresBothOwnersGone; ci/module-worker-isolation.md | Upstream owned worker units use parent and worker kernel leases and bounded maintenance collection without deleting live or unmarked data |
 
 | 0040-UP-03-module-worker-address-space-limits.patch | UP-03 | stabilizing | tests/evidence/module-worker-address-space.json; ci/module-worker-isolation.md | Upstream worker launch checks configured address-space limits before frontend allocations and exits without recursive allocation diagnostics on exhaustion |
+
+| 0041-UP-03-default-supervised-module-workers.patch | UP-03 | stabilizing | tests/e2e/module_worker_default.py; tests/e2e/module_cold_completion.py; tests/e2e/module_request_inputs.py; ci/module-worker-isolation.md | Upstream default prerequisite builds supervise exportable worker inputs with shared pool limits, verified optional memory admission and separate bounded unit maintenance |
+
+| 0042-UP-03-relative-worker-inputs-and-fixture-policy.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp ModuleWorkerPreservesCapturedInputs; tests/e2e/module_worker_default.py | Upstream worker protocol preserves legal relative cc1 input spelling and compiler-hook fixtures explicitly select their execution policy |

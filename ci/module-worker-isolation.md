@@ -245,3 +245,77 @@ exactly that orphan, protects both live lease classes and unmarked legacy, then
 removes two helper units after owners close. Evidence identifies this root
 source and executable separately from the private precursors. Production
 Builder default wiring and final native/floor artifacts remain unqualified.
+
+## 0041 production Builder integration (Linux first)
+
+Exportable Linux prerequisite compilations now use supervised workers by
+default. The finalized invocation carries exact module dependencies before
+prepareCompilerInstance can add process-local remap pointers. The source lock
+and prerequisite copy-on-read owners remain alive until the specific child is
+reaped. Every failure after launch propagates; no in-process retry bypasses
+limits. Cancellation remains typed and is checked again before atomic cache
+publication. WhenSupported retains explicit compatibility for unexportable
+filesystem implementations; macOS/Windows retain InProcess until native
+resource/owner qualification is complete.
+
+Configuration is per Builder, shared across document jobs:
+
+- --modules-builder-worker-policy=in-process|when-supported|required
+- --modules-builder-worker-timeout-seconds=60
+- --modules-builder-worker-aggregate-address-space-mib=4096
+- --modules-builder-worker-executable=<absolute worker-capable clangd>
+- --modules-builder-worker-cgroup-root=<explicit delegated root>
+- --modules-builder-worker-aggregate-memory-mib=4096
+
+Default worker executable is the running clangd. The virtual address allowance
+is divided by actual bounded pool concurrency; a two-worker pool gives each
+child 2 GiB. Address space is not RSS. An explicit cgroup root creates one
+checked shared budget; configuration errors reject compilation instead of
+falling back. No shared controller or parent process is modified.
+
+A common project-cache .workers-v1 root is registered even on cache hits.
+Independent maintenance wakes every five seconds or on root registration,
+snapshots at most eight roots, and examines at most 32 entries per collector;
+the collector's own 30-second cadence and cursor remain authoritative. No
+filesystem I/O runs under the root registry mutex or on request threads.
+Destruction drains the build pool before stopping/joining maintenance and
+releasing shared admission. Filesystem stalls remain filesystem stalls; this
+thread separation does not assert a hard bound on filesystem calls.
+
+## 0042 relative inputs and compiler-hook fixtures
+
+Captured main identity now resolves a legal relative cc1 input against its
+working directory while retaining original component spelling, symlink
+semantics and invocation arguments. A mismatched captured main still fails
+validation. A direct protocol unit compiles the actual dirty main/header
+snapshot with relative M.cppm and rejects Other.cppm.
+
+Existing prerequisite unit fixtures use real disk files and directly assert
+in-process compiler read/action cancellation hooks. They now explicitly save,
+select and restore InProcess policy. They do not detect executable names or
+alter production defaults. ClangdTests has no internal worker entry point;
+real LSP tests separately verify default launch and OS limits.
+
+Root development verification through 0042: all 94 related units pass in
+550 ms. tests/e2e/module_worker_default.py leaves isolation policy at default,
+uses relative CDB source arguments, enables dirty-header semantics explicitly,
+and changes an opened header from disk 41 to draft 42. Actual workers have
+checked 2 GiB limits, semantic completion returns fn_m, disk files remain
+unchanged, normal shutdown succeeds and observed units disappear. A second
+run uses a real delegated 128 MiB shared group, observes membership, preserves
+the same semantic result and removes that private group after shutdown.
+The fixture is carried in Linux CI with its full report retained.
+
+The module DAG fixture passes all ten wide/diamond/failure/prebuilt/concurrent/
+textual cases with actual active counts bounded by configured 1/2/4 workers.
+Cold first completion and unsaved import/change replay also pass after default
+integration. These are semantic and bounded-scheduling fixtures, not statistical
+real-project performance or soak acceptance. Ordered 1-42 export replay matches
+all 74 affected source paths and three overlays before updating source identity.
+tests/evidence/module-worker-default.json records executable/source identity.
+
+Remaining scope: parent/scanner resources, exact RSS qualification, orphan
+cgroup directory lifetime after parent SIGKILL, stable published cache growth,
+native macOS/Windows resource policy, final immutable packages/floor tests and
+qualifying joint nightlies/RC load. This batch does not close the full release
+resource or crash-corpus gates.
