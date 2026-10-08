@@ -254,9 +254,12 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
                     time.sleep(0.01)
                 continue
             if step.get("action") == "await":
-                request_id, method, started = aliases.pop(step["request"])
+                request_id, method, started, started_ns = aliases.pop(step["request"])
                 response = wait_reply(request_id, step.get("allow_error", False))
+                completed_ns = time.monotonic_ns()
                 result["raw_responses"].append({"method": method, "reply": response,
+                                                "started_monotonic_ns": started_ns,
+                                                "completed_monotonic_ns": completed_ns,
                                                 "elapsed_ms": (time.monotonic()-started)*1000})
                 for path, expected in step.get("expect", {}).items():
                     if pointer(response, path) != expand(expected):
@@ -309,15 +312,19 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
             if step["method"] in ("shutdown", "exit"):
                 raise ValueError("shutdown is managed by the replay harness")
             started = time.monotonic()
+            started_ns = time.monotonic_ns()
             response = send(step["method"], expand(step.get("params")), step.get("notify", False),
                             bool(step.get("defer")), step.get("allow_error", False))
             if step.get("defer"):
                 if step.get("notify") or step["defer"] in aliases:
                     raise ValueError("deferred request requires a unique name")
-                aliases[step["defer"]] = (response, step["method"], started)
+                aliases[step["defer"]] = (response, step["method"], started, started_ns)
                 continue
             if response is not None:
+                completed_ns = time.monotonic_ns()
                 result["raw_responses"].append({"method": step["method"], "reply": response,
+                                                "started_monotonic_ns": started_ns,
+                                                "completed_monotonic_ns": completed_ns,
                                                 "elapsed_ms": (time.monotonic()-started)*1000})
             if step.get("expected_symbols") or step.get("forbidden_symbols"):
                 items = response.get("result") or []

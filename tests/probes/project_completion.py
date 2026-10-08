@@ -58,10 +58,13 @@ class Resources:
         def sample():
             while not self.stop.is_set():
                 try:
+                    sample_started_ns = time.monotonic_ns()
                     root = Path('/proc') / str(proc.pid)
                     stat = (root / 'stat').read_text().rsplit(')', 1)[1].split()
                     values = dict(line.split(':', 1) for line in (root / 'status').read_text().splitlines() if ':' in line)
                     self.samples.append({
+                        'monotonic_ns': time.monotonic_ns(),
+                        'sample_started_monotonic_ns': sample_started_ns,
                         'elapsed_ms': (time.monotonic() - began) * 1000,
                         'cpu_ms': (int(stat[11]) + int(stat[12])) * 1000 / ticks,
                         'rss_kib': int(values.get('VmRSS', '0 kB').split()[0]),
@@ -80,7 +83,7 @@ class Resources:
         self.stop.set()
         if self.thread:
             self.thread.join(timeout=2)
-        return {'interval_ms': 100, 'scope': 'Engine process only; sampled CPU lower bound, observed VmHWM, no descendants or hard memory ceiling.',
+        return {'interval_ms': 100, 'clock': 'time.monotonic_ns; shared with replay request spans', 'scope': 'Engine process only; sampled CPU lower bound, observed VmHWM, no descendants or hard memory ceiling.',
                 'samples': self.samples, 'errors': self.errors,
                 'sampler_stopped': self.thread is None or not self.thread.is_alive()}
 
@@ -222,6 +225,8 @@ def main():
                         draft_round = (index - 2) // 2 if args.phases else index
                         draft = text if index < 2 and args.phases else text + f'\n// probe {draft_round}\n'
                         result['context_answers'].append({'phase': phase, 'elapsed_ms': answer['elapsed_ms'],
+                            'started_monotonic_ns': answer['started_monotonic_ns'],
+                            'completed_monotonic_ns': answer['completed_monotonic_ns'],
                             'missing': missing, 'polluted': polluted, 'unexpected_nonempty': empty_failure,
                             'semantic_pass': not (missing or polluted or empty_failure or semantic_origin_failed or index_origin_failed or untyped or 'error' in answer['reply']),
                             'origin': origin, 'semantic_origin_failed': semantic_origin_failed,
