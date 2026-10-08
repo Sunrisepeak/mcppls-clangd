@@ -39,6 +39,27 @@ jobs:
           path: llvm-project
           key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
+      - name: Ensure the native debugger is installed
+        shell: pwsh
+        run: |
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) {
+            # Add only the debugger feature using the signed, cached SDK installer.
+            $sdk = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+              Where-Object { $_.DisplayName -match "Windows Software Development Kit" } |
+              Sort-Object DisplayVersion -Descending | Select-Object -First 1
+            if (-not $sdk.BundleCachePath) { throw "No cached Windows SDK installer for CDB" }
+            $signature = Get-AuthenticodeSignature $sdk.BundleCachePath
+            if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+              throw "Windows SDK installer signature is not valid Microsoft code"
+            }
+            $installation = Start-Process -FilePath $sdk.BundleCachePath `
+              -ArgumentList "/features", "OptionId.WindowsDesktopDebuggers", "/q", "/norestart" -Wait -PassThru
+            if ($installation.ExitCode -notin @(0, 3010)) { throw "SDK debugger install failed: $($installation.ExitCode)" }
+          }
+          if (-not (Test-Path $cdb)) { throw "cdb is required for crash corpus evidence" }
+          Write-Host "cdb: $cdb"
+
       - name: Build fork clangd with PDBs and dump capture
         shell: bash
         env:
@@ -49,12 +70,6 @@ jobs:
           SCCACHE_IDLE_TIMEOUT: "0"
           CMAKE_EXTRA: -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
         run: ./ci/ci_build.sh
-
-      - name: Locate debugger
-        shell: pwsh
-        run: |
-          $cdb = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue
-          if (-not $cdb) { throw "cdb is required for crash corpus evidence" } else { Write-Host "cdb: $($cdb.FullName)" }
 
       - name: Verify linked PDB identity and debugger symbol lookup
         shell: pwsh
@@ -67,6 +82,7 @@ jobs:
       - name: Enable WER LocalDumps for clangd
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path "D:\a\clangd-dumps" -Force | Out-Null
           $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\clangd.exe"
           New-Item -Path $key -Force | Out-Null
           Set-ItemProperty -Path $key -Name DumpFolder -Value "D:\a\clangd-dumps" -Type ExpandString
