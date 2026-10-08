@@ -36,6 +36,7 @@ jobs:
           python3 ci/test_release_gates.py
           python3 ci/test_soak.py
           python3 ci/test_windows_crash_capture.py
+          python3 ci/test_package_identity.py
           python3 -m unittest discover -s tests/probes -p test_resource_timeline.py -v
 
       - name: Summary

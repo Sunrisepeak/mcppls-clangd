@@ -19,9 +19,27 @@ def sha(path):
     return digest.hexdigest()
 
 
+def verify_build_source(llvm_dir, build_dir, stamp, series):
+    """Bind capability inputs to the clean source actually configured and built."""
+    source = llvm_dir.resolve()
+    marker = source / '.mcppls-clangd-patched'
+    if not marker.is_file() or marker.read_text().strip() != series:
+        raise ValueError('package source marker does not match the ordered patch series')
+    cache = (build_dir / 'CMakeCache.txt').read_text()
+    home = re.search(r'^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$', cache, re.M)
+    if not home or Path(home.group(1).strip()).resolve() != source / 'llvm':
+        raise ValueError('package source is not the CMake build source')
+    head = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
+    if stamp.get('llvm-tree-commit') != head:
+        raise ValueError('package source commit differs from the built source stamp')
+    subprocess.run(['git', '-C', str(source), 'diff', '--quiet', 'HEAD'], check=True)
+    return source
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', type=Path, required=True)
+    parser.add_argument('--llvm-dir', type=Path, required=True)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--platform', choices=sorted(PLATFORMS), required=True)
@@ -57,14 +75,18 @@ def main():
             stamp.get('build-binary-sha256') != sha(original) or
             stamp.get('cmake-cache-sha256') != sha(args.build_dir / 'CMakeCache.txt')):
         parser.error('build stamp does not identify this source, platform, configuration and binary')
+    try:
+        source = verify_build_source(args.llvm_dir, args.build_dir, stamp, series)
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        parser.error(str(error))
     # Prove the declared capability against the final stripped package bytes.
-    canary = ROOT / 'llvm-project/clang-tools-extra/clangd/test/semantic-tokens-range.test'
+    canary = source / 'clang-tools-extra/clangd/test/semantic-tokens-range.test'
     response = subprocess.run([str(engine.resolve()), '-lit-test'], input=canary.read_text(),
                               text=True, capture_output=True, timeout=20)
     data = re.search(r'"id":\s*1,.*?"data":\s*(\[.*?\])', response.stdout, re.S)
     if response.returncode != 0 or not data or json.loads(data.group(1)) != [1, 4, 1, 0, 131075, 1, 4, 1, 0, 131075]:
         parser.error('final package bytes failed semantic-tokens-range capability canary')
-    format_canary = ROOT / 'llvm-project/clang-tools-extra/clangd/test/mcpp-format-fallback.test'
+    format_canary = source / 'clang-tools-extra/clangd/test/mcpp-format-fallback.test'
     formatted = subprocess.run([str(engine.resolve()), '-lit-test', '-fallback-style=mcpp'],
                                input=format_canary.read_text(), text=True,
                                capture_output=True, timeout=20)
@@ -89,6 +111,7 @@ def main():
                 'features': ['semantic-tokens-range', 'format-style-mcpp',
                              'module-directive-diagnostic-ranges'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
+                'llvm-tree-commit': stamp['llvm-tree-commit'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}
     (args.directory / 'engine.json').write_text(json.dumps(metadata, indent=2) + '\n')
     # A sorted portable list; the output can never hash itself.

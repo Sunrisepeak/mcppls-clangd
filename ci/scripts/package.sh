@@ -41,7 +41,7 @@ if [[ -n "${RUNTIME_LICENSE_DIR:-}" ]]; then
   mkdir -p "$OUT/clangd/licenses"
   cp -a "$RUNTIME_LICENSE_DIR/." "$OUT/clangd/licenses/"
 fi
-python3 "$REPO_DIR/ci/package_identity.py" --build-dir "$BUILD_DIR" --directory "$OUT/clangd" \
+python3 "$REPO_DIR/ci/package_identity.py" --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --directory "$OUT/clangd" \
   --version "$FORK_VERSION" --platform "$PLATFORM" --checksums "$OUT"
 
 echo "package.sh: $OUT"
