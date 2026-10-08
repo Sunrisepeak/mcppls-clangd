@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "base_source": "8243fa6546e7ab5ee4b59c980ff9317d87745cb0",
+  "scope": "Linux GNU installed std producer dialect; one normal Qt std-qualified context, not performance/native/full-context qualification",
+  "input": {
+    "cdb": "/home/speak/test/mcpp/qt-demo/compile_commands.json",
+    "sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+    "private_cdb_copies_byte_identical": true,
+    "argv_cwd_source_spellings_preserved": true,
+    "final_cdb_copy_byte_identical": true
+  },
+  "before": {
+    "engine_sha256": "95c1eab37ac582333371a9bfbf8ca396b5bfce4e79597fd19166337d91c5891b",
+    "result_path": "/tmp/mcppls-gnu-std67-build/before-std-qualified.json",
+    "result_sha256": "4f575d4dbfc503c1cfd699c26c30c66388b216a193e8d719a01d196a538a65a0",
+    "std_scan_failures": 2,
+    "std_build_log": [],
+    "std_textual_fallback": true,
+    "semantic_requests_passed": true,
+    "Sema_counts": [
+      44,
+      44,
+      44,
+      44
+    ],
+    "vector_class_kind": 7,
+    "completion_ms": [
+      2853.4886600100435,
+      894.0044609917095,
+      972.9017059871694,
+      913.993517999188
+    ],
+    "GCC_actual_insertion_exit_codes": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "latency_200ms_qualified": false
+  },
+  "after": {
+    "engine_sha256": "55139ce1db6e30e06e92afca548e279f9a035e1cf503b679b8ae58c77350c153",
+    "result_path": "/tmp/mcppls-gnu-std67-build/final-source-std-qualified.json",
+    "result_sha256": "551a89f790fe34c1193c479cd7184cc35556ae9d6456d774ee3d772ba8467293",
+    "std_scan_failures": 0,
+    "std_build_log": [
+      "I[11:33:01.803] Built module std to /tmp/mcppls-gnu-std67-build/final-source-cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm"
+    ],
+    "std_textual_fallback": false,
+    "semantic_requests_passed": true,
+    "Sema_counts": [
+      65,
+      65,
+      65,
+      65
+    ],
+    "vector_class_kind": 7,
+    "completion_ms": [
+      3097.557893997873,
+      975.3531960013788,
+      1031.658902997151,
+      983.0357860046206
+    ],
+    "GCC_actual_insertion_exit_codes": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "latency_200ms_qualified": false
+  },
+  "source_commit": "a06708402f42154fea6cab9c012fc74d394cdb56",
+  "source_tree": "854f745b8f6da136145eb086bb8ffca7f920605b",
+  "unit_tests": {
+    "filter": "CommandMangler.*:PrerequisiteModulesTests.*",
+    "passed": 84,
+    "milliseconds": 806,
+    "log": "/tmp/mcppls-gnu-std67-build/focused-tests.log"
+  },
+  "limits": [
+    "No Qt latency qualification: every measured request exceeds200ms.",
+    "No joint66/full clean recipe/native qualification.",
+    "128KiB known-source admission and32KiB lexer, not arbitrary VFS allocation/read ceiling.",
+    "Dependency producer scan/build slice; direct std.cc main editor TU translation not included."
+  ],
+  "status": "stabilizing",
+  "registration": "https://github.com/Sunrisepeak/mcpp-language-server/issues/24#issuecomment-6058644891",
+  "patch_sha256": "d82eb919b57620d9a6acfb9104e8ca1a14dcdaaee915fd17085f9933d1cc0b2e",
+  "qualified_scope": "Actual Linux GNU dependency-producer scan/build and one Qt std-qualified semantic/insertion context; latency remains failed",
+  "integration": "Joint66 full-consumer rebuild and native/context matrix pending; local candidate evidence is root65 ABI only."
+}

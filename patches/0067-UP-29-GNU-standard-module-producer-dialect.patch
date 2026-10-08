@@ -1,0 +1,427 @@
+From a06708402f42154fea6cab9c012fc74d394cdb56 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 20:32:47 +0900
+Subject: [PATCH] fix(clangd): recognize installed GNU standard module
+ producers
+
+---
+ clang-tools-extra/clangd/CompileCommands.cpp  | 163 ++++++++++++++++--
+ clang-tools-extra/clangd/CompileCommands.h    |  13 ++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |   3 +
+ clang-tools-extra/clangd/ProjectModules.cpp   |   2 +
+ .../clangd/unittests/CompileCommandsTests.cpp | 116 +++++++++++++
+ 5 files changed, 285 insertions(+), 12 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/CompileCommands.cpp b/clang-tools-extra/clangd/CompileCommands.cpp
+index 5c7f3b48c..b0a42eee4 100644
+--- a/clang-tools-extra/clangd/CompileCommands.cpp
++++ b/clang-tools-extra/clangd/CompileCommands.cpp
+@@ -12,6 +12,7 @@
+ #include "support/Trace.h"
+ #include "clang/Driver/Driver.h"
+ #include "clang/Frontend/CompilerInvocation.h"
++#include "clang/Lex/Lexer.h"
+ #include "clang/Options/Options.h"
+ #include "clang/Tooling/CompilationDatabase.h"
+ #include "clang/Tooling/Tooling.h"
+@@ -29,6 +30,7 @@
+ #include "llvm/Support/MemoryBuffer.h"
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/Program.h"
++#include "llvm/Support/VirtualFileSystem.h"
+ #include <iterator>
+ #include <optional>
+ #include <string>
+@@ -209,18 +211,7 @@ static std::string resolveDriver(llvm::StringRef Driver, bool FollowSymlink,
+ // A GCC-specific mapper plus a GCC driver spelling identifies the supported
+ // dialect. This is not compiler identity authentication and must not cause us
+ // to execute an arbitrary compilation database driver.
+-bool isGCCDriverSpelling(StringRef Driver, StringRef WorkingDirectory) {
+-  llvm::SmallString<256> Input(Driver);
+-  if (!llvm::sys::path::is_absolute(Input)) {
+-    if (Driver.contains('/') || Driver.contains('\\'))
+-      llvm::sys::path::make_absolute(WorkingDirectory, Input);
+-    else if (auto Found = llvm::sys::findProgramByName(Driver))
+-      Input = *Found;
+-  }
+-  Driver = Input;
+-  llvm::SmallString<256> Canonical;
+-  if (!llvm::sys::fs::real_path(Driver, Canonical))
+-    Driver = Canonical;
++bool isGCCDriverName(StringRef Driver) {
+   StringRef Name = llvm::sys::path::filename(Driver);
+   Name.consume_back(".exe");
+   // Accept native/versioned and target-prefixed GCC names, but not generic
+@@ -240,6 +231,20 @@ bool isGCCDriverSpelling(StringRef Driver, StringRef WorkingDirectory) {
+   }
+   return false;
+ }
++bool isGCCDriverSpelling(StringRef Driver, StringRef WorkingDirectory) {
++  llvm::SmallString<256> Input(Driver);
++  if (!llvm::sys::path::is_absolute(Input)) {
++    if (Driver.contains('/') || Driver.contains('\\'))
++      llvm::sys::path::make_absolute(WorkingDirectory, Input);
++    else if (auto Found = llvm::sys::findProgramByName(Driver))
++      Input = *Found;
++  }
++  Driver = Input;
++  llvm::SmallString<256> Canonical;
++  if (!llvm::sys::fs::real_path(Driver, Canonical))
++    Driver = Canonical;
++  return isGCCDriverName(Driver);
++}
+ 
+ bool hasExplicitClangModuleInputs(ArrayRef<std::string> Args) {
+   return llvm::any_of(Args, [](StringRef Arg) {
+@@ -252,8 +257,142 @@ bool hasExplicitClangModuleInputs(ArrayRef<std::string> Args) {
+   });
+ }
+ 
++// Only unconditional real tokens of the installed GNU producer count. In
++// particular, comments, strings and a disabled conditional module declaration
++// cannot establish the source role. This is a bounded lexical discriminator,
++// not preprocessing or a replacement for the normal compiler validation.
++bool hasGNUStdProducerRole(StringRef Source, bool Compat) {
++  auto Prefix =
++      llvm::MemoryBuffer::getMemBufferCopy(Source.take_front(32 * 1024));
++  LangOptions Lang;
++  Lang.CPlusPlus = true;
++  Lexer Lex(SourceLocation::getFromRawEncoding(1), Lang,
++            Prefix->getBufferStart(), Prefix->getBufferStart(),
++            Prefix->getBufferEnd());
++  unsigned ConditionalDepth = 0;
++  bool Directive = false;
++  llvm::SmallVector<tok::TokenKind, 8> Kinds;
++  llvm::SmallVector<std::string, 8> Words;
++  Token T;
++  while (!Lex.LexFromRawLexer(T)) {
++    if (T.isAtStartOfLine())
++      Directive = false;
++    if (T.is(tok::hash) && T.isAtStartOfLine()) {
++      Directive = true;
++      Lex.LexFromRawLexer(T);
++      if (!T.is(tok::raw_identifier))
++        return false;
++      auto Name = T.getRawIdentifier();
++      if (Name == "if" || Name == "ifdef" || Name == "ifndef") {
++        if (++ConditionalDepth > 64)
++          return false;
++      } else if (Name == "endif") {
++        if (!ConditionalDepth)
++          return false;
++        --ConditionalDepth;
++      }
++      continue;
++    }
++    if (Directive || T.is(tok::comment))
++      continue;
++    if (ConditionalDepth)
++      return false;
++    Kinds.push_back(T.getKind());
++    Words.push_back(T.is(tok::raw_identifier) ? T.getRawIdentifier().str()
++                                              : "");
++    const unsigned Expected = Compat ? 8 : 6;
++    if (Kinds.size() == Expected) {
++      bool Role = Words[0] == "module" && Kinds[1] == tok::semi &&
++                  Words[2] == "export" && Words[3] == "module" &&
++                  Words[4] == "std";
++      return Role && (Compat ? Kinds[5] == tok::period &&
++                                   Words[6] == "compat" && Kinds[7] == tok::semi
++                             : Kinds[5] == tok::semi);
++    }
++  }
++  return false;
++}
++
+ } // namespace
+ 
++bool translateGNUStdModuleProducer(tooling::CompileCommand &Cmd, StringRef File,
++                                   llvm::vfs::FileSystem &RequestFS) {
++  auto &Args = Cmd.CommandLine;
++  if (Args.empty() || !llvm::is_contained(Args, "-fmodules") ||
++      llvm::is_contained(Args, "-fno-modules") ||
++      hasExplicitClangModuleInputs(Args))
++    return false;
++  for (size_t I = 1; I < Args.size(); ++I) {
++    StringRef A = Args[I];
++    if (A.starts_with("-fmodule-header") || A.starts_with("-x="))
++      return false;
++    if (A == "-x") {
++      if (I + 1 == Args.size() || Args[++I] != "c++")
++        return false;
++    } else if (A.starts_with("-x") && A != "-xc++")
++      return false;
++  }
++  bool Compat = llvm::sys::path::filename(File) == "std.compat.cc";
++  if (!Compat && llvm::sys::path::filename(File) != "std.cc")
++    return false;
++  llvm::SmallString<256> Driver, Source;
++  if (RequestFS.getRealPath(Args.front(), Driver) || !isGCCDriverName(Driver) ||
++      llvm::sys::path::filename(llvm::sys::path::parent_path(Driver)) !=
++          "bin" ||
++      RequestFS.getRealPath(File, Source))
++    return false;
++  llvm::SmallString<256> IncludeRoot(
++      llvm::sys::path::parent_path(llvm::sys::path::parent_path(Driver)));
++  llvm::sys::path::append(IncludeRoot, "include", "c++");
++  StringRef Relative = Source;
++  if (!Relative.consume_front(IncludeRoot) || !Relative.consume_front("/"))
++    return false;
++  auto [Version, Suffix] = Relative.split('/');
++  if (Version.empty() ||
++      !llvm::all_of(Version,
++                    [](char C) { return llvm::isDigit(C) || C == '.'; }) ||
++      Suffix != (Compat ? "bits/std.compat.cc" : "bits/std.cc"))
++    return false;
++  auto Before = RequestFS.status(File);
++  constexpr uint64_t MaxSourceBytes = 128 * 1024;
++  if (!Before || !Before->isRegularFile() || Before->getSize() > MaxSourceBytes)
++    return false;
++  auto Opened = RequestFS.openFileForRead(File);
++  if (!Opened)
++    return false;
++  auto OpenStatus = (*Opened)->status();
++  if (!OpenStatus || !OpenStatus->isRegularFile() ||
++      OpenStatus->getUniqueID() != Before->getUniqueID() ||
++      OpenStatus->getSize() != Before->getSize() ||
++      OpenStatus->getLastModificationTime() !=
++          Before->getLastModificationTime())
++    return false;
++  // FileSize is only a hint, not a portable prefix-read guarantee. Admission
++  // above bounds the known source; unsupported/changing VFS results decline.
++  auto Buffer = (*Opened)->getBuffer(File, OpenStatus->getSize(), true, true);
++  auto After = (*Opened)->status();
++  auto PathAfter = RequestFS.status(File);
++  llvm::SmallString<256> Rechecked;
++  if (!Buffer || !After || !PathAfter ||
++      (*Buffer)->getBufferSize() > MaxSourceBytes ||
++      (*Buffer)->getBufferSize() != OpenStatus->getSize() ||
++      After->getUniqueID() != OpenStatus->getUniqueID() ||
++      After->getSize() != OpenStatus->getSize() ||
++      After->getLastModificationTime() !=
++          OpenStatus->getLastModificationTime() ||
++      PathAfter->getUniqueID() != OpenStatus->getUniqueID() ||
++      PathAfter->getSize() != OpenStatus->getSize() ||
++      PathAfter->getLastModificationTime() !=
++          OpenStatus->getLastModificationTime() ||
++      RequestFS.getRealPath(File, Rechecked) || Rechecked != Source ||
++      !hasGNUStdProducerRole((*Buffer)->getBuffer(), Compat))
++    return false;
++  Args.insert(llvm::find(Args, "--"), "-fno-implicit-module-maps");
++  vlog("GNU installed standard-module producer: disabling implicit Clang "
++       "module maps");
++  return true;
++}
++
+ CommandMangler CommandMangler::detect() {
+   CommandMangler Result;
+   Result.ClangPath = detectClangPath();
+diff --git a/clang-tools-extra/clangd/CompileCommands.h b/clang-tools-extra/clangd/CompileCommands.h
+index 1ee0dba2d..a378ee2bc 100644
+--- a/clang-tools-extra/clangd/CompileCommands.h
++++ b/clang-tools-extra/clangd/CompileCommands.h
+@@ -18,6 +18,12 @@
+ #include <string>
+ #include <vector>
+ 
++namespace llvm {
++namespace vfs {
++class FileSystem;
++}
++}
++
+ namespace clang {
+ namespace clangd {
+ 
+@@ -55,6 +61,13 @@ private:
+   Memoize<llvm::StringMap<std::string>> ResolvedDriversNoFollow;
+ };
+ 
++// Recognize GNU libstdc++'s installed named std/std.compat producer through
++// the actual request filesystem. Unknown provenance or explicit Clang module
++// inputs leave the command unchanged. No source-role result is cached.
++bool translateGNUStdModuleProducer(tooling::CompileCommand &Cmd,
++                                   llvm::StringRef File,
++                                   llvm::vfs::FileSystem &RequestFS);
++
+ // Removes args from a command-line in a semantically-aware way.
+ //
+ // Internally this builds a large (0.5MB) table of clang options on first use.
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 18b928865..c1ddb456d 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -9,6 +9,7 @@
+ #include "ModulesBuilder.h"
+ #include "ModuleBuildCache.h"
+ #include "Compiler.h"
++#include "CompileCommands.h"
+ #include "ModuleValidationCache.h"
+ #include "ModuleBuildMemoryBudget.h"
+ #include "ModuleBuildWorker.h"
+@@ -2039,6 +2040,8 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     return llvm::make_error<CancelledError>(Reason);
+   if (!WorkerConfigurationError.empty())
+     return llvm::createStringError(WorkerConfigurationError);
++  auto RequestFS = TFS.view(Cmd.Directory);
++  translateGNUStdModuleProducer(Cmd, ModuleSource, *RequestFS);
+   auto WorkerOptions = WorkerConfiguration;
+   auto WorkerRoot = getModuleCacheRoot(ModuleSource, getCDB());
+   registerModuleCacheRoot(WorkerRoot);
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 47d993ae8..6af6c1e7b 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "ProjectModules.h"
++#include "CompileCommands.h"
+ #include "Compiler.h"
+ #include "ModuleDependencyScanCache.h"
+ #include "support/Logger.h"
+@@ -402,6 +403,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+         llvm::StringRef(Arg).starts_with("-Xclang=-add-plugin"))
+       Cacheable = false;
+   auto RequestFS = TFS.view(Cmd->Directory);
++  translateGNUStdModuleProducer(*Cmd, FilePath, *RequestFS);
+   ModuleScanManifest::Digest MainBytes = {};
+   auto Environment = ModuleScanManifest::environment(*Cmd);
+   Cacheable &= Environment.has_value();
+diff --git a/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp b/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp
+index 7b0b49c8f..1fee14de1 100644
+--- a/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp
++++ b/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp
+@@ -23,6 +23,7 @@
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/Process.h"
+ #include "llvm/Support/TargetSelect.h"
++#include "llvm/Support/raw_ostream.h"
+ 
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+@@ -133,6 +134,121 @@ TEST(CommandMangler, GCCMapperDoesNotTranslateClangSymlink) {
+ }
+ #endif
+ 
++#if LLVM_ON_UNIX
++TEST(CommandMangler, InstalledGNUStdProducerRequiresCurrentSourceRole) {
++  llvm::SmallString<256> Root;
++  ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("GNUStdProducer", Root));
++  auto Cleanup =
++      llvm::scope_exit([&] { llvm::sys::fs::remove_directories(Root); });
++  auto Path = [&](StringRef Relative) { return (Root + "/" + Relative).str(); };
++  ASSERT_FALSE(llvm::sys::fs::create_directories(Path("bin")));
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(Path("include/c++/16.1.0/bits")));
++  auto Write = [&](StringRef File, StringRef Contents) {
++    std::error_code EC;
++    llvm::raw_fd_ostream OS(File, EC);
++    EXPECT_FALSE(EC);
++    OS << Contents;
++  };
++  Write(Path("bin/g++"), "GCC driver identity (never executed)");
++  Write(Path("bin/clang++"), "Clang driver identity (never executed)");
++  const std::string Source = Path("include/c++/16.1.0/bits/std.cc");
++  const std::string Role =
++      "module;\n#include <bits/stdc++.h>\nexport module std;\n";
++  Write(Source, Role);
++  auto FS = llvm::vfs::getRealFileSystem();
++  auto Command = [&](std::vector<std::string> Extra = {}) {
++    tooling::CompileCommand Cmd;
++    Cmd.Directory = Root.str().str();
++    Cmd.CommandLine = {Path("bin/g++"), "-std=c++23", "-fmodules"};
++    Cmd.CommandLine.insert(Cmd.CommandLine.end(), Extra.begin(), Extra.end());
++    Cmd.CommandLine.insert(Cmd.CommandLine.end(), {"--", Source});
++    return Cmd;
++  };
++  auto Positive = Command();
++  EXPECT_TRUE(translateGNUStdModuleProducer(Positive, Source, *FS));
++  EXPECT_THAT(Positive.CommandLine, Contains("-fmodules"));
++  EXPECT_THAT(Positive.CommandLine, Contains("-fno-implicit-module-maps"));
++  for (const char *Flag :
++       {"-fimplicit-module-maps", "-fmodule-map-file=map",
++        "-fmodule-file=std=std.pcm", "-fprebuilt-module-path=pcms",
++        "-fbuiltin-module-map", "-fno-modules", "-fmodule-header"}) {
++    auto Explicit = Command({Flag});
++    auto Original = Explicit.CommandLine;
++    EXPECT_FALSE(translateGNUStdModuleProducer(Explicit, Source, *FS)) << Flag;
++    EXPECT_EQ(Explicit.CommandLine, Original);
++  }
++  for (StringRef Language : {"c", "c++-header", "c++-module"}) {
++    auto OtherRole = Command({"-x", Language.str()});
++    EXPECT_FALSE(translateGNUStdModuleProducer(OtherRole, Source, *FS));
++  }
++  auto ExplicitCpp = Command({"-x", "c++"});
++  EXPECT_TRUE(translateGNUStdModuleProducer(ExplicitCpp, Source, *FS));
++  auto Clang = Command();
++  Clang.CommandLine.front() = Path("bin/clang++");
++  EXPECT_FALSE(translateGNUStdModuleProducer(Clang, Source, *FS));
++  ASSERT_FALSE(
++      llvm::sys::fs::create_link(Path("bin/clang++"), Path("bin/g++-99")));
++  auto Alias = Command();
++  Alias.CommandLine.front() = Path("bin/g++-99");
++  EXPECT_FALSE(translateGNUStdModuleProducer(Alias, Source, *FS));
++  Write(Path("std.cc"), Role);
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(Path("other/include/c++/16.1.0/bits")));
++  Write(Path("other/include/c++/16.1.0/bits/std.cc"), Role);
++  auto OtherInstall = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(
++      OtherInstall, Path("other/include/c++/16.1.0/bits/std.cc"), *FS));
++  auto Foreign = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(Foreign, Path("std.cc"), *FS));
++  Write(Path("ordinary.cpp"), Role);
++  EXPECT_FALSE(
++      translateGNUStdModuleProducer(Foreign, Path("ordinary.cpp"), *FS));
++  llvm::sys::fs::file_status Before;
++  ASSERT_FALSE(llvm::sys::fs::status(Source, Before));
++  auto Changed = Role;
++  Changed.replace(Changed.find("module std"), 10, "module bad");
++  ASSERT_EQ(Changed.size(), Role.size());
++  Write(Source, Changed);
++  ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++      Source, Before.getLastModificationTime()));
++  llvm::sys::fs::file_status SameStamp;
++  ASSERT_FALSE(llvm::sys::fs::status(Source, SameStamp));
++  ASSERT_EQ(SameStamp.getUniqueID(), Before.getUniqueID());
++  ASSERT_EQ(SameStamp.getSize(), Before.getSize());
++  ASSERT_EQ(SameStamp.getLastModificationTime(),
++            Before.getLastModificationTime());
++  auto NoCachedRole = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(NoCachedRole, Source, *FS));
++  // A current overlay is authoritative even if the disk producer is valid.
++  Write(Source, Role);
++  auto Overlay = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(FS);
++  auto Memory = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++  Memory->addFile(Source, 0, llvm::MemoryBuffer::getMemBufferCopy(Changed));
++  Overlay->pushOverlay(Memory);
++  auto Dirty = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(Dirty, Source, *Overlay));
++  Write(Source, "#if 0\n" + Role + "#endif\n");
++  auto Disabled = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(Disabled, Source, *FS));
++  Write(Source, "/*" + std::string(32 * 1024, ' ') + "*/\n" + Role);
++  auto LateRole = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(LateRole, Source, *FS));
++  Write(Source, Role + std::string(128 * 1024, ' '));
++  auto Oversized = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(Oversized, Source, *FS));
++  ASSERT_FALSE(llvm::sys::fs::remove(Source));
++  ASSERT_FALSE(llvm::sys::fs::create_link(Path("std.cc"), Source));
++  auto Escape = Command();
++  EXPECT_FALSE(translateGNUStdModuleProducer(Escape, Source, *FS));
++  const auto Compat = Path("include/c++/16.1.0/bits/std.compat.cc");
++  Write(Compat, "module;\nexport module std.compat;\n");
++  auto CompatCmd = Command();
++  CompatCmd.CommandLine.back() = Compat;
++  EXPECT_TRUE(translateGNUStdModuleProducer(CompatCmd, Compat, *FS));
++}
++#endif
++
+ TEST(CommandMangler, FilenameMismatch) {
+   auto Mangler = CommandMangler::forTests();
+   Mangler.ClangPath = testPath("clang");
+-- 
+2.53.0
+
