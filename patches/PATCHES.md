@@ -87,3 +87,5 @@ they live here and in patch *filenames* only.
 | 0043-UP-03-collect-owned-worker-memory-budgets.patch | UP-03 | stabilizing | tests/evidence/module-worker-budget-collection.json; ci/module-worker-isolation.md | Upstream configured compiler budgets publish verified kernel ownership leases and independently collect marked crash-orphan cgroups while preserving live, replaced and mismatched groups |
 
 | 0044-UP-03-reuse-verified-module-scan-failures.patch | UP-03 | stabilizing | ci/module-scan-memo.md; tests/evidence/project-qt-worker46.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream scan reuse preserves semantic failure diagnostics and verifies complete bounded request manifests, cancellation and real-path observations |
+
+| 0045-UP-03-bounded-linux-worker-diagnostics.patch | UP-03 | stabilizing | tests/e2e/module_worker_diagnostics.py; tests/evidence/module-worker-diagnostics.json; ci/module-worker-isolation.md | Upstream Linux supervised workers bound queued diagnostics and retained prefixes without unbounded stderr files or truncating PCM output |

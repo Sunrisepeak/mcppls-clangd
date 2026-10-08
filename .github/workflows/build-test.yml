@@ -175,6 +175,10 @@ jobs:
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-worker-failure"
+          python3 tests/e2e/module_worker_diagnostics.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-diagnostics"
       - uses: actions/upload-artifact@v4
         if: always() && startsWith(matrix.platform, 'linux-')
         with:
@@ -182,6 +186,7 @@ jobs:
           path: |
             ${{ runner.temp }}/module-worker-default/result.json
             ${{ runner.temp }}/module-worker-failure/result.json
+            ${{ runner.temp }}/module-worker-diagnostics/result.json
           if-no-files-found: warn
 
       - name: Provider command facts survive fresh module facades

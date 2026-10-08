@@ -1,0 +1,156 @@
+From da3b1ad86a4f0f7a66e997874ffe14a5889c33b3 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:07:39 +0900
+Subject: [PATCH] Bound Linux module worker diagnostics with owned nonblocking
+ FIFOs
+
+Redirect worker stderr into a private FIFO instead of an unbounded regular file. The specific-child supervisor drains at most sixteen 4 KiB reads per poll, retains a 64 KiB prefix and discards excess bytes. Read, cancellation and timeout failures reap the actual child before closing the transport and deleting its unit. Other platforms retain their existing bounded parent read and require separate disk-bound qualification.
+---
+ .../clangd/ModuleBuildWorker.cpp              | 94 ++++++++++++++++++-
+ 1 file changed, 92 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 76b434768..293b635a0 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -355,6 +355,7 @@ llvm::Error writeSnapshot(PathRef Path, StringRef Contents,
+   return llvm::Error::success();
+ }
+ 
++#ifndef __linux__
+ std::string workerDiagnostics(PathRef Path) {
+   // A diagnostic file cannot force an unbounded parent allocation.
+   uint64_t Size = 0;
+@@ -365,6 +366,86 @@ std::string workerDiagnostics(PathRef Path) {
+   return Text ? (*Text)->getBuffer().str() : std::string{};
+ }
+ 
++#endif
++
++// A bounded read of a regular diagnostic file only bounds parent memory: the
++// child could fill the disk before returning. Linux redirects into an owned
++// FIFO instead. Polling drains a finite batch and retains a bounded prefix;
++// excess bytes are discarded, with pipe backpressure bounding queued output.
++// No diagnostic reader thread may outlive the owned child or block shutdown.
++class WorkerDiagnostics {
++public:
++  static llvm::Expected<std::unique_ptr<WorkerDiagnostics>>
++  create(PathRef Path) {
++    auto Result =
++        std::unique_ptr<WorkerDiagnostics>(new WorkerDiagnostics(Path));
++#ifdef __linux__
++    if (mkfifo(Result->Path.c_str(), 0600))
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Result->OwnsFIFO = true;
++    Result->FD = open(Result->Path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++    if (Result->FD < 0)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Result->Prefix.reserve(Limit);
++#endif
++    return Result;
++  }
++  ~WorkerDiagnostics() {
++#ifdef __linux__
++    if (FD >= 0)
++      close(FD);
++    if (OwnsFIFO)
++      unlink(Path.c_str());
++#endif
++  }
++  llvm::Error drain() {
++#ifdef __linux__
++    char Buffer[4096];
++    // Count even interrupted reads: noisy output and signals cannot postpone
++    // the next cancellation/deadline or specific-child reap check indefinitely.
++    for (unsigned I = 0; I < 16; ++I) {
++      ssize_t N = read(FD, Buffer, sizeof(Buffer));
++      if (N < 0) {
++        if (errno == EINTR)
++          continue;
++        if (errno == EAGAIN || errno == EWOULDBLOCK)
++          break;
++        return llvm::errorCodeToError(
++            std::error_code(errno, std::generic_category()));
++      }
++      // EOF before the child opens its writer is harmless; after launch every
++      // poll checks again. We never wait for another writer or an inherited FD.
++      if (!N)
++        break;
++      size_t Keep = (std::min)(size_t(N), Limit - Prefix.size());
++      Prefix.append(Buffer, Keep);
++      Truncated |= Keep != size_t(N);
++    }
++#endif
++    return llvm::Error::success();
++  }
++  std::string text() const {
++#ifdef __linux__
++    return Prefix +
++           (Truncated ? "\n[module worker diagnostics truncated]\n" : "");
++#else
++    return workerDiagnostics(Path);
++#endif
++  }
++
++private:
++  explicit WorkerDiagnostics(PathRef Path) : Path(Path.str()) {}
++  const std::string Path;
++#ifdef __linux__
++  static constexpr size_t Limit = 64 * 1024;
++  int FD = -1;
++  bool OwnsFIFO = false, Truncated = false;
++  std::string Prefix;
++#endif
++};
++
+ } // namespace
+ 
+ llvm::Expected<std::string>
+@@ -487,6 +568,9 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+     return llvm::createStringError(
+         "module worker was cancelled or timed out during capture");
+   const std::string DiagnosticsPath = Path("stderr.log");
++  auto Diagnostics = WorkerDiagnostics::create(DiagnosticsPath);
++  if (!Diagnostics)
++    return Diagnostics.takeError();
+   auto Owner = WorkerOwner::create(Path("owner.pipe"));
+   if (!Owner)
+     return Owner.takeError();
+@@ -512,13 +596,17 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   // and any caller-owned source locks/prerequisite leases can be released.
+   WorkerProcess Child(Process);
+   for (;;) {
++    if (auto Err = (*Diagnostics)->drain())
++      return std::move(Err);
+     auto Status = Child.reap(/*Blocking=*/false);
+     if (!Status)
+       return Status.takeError();
+     if (*Status) {
++      if (auto Err = (*Diagnostics)->drain())
++        return std::move(Err);
+       if (**Status != 0)
+         return llvm::createStringError("module worker failed: " +
+-                                       workerDiagnostics(DiagnosticsPath));
++                                       (*Diagnostics)->text());
+       break;
+     }
+     const bool WasCancelled = Cancelled();
+@@ -527,10 +615,12 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+       auto Reaped = Child.reap(/*Blocking=*/true);
+       if (!Reaped)
+         return Reaped.takeError();
++      if (auto Err = (*Diagnostics)->drain())
++        return std::move(Err);
+       return llvm::createStringError(
+           llvm::formatv("module worker {0} (pid {1}): {2}",
+                         WasCancelled ? "cancelled" : "timed out", Process.Pid,
+-                        workerDiagnostics(DiagnosticsPath))
++                        (*Diagnostics)->text())
+               .str());
+     }
+     std::this_thread::sleep_for(std::chrono::milliseconds(10));
+-- 
+2.53.0
+

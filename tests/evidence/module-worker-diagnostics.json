@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "scope": "Linux FIFO transport; focused private A/B and actual combined root1\u201346 LSP, not crash corpus/native release qualification",
+  "private_source": "da3b1ad86",
+  "combined_identity": {
+    "source_commit": "1c4fa5ed28e2087ba2037ad0cb0cfcbcc4647a5e",
+    "series_sha256": "fc75a976cff7d1f24bbfe5ead2e743d709479aba5038284f53cf3b2b05de7f63",
+    "matched_paths": 74,
+    "matched_overlays": 3,
+    "engine_sha256": "2f91a4aa31c07c7f49b3ddbf6dfa04e1629f4d5668aa7339d8d8ab1f56f71011"
+  },
+  "flood_cases": [
+    {
+      "variant": "baseline42",
+      "mode": "flood-error",
+      "exit": 0,
+      "stdout": "elapsed_ms=33 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=65558 prefix=module worker failed: diagnostic-prefix\nXXXXXXXXXXXXXXXXXXXX truncated=0\n",
+      "stderr": "",
+      "writer": {
+        "is_fifo": false,
+        "size": 8388626,
+        "allocated_bytes": 8392704,
+        "finished": true
+      },
+      "units_left": []
+    },
+    {
+      "variant": "baseline42",
+      "mode": "flood-timeout",
+      "exit": 0,
+      "stdout": "elapsed_ms=124 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=65575 prefix=module worker timed out (pid 1135168): diagnostic-prefix\nXXX truncated=0\n",
+      "stderr": "",
+      "writer": {
+        "is_fifo": false,
+        "size": 8388626,
+        "allocated_bytes": 8392704,
+        "finished": true
+      },
+      "units_left": []
+    },
+    {
+      "variant": "baseline42",
+      "mode": "flood-cancel",
+      "exit": 0,
+      "stdout": "elapsed_ms=125 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=65575 prefix=module worker cancelled (pid 1135171): diagnostic-prefix\nXXX truncated=0\n",
+      "stderr": "",
+      "writer": {
+        "is_fifo": false,
+        "size": 8388626,
+        "allocated_bytes": 8392704,
+        "finished": true
+      },
+      "units_left": []
+    },
+    {
+      "variant": "fixed46",
+      "mode": "flood-error",
+      "exit": 0,
+      "stdout": "elapsed_ms=1322 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=65597 prefix=module worker failed: diagnostic-prefix\nXXXXXXXXXXXXXXXXXXXX truncated=1\n",
+      "stderr": "",
+      "writer": {
+        "is_fifo": true,
+        "size": 0,
+        "allocated_bytes": 0,
+        "finished": true
+      },
+      "units_left": []
+    },
+    {
+      "variant": "fixed46",
+      "mode": "flood-timeout",
+      "exit": 0,
+      "stdout": "elapsed_ms=103 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=65614 prefix=module worker timed out (pid 1135191): diagnostic-prefix\nXXX truncated=1\n",
+      "stderr": "",
+      "writer": {
+        "is_fifo": true,
+        "size": 0,
+        "allocated_bytes": 0,
+        "finished": false
+      },
+      "units_left": []
+    },
+    {
+      "variant": "fixed46",
+      "mode": "flood-cancel",
+      "exit": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=65614 prefix=module worker cancelled (pid 1135194): diagnostic-prefix\nXXX truncated=1\n",
+      "stderr": "",
+      "writer": {
+        "is_fifo": true,
+        "size": 0,
+        "allocated_bytes": 0,
+        "finished": false
+      },
+      "units_left": []
+    }
+  ],
+  "real_frontend_cases": [
+    {
+      "mode": "success",
+      "exit": 0,
+      "stdout": "elapsed_ms=22 other_alive=1 no_children=1 output=1\nworker_success=1\n",
+      "stderr": "",
+      "units_left": []
+    },
+    {
+      "mode": "timeout",
+      "exit": 0,
+      "stdout": "elapsed_ms=103 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=191 prefix=module worker timed out (pid 1139295): /tmp/mcppls-worker-di frontend_marker=1 truncated=0\n",
+      "stderr": "",
+      "units_left": []
+    },
+    {
+      "mode": "cancel",
+      "exit": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\ndiagnostic_bytes=190 prefix=module worker cancelled (pid 1139299): /tmp/mcppls-worker-di frontend_marker=1 truncated=0\n",
+      "stderr": "",
+      "units_left": []
+    }
+  ],
+  "combined_lsp": {
+    "outcome": "pass",
+    "engine_sha256": "2f91a4aa31c07c7f49b3ddbf6dfa04e1629f4d5668aa7339d8d8ab1f56f71011",
+    "writer": {
+      "fifo": true,
+      "size": 0,
+      "allocated_bytes": 0,
+      "finished": true
+    },
+    "synthetic_transport_check": true,
+    "disk_unchanged": true,
+    "remaining_bmis": [],
+    "remaining_worker_units": [],
+    "exit_code": 0,
+    "raw_sha256": "43e3e9382c7b7248572326af40cc8241947d8247538affb314e5174a6e3ce86b"
+  }
+}

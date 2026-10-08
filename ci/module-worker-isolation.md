@@ -363,3 +363,39 @@ no BMI or worker unit remains. There is no in-process retry. Empty worker stderr
 does not separately decode its allocation failure mechanism; the assertion is
 post-launch failure isolation under the configured small allowance. Both default
 success and failure gates run in Linux CI and retain full replay reports.
+
+## 0045 bounded Linux diagnostic transport
+
+Linux workers previously redirected stderr to a regular file; a bounded read
+only after exit did not bound disk allocation. WorkerDiagnostics now creates an
+owned mode-0600 FIFO and holds a nonblocking CLOEXEC reader. The existing
+specific-child supervision loop drains at most 16 blocks of 4096 bytes per
+iteration, including bounded interrupted-read retries. It retains a 64 KiB
+prefix plus a truncation marker and discards subsequent bytes. Kernel pipe
+backpressure bounds queued bytes. A pre-writer EOF is harmless; no reader thread
+or process-global child reaping was introduced. Cancellation/deadline/error
+paths reap the owned worker before FIFO and unit destruction. RLIMIT_FSIZE was
+not applied because it would also truncate compiler PCM output.
+
+Private source da3b1ad (base 42) changes only ModuleBuildWorker.cpp. Standalone
+links put that object ahead of read-only native archives. A synthetic 8 MiB
+writer allocates 8,392,704 disk bytes with the old transport and zero FIFO data
+blocks with the change. Natural failure finishes with the diagnostic prefix and
+truncation marker; timeout/cancellation under active flooding finish in 103/102
+ms. An unrelated child stays alive; no owned child, output or unit remains.
+An actual frontend probe compiles captured dirty main/header inputs, produces a
+PCM on success, and verifies frontend execution before timeout/cancellation;
+those two cases also finish in 103/102 ms with only the owned child terminated.
+The private artifact's historical variant label fixed46 refers to this 0045
+change, not standalone proof of the later collector patch.
+
+The maintained Linux real-LSP fixture uses a synthetic noisy worker, waits for
+its post-launch failure, and then requires actual semantic ControlValue from an
+independent file, normal shutdown and no residual BMI/unit. The combined root
+1–46 executable passes it: 8 MiB written, FIFO size/allocated bytes zero, full
+writer completion, unchanged sources. Linux CI runs the fixture and retains
+its replay evidence. This proves transport/supervisor behavior, not an actual
+compiler crash corpus. Non-Linux platforms retain regular-file transport with
+bounded parent reads; their diagnostic disk bound remains unqualified.
+
+Evidence: [module-worker-diagnostics.json](../tests/evidence/module-worker-diagnostics.json).
