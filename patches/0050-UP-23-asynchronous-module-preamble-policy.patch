@@ -1,0 +1,176 @@
+From 007316f64752baa16315adad25bcf44b727fe263 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:59:38 +0900
+Subject: [PATCH] [clangd] Resolve module preamble policy on the update worker
+
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index fcf9bd4a7..c36a53aef 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -298,7 +298,9 @@ void ClangdServer::addDocument(PathRef File, llvm::StringRef Contents,
+   Inputs.ClangTidyProvider = ClangTidyProvider;
+   Inputs.FeatureModules = FeatureModules;
+   Inputs.ModulesManager = ModulesManager;
+-  adjustParseInputs(Inputs, File);
++  // Resolve module-dependent policy on the update worker, like the command.
++  // didChange must not synchronously scan the project's provider inventory.
++  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild;
+   bool NewFile = WorkScheduler->update(File, Inputs, WantDiags);
+   // If we loaded Foo.h, we want to make sure Foo.cpp is indexed.
+   if (NewFile && BackgroundIdx)
+@@ -1188,27 +1190,6 @@ void ClangdServer::profile(MemoryTree &MT) const {
+   WorkScheduler->profile(MT.child("tuscheduler"));
+ }
+ 
+-void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+-  // FIXME (upstream): don't skip the preamble when the TU requires C++20
+-  // named modules. Mixing PCH and *loaded module files* may cause different
+-  // issues (incorrect diagnostics, crashes) due to instability of such
+-  // scenario support in clang. A TU whose imports are all third-party never
+-  // loads a named-module BMI, so its parse is a plain textual one and the
+-  // preamble stays safe there.
+-  auto NeedsPreambleSkip = [this, File, &Inputs]() {
+-    if (!ModulesManager)
+-      return false;
+-    // Required modules check uses compile commands extracted from the
+-    // compilation database.
+-    // We use context provider here to make command mangler to use compile
+-    // command adjustments from the config.
+-    WithContext Ctx(ContextProvider ? ContextProvider(File)
+-                                    : Context::current().clone());
+-    return ModulesManager->hasBuildableRequiredModules(File, *Inputs.TFS,
+-                                                       Inputs.Contents);
+-  };
+-  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || NeedsPreambleSkip();
+-}
+ 
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/ClangdServer.h b/clang-tools-extra/clangd/ClangdServer.h
+index 264ab7437..cc9ecae57 100644
+--- a/clang-tools-extra/clangd/ClangdServer.h
++++ b/clang-tools-extra/clangd/ClangdServer.h
+@@ -485,7 +485,6 @@ private:
+   }
+   const ThreadsafeFS &TFS;
+ 
+-  void adjustParseInputs(ParseInputs &Inputs, PathRef File) const;
+ 
+   Path ResourceDir;
+   // The index used to look up symbols. This could be:
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 4c5877396..15e64eee3 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -52,6 +52,7 @@
+ #include "Config.h"
+ #include "Diagnostics.h"
+ #include "GlobalCompilationDatabase.h"
++#include "ModulesBuilder.h"
+ #include "ParsedAST.h"
+ #include "Preamble.h"
+ #include "clang-include-cleaner/Record.h"
+@@ -898,9 +899,20 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags,
+     else
+       Inputs.CompileCommand = CDB.getFallbackCommand(FileName);
+ 
++    // A preamble may only be mixed with imports that remain textual. Resolve
++    // this from current request bytes/VFS before constructing the preamble,
++    // under the same file configuration context as command lookup. Keep this
++    // potentially expensive inventory work off the document-update caller.
++    if (Inputs.ModulesManager && !Inputs.Opts.SkipPreambleBuild)
++      Inputs.Opts.SkipPreambleBuild =
++          Inputs.ModulesManager->hasBuildableRequiredModules(
++              FileName, *Inputs.TFS, Inputs.Contents);
++
+     bool InputsAreTheSame =
+-        std::tie(FileInputs.CompileCommand, FileInputs.Contents) ==
+-        std::tie(Inputs.CompileCommand, Inputs.Contents);
++        std::tie(FileInputs.CompileCommand, FileInputs.Contents,
++                 FileInputs.Opts.SkipPreambleBuild) ==
++        std::tie(Inputs.CompileCommand, Inputs.Contents,
++                 Inputs.Opts.SkipPreambleBuild);
+     // Cached AST is invalidated.
+     if (!InputsAreTheSame) {
+       IdleASTs.take(this);
+@@ -1195,8 +1207,10 @@ void ASTWorker::generateDiagnostics(
+   }
+   // Used to check whether we can update AST cache.
+   bool InputsAreLatest =
+-      std::tie(FileInputs.CompileCommand, FileInputs.Contents) ==
+-      std::tie(Inputs.CompileCommand, Inputs.Contents);
++      std::tie(FileInputs.CompileCommand, FileInputs.Contents,
++               FileInputs.Opts.SkipPreambleBuild) ==
++      std::tie(Inputs.CompileCommand, Inputs.Contents,
++               Inputs.Opts.SkipPreambleBuild);
+   // Take a shortcut and don't report the diagnostics, since they should be the
+   // same. All the clients should handle the lack of OnUpdated() call anyway to
+   // handle empty result from buildAST.
+diff --git a/clang-tools-extra/clangd/unittests/ClangdTests.cpp b/clang-tools-extra/clangd/unittests/ClangdTests.cpp
+index 847df22f8..623556853 100644
+--- a/clang-tools-extra/clangd/unittests/ClangdTests.cpp
++++ b/clang-tools-extra/clangd/unittests/ClangdTests.cpp
+@@ -13,6 +13,7 @@
+ #include "ConfigFragment.h"
+ #include "GlobalCompilationDatabase.h"
+ #include "Matchers.h"
++#include "ModulesBuilder.h"
+ #include "ProjectModules.h"
+ #include "SyncAPI.h"
+ #include "TestFS.h"
+@@ -1140,6 +1141,54 @@ TEST(ClangdServerTest, FallbackWhenPreambleIsNotReady) {
+                         Field(&CodeCompletion::Scope, ""))));
+ }
+ 
++TEST(ClangdServerTest, DocumentUpdateDoesNotWaitForModuleInventory) {
++  Notification AllowInventory;
++  Notification EnteredInventory;
++  Notification UpdateReturned;
++  class DelayedModulesDatabase : public MockCompilationDatabase {
++  public:
++    DelayedModulesDatabase(Notification &Allow, Notification &Entered)
++        : Allow(Allow), Entered(Entered) {}
++    std::unique_ptr<ProjectModules>
++    getProjectModules(PathRef File) const override {
++      Entered.notify();
++      Allow.wait();
++      return nullptr;
++    }
++  private:
++    Notification &Allow;
++    Notification &Entered;
++  } CDB(AllowInventory, EnteredInventory);
++  MockFS FS;
++  auto File = testPath("module-policy.cpp");
++  FS.Files[File] = "int CurrentValue = 42;";
++  ModulesBuilder Modules(CDB);
++  auto Opts = ClangdServer::optsForTest();
++  Opts.ModulesManager = &Modules;
++  ClangdServer Server(CDB, FS, Opts);
++  AsyncTaskRunner Calls;
++  Calls.runAsync("update", [&] {
++    Server.addDocument(File, FS.Files[File]);
++    UpdateReturned.notify();
++  });
++  // Release the database before asserting, so a failing baseline never leaves
++  // an update or server destructor blocked. This is a synchronization control,
++  // not a timing target for production completion.
++  bool Returned = UpdateReturned.wait(timeoutSeconds(2));
++  bool Scanned = EnteredInventory.wait(timeoutSeconds(2));
++  AllowInventory.notify();
++  Calls.wait();
++  EXPECT_TRUE(Returned);
++  EXPECT_TRUE(Scanned);
++  ASSERT_TRUE(Server.blockUntilIdleForTest());
++  Annotations Completion("int CurrentValue = 42;\nint v = CurrentV^");
++  Server.addDocument(File, Completion.code());
++  auto Result = cantFail(runCodeComplete(Server, File, Completion.point(),
++                                          CodeCompleteOptions()));
++  EXPECT_THAT(Result.Completions,
++              testing::Contains(Field(&CodeCompletion::Name, "CurrentValue")));
++}
++
+ TEST(ClangdServerTest, FallbackWhenWaitingForCompileCommand) {
+   MockFS FS;
+   ErrorCheckingCallbacks DiagConsumer;

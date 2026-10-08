@@ -163,6 +163,20 @@ jobs:
           path: ${{ runner.temp }}/module-cold-completion/result.json
           if-no-files-found: warn
 
+      - name: Current symbols survive header and draft preamble mode changes
+        shell: bash
+        run: |
+          python3 tests/e2e/module_preamble_mode.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-preamble-mode"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-preamble-mode-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-preamble-mode/result.json
+          if-no-files-found: warn
+
       - name: Default Linux module worker preserves dirty headers
         if: startsWith(matrix.platform, 'linux-')
         shell: bash

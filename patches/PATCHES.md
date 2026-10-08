@@ -93,3 +93,5 @@ they live here and in patch *filenames* only.
 | 0046-UP-24-bounded-read-copy-maintenance.patch | UP-24 | stabilizing | tests/evidence/module-read-copy-maintenance.json; ci/module-read-copy-maintenance.md; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream copy-on-read orphan maintenance uses bounded resumable traversal outside requests and preserves active physical leases across aliases |
 
 | 0048-UP-25-reuse-preamble-build-mode-in-completion.patch | UP-25 | stabilizing | ci/completion-preamble-policy.md; tests/evidence/completion-preamble-mode.json; clangd/unittests/ClangdTests.cpp; clangd/unittests/PreambleTests.cpp | Upstream completion carries the actual preamble build mode and avoids redundant policy scans while retaining fresh module validation |
+
+| 0050-UP-23-asynchronous-module-preamble-policy.patch | UP-23 | stabilizing | ci/asynchronous-module-update.md; tests/e2e/module_preamble_mode.py; clangd/unittests/ClangdTests.cpp | Upstream document updates resolve current module preamble policy on the update worker and include that policy in AST input equality |
