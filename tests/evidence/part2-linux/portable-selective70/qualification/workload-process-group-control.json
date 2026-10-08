@@ -1,0 +1,71 @@
+{
+  "scope": "Real Linux process groups with harmless Python processes named clangd; no actual engine or compiler launched. Verifies same-group child is accepted and independently owned engine group rejected; cleanup confirmed. Sampled control only.",
+  "passed": true,
+  "rows": [
+    {
+      "label": "no_engine",
+      "compilers": [],
+      "engines": [],
+      "independent_groups": 0,
+      "timing_overlap": false
+    },
+    {
+      "label": "same_engine_parent_child",
+      "compilers": [],
+      "engines": [
+        {
+          "pid": 2435059,
+          "name": "clangd.main",
+          "ppid": 2435057,
+          "pgid": 2435059,
+          "start_ticks": 11943448
+        },
+        {
+          "pid": 2435060,
+          "name": "clangd",
+          "ppid": 2435059,
+          "pgid": 2435059,
+          "start_ticks": 11943450
+        }
+      ],
+      "independent_groups": 1,
+      "timing_overlap": false
+    },
+    {
+      "label": "independent_engine_added",
+      "compilers": [],
+      "engines": [
+        {
+          "pid": 2435059,
+          "name": "clangd.main",
+          "ppid": 2435057,
+          "pgid": 2435059,
+          "start_ticks": 11943448
+        },
+        {
+          "pid": 2435060,
+          "name": "clangd",
+          "ppid": 2435059,
+          "pgid": 2435059,
+          "start_ticks": 11943450
+        },
+        {
+          "pid": 2435061,
+          "name": "clangd.main",
+          "ppid": 2435057,
+          "pgid": 2435061,
+          "start_ticks": 11943473
+        }
+      ],
+      "independent_groups": 2,
+      "timing_overlap": true
+    },
+    {
+      "label": "after_cleanup",
+      "compilers": [],
+      "engines": [],
+      "independent_groups": 0,
+      "timing_overlap": false
+    }
+  ]
+}

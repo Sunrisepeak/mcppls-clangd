@@ -1,0 +1,53 @@
+{
+  "scope": "Separate native Clang/libc++ project; not a replacement for GNU Qt qualification. The native producer/importer are actually compiled; engine semantics and matched performance still require separate runs.",
+  "compiler_sha256": "edb3ea5f38aee2fb34be1aa5d3062b4c5a903dbe1becce9c2234e0e0622dde2a",
+  "provider_sha256": "c8377cbe16ff8e71f1211a43b708afa19de5265dbab098a42a98568694d1cce7",
+  "source_sha256": "fafdc87b03197f14d5ab9734bc17006a58321be989ac60b07eb6135f241d0039",
+  "cdb_sha256": "b4a68a365b7c7bf58215f0b9792b7769e78e46afe52cc2266148297b7bed52b0",
+  "stages": {
+    "producer": {
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+        "--no-default-config",
+        "-std=c++23",
+        "-stdlib=libc++",
+        "-nostdinc++",
+        "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+        "--precompile",
+        "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1/std.cppm",
+        "-o",
+        "/tmp/mcppls-part2-native-libcxx-std/native/std.pcm"
+      ],
+      "exit_code": 0
+    },
+    "importer": {
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+        "--no-default-config",
+        "-std=c++23",
+        "-stdlib=libc++",
+        "-nostdinc++",
+        "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+        "-fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm",
+        "-c",
+        "/tmp/mcppls-part2-native-libcxx-std/Use.cpp",
+        "-o",
+        "/tmp/mcppls-part2-native-libcxx-std/native/Use.o"
+      ],
+      "exit_code": 0
+    }
+  },
+  "native_std_pcm_sha256": "59c7411decdb0116a5685c78e597c16d1b30557575ac019d24ecb24a2e3d8028"
+}

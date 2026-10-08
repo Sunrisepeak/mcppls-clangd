@@ -1,0 +1,32 @@
+{
+  "status": "prepared_not_run",
+  "scope": "Six raw timing drivers reject any existing compiler/clangd before each arm/context; sample compiler processes and all clangd-named processes every200ms, rejecting observed multiple independent engine process-group overlap. This is sampled detection, not proof of system idleness, descendant accounting or continuous overlap absence. Only syntax validated so far. No probe process launched.",
+  "scripts": [
+    {
+      "path": "matrix-control.py",
+      "sha256": "d9d38765e224bf26e513b15243d0d818d311a97640a7d16816eadf2e4cf6df49"
+    },
+    {
+      "path": "matrix-distribution.py",
+      "sha256": "34f8471d5f372e2f7eb556c06f6b97fc6b987b7e5ca67c01b475e617e3465183"
+    },
+    {
+      "path": "native-candidate-control.py",
+      "sha256": "4faaf71190fabffde5461b29aaf20ec045b771d03c4a80dade746c136cf0d0fe"
+    },
+    {
+      "path": "native-settled-control.py",
+      "sha256": "a0861b98980ac0803393eccd4ae79965ad30d1185798b31449e3bd2f359bf0b0"
+    },
+    {
+      "path": "native-settled-distribution.py",
+      "sha256": "f252e0f0abddc89e040bb13354924ca5f25f0ba77894476c1a36cdf07690fca9"
+    },
+    {
+      "path": "four-arm.py",
+      "sha256": "c42eae3b3f778552e6807d11b8ed71026e7c010c577fa32255358a8bdb8a449b"
+    }
+  ],
+  "versioned_compiler_control": "Actual build /proc exposed six clang++-12 processes missed by exact compiler names, although ninja already blocked starting timing. All six drivers now include versioned Clang/GCC and native mcxx frontend names.",
+  "process_group_correction": "Count independent process groups, recording parent PID/group/start ticks. replay starts each engine in its own session; forked children may share the engine group. Original naive count rejection retained; actual same-engine parent/child ownership must be checked on corrected cold control."
+}
