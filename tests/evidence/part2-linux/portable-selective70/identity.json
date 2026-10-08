@@ -89,5 +89,37 @@
     "passed": true,
     "all_timings_and_resource_measurements_excluded": true,
     "kit_scope": "installed stock kit, no same-source immutable payload claim"
+  },
+  "four_arm_status": {
+    "status": "qualified_for_reported_scope",
+    "typed_sema_checks": 744,
+    "selected_gcc_insertions": 80,
+    "module_comparisons": {
+      "warm": {
+        "baseline_p95_ms": 173.900097,
+        "candidate_p95_ms": 82.453321,
+        "improvement_fraction": 0.5258581080607447,
+        "candidate_modules_minus_headers_ms": 43.701259,
+        "candidate_modules_over_headers": 2.1277144168483213
+      },
+      "edited": {
+        "baseline_p95_ms": 250.525161,
+        "candidate_p95_ms": 152.368774,
+        "improvement_fraction": 0.39180251040732794,
+        "candidate_modules_minus_headers_ms": 16.602641000000006,
+        "candidate_modules_over_headers": 1.1222885312642734
+      }
+    },
+    "resource_comparisons": {
+      "headers": {
+        "cpu_ratio_conservative": 0.8011049723756906,
+        "rss_observed_p95_max_ratio": 0.9056289186567684
+      },
+      "modules": {
+        "cpu_ratio_conservative": 0.7205518217191369,
+        "rss_observed_p95_max_ratio": 0.9515750386564485
+      }
+    },
+    "compiler_recipe_limitation": "Baseline67 GCC development vs final70 Clang12 floor; same producer/LLVM pin/resource headers, do not attribute all gain exclusively to source."
   }
 }

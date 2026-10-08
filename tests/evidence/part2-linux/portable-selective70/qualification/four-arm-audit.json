@@ -1,0 +1,68 @@
+{
+  "scope": "Matched headers/modules x baseline/candidate, each3starts x30rounds, original URI/CDB, no added trace instrumentation. GCC first,last,slowest per phase/start compiled after all four arms; not every reply compiled. Header macros/declaration exposure differs from module exports. Final70 Clang12 floor package versus baseline67 GCC development artifact, same upstream pin/producer inputs; compiler build recipes differ, so do not attribute every gain exclusively to source code. Same-compiler private controls are separate evidence.",
+  "observed_invocation_exit_code": 0,
+  "typed_sema_checks": 744,
+  "selected_gcc_insertions": 80,
+  "within_mode_edit_fields_equal": true,
+  "resource_comparisons": {
+    "headers": {
+      "cpu_ratio_conservative": 0.8011049723756906,
+      "rss_observed_p95_max_ratio": 0.9056289186567684
+    },
+    "modules": {
+      "cpu_ratio_conservative": 0.7205518217191369,
+      "rss_observed_p95_max_ratio": 0.9515750386564485
+    }
+  },
+  "arms": {
+    "baseline-headers": {
+      "report_sha256": "29e287c0277e0288d20a680543203ed1716d77882c42e5ea8865b47054de7194",
+      "engine_sha256": "200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 20,
+      "warm_p95_ms": 80.659422,
+      "edited_p95_ms": 179.619856
+    },
+    "candidate-modules": {
+      "report_sha256": "b4019508316330dcf1ad8c77ade0d07577dff66bdd07720f2670dce258d46590",
+      "engine_sha256": "5213fa91c24f93f9d3a6f625f4a0699f4ea93892063a7032b2b9ef34b13a179e",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 21,
+      "warm_p95_ms": 82.453321,
+      "edited_p95_ms": 152.368774
+    },
+    "baseline-modules": {
+      "report_sha256": "78c5e8ae82f12bbd4a34c042035fbd751fb454f0fc605ffc4735bd97f81e4cf9",
+      "engine_sha256": "200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 19,
+      "warm_p95_ms": 173.900097,
+      "edited_p95_ms": 250.525161
+    },
+    "candidate-headers": {
+      "report_sha256": "fd357bf34cc23b7b0af18234a48822b70ae4e1b087b9ec2cb1f53a212d7f7f2f",
+      "engine_sha256": "5213fa91c24f93f9d3a6f625f4a0699f4ea93892063a7032b2b9ef34b13a179e",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 20,
+      "warm_p95_ms": 38.752062,
+      "edited_p95_ms": 135.766133
+    }
+  },
+  "module_comparisons": {
+    "warm": {
+      "baseline_p95_ms": 173.900097,
+      "candidate_p95_ms": 82.453321,
+      "improvement_fraction": 0.5258581080607447,
+      "candidate_modules_minus_headers_ms": 43.701259,
+      "candidate_modules_over_headers": 2.1277144168483213
+    },
+    "edited": {
+      "baseline_p95_ms": 250.525161,
+      "candidate_p95_ms": 152.368774,
+      "improvement_fraction": 0.39180251040732794,
+      "candidate_modules_minus_headers_ms": 16.602641000000006,
+      "candidate_modules_over_headers": 1.1222885312642734
+    }
+  },
+  "all_checked_requirements_passed": true
+}
