@@ -1,0 +1,1574 @@
+Note: Google Test filter = PrerequisiteModulesTests.*:PreambleTest.*:CommandMangler.*
+[==========] Running 92 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 19 tests from CommandMangler
+[ RUN      ] CommandMangler.Everything
+[       OK ] CommandMangler.Everything (0 ms)
+[ RUN      ] CommandMangler.GCCModuleMapperDialectPreservesExplicitClangInputs
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+GCC module mapper dialect: disabling implicit Clang module maps
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+GCC module mapper dialect: disabling implicit Clang module maps
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+[       OK ] CommandMangler.GCCModuleMapperDialectPreservesExplicitClangInputs (0 ms)
+[ RUN      ] CommandMangler.GCCMapperDoesNotTranslateClangSymlink
+Warning: detected unsupported options '-fmodule-mapper=mapper.map'
+[       OK ] CommandMangler.GCCMapperDoesNotTranslateClangSymlink (0 ms)
+[ RUN      ] CommandMangler.InstalledGNUStdProducerRequiresCurrentSourceRole
+GNU installed standard-module producer: disabling implicit Clang module maps
+GNU installed standard-module producer: disabling implicit Clang module maps
+GNU installed standard-module producer: disabling implicit Clang module maps
+[       OK ] CommandMangler.InstalledGNUStdProducerRequiresCurrentSourceRole (6 ms)
+[ RUN      ] CommandMangler.FilenameMismatch
+[       OK ] CommandMangler.FilenameMismatch (0 ms)
+[ RUN      ] CommandMangler.ResourceDir
+[       OK ] CommandMangler.ResourceDir (0 ms)
+[ RUN      ] CommandMangler.Sysroot
+[       OK ] CommandMangler.Sysroot (0 ms)
+[ RUN      ] CommandMangler.ClangPath
+[       OK ] CommandMangler.ClangPath (0 ms)
+[ RUN      ] CommandMangler.ClangPathResolve
+[       OK ] CommandMangler.ClangPathResolve (0 ms)
+[ RUN      ] CommandMangler.ConfigEdits
+[       OK ] CommandMangler.ConfigEdits (0 ms)
+[ RUN      ] CommandMangler.InputsAfterDashDash
+[       OK ] CommandMangler.InputsAfterDashDash (0 ms)
+[ RUN      ] CommandMangler.StripsMultipleArch
+[       OK ] CommandMangler.StripsMultipleArch (0 ms)
+[ RUN      ] CommandMangler.EmptyArgs
+[       OK ] CommandMangler.EmptyArgs (0 ms)
+[ RUN      ] CommandMangler.PathsAsPositional
+[       OK ] CommandMangler.PathsAsPositional (0 ms)
+[ RUN      ] CommandMangler.RespectsOriginalResourceDir
+[       OK ] CommandMangler.RespectsOriginalResourceDir (0 ms)
+[ RUN      ] CommandMangler.RespectsOriginalSysroot
+[       OK ] CommandMangler.RespectsOriginalSysroot (0 ms)
+[ RUN      ] CommandMangler.ClangUnknownArgs
+Warning: detected unsupported options '--unknown-flag, --unknown-option=abcd'
+[       OK ] CommandMangler.ClangUnknownArgs (0 ms)
+[ RUN      ] CommandMangler.StdLatestFlag
+[       OK ] CommandMangler.StdLatestFlag (0 ms)
+[ RUN      ] CommandMangler.ClangClStdFlags_Inference
+[       OK ] CommandMangler.ClangClStdFlags_Inference (0 ms)
+[----------] 19 tests from CommandMangler (7 ms total)
+
+[----------] 71 tests from PrerequisiteModulesTests
+[ RUN      ] PrerequisiteModulesTests.ScanPublicationReplaysEachRequestView
+Module dependency scan memo miss: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan publication wait: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-e22a56/Use.cpp (entries=1, bytes=86352)
+Module dependency scan memo hit: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan publication wait: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-e22a56/Use.cpp (entries=1, bytes=86352)
+Module dependency scan memo invalidated: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-e22a56/Use.cpp (entries=1, bytes=86352)
+Module dependency scan memo miss: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan publication wait: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo declined: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-e22a56/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-e22a56/Use.cpp (entries=1, bytes=86352)
+[       OK ] PrerequisiteModulesTests.ScanPublicationReplaysEachRequestView (15 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanPublicationBoundsAndRecursiveBypass
+[       OK ] PrerequisiteModulesTests.ScanPublicationBoundsAndRecursiveBypass (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanPublicationCancellationAndNonAdmission
+[       OK ] PrerequisiteModulesTests.ScanPublicationCancellationAndNonAdmission (156 ms)
+[ RUN      ] PrerequisiteModulesTests.CancellationAtCompilerBoundaries
+Ignored diagnostic. argument unused during compilation: '-c'
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-a1f399/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Module build task M finished (active=0)
+Failed to build module prerequisites for /tmp/modules-test-a1f399/Use.cpp; due to Task was cancelled.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-a1f399/.cache/clangd/modules/M.cppm-42D6B314EC4290F7/468C18276C4EA3AE/M-20261008-114836-024290.-1b1f6f.pcm
+Module build task M finished (active=0)
+Ignored diagnostic. argument unused during compilation: '-c'
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Module build task M finished (active=0)
+Failed to build module prerequisites for /tmp/modules-test-a1f399/Use.cpp; due to Task was cancelled.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-a1f399/.cache/clangd/modules/M.cppm-42D6B314EC4290F7/468C18276C4EA3AE/M-20261008-114836-028360.-0337c5.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.CancellationAtCompilerBoundaries (8 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerOutputBudgetPrecedesPayloadWrites
+[       OK ] PrerequisiteModulesTests.ModuleWorkerOutputBudgetPrecedesPayloadWrites (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerPwriteAndImplicitCacheShareBudget
+[       OK ] PrerequisiteModulesTests.ModuleWorkerPwriteAndImplicitCacheShareBudget (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerIndexLimitRemainsSticky
+[       OK ] PrerequisiteModulesTests.ModuleWorkerIndexLimitRemainsSticky (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerBoundedProtocolCannotBeDowngraded
+[       OK ] PrerequisiteModulesTests.ModuleWorkerBoundedProtocolCannotBeDowngraded (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerCaptureLimitFailsBeforeLaunch
+[       OK ] PrerequisiteModulesTests.ModuleWorkerCaptureLimitFailsBeforeLaunch (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerPolicyDoesNotInventDiskSemantics
+[       OK ] PrerequisiteModulesTests.ModuleWorkerPolicyDoesNotInventDiskSemantics (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerBudgetFailsClosedBeforeRequestRead
+[       OK ] PrerequisiteModulesTests.ModuleWorkerBudgetFailsClosedBeforeRequestRead (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerCollectionRequiresBothOwnersGone
+[       OK ] PrerequisiteModulesTests.ModuleWorkerCollectionRequiresBothOwnersGone (6 ms)
+[ RUN      ] PrerequisiteModulesTests.OwnedImplicitBundleMainCopyAndCompanionLease
+[       OK ] PrerequisiteModulesTests.OwnedImplicitBundleMainCopyAndCompanionLease (51 ms)
+[ RUN      ] PrerequisiteModulesTests.OwnedImplicitBundleChecksOutputAndIdentity
+[       OK ] PrerequisiteModulesTests.OwnedImplicitBundleChecksOutputAndIdentity (11 ms)
+[ RUN      ] PrerequisiteModulesTests.OwnedPayloadAdmissionAndImmutableCopyLeases
+[       OK ] PrerequisiteModulesTests.OwnedPayloadAdmissionAndImmutableCopyLeases (16 ms)
+[ RUN      ] PrerequisiteModulesTests.OwnedPayloadCrashChargesAndChangedIdentityRetain
+[       OK ] PrerequisiteModulesTests.OwnedPayloadCrashChargesAndChangedIdentityRetain (9 ms)
+[ RUN      ] PrerequisiteModulesTests.OwnedPayloadUnknownAndSymlinkUnitsKeepCharges
+[       OK ] PrerequisiteModulesTests.OwnedPayloadUnknownAndSymlinkUnitsKeepCharges (5 ms)
+[ RUN      ] PrerequisiteModulesTests.OwnedPayloadReplacedLeaseCannotCollectLiveGeneration
+[       OK ] PrerequisiteModulesTests.OwnedPayloadReplacedLeaseCannotCollectLiveGeneration (4 ms)
+[ RUN      ] PrerequisiteModulesTests.ExplicitManagedPrebuiltInputsRequireLeases
+[       OK ] PrerequisiteModulesTests.ExplicitManagedPrebuiltInputsRequireLeases (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWorkerPreservesCapturedInputs
+M.cppm:1:2: error: captured failure
+    1 | #error captured failure
+      |  ^
+M.cppm:1:1: error: missing 'export module' declaration in module interface unit
+    1 | #error captured failure
+      | ^
+2 errors generated.
+[       OK ] PrerequisiteModulesTests.ModuleWorkerPreservesCapturedInputs (3 ms)
+[ RUN      ] PrerequisiteModulesTests.NonModularTest
+Module dependency scan memo miss: /tmp/modules-test-dc4907/NonModular.cpp
+[       OK ] PrerequisiteModulesTests.NonModularTest (1 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWithoutDepTest
+Module dependency scan memo miss: /tmp/modules-test-255d98/M.cppm
+[       OK ] PrerequisiteModulesTests.ModuleWithoutDepTest (1 ms)
+[ RUN      ] PrerequisiteModulesTests.PositiveScanMemoTracksNegativeHeaderAndDraftInputs
+Module dependency scan memo miss: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-1d75cc/Use.cpp (entries=1, bytes=86576)
+Module dependency scan memo hit: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-1d75cc/Use.cpp (entries=1, bytes=86352)
+Module dependency scan memo invalidated: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-1d75cc/Use.cpp (entries=1, bytes=86352)
+Module dependency scan memo invalidated: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-1d75cc/Use.cpp (entries=1, bytes=86352)
+Module dependency scan memo hit: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-1d75cc/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-1d75cc/Use.cpp (entries=1, bytes=86352)
+[       OK ] PrerequisiteModulesTests.PositiveScanMemoTracksNegativeHeaderAndDraftInputs (6 ms)
+[ RUN      ] PrerequisiteModulesTests.FailedScanMemoRevalidatesHeadersAndDrafts
+Module dependency scan memo miss: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-1468fe/Broken.cppm (observable=true, errors=true, complete=true, probes=168)
+Module dependency scan memo stored: /tmp/modules-test-1468fe/Broken.cppm (entries=1, bytes=86730)
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: /tmp/modules-test-1468fe/Broken.cppm:2:10: fatal error: 'repair.h' file not found
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo hit: /tmp/modules-test-1468fe/Broken.cppm
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: /tmp/modules-test-1468fe/Broken.cppm:2:10: fatal error: 'repair.h' file not found
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo hit: /tmp/modules-test-1468fe/Broken.cppm
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: /tmp/modules-test-1468fe/Broken.cppm:2:10: fatal error: 'repair.h' file not found
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo invalidated: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo miss: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-1468fe/Broken.cppm (observable=true, errors=true, complete=true, probes=165)
+Module dependency scan memo stored: /tmp/modules-test-1468fe/Broken.cppm (entries=1, bytes=86457)
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: In file included from /tmp/modules-test-1468fe/Broken.cppm:2:
+/tmp/modules-test-1468fe/repair.h:1:2: error: bad
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo hit: /tmp/modules-test-1468fe/Broken.cppm
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: In file included from /tmp/modules-test-1468fe/Broken.cppm:2:
+/tmp/modules-test-1468fe/repair.h:1:2: error: bad
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo invalidated: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo miss: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo stored: /tmp/modules-test-1468fe/Broken.cppm (entries=1, bytes=86439)
+Module dependency scan memo hit: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo invalidated: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo miss: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-1468fe/Broken.cppm (observable=true, errors=true, complete=true, probes=165)
+Module dependency scan memo stored: /tmp/modules-test-1468fe/Broken.cppm (entries=1, bytes=86457)
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: In file included from /tmp/modules-test-1468fe/Broken.cppm:2:
+/tmp/modules-test-1468fe/repair.h:1:2: error: bad
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo hit: /tmp/modules-test-1468fe/Broken.cppm
+Scanning modules dependencies for /tmp/modules-test-1468fe/Broken.cppm failed: In file included from /tmp/modules-test-1468fe/Broken.cppm:2:
+/tmp/modules-test-1468fe/repair.h:1:2: error: bad
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-1468fe/Broken.cppm 
+Module dependency scan memo invalidated: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo miss: /tmp/modules-test-1468fe/Broken.cppm
+Module dependency scan memo stored: /tmp/modules-test-1468fe/Broken.cppm (entries=1, bytes=86439)
+[       OK ] PrerequisiteModulesTests.FailedScanMemoRevalidatesHeadersAndDrafts (7 ms)
+[ RUN      ] PrerequisiteModulesTests.FailedScanMemoRejectsOversizedAndCanceledEntries
+Module dependency scan memo stored: /tmp/modules-test-3caf5a/Use.cpp (entries=1, bytes=2361)
+Module dependency scan memo hit: /tmp/modules-test-3caf5a/Use.cpp
+Module dependency scan memo declined: /tmp/modules-test-3caf5a/Use.cpp
+Module dependency scan memo declined: /tmp/modules-test-3caf5a/Use.cpp
+Module dependency scan memo declined: /tmp/modules-test-3caf5a/Use.cpp
+[       OK ] PrerequisiteModulesTests.FailedScanMemoRejectsOversizedAndCanceledEntries (0 ms)
+[ RUN      ] PrerequisiteModulesTests.FailedScanMemoCommandAndGenerationChanges
+Module dependency scan memo miss: /tmp/modules-test-359f30/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-359f30/Broken.cppm (observable=true, errors=true, complete=true, probes=161)
+Module dependency scan memo stored: /tmp/modules-test-359f30/Broken.cppm (entries=1, bytes=85806)
+Scanning modules dependencies for /tmp/modules-test-359f30/Broken.cppm failed: /tmp/modules-test-359f30/Broken.cppm:2:2: error: blocked
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-359f30/Broken.cppm 
+Module dependency scan memo hit: /tmp/modules-test-359f30/Broken.cppm
+Scanning modules dependencies for /tmp/modules-test-359f30/Broken.cppm failed: /tmp/modules-test-359f30/Broken.cppm:2:2: error: blocked
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-359f30/Broken.cppm 
+Module dependency scan memo miss: /tmp/modules-test-359f30/Broken.cppm
+Module dependency scan memo stored: /tmp/modules-test-359f30/Broken.cppm (entries=2, bytes=171728)
+Module dependency scan memo hit: /tmp/modules-test-359f30/Broken.cppm
+Scanning modules dependencies for /tmp/modules-test-359f30/Broken.cppm failed: /tmp/modules-test-359f30/Broken.cppm:2:2: error: blocked
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-359f30/Broken.cppm 
+Module dependency scan memo miss: /tmp/modules-test-359f30/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-359f30/Broken.cppm (observable=true, errors=true, complete=true, probes=161)
+Module dependency scan memo stored: /tmp/modules-test-359f30/Broken.cppm (entries=3, bytes=257534)
+Scanning modules dependencies for /tmp/modules-test-359f30/Broken.cppm failed: /tmp/modules-test-359f30/Broken.cppm:2:2: error: blocked
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-359f30/Broken.cppm 
+[       OK ] PrerequisiteModulesTests.FailedScanMemoCommandAndGenerationChanges (3 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanMemoRealPathRetargetsAndMissingInputs
+[       OK ] PrerequisiteModulesTests.ScanMemoRealPathRetargetsAndMissingInputs (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanMemoCompactsIdenticalIdempotentFacts
+Module dependency scan manifest probe boundary: probes=8192, repeatedFacts=0
+[       OK ] PrerequisiteModulesTests.ScanMemoCompactsIdenticalIdempotentFacts (1 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanMemoIndexRetainsCollidingFactDifferences
+Module dependency scan manifest probe boundary: probes=0, repeatedFacts=0
+[       OK ] PrerequisiteModulesTests.ScanMemoIndexRetainsCollidingFactDifferences (11 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanMemoHashesCompleteLargeHeaderContents
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+Module dependency scan memo hit: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo invalidated: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-14f9e0/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-14f9e0/Use.cpp (entries=1, bytes=86345)
+[       OK ] PrerequisiteModulesTests.ScanMemoHashesCompleteLargeHeaderContents (23 ms)
+[ RUN      ] PrerequisiteModulesTests.FailedScanResponseInputsRemainFresh
+Loaded compilation database from /tmp/modules-test-0bfd41/compile_commands.json
+Module dependency scan memo miss: /tmp/modules-test-0bfd41/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-0bfd41/Broken.cppm (observable=false, errors=true, complete=false, probes=0)
+Scanning modules dependencies for /tmp/modules-test-0bfd41/Broken.cppm failed: /tmp/modules-test-0bfd41/Broken.cppm:2:2: error: blocked
+
+The command line the scanning tool use is: clang -std=c++20 -DBAD=1 /tmp/modules-test-0bfd41/Broken.cppm 
+Module dependency scan memo miss: /tmp/modules-test-0bfd41/Broken.cppm
+Module dependency scan failure admission: /tmp/modules-test-0bfd41/Broken.cppm (observable=false, errors=true, complete=false, probes=0)
+Scanning modules dependencies for /tmp/modules-test-0bfd41/Broken.cppm failed: /tmp/modules-test-0bfd41/Broken.cppm:2:2: error: blocked
+
+The command line the scanning tool use is: clang -std=c++20 -DBAD=1 /tmp/modules-test-0bfd41/Broken.cppm 
+Reloaded compilation database from /tmp/modules-test-0bfd41/compile_commands.json
+Module dependency scan memo miss: /tmp/modules-test-0bfd41/Broken.cppm
+[       OK ] PrerequisiteModulesTests.FailedScanResponseInputsRemainFresh (2 ms)
+[ RUN      ] PrerequisiteModulesTests.PositiveScanMemoPreservesConfiguredProviders
+Module dependency scan memo miss: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-2aacac/M.cppm (entries=1, bytes=85793)
+Module dependency scan memo hit: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-2aacac/M.cppm (entries=2, bytes=171665)
+Module dependency scan memo hit: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-2aacac/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-2aacac/M.cppm
+[       OK ] PrerequisiteModulesTests.PositiveScanMemoPreservesConfiguredProviders (5 ms)
+[ RUN      ] PrerequisiteModulesTests.ExternalProviderUsesImportingProjectCommand
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Loaded compilation database from /tmp/modules-test-d5c741/project/compile_commands.json
+Module dependency scan memo miss: /tmp/modules-test-d5c741/project/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-d5c741/project/Use.cpp (entries=1, bytes=85878)
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-d5c741/vendor/M.cppm (entries=2, bytes=171781)
+Module dependency scan memo hit: /tmp/modules-test-d5c741/project/Use.cpp
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Broadcasting compilation database from /tmp/modules-test-d5c741/project
+Module dependency scan memo invalidated: /tmp/modules-test-d5c741/project/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-d5c741/project/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-d5c741/project/Use.cpp (entries=2, bytes=171781)
+Module provider index reused: 2 commands
+Module dependency scan memo invalidated: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-d5c741/vendor/M.cppm (entries=2, bytes=171781)
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /home/speak/.cache/clangd/modules: examined=32 removed=0 more=true
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /home/speak/.cache/clangd/modules/M.cppm-534BA3B119CA8A3C/B41C698AC810E175/M-20261008-114836-212012.-8951b6.pcm
+Module build task M finished (active=0)
+Reloaded compilation database from /tmp/modules-test-d5c741/project/compile_commands.json
+Broadcasting compilation database from /tmp/modules-test-d5c741/project
+Module dependency scan memo miss: /tmp/modules-test-d5c741/project/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-d5c741/project/Use.cpp (entries=3, bytes=257659)
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-d5c741/vendor/M.cppm (entries=4, bytes=343562)
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /home/speak/.cache/clangd/modules/M.cppm-534BA3B119CA8A3C/31528B08C0142282/M-20261008-114836-217683.-c3f2ff.pcm
+Module build task M finished (active=0)
+Module dependency scan memo hit: /tmp/modules-test-d5c741/project/Use.cpp
+Module provider index reused: 2 commands
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-d5c741/project/Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /home/speak/.cache/clangd/modules: examined=32 removed=0 more=true
+Reusing persistent module M from /home/speak/.cache/clangd/modules/M.cppm-534BA3B119CA8A3C/B41C698AC810E175/M.pcm
+Module build task M finished (active=0)
+Module dependency scan memo hit: /tmp/modules-test-d5c741/project/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-d5c741/project/Use.cpp
+Module provider index reused: 2 commands
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-d5c741/project/Use.cpp
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-d5c741/vendor/M.cppm
+Failed to find compilation database for /tmp/modules-test-d5c741/vendor/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /home/speak/.cache/clangd/modules: examined=32 removed=0 more=true
+Reusing persistent module M from /home/speak/.cache/clangd/modules/M.cppm-534BA3B119CA8A3C/31528B08C0142282/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.ExternalProviderUsesImportingProjectCommand (21 ms)
+[ RUN      ] PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer
+Module dependency scan memo miss: /tmp/modules-test-4ec3a7/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-4ec3a7/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-4ec3a7/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/DD21B896E5459EA8/M-20261008-114836-233067.-8bc453.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-4ec3a7/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-4ec3a7/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/DD21B896E5459EA8/M-20261008-114836-233067.-8bc453.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-4ec3a7/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-4ec3a7/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-4ec3a7/Use.cpp
+[       OK ] PrerequisiteModulesTests.UnsavedImportUsesExactRequestBuffer (13 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWithArgumentPatch
+Module dependency scan memo miss: /tmp/modules-test-1adf57/M.cppm
+Module dependency scan failure admission: /tmp/modules-test-1adf57/M.cppm (observable=false, errors=true, complete=false, probes=0)
+Scanning modules dependencies for /tmp/modules-test-1adf57/M.cppm failed: error: unknown argument: '-invalid-unknown-flag'
+
+The command line the scanning tool use is: clang -ffreestanding -std=c++20 -c -invalid-unknown-flag /tmp/modules-test-1adf57/M.cppm 
+Module dependency scan memo miss: /tmp/modules-test-1adf57/M.cppm
+[       OK ] PrerequisiteModulesTests.ModuleWithArgumentPatch (2 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleWithDepTest
+Module dependency scan memo miss: /tmp/modules-test-337edd/N.cppm
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: foo.h
+Module dependency scan failure admission: foo.h (observable=false, errors=true, complete=false, probes=0)
+Scanning modules dependencies for foo.h failed: error: invalid argument '-std=c++20' not allowed with 'C'
+
+The command line the scanning tool use is: clang -ffreestanding -std=c++20 -c foo.h 
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: N.cppm
+Detected multiple source files (/tmp/modules-test-337edd/N.cppm, N.cppm) declaring the same module: 'N'. Now clangd may find the wrong source in such case.
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module N:Part to /tmp/modules-test-337edd/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/81479EE2819E3C8A/N-Part-20261008-114836-249980.-4304f2.pcm
+Module build task N:Part finished (active=1)
+Built module M to /tmp/modules-test-337edd/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E66E6D878E1460E3/M-20261008-114836-250048.-e4c549.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.ModuleWithDepTest (9 ms)
+[ RUN      ] PrerequisiteModulesTests.ReusabilityTest
+Module dependency scan memo miss: /tmp/modules-test-52b932/N.cppm
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: foo.h
+Module dependency scan failure admission: foo.h (observable=false, errors=true, complete=false, probes=0)
+Scanning modules dependencies for foo.h failed: error: invalid argument '-std=c++20' not allowed with 'C'
+
+The command line the scanning tool use is: clang -ffreestanding -std=c++20 -c foo.h 
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: N.cppm
+Detected multiple source files (/tmp/modules-test-52b932/N.cppm, N.cppm) declaring the same module: 'N'. Now clangd may find the wrong source in such case.
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module N:Part to /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part-20261008-114836-259225.-e23c2f.pcm
+Module build task N:Part finished (active=1)
+Built module M to /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M-20261008-114836-259341.-0ba69f.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module dependency scan memo miss: /tmp/modules-test-52b932/N.cppm
+Module provider inventory: 7 files
+Module provider index rebuilt: 7 commands
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Reusing module N:Part from /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part-20261008-114836-259225.-e23c2f.pcm
+Module build task N:Part finished (active=1)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M-20261008-114836-267110.-88019d.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module dependency scan memo miss: /tmp/modules-test-52b932/N.cppm
+Module provider inventory: 8 files
+Module provider index rebuilt: 8 commands
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part-20261008-114836-259225.-e23c2f.pcm is up to date via the validation cache
+Reusing module N:Part from /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part-20261008-114836-259225.-e23c2f.pcm
+Module build task N:Part finished (active=1)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M-20261008-114836-274669.-9a1f7d.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module dependency scan memo miss: /tmp/modules-test-52b932/N.cppm
+Module provider inventory: 9 files
+Module provider index rebuilt: 9 commands
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Reusing module M from /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M-20261008-114836-274669.-9a1f7d.pcm
+Module build task M finished (active=1)
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. N-part.cppm:4:21:invalid suffix 'LIdjwldijaw' on integer constant
+Ignored diagnostic. N-part.cppm:4:32:expected ';' after top level declarator
+Failed to compile N-part.cppm with command: clang -ffreestanding -std=c++20 -c N-part.cppm
+Module build task N:Part finished (active=0)
+Failed to build module prerequisites for /tmp/modules-test-52b932/N.cppm; due to Failed to compile N-part.cppm. Use '--log=verbose' to view detailed failure reasons. It is helpful to use '--debug-modules-builder' flag to keep the clangd's built module files to reproduce the failure for debugging. Remember to remove them after debugging.
+Module dependency scan memo miss: /tmp/modules-test-52b932/N.cppm
+Module provider inventory: 10 files
+Module provider index rebuilt: 10 commands
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Reusing persistent module M from /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M.pcm
+Module build task M finished (active=1)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module N:Part to /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part-20261008-114836-288475.-190ce6.pcm
+Module build task N:Part finished (active=0)
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/77564F1DCF718602/N-Part.pcm is up to date via the validation cache
+Module file /tmp/modules-test-52b932/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E80637D7001C3E67/M.pcm is up to date via the validation cache
+[       OK ] PrerequisiteModulesTests.ReusabilityTest (38 ms)
+[ RUN      ] PrerequisiteModulesTests.CanReuseWithTransitiveNamedModuleImports
+Module dependency scan memo miss: /tmp/modules-test-f994f6/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: N.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: N.cppm
+Module build task N started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module N to /tmp/modules-test-f994f6/.cache/clangd/modules/N.cppm-15F51D3FE12ACEBD/BDE5906C191C6C66/N-20261008-114836-297217.-d96a47.pcm
+Module build task N finished (active=0)
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-f994f6/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/588D245CE228B33A/producer-chain-v1-261ECA244B443FE6/M-20261008-114836-298720.-197452.pcm
+Module build task M finished (active=0)
+Module build task A started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module A to /tmp/modules-test-f994f6/.cache/clangd/modules/A.cppm-5597818939F08AE3/E19B7B7D1A3519A9/producer-chain-v1-76E7959B04D006FE/A-20261008-114836-300235.-2bbfaf.pcm
+Module build task A finished (active=0)
+[       OK ] PrerequisiteModulesTests.CanReuseWithTransitiveNamedModuleImports (12 ms)
+[ RUN      ] PrerequisiteModulesTests.ParsedASTTest
+Module dependency scan memo miss: /tmp/modules-test-2fbe35/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-2fbe35/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: A.cppm
+Module build task A started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-2fbe35/.cache/clangd/modules: examined=3 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module A to /tmp/modules-test-2fbe35/.cache/clangd/modules/A.cppm-5597818939F08AE3/CDDE7B15FE03F8E6/A-20261008-114836-308536.-b6ff2f.pcm
+Module build task A finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-2fbe35/Use.cpp in 0.00 seconds
+Built preamble of size 257780 for file /tmp/modules-test-2fbe35/Use.cpp version null in 0.00 seconds
+[       OK ] PrerequisiteModulesTests.ParsedASTTest (11 ms)
+[ RUN      ] PrerequisiteModulesTests.CodeCompleteTest
+Module dependency scan memo miss: /tmp/modules-test-31b568/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-31b568/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: A.cppm
+Module build task A started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module A to /tmp/modules-test-31b568/.cache/clangd/modules/A.cppm-5597818939F08AE3/5D3B5BC02E0F8357/A-20261008-114836-319747.-fa51de.pcm
+Module build task A finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-31b568/Use.cpp in 0.00 seconds
+Built preamble of size 257780 for file /tmp/modules-test-31b568/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-31b568/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] PrerequisiteModulesTests.CodeCompleteTest (12 ms)
+[ RUN      ] PrerequisiteModulesTests.SignatureHelpTest
+Module dependency scan memo miss: /tmp/modules-test-40a2cd/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-40a2cd/Use.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: A.cppm
+Module dependency scan memo miss: A.cppm
+Module build task A started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-40a2cd/.cache/clangd/modules: examined=3 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module A to /tmp/modules-test-40a2cd/.cache/clangd/modules/A.cppm-5597818939F08AE3/22EC80A96816CC5D/A-20261008-114836-331880.-407013.pcm
+Module build task A finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-40a2cd/Use.cpp in 0.00 seconds
+Built preamble of size 257780 for file /tmp/modules-test-40a2cd/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-40a2cd/Use.cpp
+[       OK ] PrerequisiteModulesTests.SignatureHelpTest (11 ms)
+[ RUN      ] PrerequisiteModulesTests.ReusablePrerequisiteModulesTest
+Module dependency scan memo miss: /tmp/modules-test-c7b24d/A.cppm
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Detected multiple source files (/tmp/modules-test-c7b24d/A.cppm, A.cppm) declaring the same module: 'A'. Now clangd may find the wrong source in such case.
+Module dependency scan memo miss: B.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-c7b24d/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-c7b24d/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1851CCB492943C87/M-20261008-114836-341998.-9341cd.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-c7b24d/B.cppm
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-c7b24d/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1851CCB492943C87/M-20261008-114836-341998.-9341cd.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-c7b24d/A.cppm
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-c7b24d/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1851CCB492943C87/M-20261008-114836-350068.-d6cc43.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-c7b24d/B.cppm
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-c7b24d/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1851CCB492943C87/M-20261008-114836-350068.-d6cc43.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-c7b24d/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1851CCB492943C87/M.pcm is up to date via the validation cache
+[       OK ] PrerequisiteModulesTests.ReusablePrerequisiteModulesTest (17 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanningCacheTest
+Module dependency scan memo miss: /tmp/modules-test-c325ff/A.cppm
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Detected multiple source files (/tmp/modules-test-c325ff/A.cppm, A.cppm) declaring the same module: 'A'. Now clangd may find the wrong source in such case.
+Module dependency scan memo miss: B.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-c325ff/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/68DF5015F47B49CF/M-20261008-114836-359862.-d7d2ae.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-c325ff/B.cppm
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Reusing persistent module M from /tmp/modules-test-c325ff/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/68DF5015F47B49CF/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.ScanningCacheTest (9 ms)
+[ RUN      ] PrerequisiteModulesTests.CanReuseWithHeadersInModuleUnit
+Module dependency scan memo miss: /tmp/modules-test-6ffba9/N.cppm
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: header1.h
+Module dependency scan failure admission: header1.h (observable=false, errors=true, complete=false, probes=0)
+Scanning modules dependencies for header1.h failed: error: invalid argument '-std=c++20' not allowed with 'C'
+
+The command line the scanning tool use is: clang -ffreestanding -std=c++20 -c header1.h 
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: N.cppm
+Detected multiple source files (/tmp/modules-test-6ffba9/N.cppm, N.cppm) declaring the same module: 'N'. Now clangd may find the wrong source in such case.
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module N:Part to /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part-20261008-114836-371439.-7a288e.pcm
+Module build task N:Part finished (active=1)
+Built module M to /tmp/modules-test-6ffba9/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E1737B809E74CB0E/M-20261008-114836-372057.-02f6f9.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part.pcm is up to date via the validation cache
+Module dependency scan memo miss: /tmp/modules-test-6ffba9/N.cppm
+Module provider inventory: 5 files
+Module provider index rebuilt: 5 commands
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module build task M started (active=2, limit=2)
+Reusing module N:Part from /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part-20261008-114836-371439.-7a288e.pcm
+Module build task N:Part finished (active=1)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-6ffba9/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E1737B809E74CB0E/M-20261008-114836-379442.-f75fb9.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part.pcm is up to date via the validation cache
+Module file /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part.pcm is up to date via the validation cache
+Module dependency scan memo miss: /tmp/modules-test-6ffba9/N.cppm
+Module provider inventory: 6 files
+Module provider index rebuilt: 6 commands
+Module dependency scan memo miss: N-part.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: N-part.cppm
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task N:Part started (active=1, limit=2)
+Module file /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part-20261008-114836-371439.-7a288e.pcm is up to date via the validation cache
+Reusing module N:Part from /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part-20261008-114836-371439.-7a288e.pcm
+Module build task N:Part finished (active=0)
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-6ffba9/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/E1737B809E74CB0E/M-20261008-114836-386885.-cdd803.pcm
+Module build task M finished (active=0)
+Module file /tmp/modules-test-6ffba9/.cache/clangd/modules/N-part.cppm-CC0F6C08257B1D50/C7683270059D5D45/N-Part.pcm is up to date via the validation cache
+[       OK ] PrerequisiteModulesTests.CanReuseWithHeadersInModuleUnit (24 ms)
+[ RUN      ] PrerequisiteModulesTests.PrebuiltModuleFileTest
+Module dependency scan memo miss: /tmp/modules-test-be9455/U.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: U.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-be9455/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-be9455/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1D45E97AD8B7901A/M-20261008-114836-392794.-36c7aa.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-be9455/U.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: U.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Reusing prebuilt module file /tmp/modules-test-be9455/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1D45E97AD8B7901A/M-20261008-114836-392794.-36c7aa.pcm of module M for M.cppm
+[       OK ] PrerequisiteModulesTests.PrebuiltModuleFileTest (8 ms)
+[ RUN      ] PrerequisiteModulesTests.PrebuiltModuleFileWithRelativePath
+Module dependency scan memo miss: /tmp/modules-test-b7078d/U.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: U.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-b7078d/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-b7078d/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/4523B9FDEFEC329B/M-20261008-114836-401008.-ca8895.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-b7078d/U.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: U.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Reusing prebuilt module file /tmp/modules-test-b7078d/prebuilt_modules/M.pcm of module M for M.cppm
+[       OK ] PrerequisiteModulesTests.PrebuiltModuleFileWithRelativePath (8 ms)
+[ RUN      ] PrerequisiteModulesTests.ProviderResponseContentsAreNotMemoized
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module provider index rebuilt: 2 commands
+[       OK ] PrerequisiteModulesTests.ProviderResponseContentsAreNotMemoized (0 ms)
+[ RUN      ] PrerequisiteModulesTests.ProviderInventorySharedWithManglerInvalidation
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module provider index reused: 2 commands
+Module provider index reused: 2 commands
+Module provider index rebuilt: 2 commands
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-a490ce/M.cppm
+Module provider index reused: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-a490ce/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-a490ce/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-a490ce/Use.cpp
+[       OK ] PrerequisiteModulesTests.ProviderInventorySharedWithManglerInvalidation (2 ms)
+[ RUN      ] PrerequisiteModulesTests.UniqueModuleNameStateResolvedFromCompileCommands
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+[       OK ] PrerequisiteModulesTests.UniqueModuleNameStateResolvedFromCompileCommands (0 ms)
+[ RUN      ] PrerequisiteModulesTests.DuplicateModuleNamesResolvedFromCompileCommands
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-e1c52e/a/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-e1c52e/b/M.cppm
+Detected multiple source files (/tmp/modules-test-e1c52e/a/M.cppm, /tmp/modules-test-e1c52e/b/M.cppm) declaring the same module: 'M'. Now clangd may find the wrong source in such case.
+[       OK ] PrerequisiteModulesTests.DuplicateModuleNamesResolvedFromCompileCommands (1 ms)
+[ RUN      ] PrerequisiteModulesTests.DuplicateModuleNamesResolvedFromResponseFiles
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-e02a12/a/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-e02a12/b/M.cppm
+Detected multiple source files (/tmp/modules-test-e02a12/a/M.cppm, /tmp/modules-test-e02a12/b/M.cppm) declaring the same module: 'M'. Now clangd may find the wrong source in such case.
+[       OK ] PrerequisiteModulesTests.DuplicateModuleNamesResolvedFromResponseFiles (1 ms)
+[ RUN      ] PrerequisiteModulesTests.DuplicateModuleNamesKeepSeparateBMICache
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-05a621/.cache/clangd/modules/M.cppm-061D61BA7379D6F0/8F18D4837FDED49F/M-20261008-114836-414919.-7ea49b.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-05a621/.cache/clangd/modules/M.cppm-90274BAA0FD63E16/CCBCB25BC81CC3E6/M-20261008-114836-419133.-6d6aa0.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-05a621/a/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-05a621/.cache/clangd/modules/M.cppm-061D61BA7379D6F0/8F18D4837FDED49F/M-20261008-114836-414919.-7ea49b.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-05a621/a/Use.cpp in 0.00 seconds
+Built preamble of size 268628 for file /tmp/modules-test-05a621/a/Use.cpp version null in 0.00 seconds
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-05a621/b/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-05a621/.cache/clangd/modules/M.cppm-90274BAA0FD63E16/CCBCB25BC81CC3E6/M-20261008-114836-419133.-6d6aa0.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-05a621/b/Use.cpp in 0.00 seconds
+Built preamble of size 268628 for file /tmp/modules-test-05a621/b/Use.cpp version null in 0.00 seconds
+[       OK ] PrerequisiteModulesTests.DuplicateModuleNamesKeepSeparateBMICache (28 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheReusedAcrossBuilders
+Module dependency scan memo miss: /tmp/modules-test-9551b2/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Detected multiple source files (/tmp/modules-test-9551b2/A.cppm, A.cppm) declaring the same module: 'A'. Now clangd may find the wrong source in such case.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-9551b2/.cache/clangd/modules: examined=3 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-9551b2/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/B57409B415114769/M-20261008-114836-444791.-416026.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-9551b2/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Detected multiple source files (/tmp/modules-test-9551b2/A.cppm, A.cppm) declaring the same module: 'A'. Now clangd may find the wrong source in such case.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-9551b2/.cache/clangd/modules: examined=4 removed=0 more=false
+Reusing persistent module M from /tmp/modules-test-9551b2/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/B57409B415114769/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheReusedAcrossBuilders (10 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheRebuildsAfterDeletingStalePCM
+Module dependency scan memo miss: /tmp/modules-test-1920e9/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Detected multiple source files (/tmp/modules-test-1920e9/A.cppm, A.cppm) declaring the same module: 'A'. Now clangd may find the wrong source in such case.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-1920e9/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-1920e9/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1E37389C057D8A2F/M-20261008-114836-455429.-2b7954.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-1920e9/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. file '/tmp/modules-test-1920e9/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1E37389C057D8A2F/M-20261008-114836-455429.-2b7954.pcm' is not a valid precompiled file: file doesn't start with precompiled file magic
+Reusing persistent module M from /tmp/modules-test-1920e9/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/1E37389C057D8A2F/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheRebuildsAfterDeletingStalePCM (10 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheCreatesSourceHashLock
+Module dependency scan memo miss: /tmp/modules-test-1aaf7e/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: A.cppm
+Detected multiple source files (/tmp/modules-test-1aaf7e/A.cppm, A.cppm) declaring the same module: 'A'. Now clangd may find the wrong source in such case.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-1aaf7e/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/DE0B235C27623440/M-20261008-114836-465450.-f75f88.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheCreatesSourceHashLock (5 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheGCReclaimsOnlyUnownedReadCopies
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-3f0c23/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-3f0c23/.cache/clangd/modules/M.cppm-2AC3E06CD6B1BF52/B71DE494F0E3F016/M-20261008-114836-471021.-d018db.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3f0c23/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-3f0c23/.cache/clangd/modules: examined=8 removed=1 more=false
+Reusing persistent module M from /tmp/modules-test-3f0c23/.cache/clangd/modules/M.cppm-2AC3E06CD6B1BF52/B71DE494F0E3F016/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheGCReclaimsOnlyUnownedReadCopies (10 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheGCKeepsRecentStablePublishedModule
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-a0b40f/.cache/clangd/modules/M.cppm-B0B0D8595BA902E1/9C34FA79E7317388/M-20261008-114836-481267.-26f651.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-a0b40f/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-a0b40f/.cache/clangd/modules: examined=5 removed=0 more=false
+Reusing persistent module M from /tmp/modules-test-a0b40f/.cache/clangd/modules/M.cppm-B0B0D8595BA902E1/9C34FA79E7317388/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheGCKeepsRecentStablePublishedModule (9 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheGCRemovesOldVersionedModuleFile
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-39c7f1/.cache/clangd/modules/M.cppm-F4333AB32F966904/956E0EAFC9E46A88/M-20261008-114836-491354.-47e6a2.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-39c7f1/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-39c7f1/.cache/clangd/modules: examined=4 removed=0 more=false
+Reusing persistent module M from /tmp/modules-test-39c7f1/.cache/clangd/modules/M.cppm-F4333AB32F966904/956E0EAFC9E46A88/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheGCRemovesOldVersionedModuleFile (10 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheGCKeepsRecentVersionedModuleFile
+Module dependency scan memo miss: /tmp/modules-test-3733bc/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-3733bc/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3733bc/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-3733bc/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3733bc/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-3733bc/.cache/clangd/modules/M.cppm-6C549F48EF701529/ECB342CEB044741D/M-20261008-114836-501412.-9c7bc2.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-3733bc/A.cppm
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: /tmp/modules-test-3733bc/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3733bc/A.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-3733bc/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-3733bc/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-3733bc/.cache/clangd/modules: examined=6 removed=0 more=false
+Reusing persistent module M from /tmp/modules-test-3733bc/.cache/clangd/modules/M.cppm-6C549F48EF701529/ECB342CEB044741D/M.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheGCKeepsRecentVersionedModuleFile (10 ms)
+[ RUN      ] PrerequisiteModulesTests.PersistentModuleCacheIgnoresRequiredSourceForOnDiskPath
+Module dependency scan memo miss: /tmp/modules-test-eec422/projA/A.cppm
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-eec422/shared/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-eec422/projA/A.cppm
+Module dependency scan memo miss: /tmp/modules-test-eec422/projB/B.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-eec422/shared/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-eec422/shared/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-eec422/shared/.cache/clangd/modules/M.cppm-E5BB76BC4192E1CE/66B1D2C0027FFCF3/M-20261008-114836-511938.-cc45d9.pcm
+Module build task M finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-eec422/projB/B.cppm
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-eec422/shared/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-eec422/shared/M.cppm
+Module dependency scan memo miss: /tmp/modules-test-eec422/shared/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-eec422/shared/.cache/clangd/modules/M.cppm-E5BB76BC4192E1CE/66B1D2C0027FFCF3/M-20261008-114836-511938.-cc45d9.pcm
+Module build task M finished (active=0)
+[       OK ] PrerequisiteModulesTests.PersistentModuleCacheIgnoresRequiredSourceForOnDiskPath (9 ms)
+[ RUN      ] PrerequisiteModulesTests.VerifiedTextualPrefixPreservesFreshHeaderBytes
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/M.cppm (entries=3, bytes=258367)
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Header.hpp (entries=4, bytes=344074)
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-2fd25a/.cache/clangd/modules/M.cppm-58031BF9C8C0DF90/117C9BE2B5B30D58/M-20261008-114836-524219.-8eac8b.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-2fd25a/Use.cpp in 0.00 seconds
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Textual module preamble audit: imports=false, emittedFree=true, complete=true, facts=28, replay=true, current=true, same=true
+Textual module preamble input/import audit passed: /tmp/modules-test-2fd25a/Use.cpp
+Built preamble of size 269136 for file /tmp/modules-test-2fd25a/Use.cpp version null in 0.00 seconds
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module file /tmp/modules-test-2fd25a/.cache/clangd/modules/M.cppm-58031BF9C8C0DF90/117C9BE2B5B30D58/M.pcm is up to date via the validation cache
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Module dependency scan memo invalidated: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Use.cpp (entries=4, bytes=344074)
+Module dependency scan memo invalidated: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Use.cpp (entries=4, bytes=344074)
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module file /tmp/modules-test-2fd25a/.cache/clangd/modules/M.cppm-58031BF9C8C0DF90/117C9BE2B5B30D58/M.pcm is up to date via the validation cache
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module file /tmp/modules-test-2fd25a/.cache/clangd/modules/M.cppm-58031BF9C8C0DF90/117C9BE2B5B30D58/M.pcm is up to date via the validation cache
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Module dependency scan memo invalidated: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Use.cpp (entries=4, bytes=344074)
+Module dependency scan memo invalidated: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-2fd25a/Use.cpp (entries=4, bytes=344074)
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module file /tmp/modules-test-2fd25a/.cache/clangd/modules/M.cppm-58031BF9C8C0DF90/117C9BE2B5B30D58/M.pcm is up to date via the validation cache
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-2fd25a/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] PrerequisiteModulesTests.VerifiedTextualPrefixPreservesFreshHeaderBytes (26 ms)
+[ RUN      ] PrerequisiteModulesTests.TextualPreambleAuditDeclinesToSemanticFallback
+Module dependency scan memo miss: /tmp/modules-test-c6fdac/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-c6fdac/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-c6fdac/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-c6fdac/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-c6fdac/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-c6fdac/M.cppm (entries=3, bytes=258367)
+Module dependency scan memo miss: /tmp/modules-test-c6fdac/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-c6fdac/Header.hpp (entries=4, bytes=344074)
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-c6fdac/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-c6fdac/.cache/clangd/modules/M.cppm-2BBCB0E5A004E83D/09C4771F48119949/M-20261008-114836-551461.-fead1c.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-c6fdac/Use.cpp in 0.00 seconds
+Module dependency scan manifest unsupported child filesystem visit
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Textual module preamble audit: imports=false, emittedFree=true, complete=false, facts=22, replay=false, current=true, same=true
+Textual module preamble input/import audit declined: /tmp/modules-test-c6fdac/Use.cpp; retrying with zero prefix
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing persistent module M from /tmp/modules-test-c6fdac/.cache/clangd/modules/M.cppm-2BBCB0E5A004E83D/09C4771F48119949/M.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-c6fdac/Use.cpp in 0.00 seconds
+Built preamble of size 268620 for file /tmp/modules-test-c6fdac/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c6fdac/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] PrerequisiteModulesTests.TextualPreambleAuditDeclinesToSemanticFallback (17 ms)
+[ RUN      ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback
+Module dependency scan memo miss: /tmp/modules-test-11e959/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-11e959/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-11e959/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-11e959/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-11e959/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-11e959/M.cppm (entries=3, bytes=258367)
+Module dependency scan memo miss: /tmp/modules-test-11e959/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-11e959/Header.hpp (entries=4, bytes=344074)
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Module build task M started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-11e959/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-11e959/.cache/clangd/modules/M.cppm-F1D9830EFB694F5C/489260EFC86BDD63/M-20261008-114836-568854.-080cfd.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-11e959/Use.cpp in 0.00 seconds
+Textual module preamble construction failed: /tmp/modules-test-11e959/Use.cpp: Could not emit PCH; retrying with zero prefix
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing persistent module M from /tmp/modules-test-11e959/.cache/clangd/modules/M.cppm-F1D9830EFB694F5C/489260EFC86BDD63/M.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-11e959/Use.cpp in 0.00 seconds
+Built preamble of size 268620 for file /tmp/modules-test-11e959/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Module dependency scan memo hit: /tmp/modules-test-11e959/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-11e959/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-11e959/.cache/clangd/modules/M.cppm-F1D9830EFB694F5C/489260EFC86BDD63/M-20261008-114836-570866.-1de845.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-11e959/Use.cpp in 0.00 seconds
+Could not build a preamble for file /tmp/modules-test-11e959/Use.cpp version null: Could not emit PCH
+  error: file '/tmp/modules-test-11e959/Broken.pcm' is not a valid module file: file doesn't start with precompiled file magic
+Could not build a preamble for file /tmp/modules-test-11e959/Use.cpp version null: Could not emit PCH
+  error: file '/tmp/modules-test-11e959/Broken.pcm' is not a valid module file: file doesn't start with precompiled file magic
+[       OK ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback (17 ms)
+[ RUN      ] PrerequisiteModulesTests.VerifiedTextualPrefixDeclinesHeaderImportsAndUnknowns
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-c3840d/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-c3840d/Use.cpp (entries=2, bytes=172732)
+Module dependency scan memo hit: /tmp/modules-test-c3840d/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-c3840d/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-c3840d/M.cppm (entries=3, bytes=258446)
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-c3840d/Header.hpp (entries=4, bytes=344232)
+Module dependency scan memo hit: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c3840d/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-c3840d/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c3840d/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-c3840d/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-c3840d/.cache/clangd/modules/M.cppm-AC74FA344D808C75/2844A0465845CD22/M-20261008-114836-586132.-ef0827.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-c3840d/Use.cpp in 0.00 seconds
+Built preamble of size 268620 for file /tmp/modules-test-c3840d/Use.cpp version null in 0.00 seconds
+Module dependency scan memo invalidated: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan failure admission: /tmp/modules-test-c3840d/Use.cpp (observable=true, errors=true, complete=true, probes=165)
+Module dependency scan memo stored: /tmp/modules-test-c3840d/Use.cpp (entries=4, bytes=344298)
+Scanning modules dependencies for /tmp/modules-test-c3840d/Use.cpp failed: In file included from /tmp/modules-test-c3840d/Use.cpp:1:
+/tmp/modules-test-c3840d/Header.hpp:1:2: error: broken
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-c3840d/Use.cpp 
+Module dependency scan memo invalidated: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo declined: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Use.cpp
+Module dependency scan failure admission: /tmp/modules-test-c3840d/Use.cpp (observable=true, errors=true, complete=true, probes=172)
+Module dependency scan memo stored: /tmp/modules-test-c3840d/Use.cpp (entries=4, bytes=345222)
+Scanning modules dependencies for /tmp/modules-test-c3840d/Use.cpp failed: In file included from /tmp/modules-test-c3840d/Use.cpp:1:
+/tmp/modules-test-c3840d/Header.hpp:1:8: fatal error: 'stddef.h' file not found
+
+The command line the scanning tool use is: clang -std=c++20 -c /tmp/modules-test-c3840d/Use.cpp 
+Module dependency scan memo miss: /tmp/modules-test-c3840d/Use.cpp
+[       OK ] PrerequisiteModulesTests.VerifiedTextualPrefixDeclinesHeaderImportsAndUnknowns (14 ms)
+[ RUN      ] PrerequisiteModulesTests.ScanManifestReplaysExactRelativeQueries
+[       OK ] PrerequisiteModulesTests.ScanManifestReplaysExactRelativeQueries (0 ms)
+[ RUN      ] PrerequisiteModulesTests.VerifiedTextualPrefixRequiresActualRequestCommand
+Module dependency scan memo miss: /tmp/modules-test-9e1c68/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-9e1c68/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-9e1c68/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-9e1c68/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo miss: /tmp/modules-test-9e1c68/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-9e1c68/Use.cpp (entries=3, bytes=259182)
+Module dependency scan memo miss: /tmp/modules-test-9e1c68/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-9e1c68/Use.cpp (entries=4, bytes=345632)
+[       OK ] PrerequisiteModulesTests.VerifiedTextualPrefixRequiresActualRequestCommand (5 ms)
+[ RUN      ] PrerequisiteModulesTests.PreambleAuditReadsOriginalUnusedFileObjects
+[       OK ] PrerequisiteModulesTests.PreambleAuditReadsOriginalUnusedFileObjects (0 ms)
+[ RUN      ] PrerequisiteModulesTests.PreambleBuildResolvesLateModuleImport
+Module dependency scan memo miss: /tmp/modules-test-279244/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: Header.hpp
+Module dependency scan memo miss: Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-279244/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-279244/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/76FD93517010558D/M-20261008-114836-606836.-7be0a0.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-279244/Use.cpp in 0.00 seconds
+Built preamble of size 257780 for file /tmp/modules-test-279244/Use.cpp version null in 0.00 seconds
+Module dependency scan memo miss: /tmp/modules-test-279244/Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-279244/Use.cpp
+Module file /tmp/modules-test-279244/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/76FD93517010558D/M.pcm is up to date via the validation cache
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-279244/Use.cpp
+Module file /tmp/modules-test-279244/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/76FD93517010558D/M.pcm is up to date via the validation cache
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] PrerequisiteModulesTests.PreambleBuildResolvesLateModuleImport (15 ms)
+[ RUN      ] PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module build task std started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-548ca7/.cache/clangd/modules: examined=1 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. /tmp/modules-test-548ca7/std.cppm:1:15:'std' is a reserved name for a module
+Built module std to /tmp/modules-test-548ca7/.cache/clangd/modules/std.cppm-1A25EAD26704694E/CF9C4842E217E6CC/std-20261008-114836-621210.-2fc2e3.pcm
+Module build task std finished (active=0)
+Module build task Consumer started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module Consumer to /tmp/modules-test-548ca7/.cache/clangd/modules/Consumer.cppm-1BC283925AFBBCBA/C62A010AA5AC727C/producer-chain-v1-43A9B6B82C0F0768/Consumer-20261008-114836-622471.-eb42e5.pcm
+Module build task Consumer finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module build task std started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-548ca7/.cache/clangd/modules: examined=7 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. /tmp/modules-test-548ca7/std.cppm:1:15:'std' is a reserved name for a module
+Built module std to /tmp/modules-test-548ca7/.cache/clangd/modules/std.cppm-1A25EAD26704694E/40D05DB0F928085B/std-20261008-114836-630352.-c3a365.pcm
+Module build task std finished (active=0)
+Module build task Consumer started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module Consumer to /tmp/modules-test-548ca7/.cache/clangd/modules/Consumer.cppm-1BC283925AFBBCBA/C62A010AA5AC727C/producer-chain-v1-660D6AAFCA070284/Consumer-20261008-114836-631843.-653439.pcm
+Module build task Consumer finished (active=0)
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module build task std started (active=1, limit=2)
+Reusing module std from /tmp/modules-test-548ca7/.cache/clangd/modules/std.cppm-1A25EAD26704694E/40D05DB0F928085B/std-20261008-114836-630352.-c3a365.pcm
+Module build task std finished (active=0)
+Module build task Consumer started (active=1, limit=2)
+Reusing module Consumer from /tmp/modules-test-548ca7/.cache/clangd/modules/Consumer.cppm-1BC283925AFBBCBA/C62A010AA5AC727C/producer-chain-v1-660D6AAFCA070284/Consumer-20261008-114836-631843.-653439.pcm
+Module build task Consumer finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-548ca7/Use.cpp in 0.01 seconds
+Built preamble of size 268620 for file /tmp/modules-test-548ca7/Use.cpp version null in 0.00 seconds
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/Consumer.cppm
+Module dependency scan memo miss: /tmp/modules-test-548ca7/std.cppm
+Module build task std started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-548ca7/.cache/clangd/modules: examined=12 removed=0 more=false
+Reusing persistent module std from /tmp/modules-test-548ca7/.cache/clangd/modules/std.cppm-1A25EAD26704694E/40D05DB0F928085B/std.pcm
+Module build task std finished (active=0)
+Module build task Consumer started (active=1, limit=2)
+Reusing persistent module Consumer from /tmp/modules-test-548ca7/.cache/clangd/modules/Consumer.cppm-1BC283925AFBBCBA/C62A010AA5AC727C/producer-chain-v1-660D6AAFCA070284/Consumer.pcm
+Module build task Consumer finished (active=0)
+[       OK ] PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer (33 ms)
+[ RUN      ] PrerequisiteModulesTests.ModuleImportThroughInclude
+Module dependency scan memo miss: /tmp/modules-test-a1a14b/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: Header.hpp
+Module dependency scan memo miss: Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: M.cppm
+Module dependency scan memo miss: M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-a1a14b/.cache/clangd/modules/M.cppm-5F7C66BD340BFF70/C26300A6CF1BA83D/M-20261008-114836-654945.-43e177.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-a1a14b/Use.cpp in 0.01 seconds
+Built preamble of size 257780 for file /tmp/modules-test-a1a14b/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: /tmp/modules-test-a1a14b/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] PrerequisiteModulesTests.ModuleImportThroughInclude (12 ms)
+[ RUN      ] PrerequisiteModulesTests.SkipPreambleBuildInvalidatedByNewModuleImport
+Module dependency scan memo miss: /tmp/modules-test-0a9a5a/Consumer.cpp
+Module provider inventory: 2 files
+Module provider index rebuilt: 2 commands
+Module dependency scan memo miss: Dep.cppm
+Module dependency scan memo miss: Consumer.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo miss: Dep.cppm
+Module dependency scan memo miss: Dep.cppm
+Module build task Dep started (active=1, limit=2)
+BMI copy maintenance /tmp/modules-test-0a9a5a/.cache/clangd/modules: examined=3 removed=0 more=false
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module Dep to /tmp/modules-test-0a9a5a/.cache/clangd/modules/Dep.cppm-A6851FEF6C88AF14/45DFADF5B044FDA7/Dep-20261008-114836-666858.-9f831b.pcm
+Module build task Dep finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-0a9a5a/Consumer.cpp in 0.01 seconds
+Built preamble of size 257800 for file /tmp/modules-test-0a9a5a/Consumer.cpp version null in 0.00 seconds
+Module dependency scan memo miss: /tmp/modules-test-0a9a5a/Consumer.cpp
+[       OK ] PrerequisiteModulesTests.SkipPreambleBuildInvalidatedByNewModuleImport (9 ms)
+[----------] 71 tests from PrerequisiteModulesTests (821 ms total)
+
+[----------] 2 tests from PreambleTest
+[ RUN      ] PreambleTest.TraceFilenameSurvivesRetainedCallbackContext
+Built preamble of size 210588 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] PreambleTest.TraceFilenameSurvivesRetainedCallbackContext (1 ms)
+[ RUN      ] PreambleTest.RecordsPreambleBuildMode
+Built preamble of size 210588 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] PreambleTest.RecordsPreambleBuildMode (3 ms)
+[----------] 2 tests from PreambleTest (5 ms total)
+
+[----------] Global test environment tear-down
+[==========] 92 tests from 3 test suites ran. (833 ms total)
+[  PASSED  ] 92 tests.

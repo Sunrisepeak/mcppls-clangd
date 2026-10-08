@@ -78,3 +78,5 @@ full-mtime source changes are re-read and rejected when the module role changes.
 The stated 128 KiB limit is whole known-size admission, followed by returned
 buffer checks, and the lexical prefix is separately limited to 32 KiB. It does
 not establish a hard allocation limit for an arbitrary VFS implementation.
+
+Root joint0066–0067 integration now rebuilds all141 affected header consumers and final four0067 TUs, links both binaries, and passes92 focused tests. Actual std and JSON contexts both produce audited import-free PCHs, real Sema and all8 GCC insertions. std warm180–194ms/edit265ms still does not qualify the200ms context gate. [Exact final source/binary/hash evidence](../tests/evidence/joint66-67/README.md). Earlier private65 evidence above remains independently scoped; no native/full-context qualification is inferred.
