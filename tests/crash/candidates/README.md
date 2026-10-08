@@ -63,3 +63,10 @@ Corrected-harness native run 37685946237 now qualifies this crash, retaining
 exit 0x80000003, the exact engine SHA, raw initialization and reaped readers
 in tests/evidence/up12-native-qualified-baseline.json. Native fork validation
 and symbolized crash stacks remain pending.
+
+The now-qualified UP-12 normalized input is also enrolled in
+`tests/crash/windows/up12-galtranslpp.json`, sharing the original attributed
+source directory. Enrollment records the actual baseline binary/run/exit,
+not a fixed-engine verdict. The corpus is now nonempty but incomplete:
+UP-13/UP-20 and actual fixed-fork native/symbol qualification remain required.
+Earlier empty-corpus statements describe the historical checkpoints above.

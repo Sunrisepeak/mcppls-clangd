@@ -1,0 +1,64 @@
+{
+  "id": "UP-12-galtranslpp-unresolved-imports",
+  "platform": "win32-x64",
+  "project": "../candidates/up12-galtranslpp",
+  "baseline": "crash",
+  "timeout_seconds": 60,
+  "flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "-j=2"
+  ],
+  "qualification": {
+    "baseline": "actual Windows stock23.1.0 crash",
+    "engine_sha256": "dbd52c13d21ef9d284f4f0627efe76c81adf2fe0998f230127f554a54fc9dde7",
+    "exit_code": 2147483651,
+    "run": "https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/37685946237",
+    "evidence": "../../evidence/up12-native-qualified-baseline.json",
+    "fixed_native_verdict": "pending"
+  },
+  "sequence": [
+    {
+      "method": "initialize",
+      "params": {
+        "rootUri": "${PROJECT_URI}",
+        "capabilities": {}
+      }
+    },
+    {
+      "method": "initialized",
+      "notify": true,
+      "params": {}
+    },
+    {
+      "action": "write-file",
+      "file": "compile_commands.json",
+      "contents": "[\n  {\n    \"directory\": \"${PROJECT_PATH}\",\n    \"file\": \"${PROJECT_PATH}/GPPDefines.ixx\",\n    \"arguments\": [\n      \"clang++\",\n      \"--target=x86_64-pc-windows-msvc\",\n      \"-std=c++23\",\n      \"-O3\",\n      \"-g\",\n      \"-flto\",\n      \"-x\",\n      \"c++-module\",\n      \"-fmodule-file=AbslContainers=${PROJECT_PATH}/absent-bmis/AbslContainers.pcm\",\n      \"-fmodule-file=GPPI18n=${PROJECT_PATH}/absent-bmis/GPPI18n.pcm\",\n      \"-fmodule-file=jpcre2=${PROJECT_PATH}/absent-bmis/jpcre2.pcm\",\n      \"-fmodule-file=nlohmann.json=${PROJECT_PATH}/absent-bmis/nlohmann.json.pcm\",\n      \"-fmodule-file=spdlog=${PROJECT_PATH}/absent-bmis/spdlog.pcm\",\n      \"-fmodule-file=std=${PROJECT_PATH}/absent-bmis/std.pcm\",\n      \"${PROJECT_PATH}/GPPDefines.ixx\"\n    ]\n  }\n]"
+    },
+    {
+      "method": "textDocument/didOpen",
+      "notify": true,
+      "params": {
+        "textDocument": {
+          "uri": "${PROJECT_URI}/GPPDefines.ixx",
+          "languageId": "cpp",
+          "version": 1,
+          "text": "${FILE_TEXT:GPPDefines.ixx}"
+        }
+      }
+    },
+    {
+      "method": "textDocument/documentSymbol",
+      "params": {
+        "textDocument": {
+          "uri": "${PROJECT_URI}/GPPDefines.ixx"
+        }
+      },
+      "expect": {
+        "/result/14/name": "NameType",
+        "/result/14/kind": 10
+      }
+    }
+  ],
+  "register": "UP-12"
+}

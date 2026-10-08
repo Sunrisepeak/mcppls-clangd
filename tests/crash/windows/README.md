@@ -11,9 +11,13 @@ behavior on clangd 23.1.0 (crash/hang/pass), register row.
 
 The `win-crash-corpus` workflow replays every entry against the PDB
 build under cdb with WER LocalDumps enabled; the run fails while any
-entry still crashes, which IS that row's status. Currently empty - the
-corpus files are collected from mcpp-language-server's crash records as
-the first action of the C0 phase (windows-crash-plan document).
+entry still crashes, which IS that row's status. The first qualified entry is UP-12: the original GalTranslPP source and
+unresolved BMI scenario actually crash the pinned Windows23.1.0 binary
+with natural exit0x80000003 in run37685946237. Its source/license remain
+shared with the reduction candidate to preserve attribution and avoid drift.
+The maintained fork must still pass its NameType enum assertion and normal
+shutdown on Windows. UP-13 and UP-20 inputs and their scenarios remain missing;
+one qualified entry does not satisfy complete release crash coverage.
 
 ## Executable replay contract
 
