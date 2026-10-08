@@ -1,0 +1,48 @@
+{
+  "base_source": "66ed2d104",
+  "private_tree": "/tmp/mcppls-part2-completion-review",
+  "change": "CodeComplete.cpp trace counters/timers only; no production optimization",
+  "engine_sha256": "397753da9034aed80758d6e8bb27ef206d86e07a8a8084d4bc4d609c5099c8d2",
+  "raw_trace_sha256": "230fb32016c7f6a6f4dcae697a82779cc01f810c22cd376e2d8d977b08cf3f8f",
+  "all_semantic_requests_passed": true,
+  "merge_spans": [
+    {
+      "milliseconds": 13.08613199999975,
+      "InputBundles": 6975,
+      "InputIndexResults": 0,
+      "InputSemaResults": 6975,
+      "SymbolIDMicroseconds": 7335,
+      "SymbolIDRequests": 6975
+    },
+    {
+      "milliseconds": 11.24626500000013,
+      "InputBundles": 6975,
+      "InputIndexResults": 0,
+      "InputSemaResults": 6975,
+      "SymbolIDMicroseconds": 6878,
+      "SymbolIDRequests": 6975
+    },
+    {
+      "milliseconds": 12.003172000000253,
+      "InputBundles": 6975,
+      "InputIndexResults": 1,
+      "InputSemaResults": 6975,
+      "SymbolIDMicroseconds": 7255,
+      "SymbolIDRequests": 6975
+    },
+    {
+      "milliseconds": 11.68572500000056,
+      "InputBundles": 6975,
+      "InputIndexResults": 1,
+      "InputSemaResults": 6975,
+      "SymbolIDMicroseconds": 7070,
+      "SymbolIDRequests": 6975
+    }
+  ],
+  "limits": [
+    "Single exploratory start/round, four real-Sema replies. No insertion compilation or latency distribution.",
+    "Per-symbol clock probes add overhead; final benchmarks require uninstrumented binaries.",
+    "perf task-clock access denied at perf_event_paranoid4; global kernel settings left unchanged."
+  ],
+  "trace_only_patch_sha256": "2ec167c7c69bf6db03a928a6dd86b7e3fffcc37446fde4ec895760c51142d186"
+}
