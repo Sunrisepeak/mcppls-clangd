@@ -1,0 +1,131 @@
+{
+  "base_source": "66ed2d104d8affc9e75c82a5b015f9e6869a6b00",
+  "private_tree": "/tmp/mcppls-directives68-review",
+  "changed_tus": [
+    "clang-tools-extra/clangd/ProjectModules.cpp"
+  ],
+  "change": "Trace spans only; CanonicalPreprocessing restored; all cache/observer/publication/compiler validation logic unchanged",
+  "source_file_sha256": "d5ddb2dc42d6524aacc32202e6d037c85ffecab0ce54cf7a90d6d0efdfdbeb92",
+  "diff_sha256": "029152900c3a141886315a0059b87ef76585670a85cdb6e8fb9a5192a30ea1bd",
+  "binary_sha256": "84232bd1d5a50693ff8adb4643a89d8fe7f6369dcd9571b20f92e17366b8248e",
+  "compile_args": "compile.json",
+  "link_args": "link.json",
+  "input_cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+  "control_cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+  "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "all_semantic_requests_passed": true,
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        3670.3375769866398
+      ],
+      "p50_ms": 3670.3375769866398,
+      "p95_ms": 3670.3375769866398
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        164.46177499892656,
+        164.81821599882096
+      ],
+      "p50_ms": 164.46177499892656,
+      "p95_ms": 164.81821599882096
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        247.29158500849735
+      ],
+      "p50_ms": 247.29158500849735,
+      "p95_ms": 247.29158500849735
+    }
+  },
+  "validation_spans": [
+    {
+      "validation_ms": 21.76641299999971,
+      "nested": [
+        {
+          "name": "Module scan initial memo lookup",
+          "milliseconds": 20.63703299999982,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        }
+      ]
+    },
+    {
+      "validation_ms": 10.757334999999962,
+      "nested": [
+        {
+          "name": "Module scan initial memo lookup",
+          "milliseconds": 10.582938000000082,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        }
+      ]
+    },
+    {
+      "validation_ms": 82.94763100000006,
+      "nested": [
+        {
+          "name": "Module scan initial memo lookup",
+          "milliseconds": 0.01631399999978021,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        },
+        {
+          "name": "Module scan recheck memo lookup",
+          "milliseconds": 0.012464999999850988,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        },
+        {
+          "name": "Module scan canonical getP1689",
+          "milliseconds": 68.93476300000027,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        },
+        {
+          "name": "Module scan canonical scanner lifetime",
+          "milliseconds": 69.018321,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        },
+        {
+          "name": "Module scan postscan manifest admission",
+          "milliseconds": 13.692884000000078,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        }
+      ]
+    },
+    {
+      "validation_ms": 11.087658999999984,
+      "nested": [
+        {
+          "name": "Module scan initial memo lookup",
+          "milliseconds": 10.912861999999732,
+          "file": "/home/speak/test/mcpp/qt-demo/src/main.cpp"
+        }
+      ]
+    }
+  ],
+  "publication_wait_count": 0,
+  "limits": "One exploratory traced start/round; no performance qualification, runtime fix, shared edit, export or push"
+}

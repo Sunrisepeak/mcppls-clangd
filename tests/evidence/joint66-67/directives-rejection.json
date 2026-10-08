@@ -1,0 +1,27 @@
+{
+  "status": "rejected",
+  "base": "66ed2d104d8affc9e75c82a5b015f9e6869a6b00",
+  "private_source": "/tmp/mcppls-directives68-review",
+  "changed_tus": [
+    "clang-tools-extra/clangd/ProjectModules.cpp"
+  ],
+  "change": "CanonicalPreprocessing -> DependencyDirectivesScan only",
+  "test": "PrerequisiteModulesTests.FailedScanMemoRevalidatesHeadersAndDrafts",
+  "canonical": {
+    "result": "PASS",
+    "elapsed_ms": 9,
+    "binary_sha256": "31f9671e6f4725850957b58596f358872d5694e8af0995d0e7e37a03790f798f"
+  },
+  "candidate": {
+    "result": "FAIL",
+    "elapsed_ms": 13,
+    "binary_sha256": "fc29ada6447c2cfc2ae386dc4259fc416e7d1fca674686c9ab41d2f7cf23c968",
+    "clangd_sha256": "be64a32d68e12fc327557523302d2802c19b7652042476ad02c7296cede1adfd"
+  },
+  "failures": [
+    "active #error disk header returns imports",
+    "active #error request overlay returns imports",
+    "unsupported child filesystem visit prevents failure/success scan memo admission"
+  ],
+  "scope": "existing compiler/scanner normal project control; no Qt timing after rejection; shared source/objects/archives unchanged"
+}
