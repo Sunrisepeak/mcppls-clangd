@@ -1,0 +1,143 @@
+From a5fabab4e09784da5391eb29d6c17e5cd6ccd3f1 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:51:42 +0900
+Subject: [PATCH] [clangd] Preserve preamble build mode for semantic completion
+
+Use the actual preamble mode when preparing completion instead of repeating module provider inventory. Retain late current-input and prerequisite validation before reusing any preamble or module file.
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     |  7 +++-
+ clang-tools-extra/clangd/Preamble.cpp         |  1 +
+ clang-tools-extra/clangd/Preamble.h           |  3 ++
+ .../clangd/unittests/ClangdTests.cpp          | 37 +++++++++++++++++++
+ .../clangd/unittests/PreambleTests.cpp        | 16 ++++++++
+ 5 files changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index ababecc57..fcf9bd4a7 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -446,7 +446,12 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
+         Config::current().Completion.HeaderInsertion;
+     CodeCompleteOpts.CodePatterns = Config::current().Completion.CodePatterns;
+     CodeCompleteOpts.MacroFilter = Config::current().Completion.MacroFilter;
+-    adjustParseInputs(ParseInput, File);
++    // Patch the preamble using the mode it was built with. Recomputing module
++    // buildability here repeats provider inventory before completion's own
++    // fresh dependency validation. semaCodeComplete disables preamble reuse
++    // and rebuilds prerequisites when that validation detects dependency drift.
++    ParseInput.Opts.SkipPreambleBuild =
++        SkipPreambleBuild || (IP->Preamble && IP->Preamble->SkipPreambleBuild);
+     // FIXME(ibiryukov): even if Preamble is non-null, we may want to check
+     // both the old and the new version in case only one of them matches.
+     CodeCompleteResult Result = clangd::codeComplete(
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index 75850f543..21ff29576 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -668,6 +668,7 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+     auto Result = std::make_shared<PreambleData>(std::move(*BuiltPreamble));
+     Result->Version = Inputs.Version;
+     Result->CompileCommand = Inputs.CompileCommand;
++    Result->SkipPreambleBuild = Inputs.Opts.SkipPreambleBuild;
+     Result->Diags = std::move(Diags);
+     Result->Includes = CapturedInfo.takeIncludes();
+     Result->Pragmas = std::make_shared<const include_cleaner::PragmaIncludes>(
+diff --git a/clang-tools-extra/clangd/Preamble.h b/clang-tools-extra/clangd/Preamble.h
+index 8a5edf1fe..d16b14fbd 100644
+--- a/clang-tools-extra/clangd/Preamble.h
++++ b/clang-tools-extra/clangd/Preamble.h
+@@ -128,6 +128,9 @@ struct PreambleData {
+   // Whether there was a (possibly-incomplete) include-guard on the main file.
+   // We need to propagate this information "by hand" to subsequent parses.
+   bool MainIsIncludeGuarded = false;
++  // Policy used to construct this preamble. Consumers patching a stale
++  // preamble must preserve its mode; dependency freshness is checked separately.
++  bool SkipPreambleBuild = false;
+ };
+ 
+ using PreambleParsedCallback =
+diff --git a/clang-tools-extra/clangd/unittests/ClangdTests.cpp b/clang-tools-extra/clangd/unittests/ClangdTests.cpp
+index 9ea7c3e02..847df22f8 100644
+--- a/clang-tools-extra/clangd/unittests/ClangdTests.cpp
++++ b/clang-tools-extra/clangd/unittests/ClangdTests.cpp
+@@ -13,6 +13,7 @@
+ #include "ConfigFragment.h"
+ #include "GlobalCompilationDatabase.h"
+ #include "Matchers.h"
++#include "ProjectModules.h"
+ #include "SyncAPI.h"
+ #include "TestFS.h"
+ #include "TestTU.h"
+@@ -1057,6 +1058,42 @@ TEST(ClangdTests, PreambleVFSStatCache) {
+ }
+ #endif
+ 
++TEST(ClangdServerTest, CompletionReusesPreambleBuildMode) {
++  class EmptyModules : public ProjectModules {
++  public:
++    std::vector<std::string> getRequiredModules(PathRef) override { return {}; }
++    std::string getModuleNameForSource(PathRef) override { return {}; }
++    std::string getSourceForModuleName(llvm::StringRef, PathRef) override {
++      return {};
++    }
++  };
++  class CountingCDB : public MockCompilationDatabase {
++  public:
++    mutable std::atomic<unsigned> ModuleQueries{0};
++    std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
++      ++ModuleQueries;
++      return std::make_unique<EmptyModules>();
++    }
++  } CDB;
++  MockFS FS;
++  ErrorCheckingCallbacks DiagConsumer;
++  ModulesBuilder Modules(CDB);
++  auto Options = ClangdServer::optsForTest();
++  Options.ModulesManager = &Modules;
++  ClangdServer Server(CDB, FS, Options, &DiagConsumer);
++  auto File = testPath("mode.cpp");
++  Annotations Code("#define VALUE 1\nint value;\nvoid f() { val^; }\n");
++  Server.addDocument(File, Code.code());
++  ASSERT_TRUE(Server.blockUntilIdleForTest());
++  CDB.ModuleQueries = 0;
++  auto Result = cantFail(runCodeComplete(Server, File, Code.point(), {}));
++  EXPECT_THAT(Result.Completions,
++              Contains(Field(&CodeCompletion::Name, "value")));
++  // The late semantic freshness check still obtains the current module names.
++  // No separate provider inventory is needed just to patch this preamble.
++  EXPECT_EQ(CDB.ModuleQueries.load(), 1u);
++}
++
+ TEST(ClangdServerTest, FallbackWhenPreambleIsNotReady) {
+   MockFS FS;
+   ErrorCheckingCallbacks DiagConsumer;
+diff --git a/clang-tools-extra/clangd/unittests/PreambleTests.cpp b/clang-tools-extra/clangd/unittests/PreambleTests.cpp
+index 16a2f9448..ac0320dac 100644
+--- a/clang-tools-extra/clangd/unittests/PreambleTests.cpp
++++ b/clang-tools-extra/clangd/unittests/PreambleTests.cpp
+@@ -107,6 +107,22 @@ collectPatchedIncludes(llvm::StringRef ModifiedContents,
+ 
+ // Check preamble lexing logic by building an empty preamble and patching it
+ // with all the contents.
++TEST(PreambleTest, RecordsPreambleBuildMode) {
++  auto TU = TestTU::withCode("#define VALUE 1\nint value = VALUE;\n");
++  for (bool Skip : {false, true}) {
++    MockFS FS;
++    auto Inputs = TU.inputs(FS);
++    Inputs.Opts.SkipPreambleBuild = Skip;
++    IgnoreDiagnostics Diags;
++    auto CI = buildCompilerInvocation(Inputs, Diags);
++    ASSERT_TRUE(CI);
++    auto Preamble = buildPreamble(testPath(TU.Filename), *CI, Inputs, true, nullptr);
++    ASSERT_TRUE(Preamble);
++    EXPECT_EQ(Preamble->SkipPreambleBuild, Skip);
++    EXPECT_EQ(Preamble->Preamble.getBounds().Size == 0, Skip);
++  }
++}
++
+ TEST(PreamblePatchTest, IncludeParsing) {
+   // We expect any line with a point to show up in the patch.
+   llvm::StringRef Cases[] = {
+-- 
+2.53.0
+

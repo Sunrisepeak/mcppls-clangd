@@ -91,3 +91,5 @@ they live here and in patch *filenames* only.
 | 0045-UP-03-bounded-linux-worker-diagnostics.patch | UP-03 | stabilizing | tests/e2e/module_worker_diagnostics.py; tests/evidence/module-worker-diagnostics.json; ci/module-worker-isolation.md | Upstream Linux supervised workers bound queued diagnostics and retained prefixes without unbounded stderr files or truncating PCM output |
 
 | 0046-UP-24-bounded-read-copy-maintenance.patch | UP-24 | stabilizing | tests/evidence/module-read-copy-maintenance.json; ci/module-read-copy-maintenance.md; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream copy-on-read orphan maintenance uses bounded resumable traversal outside requests and preserves active physical leases across aliases |
+
+| 0048-UP-25-reuse-preamble-build-mode-in-completion.patch | UP-25 | stabilizing | ci/completion-preamble-policy.md; tests/evidence/completion-preamble-mode.json; clangd/unittests/ClangdTests.cpp; clangd/unittests/PreambleTests.cpp | Upstream completion carries the actual preamble build mode and avoids redundant policy scans while retaining fresh module validation |
