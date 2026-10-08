@@ -124,4 +124,6 @@ they live here and in patch *filenames* only.
 
 | 0062-UP-23-attached-module-preamble-policy.patch | UP-23 | stabilizing | ci/attached-module-preamble-policy.md; tests/evidence/attached-module-preamble-policy.json; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py | Upstream preamble construction derives textual module policy from actual attached leased BMIs, preserving ordinary PCH and repeated semantic/lifetime controls |
 
+| 0063-UP-20-published-prerequisite-generations.patch | UP-20 | stabilizing | ci/published-prerequisite-generations.md; tests/evidence/published-prerequisite-generations.json; clangd/unittests/PrerequisiteModulesTest.cpp StandardModuleProfileInvalidatesConsumer (in-patch) | Upstream consumer cache identity binds to the actual published dependency versions while normal compiler validation, changed-profile semantic rebuild and stable-chain/different-copy warm reuse pass; full historical save/recovery qualification remains required |
+
 | 0064-UP-03-owned-module-build-publication-events.patch | UP-03 | stabilizing | ci/owned-module-build-events.md; tests/evidence/owned-module-build-events.json; tests/e2e/module_cycle.py | Upstream fresh owned publication preserves the established build event and actual cyclic recovery plus diamond imported semantic completion pass |

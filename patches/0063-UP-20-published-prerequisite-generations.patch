@@ -1,0 +1,139 @@
+From 9a969b36f1bbd8753356828a22ee31fdadedf9d1 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 19:41:51 +0900
+Subject: [PATCH] fix(clangd): consumers bind to published prerequisite
+ generations
+
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 46 ++++++++++++++++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 49 +++++++++++++++++++
+ 2 files changed, 93 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 47d853c62..18b928865 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -831,6 +831,34 @@ public:
+     return Result;
+   }
+ 
++  llvm::Expected<std::string> getBuildChainKey() const {
++    std::string Result;
++    getValidationChainKey(Result);
++    llvm::SmallVector<const ModuleFile *, 8> Producers;
++    for (const auto &Module : RequiredModules)
++      Producers.push_back(Module.get());
++    llvm::sort(Producers, [](const ModuleFile *L, const ModuleFile *R) {
++      return L->getModuleName() < R->getModuleName();
++    });
++    for (const auto *Module : Producers) {
++      // Use the published producer identity captured by the read lease,
++      // never the temporary copy's path/inode/time. A legacy publication can
++      // be replaced while this request still owns the previous immutable copy.
++      auto Identity = Module->getPublishedSourceIdentity();
++      if (!Identity)
++        Identity = ModuleValidationCache::identityOf(
++            Module->getPublishedModuleFilePath());
++      if (!Identity)
++        return llvm::createStringError("Module prerequisite producer is unavailable");
++      Result.append(llvm::formatv("{0}:{1}:{2}:{3}:{4};", Module->getModuleName(),
++                                  Identity->Size, Identity->ID.getDevice(),
++                                  Identity->ID.getFile(),
++                                  Identity->ModTime.time_since_epoch().count())
++                         .str());
++    }
++    return Result;
++  }
++
+   bool canReuse(const CompilerInvocation &CI,
+                 llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) const override;
+ 
+@@ -2023,9 +2051,23 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     unsigned Remaining = --ActiveBuildTasks;
+     vlog("Module build task {0} finished (active={1})", ModuleName, Remaining);
+   });
+-  const std::string CommandHash = getCompileCommandStringHash(Cmd);
++  // A named standard-module import does not carry a producer signature in
++  // Clang's IMPORTS record. Input validation alone therefore cannot qualify a
++  // consumer built against another std generation or compile profile.
++  // Bind cache admission to the prerequisite producers before probing it.
++  auto Chain = Prerequisites.getBuildChainKey();
++  if (!Chain) return Chain.takeError();
++  const auto &BuildChain = *Chain;
++  const auto ChainHash = hashStringForCache(BuildChain);
++  const std::string CommandHash = BuildChain.empty()
++                                     ? getCompileCommandStringHash(Cmd)
++                                     : hashStringForCache(getCompileCommandStringHash(Cmd) +
++                                                          "\nproducer-chain-v1\n" + BuildChain);
++  auto ModuleDirectory = getModuleFilesDirectory(ModuleSource, Cmd, getCDB());
++  if (!BuildChain.empty())
++    llvm::sys::path::append(ModuleDirectory, "producer-chain-v1-" + ChainHash);
+   const std::string PublishedModuleFilePath = getPublishedModuleFilePath(
+-      ModuleName, getModuleFilesDirectory(ModuleSource, Cmd, getCDB()));
++      ModuleName, ModuleDirectory);
+ 
+   // Keep the source-scoped lock while probing and validating cached BMIs so
+   // stale-file replacement and final publication stay serialized.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index a1026fc16..71c00e5ad 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -3393,6 +3393,55 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+   EXPECT_FALSE(llvm::sys::fs::exists(ReadCopy));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, StandardModuleProfileInvalidatesConsumer) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  const char *Std = "export module std;\nexport constexpr int STD_VALUE = PROFILE;\n";
++  CDB.addFile("std.cppm", Std, {"-DPROFILE=1"});
++  CDB.addFile("Consumer.cppm", "export module Consumer;\nimport std;\n"
++                              "export constexpr int consumer_value = STD_VALUE;\n");
++  CDB.addFile("Use.cpp", "import Consumer;\n");
++  HeaderSearchOptions Before;
++  {
++    ModulesBuilder Builder(CDB);
++    auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++    ASSERT_TRUE(Modules);
++    Modules->adjustHeaderSearchOptionsForValidation(Before);
++    ASSERT_EQ(Before.PrebuiltModuleFiles.count("Consumer"), 1u);
++  }
++  CDB.addFile("std.cppm", Std, {"-DPROFILE=2"});
++  ModulesBuilder Builder(CDB);
++  auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++  ASSERT_TRUE(Modules);
++  HeaderSearchOptions After;
++  Modules->adjustHeaderSearchOptionsForValidation(After);
++  ASSERT_EQ(After.PrebuiltModuleFiles.count("Consumer"), 1u);
++  EXPECT_NE(Before.PrebuiltModuleFiles.at("std"), After.PrebuiltModuleFiles.at("std"));
++  EXPECT_NE(Before.PrebuiltModuleFiles.at("Consumer"), After.PrebuiltModuleFiles.at("Consumer"));
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  Inputs.Opts.SkipPreambleBuild = true;
++  Inputs.Contents = "import Consumer;\nstatic_assert(consumer_value == 2);\n";
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(Preamble);
++  auto AST = ParsedAST::build(getFullPath("Use.cpp"), Inputs, std::move(CI), {}, Preamble);
++  ASSERT_TRUE(AST);
++  EXPECT_TRUE(AST->getDiagnostics().empty());
++  HeaderSearchOptions AfterCopies;
++  Modules->adjustHeaderSearchOptions(AfterCopies);
++  ModulesBuilder WarmBuilder(CDB);
++  auto Warm = WarmBuilder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++  ASSERT_TRUE(Warm);
++  HeaderSearchOptions WarmPublished, WarmCopies;
++  Warm->adjustHeaderSearchOptionsForValidation(WarmPublished);
++  Warm->adjustHeaderSearchOptions(WarmCopies);
++  EXPECT_EQ(After.PrebuiltModuleFiles.at("Consumer"),
++             WarmPublished.PrebuiltModuleFiles.at("Consumer"));
++  EXPECT_NE(AfterCopies.PrebuiltModuleFiles.at("Consumer"),
++             WarmCopies.PrebuiltModuleFiles.at("Consumer"));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleImportThroughInclude) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

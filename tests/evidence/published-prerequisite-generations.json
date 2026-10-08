@@ -1,0 +1,50 @@
+{
+  "source_commit": "9a969b36f1bbd8753356828a22ee31fdadedf9d1",
+  "source_base": "eb46056930984aa57ca7c15857d13a0bbc652f21",
+  "state": "stabilizing",
+  "patch": "0063-UP-20-published-prerequisite-generations.patch",
+  "patch_sha256": "226a5f66cde38a9df4af5447f22bf597fdc65853728d34a85db0c7c3ddced388",
+  "engine_sha256": "9052437d175c75b2b4f4a87fa12baef74bc9028b4ac4f527a360ae8a5408ea96",
+  "changed_translation_units": [
+    "clang-tools-extra/clangd/ModulesBuilder.cpp",
+    "clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp"
+  ],
+  "scope": "Two private translation units compiled against requested source headers and linked over existing joint replacement objects/read-only46 archives; not a clean whole recipe or native qualification.",
+  "cache_contract": {
+    "producer_changed": "std -DPROFILE=1 to2 rebuilds Consumer without changing its command/source; static_assert(consumer_value==2) AST has no diagnostics",
+    "producer_unchanged": "new reader has different Consumer copy path but identical published Consumer BMI path",
+    "identity": "sorted published chain and stable captured producer file identity; temporary read-copy paths and identities excluded",
+    "validation": "ordinary compiler/input validation retained; missing producer identity declines admission"
+  },
+  "before": {
+    "command": "ClangdTests-before --gtest_filter=PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer",
+    "exit_code": 1,
+    "test_failures": 1,
+    "meaning": "Old Consumer publication reused after std profile changes; consumer generation and semantic AST assertions fail.",
+    "raw_log": "Note: Google Test filter = PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer\n[==========] Running 1 test from 1 test suite.\n[----------] Global test environment set-up.\n[----------] 1 test from PrerequisiteModulesTests\n[ RUN      ] PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nModule provider inventory: 3 files\nModule provider index rebuilt: 3 commands\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nIgnored diagnostic. argument unused during compilation: '-c'\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule build task std started (active=1, limit=2)\nBMI copy maintenance /tmp/modules-test-19dc2a/.cache/clangd/modules: examined=3 removed=0 more=false\nIgnored diagnostic. argument unused during compilation: '-c'\nIgnored diagnostic. /tmp/modules-test-19dc2a/std.cppm:1:15:'std' is a reserved name for a module\nBuilt module std to /tmp/modules-test-19dc2a/.cache/clangd/modules/std.cppm-438FE537BE02382F/E7B601927EE0A532/std-20261008-104107-916020.-190dd1.pcm\nModule build task std finished (active=0)\nModule build task Consumer started (active=1, limit=2)\nIgnored diagnostic. argument unused during compilation: '-c'\nBuilt module Consumer to /tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer-20261008-104107-917547.-f1404c.pcm\nModule build task Consumer finished (active=0)\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nModule provider inventory: 4 files\nModule provider index rebuilt: 4 commands\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nIgnored diagnostic. argument unused during compilation: '-c'\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule build task std started (active=1, limit=2)\nBMI copy maintenance /tmp/modules-test-19dc2a/.cache/clangd/modules: examined=7 removed=0 more=false\nIgnored diagnostic. argument unused during compilation: '-c'\nIgnored diagnostic. /tmp/modules-test-19dc2a/std.cppm:1:15:'std' is a reserved name for a module\nBuilt module std to /tmp/modules-test-19dc2a/.cache/clangd/modules/std.cppm-438FE537BE02382F/6F93E8E25770BE8B/std-20261008-104107-927001.-f3befb.pcm\nModule build task std finished (active=0)\nModule build task Consumer started (active=1, limit=2)\nReusing persistent module Consumer from /tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer.pcm\nModule build task Consumer finished (active=0)\n/tmp/mcppls-module-chain63-final/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp:3419: Failure\nExpected: (Before.PrebuiltModuleFiles.at(\"Consumer\")) != (After.PrebuiltModuleFiles.at(\"Consumer\")), actual: \"/tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer.pcm\" vs \"/tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer.pcm\"\n\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nModule provider inventory: 4 files\nModule provider index rebuilt: 4 commands\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nIgnored diagnostic. argument unused during compilation: '-c'\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule build task std started (active=1, limit=2)\nReusing module std from /tmp/modules-test-19dc2a/.cache/clangd/modules/std.cppm-438FE537BE02382F/6F93E8E25770BE8B/std-20261008-104107-927001.-f3befb.pcm\nModule build task std finished (active=0)\nModule build task Consumer started (active=1, limit=2)\nReusing module Consumer from /tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer-20261008-104107-927211.-b7d088.pcm\nModule build task Consumer finished (active=0)\nBuilt prerequisite modules for file /tmp/modules-test-19dc2a/Use.cpp in 0.01 seconds\nBuilt preamble of size 268620 for file /tmp/modules-test-19dc2a/Use.cpp version null in 0.00 seconds\n/tmp/mcppls-module-chain63-final/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp:3430: Failure\nValue of: AST->getDiagnostics().empty()\n  Actual: false\nExpected: true\n\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nModule provider inventory: 4 files\nModule provider index rebuilt: 4 commands\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Use.cpp\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nIgnored diagnostic. argument unused during compilation: '-c'\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/Consumer.cppm\nModule dependency scan memo miss: /tmp/modules-test-19dc2a/std.cppm\nModule build task std started (active=1, limit=2)\nBMI copy maintenance /tmp/modules-test-19dc2a/.cache/clangd/modules: examined=13 removed=0 more=false\nReusing persistent module std from /tmp/modules-test-19dc2a/.cache/clangd/modules/std.cppm-438FE537BE02382F/6F93E8E25770BE8B/std.pcm\nModule build task std finished (active=0)\nModule build task Consumer started (active=1, limit=2)\nModule file /tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer.pcm is up to date via the validation cache\nReusing persistent module Consumer from /tmp/modules-test-19dc2a/.cache/clangd/modules/Consumer.cppm-FAC9B9073068F291/F8B27AD433F1EF7F/Consumer.pcm\nModule build task Consumer finished (active=0)\n[  FAILED  ] PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer (37 ms)\n[----------] 1 test from PrerequisiteModulesTests (37 ms total)\n\n[----------] Global test environment tear-down\n[==========] 1 test from 1 test suite ran. (37 ms total)\n[  PASSED  ] 0 tests.\n[  FAILED  ] 1 test, listed below:\n[  FAILED  ] PrerequisiteModulesTests.StandardModuleProfileInvalidatesConsumer\n\n 1 FAILED TEST\n",
+    "log_sha256": "0edd181bf1152173ca27339e23a8397374579bd28e8658832794859c00036e12"
+  },
+  "after": {
+    "command": "ClangdTests --gtest_filter=PrerequisiteModulesTests.*",
+    "exit_code": 0,
+    "tests": 64,
+    "elapsed_ms": 790,
+    "tail": [
+      "Built preamble of size 257800 for file /tmp/modules-test-bac211/Consumer.cpp version null in 0.00 seconds",
+      "Module dependency scan memo miss: /tmp/modules-test-bac211/Consumer.cpp",
+      "[       OK ] PrerequisiteModulesTests.SkipPreambleBuildInvalidatedByNewModuleImport (9 ms)",
+      "[----------] 64 tests from PrerequisiteModulesTests (790 ms total)",
+      "",
+      "[----------] Global test environment tear-down",
+      "[==========] 64 tests from 1 test suite ran. (790 ms total)",
+      "[  PASSED  ] 64 tests."
+    ],
+    "log_sha256": "008a9c6b86d3e9dc8c2864190b8c3b5ecaab85b52dd4523dd7ae31826b67320d"
+  },
+  "open": [
+    "full historical UP20 save/recovery remains unproven",
+    "native and clean recipe qualification remain pending",
+    "physical disk allocation/metadata and parent/scanner RSS/resource goals remain separate"
+  ],
+  "tool_results": "No platform/tool rejection occurred during these compilation/cache controls. Earlier debugger auto-load warnings are not an engineering qualification conclusion."
+}
