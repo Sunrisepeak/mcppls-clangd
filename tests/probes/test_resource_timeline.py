@@ -7,6 +7,7 @@ import time
 import unittest
 
 from project_completion import Resources, replay
+from resource_window import stable_window
 
 
 @unittest.skipUnless(platform.system() == 'Linux', 'resource sampler uses /proc')
@@ -88,6 +89,12 @@ while True:
             stable = [s for s in stable if s['monotonic_ns'] <= replies[2]['completed_monotonic_ns']]
             self.assertGreaterEqual(len(stable), 2)
             self.assertGreater(stable[-1]['cpu_ms'], stable[0]['cpu_ms'])
+            result['resources'] = sampled
+            result['context_answers'] = [dict(r, phase=phase, semantic_pass=True)
+                                         for r, phase in zip(replies[1:], ('settled-warm', 'edited'))]
+            window = stable_window(result)
+            self.assertEqual(window['stable_requests'], 2)
+            self.assertGreater(window['cpu_lower_ms'], 0)
 
 
 if __name__ == '__main__':

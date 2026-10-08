@@ -92,7 +92,8 @@ class Resources:
         self.stop.set()
         if self.thread:
             self.thread.join(timeout=2)
-        return {'interval_ms': 100, 'clock': 'time.monotonic_ns; shared with replay request spans', 'scope': 'Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.',
+        return {'interval_ms': 100, 'cpu_tick_ms': 1000 / os.sysconf('SC_CLK_TCK') if platform.system() == 'Linux' else None,
+                'clock': 'time.monotonic_ns; shared with replay request spans', 'scope': 'Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.',
                 'samples': self.samples, 'errors': self.errors,
                 'sampler_stopped': self.thread is None or not self.thread.is_alive()}
 
