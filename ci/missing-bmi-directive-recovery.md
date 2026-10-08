@@ -86,3 +86,7 @@ keywords after prior named-BMI failure and these token/semantic recovery
 regressions pass without the patch. The change is independent of the bounded
 module-DAG scheduling patch and should be submitted upstream as a separate
 lexer recovery fix.
+
+## Symbol-bearing Windows maintained qualification
+
+Run37722679744 at9e0e535 passed the actual original UP12 case against the symbol-bearing fork, after stock baseline qualification. Engine SHA86468960e2a4f237f9012b3db2383ce9dd0b5d5e156dad74a3bff3f1a84539ad matches the build identity. PE/PDB GUID{A440DF1E-E48C-4BB9-AC86-A1A1D219585E}, age1 and actual debugger clangdMain lookup pass. The real documentSymbol response has NameType at index14/kind10, exit0 and readers stopped; the corpus is nonempty. [Compact evidence](../tests/evidence/windows-up12-fixed-fork.json). This qualifies the9e0e535 source and this case, not final later patches, UP13 or UP20.
