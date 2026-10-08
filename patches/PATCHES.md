@@ -109,3 +109,5 @@ they live here and in patch *filenames* only.
 | 0055-UP-03-full-scan-content-fingerprints.patch | UP-03 | stabilizing | ci/module-scan-fingerprints.md; tests/evidence/module-scan-fingerprints.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream full content hashing avoids software SHA256 cost while preserving every byte, exact observations and current-view replay |
 
 | 0056-UP-03-native-scan-publication-admission.patch | UP-03 | stabilizing | ci/module-scan-native-admission.md; tests/evidence/module-scan-native-admission.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream publication test covers both admitted Linux coordination and unsupported native fresh-scan behavior without assuming cache admission |
+
+| 0057-UP-03-requesting-project-provider-commands.patch | UP-03 | stabilizing | ci/module-provider-commands.md; tests/evidence/module-provider-commands.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream buildability/prebuilt/DAG resolution uses the importing request generation for explicit external providers while preserving global/overlay command precedence |

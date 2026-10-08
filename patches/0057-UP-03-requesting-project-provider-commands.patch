@@ -1,0 +1,276 @@
+From 7424065f685fecf681a39e274e25a2c97a85898b Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 12:46:00 +0900
+Subject: [PATCH] [clangd] Resolve external module commands from the requesting
+ project
+
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  30 ++++-
+ clang-tools-extra/clangd/ProjectModules.cpp   |   5 +
+ clang-tools-extra/clangd/ProjectModules.h     |   8 ++
+ .../unittests/PrerequisiteModulesTest.cpp     | 105 ++++++++++++++++++
+ 4 files changed, 142 insertions(+), 6 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 7f2d338ef..6827763be 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -1358,6 +1358,11 @@ public:
+     return MDB->getRequiredModules(File);
+   }
+ 
++  std::optional<tooling::CompileCommand>
++  getCompileCommand(PathRef File) override {
++    return MDB->getCompileCommand(File);
++  }
++
+   std::string getModuleNameForSource(PathRef File) override {
+     return MDB->getModuleNameForSource(File);
+   }
+@@ -1680,6 +1685,17 @@ public:
+   std::atomic<uint64_t> &commandGeneration() { return CommandGeneration; }
+   const GlobalCompilationDatabase &getCDB() const { return Cache.getCDB(); }
+ 
++  std::optional<tooling::CompileCommand>
++  getModuleCompileCommand(PathRef File, ProjectModules &MDB) const {
++    // Keep explicit global/overlay commands and their configuration precedence.
++    // Directory discovery can fail for an external provider which is explicitly
++    // listed in the importing project's database. Use that request generation
++    // as a fallback; never install its commands in a process-global path cache.
++    if (auto Cmd = getCDB().getCompileCommand(File))
++      return Cmd;
++    return MDB.getCompileCommand(File);
++  }
++
+   /// Source/header/draft inputs can change without a command notification.
+   /// Re-derive this preamble-safety decision from the actual request view.
+   bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS) {
+@@ -1698,7 +1714,7 @@ public:
+           CachedMDB.getSourceForModuleName(ModuleName, File);
+       if (UnitFileName.empty())
+         continue;
+-      if (getCDB().getCompileCommand(UnitFileName)) {
++      if (getModuleCompileCommand(UnitFileName, CachedMDB)) {
+         Verdict = true;
+         break;
+       }
+@@ -1833,6 +1849,7 @@ private:
+ 
+   /// Try to get prebuilt module files from the compilation database.
+   void getPrebuiltModuleFile(StringRef ModuleName, PathRef ModuleUnitFileName,
++                             ProjectModules &MDB,
+                              const ThreadsafeFS &TFS,
+                              ReusablePrerequisiteModules &BuiltModuleFiles);
+ 
+@@ -1856,9 +1873,10 @@ private:
+ };
+ 
+ void ModulesBuilder::ModulesBuilderImpl::getPrebuiltModuleFile(
+-    StringRef ModuleName, PathRef ModuleUnitFileName, const ThreadsafeFS &TFS,
++    StringRef ModuleName, PathRef ModuleUnitFileName, ProjectModules &MDB,
++    const ThreadsafeFS &TFS,
+     ReusablePrerequisiteModules &BuiltModuleFiles) {
+-  auto Cmd = getCDB().getCompileCommand(ModuleUnitFileName);
++  auto Cmd = getModuleCompileCommand(ModuleUnitFileName, MDB);
+   if (!Cmd)
+     return;
+ 
+@@ -2001,7 +2019,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+       continue;
+     std::string Source = MDB.getSourceForModuleName(Name, RequiredSource);
+     bool Buildable = !Source.empty();
+-    if (Buildable && !getCDB().getCompileCommand(Source)) {
++    if (Buildable && !getModuleCompileCommand(Source, MDB)) {
+       auto PI = getCDB().getProjectInfo(Source);
+       Buildable = PI && !PI->SourceRoot.empty();
+     }
+@@ -2011,7 +2029,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+            Name);
+       continue;
+     }
+-    getPrebuiltModuleFile(Name, Source, TFS, BuiltModuleFiles);
++    getPrebuiltModuleFile(Name, Source, MDB, TFS, BuiltModuleFiles);
+     Roots.push_back(Name.str());
+   }
+   auto Plan = getModuleBuildPlan(RequiredSource, MDB, Roots, BuiltModuleFiles);
+@@ -2041,7 +2059,7 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+         const auto &Node = (*Plan)[Index];
+         if (BuiltModuleFiles.isModuleUnitBuilt(Node.Name))
+           continue;
+-        auto Cmd = getCDB().getCompileCommand(Node.Source);
++        auto Cmd = getModuleCompileCommand(Node.Source, MDB);
+         if (!Cmd) {
+           PreparationError = llvm::createStringError(
+               llvm::formatv("No compile command for {0}", Node.Source));
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 4c3f2af13..47d993ae8 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -816,6 +816,11 @@ public:
+     return Scanning->getRequiredModules(File);
+   }
+ 
++  std::optional<tooling::CompileCommand>
++  getCompileCommand(PathRef File) override {
++    return getCompileCommandForFile(*CDB, File, Mangler);
++  }
++
+   std::string getModuleNameForSource(PathRef File) override {
+     // Return scanning results directly as it is fast enough and up to date.
+     return Scanning->getModuleNameForSource(File);
+diff --git a/clang-tools-extra/clangd/ProjectModules.h b/clang-tools-extra/clangd/ProjectModules.h
+index 65ddffdfd..7bc33ccf1 100644
+--- a/clang-tools-extra/clangd/ProjectModules.h
++++ b/clang-tools-extra/clangd/ProjectModules.h
+@@ -15,6 +15,7 @@
+ #include "clang/Tooling/CompilationDatabase.h"
+ 
+ #include <memory>
++#include <optional>
+ 
+ namespace clang {
+ namespace clangd {
+@@ -64,6 +65,13 @@ public:
+   /// The filesystem must outlive this facade. Non-scanning backends need no
+   /// adjustment. Call before querying the facade.
+   virtual void setFileSystem(const ThreadsafeFS &FS) {}
++
++  /// Resolve an explicit source command from this request's project database
++  /// generation, applying the facade's command mangler. A provider may live
++  /// outside the directory tree where that database was discovered. Backends
++  /// without command information must decline, rather than invent a fallback.
++  virtual std::optional<tooling::CompileCommand>
++  getCompileCommand(PathRef File) { return std::nullopt; }
+ };
+ 
+ // One immutable compilation-database generation's command inventory. Facades
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 21765de72..cbf9b4ea5 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -36,6 +36,7 @@
+ #include "llvm/Support/Chrono.h"
+ #include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/FileSystem.h"
++#include "llvm/Support/JSON.h"
+ #include "llvm/Support/Process.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include "llvm/Support/raw_ostream.h"
+@@ -80,6 +81,11 @@ public:
+     return Underlying->getModuleNameState(ModuleName);
+   }
+ 
++  std::optional<tooling::CompileCommand>
++  getCompileCommand(PathRef File) override {
++    return Underlying->getCompileCommand(File);
++  }
++
+ private:
+   std::unique_ptr<ProjectModules> Underlying;
+   std::atomic<unsigned> &Count;
+@@ -1517,6 +1523,105 @@ TEST_F(PrerequisiteModulesTests, PositiveScanMemoPreservesConfiguredProviders) {
+   EXPECT_EQ(getModuleDependencyScanCache().stats().Hits, Before.Hits);
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ExternalProviderUsesImportingProjectCommand) {
++  const auto Project = (TestDir + "/project").str();
++  const auto External = (TestDir + "/vendor/M.cppm").str();
++  const auto Use = Project + "/Use.cpp";
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(llvm::sys::fs::create_directories(
++        llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Stream(File, EC);
++    EXPECT_FALSE(EC);
++    Stream << Text;
++  };
++  Write(External, "export module M;\n#if MODE == 1\n"
++                  "export void old_value();\n#else\n"
++                  "export void new_value();\n#endif\n");
++  Write(Use, "import M;\n");
++  auto PublishCDB = [&](StringRef Mode) {
++    llvm::json::Array Entries;
++    for (const auto &File : {Use, External}) {
++      llvm::json::Array Arguments{"clang", "-std=c++20", "-c", File};
++      if (File == External)
++        Arguments.push_back(("-DMODE=" + Mode).str());
++      Entries.push_back(llvm::json::Object{{"directory", Project},
++                                         {"file", File},
++                                         {"arguments", std::move(Arguments)}});
++    }
++    Write(Project + "/compile_commands.json",
++          llvm::formatv("{0}", llvm::json::Value(std::move(Entries))).str());
++  };
++  PublishCDB("1");
++  DirectoryBasedGlobalCompilationDatabase::Options Options(FS);
++  Options.RevalidateAfter = std::chrono::milliseconds(0);
++  DirectoryBasedGlobalCompilationDatabase CDB(Options);
++  // The source has no database in its directory ancestry. The importing
++  // project's explicit command is nevertheless a real buildable provider.
++  ASSERT_FALSE(CDB.getCompileCommand(External));
++  ASSERT_FALSE(CDB.getProjectInfo(External));
++  auto Old = CDB.getProjectModules(Use);
++  ASSERT_TRUE(Old);
++  ASSERT_TRUE(Old->getCompileCommand(External));
++  EXPECT_THAT(Old->getCompileCommand(External)->CommandLine,
++              testing::Contains("-DMODE=1"));
++
++  ModulesBuilder Builder(CDB);
++  ASSERT_TRUE(Builder.hasBuildableRequiredModules(Use, FS, "import M;\n"));
++  auto Parse = [&](StringRef Name, const GlobalCompilationDatabase &Commands,
++                   ModulesBuilder &Manager) {
++    ParseInputs Inputs;
++    Inputs.TFS = &FS;
++    Inputs.Contents = ("import M;\nvoid test() { " + Name + "(); }\n").str();
++    Inputs.CompileCommand = *Commands.getCompileCommand(Use);
++    Inputs.ModulesManager = &Manager;
++    auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++    EXPECT_TRUE(CI);
++    auto Prerequisites = Manager.buildPrerequisiteModulesFor(Use, FS);
++    EXPECT_TRUE(Prerequisites);
++    if (!CI || !Prerequisites)
++      return;
++    Prerequisites->adjustHeaderSearchOptions(CI->getHeaderSearchOpts());
++    EXPECT_EQ(CI->getHeaderSearchOpts().PrebuiltModuleFiles.count("M"), 1u);
++    auto AST = ParsedAST::build(Use, Inputs, std::move(CI), {}, {});
++    ASSERT_TRUE(AST);
++    ASSERT_TRUE(AST->getDiagnostics().empty());
++    EXPECT_TRUE(findDecl(*AST, Name).isFromASTFile());
++  };
++  Parse("old_value", CDB, Builder);
++  // Same inventory count and source bytes; changed provider command must
++  // select a fresh immutable generation and rebuild its actual exported AST.
++  PublishCDB("2");
++  // Ordinary command lookup performs CDB-file revalidation; the modules
++  // inventory's forced boundary separately revalidates expanded responses.
++  ASSERT_TRUE(CDB.getCompileCommand(Use));
++  auto New = CDB.getProjectModules(Use);
++  ASSERT_TRUE(New);
++  ASSERT_TRUE(New->getCompileCommand(External));
++  ASSERT_THAT(New->getCompileCommand(External)->CommandLine,
++              testing::Contains("-DMODE=2"));
++  EXPECT_THAT(Old->getCompileCommand(External)->CommandLine,
++              testing::Contains("-DMODE=1"));
++  Parse("new_value", CDB, Builder);
++  New->setCommandMangler([&](tooling::CompileCommand &Command, PathRef File) {
++    EXPECT_EQ(File, External);
++    EXPECT_EQ(Command.Directory, Project);
++    Command.CommandLine.push_back("-DCONFIGURED=1");
++  });
++  EXPECT_THAT(New->getCompileCommand(External)->CommandLine,
++              testing::Contains("-DCONFIGURED=1"));
++  EXPECT_THAT(Old->getCompileCommand(External)->CommandLine,
++              testing::Not(testing::Contains("-DCONFIGURED=1")));
++
++  // An explicit per-file overlay remains authoritative over the importing
++  // project's inventory, including for providers outside its source root.
++  OverlayCDB Overlay(&CDB, {}, [](tooling::CompileCommand &, PathRef) {});
++  auto Override = *Old->getCompileCommand(External);
++  Overlay.setCompileCommand(External, Override);
++  ModulesBuilder OverrideBuilder(Overlay);
++  Parse("old_value", Overlay, OverrideBuilder);
++}
++
+ TEST_F(PrerequisiteModulesTests, UnsavedImportUsesExactRequestBuffer) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "export module M;\nexport int draft_value = 1;\n");
