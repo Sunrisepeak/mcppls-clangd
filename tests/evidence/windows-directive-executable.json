@@ -1,0 +1,146 @@
+{
+  "outcome": "pass",
+  "engine_sha256": "ab0cd926bdeb776c1826693f7609c609bb834f304ec041d6ba34c87f42c30215",
+  "exit_code": 0,
+  "shutdown_reply": true,
+  "cases": [
+    {
+      "id": "import",
+      "text": "import A\nimport B;\n",
+      "expected_range": {
+        "start": {
+          "line": 0,
+          "character": 8
+        },
+        "end": {
+          "line": 0,
+          "character": 8
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "expected_semi_after_module_or_import",
+          "message": "Import directive must end with a ';' (fix available)",
+          "range": {
+            "end": {
+              "character": 8,
+              "line": 0
+            },
+            "start": {
+              "character": 8,
+              "line": 0
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "id": "continued-import",
+      "text": "import \\\n  A\nimport B;\n",
+      "expected_range": {
+        "start": {
+          "line": 1,
+          "character": 3
+        },
+        "end": {
+          "line": 1,
+          "character": 3
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "expected_semi_after_module_or_import",
+          "message": "Import directive must end with a ';' (fix available)",
+          "range": {
+            "end": {
+              "character": 3,
+              "line": 1
+            },
+            "start": {
+              "character": 3,
+              "line": 1
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "id": "module",
+      "text": "export module M // pending\nint marker;\n",
+      "expected_range": {
+        "start": {
+          "line": 0,
+          "character": 15
+        },
+        "end": {
+          "line": 0,
+          "character": 15
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "pp_unexpected_tok_after_module_name",
+          "message": "Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 0
+            },
+            "start": {
+              "character": 15,
+              "line": 0
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "id": "continued-module",
+      "text": "export module \\\n  M\nint marker;\n",
+      "expected_range": {
+        "start": {
+          "line": 1,
+          "character": 3
+        },
+        "end": {
+          "line": 1,
+          "character": 3
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "pp_unexpected_tok_after_module_name",
+          "message": "Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)",
+          "range": {
+            "end": {
+              "character": 3,
+              "line": 1
+            },
+            "start": {
+              "character": 3,
+              "line": 1
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    }
+  ],
+  "failure_run": 37718071132,
+  "failure_job": 113119288926,
+  "failure_head": "757a040",
+  "failure": "FileNotFoundError reading extensionless engine after successful subprocess launch",
+  "suffix_control": "only clangd.exe exists; shared executable resolver selects exact file; missing executable refuses",
+  "native_corrected_ci": "pending"
+}

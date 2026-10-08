@@ -1,4 +1,31 @@
-# Current private combined through0054
+# Current private combined through0056
+
+Ordered 0047–0056, with0049 reserved, matches all23 changed source paths in
+private7ca13e82e. After the prior134 related tests, the fingerprint/admission
+changes rebuild ProjectModules and PrerequisiteModulesTest; both real binaries
+link, and12 focused tests pass238ms. All four maintained preamble-mode semantic
+transitions pass with normal exit. Shared root46 archives/source/binary remain
+unchanged; this is private integration proof, not a clean native package.
+
+The actual executable SHAab0cd926bdeb776c1826693f7609c609bb834f304ec041d6ba34c87f42c30215
+passes four Qt semantic requests and strict UTF8/JSON trace parsing using the
+original project/CDB/resource flags. Single-process sample: cold1799ms,
+warm62.89/63.49ms, edited144.57ms. Complete content hashing plus exact-fact
+indexing avoids measured repeated recording/replay costs. Candidate presence
+is proved; insertion compilation, the full context distribution and release
+percentiles remain open. No cache freshness or compiler option is removed.
+
+Darwin53 CI exposed a test premise error: production admits only Linux host
+and target discovery.0056 keeps all owner/follower semantic controls on all
+hosts and additionally proves unsupported hosts create no cache publications.
+Corrected native CI is pending; Windows53 separately failed directive diagnosis
+and Ubuntu20's53 run lacks the already exported Python3.8 fixture correction.
+
+[Combined evidence](../tests/evidence/combined-worker56.json),
+[full fingerprint scope](module-scan-fingerprints.md),
+[native admission scope](module-scan-native-admission.md).
+
+# Historical private combined through0054
 
 The ordered47/48/50/51/52/53/54 source matches all23 changed paths against
 privated6ca614826. Eleven changed production TUs and four test TUs are rebuilt

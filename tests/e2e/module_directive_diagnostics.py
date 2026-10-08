@@ -3,9 +3,16 @@
 import argparse
 import hashlib
 import io
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
+
+
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location("replay", ROOT / "tests/crash/replay.py")
+replay = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(replay)
 
 
 CASES = [
@@ -17,7 +24,7 @@ CASES = [
 
 
 def probe(engine):
-    engine = engine.resolve()
+    engine = replay.executable(engine)
     messages = [{'jsonrpc': '2.0', 'id': 0, 'method': 'initialize', 'params': {
         'rootUri': 'test:///', 'capabilities': {},
         'initializationOptions': {'fallbackFlags': ['-std=c++20']}}}]
@@ -52,9 +59,13 @@ def probe(engine):
                       'diagnostics': diagnostics,
                       'pass': len(diagnostics) == 1 and diagnostics[0]['range'] == expected})
     shutdown = any(r.get('id') == 1 and r.get('result', 'missing') is None for r in replies)
+    digest = hashlib.sha256()
+    with engine.open('rb') as binary:
+        for chunk in iter(lambda: binary.read(1024 * 1024), b''):
+            digest.update(chunk)
     return {'outcome': 'pass' if result.returncode == 0 and shutdown
             and all(c['pass'] for c in cases) else 'error',
-            'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(),
+            'engine_sha256': digest.hexdigest(),
             'exit_code': result.returncode, 'shutdown_reply': shutdown,
             'cases': cases, 'raw_replies': replies,
             'stderr': result.stderr.decode(errors='replace')}
