@@ -1,0 +1,86 @@
+diff --git a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
+index 87d90bf77..fae57af7f 100644
+--- a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
++++ b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
+@@ -5261,6 +5261,81 @@ TEST(CompletionTest, ExternalQualifiedFuzzyUsingAndOverloads) {
+   }
+ }
+ 
++TEST(CompletionTest, ExternalNameFilterBindsExactSourceAndContext) {
++  auto AST = TestTU::withCode("namespace one {} namespace two {}").build();
++  auto &Ctx = AST.getASTContext();
++  auto *TU = Ctx.getTranslationUnitDecl();
++  auto *One = cast<NamespaceDecl>(TU->lookup(&Ctx.Idents.get("one")).front());
++  auto *Two = cast<NamespaceDecl>(TU->lookup(&Ctx.Idents.get("two")).front());
++  class Source : public ExternalASTSource {
++  public:
++    Source *Other = nullptr;
++    const DeclContext *WrongContext = nullptr;
++    bool Inside = false;
++    std::vector<bool> SawFilter;
++    void completeVisibleDeclsMap(const DeclContext *DC) override {
++      if (!Inside && Other) {
++        Inside = true;
++        // Another source and another context cannot consume this predicate.
++        Other->completeVisibleDeclsMap(DC);
++        SawFilter.push_back(bool(takeCompletionNameFilter(WrongContext)));
++        Inside = false;
++      }
++      SawFilter.push_back(bool(takeCompletionNameFilter(DC)));
++    }
++  } Parent, Other;
++  Parent.Other = &Other;
++  Parent.WrongContext = Two;
++  auto Filter = [](const IdentifierInfo *) { return true; };
++  Parent.completeVisibleDeclsMapForCompletion(One, Filter);
++  EXPECT_THAT(Other.SawFilter, ElementsAre(false));
++  EXPECT_THAT(Parent.SawFilter, ElementsAre(false, true));
++  Parent.Other = nullptr;
++  Parent.completeVisibleDeclsMap(One);
++  EXPECT_THAT(Parent.SawFilter, ElementsAre(false, true, false));
++}
++
++TEST(CompletionTest, ExternalQualifiedAliasAndNameHiding) {
++  TestTU TU;
++  TU.HeaderCode = R"cpp(
++    namespace backing { int vector(int); int vector(double); }
++    namespace api {
++      using namespace backing;
++      int vector;
++      int version();
++    }
++    namespace alias = api;
++  )cpp";
++  Annotations Code("void probe() { alias::ve^ }");
++  TU.Code = Code.code().str();
++  CodeCompleteOptions Opts;
++  Opts.ForceLoadPreamble = true;
++  Opts.BundleOverloads = true;
++  auto Result = completions(TU, Code.point(), {}, Opts);
++  EXPECT_THAT(Result.Completions,
++              Contains(AllOf(named("vector"),
++                             kind(CompletionItemKind::Variable))));
++  EXPECT_THAT(Result.Completions,
++              Contains(AllOf(named("version"),
++                             kind(CompletionItemKind::Function))));
++  // Compare against ordinary local declarations, which have no external map
++  // to select. This retains any qualified hidden-function suggestions too.
++  Annotations InlineCode(TU.HeaderCode + "\nvoid probe() { alias::ve^ }");
++  auto InlineTU = TestTU::withCode(InlineCode.code());
++  auto Complete = completions(InlineTU, InlineCode.point(), {}, Opts);
++  auto Keys = [](const CodeCompleteResult &R) {
++    std::vector<std::string> Keys;
++    for (const auto &C : R.Completions)
++      Keys.push_back(C.Name + "|" + C.RequiredQualifier + "|" + C.Signature +
++                     "|" + C.SnippetSuffix + "|" +
++                     std::to_string(static_cast<unsigned>(C.Kind)) + "|" +
++                     std::to_string(C.BundleSize));
++    llvm::sort(Keys);
++    return Keys;
++  };
++  EXPECT_EQ(Keys(Result), Keys(Complete));
++}
++
+ } // namespace
+ } // namespace clangd
+ } // namespace clang
