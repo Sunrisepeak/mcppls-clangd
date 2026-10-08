@@ -31,8 +31,21 @@ pass third-party reuse/provider-command discovery. Retention requires explicit
 trace proof of construction, complete inputs, import-free emission, audited
 open handles and an accepted textual PCH. Header imports still must collapse.
 This repairs an obsolete unconditional body-collapse premise without treating
-size alone as proof. Final native verification remains pending.
+size alone as proof. The revised canary passed Linux job 113380909792 in run 37797560280.
+Windows and ARM macOS remain pending at this checkpoint; this CI still builds
+the formal 67-patch runtime, not the private assisted-scanner candidate.
 
 Exact summaries, compressed unmodified replay reports and private build
 identity are in `third-party-contract/`. The private control is not a production
 assisted-scanner implementation or a performance result.
+
+`manifest-profile/` preserves the complete private L1 replay profile, raw
+reports, trace, patch and exact compile/link identity with deterministic gzip
+and uncompressed SHA checks. In the main replay, 622 paths are each opened
+and closed three times, but read only once (9.22 MB). Measured delegated FS
+median is 7.53 ms; an extra shadow hash costs 2.17 ms and is instrumentation,
+not exclusive original hashing time. Directory iterator increments are not
+timed. All four typed Sema controls passed, with no insertion compilation in
+this profiling run. A session-provenance-aware reduction of repeated opens
+is only a proposed approximately 2.85 ms opportunity; no optimization was
+implemented. Cross-request stat/hash reuse remains unsupported.
