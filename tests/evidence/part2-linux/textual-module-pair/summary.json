@@ -1,0 +1,140 @@
+{
+  "scope": "Exploratory same-source-URI pair, one start/one edited round each, trace enabled; not formal p95 or full equivalence qualification. No production change.",
+  "artifacts": {
+    "identity.json": "4b1b6f350e9f2d2818d9e630bb68658912b938471d06efc75b3f5bf2cbdee4f4",
+    "headers-main.cpp": "0effbd431dbdab4d29eb04cc8c6310c279154175cac85894380d4d51f962ab7f",
+    "modules-main.cpp": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+    "headers-original-uri.json": "ca7b837f234e2b4924187e7142f78ad7d5d56e528b47642b483f13166a88516a",
+    "headers-original-uri.case.json": "95fed752bab4d0a9cd15fe3ef146a0825e3cacddc5227be5c76f54f6d4848623",
+    "headers-original-uri.trace.json": "a6993fd4b3a58c4c371afedff18a4054167d57398c3219e58eb8ac9208c4ff76",
+    "modules-original-uri.json": "cd41f747b440286ff93d83693d1640693649397076ab9e5e79c3499c71fb697f",
+    "modules-original-uri.case.json": "1c983597dd8c57a9bbd84d5daefef5e51ace05be3e8a1cb9c84c34435be8682c",
+    "modules-original-uri.trace.json": "12d0c4897f21c6ab93a1e96393cee36854059e61ddc8bc6e206eefd70fa7f212"
+  },
+  "arms": {
+    "headers": {
+      "engine_sha256": "200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49",
+      "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "draft_source_sha256": "0effbd431dbdab4d29eb04cc8c6310c279154175cac85894380d4d51f962ab7f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            1740.4489890031982
+          ],
+          "p50_ms": 1740.4489890031982,
+          "p95_ms": 1740.4489890031982
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            72.89044899516739,
+            74.90728799893986
+          ],
+          "p50_ms": 72.89044899516739,
+          "p95_ms": 74.90728799893986
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            177.17864499718416
+          ],
+          "p50_ms": 177.17864499718416,
+          "p95_ms": 177.17864499718416
+        }
+      },
+      "semantic_pass": true,
+      "insertion_pass": true,
+      "spans_ms": {
+        "Completion module validation": [
+          15.51,
+          13.561,
+          115.091,
+          16.463
+        ],
+        "Completion semantic execution": [
+          71.493,
+          54.252,
+          56.29,
+          52.796
+        ],
+        "Populate CodeCompleteResult": [
+          10.132,
+          8.933,
+          8.959,
+          8.979
+        ]
+      }
+    },
+    "modules": {
+      "engine_sha256": "200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49",
+      "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            2105.3546909970464
+          ],
+          "p50_ms": 2105.3546909970464,
+          "p95_ms": 2105.3546909970464
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            175.05091699422337,
+            178.57170800562017
+          ],
+          "p50_ms": 175.05091699422337,
+          "p95_ms": 178.57170800562017
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            248.20638200617395
+          ],
+          "p50_ms": 248.20638200617395,
+          "p95_ms": 248.20638200617395
+        }
+      },
+      "semantic_pass": true,
+      "insertion_pass": true,
+      "spans_ms": {
+        "Completion module validation": [
+          18.939,
+          11.245,
+          83.117,
+          11.458
+        ],
+        "Completion semantic execution": [
+          151.413,
+          132.353,
+          133.683,
+          135.713
+        ],
+        "Populate CodeCompleteResult": [
+          22.654,
+          21.433,
+          20.677,
+          24.417
+        ]
+      }
+    }
+  },
+  "rejected_controls": [
+    "Header placement after Qt produces emit macro collision in syncstream; no speed qualification.",
+    "Copied module source URI loses PCH input replay: ~960ms semantic execution; excluded from matched pair."
+  ]
+}

@@ -97,6 +97,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--draft-source', type=Path,
+                        help='Alternate unsaved base text; retains the actual source URI and CDB')
     parser.add_argument('--project', type=Path, required=True)
     parser.add_argument('--before', help='unique source anchor before the probe')
     parser.add_argument('--expression')
@@ -118,7 +120,8 @@ def main():
         parser.error('rounds and starts must be positive')
     engine, source, project = replay.executable(args.engine), args.source.resolve(), args.project.resolve()
     original = source.read_bytes()
-    base = original.decode()
+    base_bytes = args.draft_source.read_bytes() if args.draft_source else original
+    base = base_bytes.decode()
     context = json.loads(args.context_file.read_text()) if args.context_file else None
     if context:
         args.before = context['before']
@@ -265,6 +268,8 @@ def main():
                         insertions.append(proof)
         report = {'schema': 4 if context else 2, 'engine_sha256': digest(engine), 'engine_flags': engine_flags,
                   'source_sha256': hashlib.sha256(original).hexdigest(), 'position': position,
+                  'draft_source_sha256': hashlib.sha256(base_bytes).hexdigest(),
+                  'draft_source': str(args.draft_source.resolve()) if args.draft_source else None,
                   'expression': args.expression, 'starts': args.starts, 'rounds': args.rounds,
                   'phases': {phase: statistics(phase_samples.get(phase, []), count)
                              for phase, count in phase_requests.items()},
