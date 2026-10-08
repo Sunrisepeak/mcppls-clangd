@@ -1,0 +1,92 @@
+{
+  "scope": "Private Scope/TU 1x5 same-URI/CDB A/B/A, same GCC build compiler and final matching resource headers. No standard-library index gate for these unqualified contexts. Compiler overlap invalidates timing; actual selected edits compile only after all engine measurements.",
+  "arms": {
+    "baseline-before": {
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3491.210728,
+          "p95_ms": 3491.210728
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "p50_ms": 100.798945,
+          "p95_ms": 112.232364
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "p50_ms": 178.344976,
+          "p95_ms": 182.778718
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true
+    },
+    "candidate": {
+      "engine_sha256": "b113434672d4a28ab600737e3acd3c5463618d306ff3b02c086a2f6a95e1669e",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3724.115811,
+          "p95_ms": 3724.115811
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "p50_ms": 76.513552,
+          "p95_ms": 80.863201
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "p50_ms": 150.810241,
+          "p95_ms": 156.06932
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true
+    },
+    "baseline-after": {
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3642.088729,
+          "p95_ms": 3642.088729
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "p50_ms": 106.695336,
+          "p95_ms": 133.816701
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "p50_ms": 179.697804,
+          "p95_ms": 197.585672
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true
+    }
+  }
+}

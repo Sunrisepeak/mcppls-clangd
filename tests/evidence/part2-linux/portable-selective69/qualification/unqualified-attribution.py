@@ -1,12 +1,13 @@
 from pathlib import Path
 import json,subprocess,hashlib
 base=Path(__file__).parent
+assert json.loads((base/'matrix-distribution/terminal.json').read_text())['terminal'] is True, 'Require observed matrix process termination before tracing'
 assert len(json.loads((base/'matrix-distribution/summary.json').read_text())['results'])==12, 'Complete final matrix before attribution'
 for proc in Path('/proc').iterdir():
  if not proc.name.isdigit():continue
  try:name=(proc/'comm').read_text().strip()
  except OSError:continue
- if name in {'clangd','clang','clang++','cc1','cc1plus','g++','gcc','ninja'}:raise SystemExit('Other clangd/compiler activity blocks isolated attribution: '+proc.name+' '+name)
+ if name.startswith('clangd') or name in {'clang','clang++','cc1','cc1plus','g++','gcc','ninja'}:raise SystemExit('Other clangd/compiler activity blocks isolated attribution: '+proc.name+' '+name)
 root=base/'unqualified-attribution'
 if root.exists():raise SystemExit('Refusing to overwrite attribution evidence')
 root.mkdir()

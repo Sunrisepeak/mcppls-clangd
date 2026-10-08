@@ -1,0 +1,97 @@
+{
+  "scope": "Private Scope/TU uncapped all-item correctness 1x1 A/B/A, standard-library publication and positive index gate before stable replies. Cold replies still require semantics and actual insertions but are not compared for all-index equality. Same GCC compiler and resources. This changes the default result limit, so no default-workload latency qualification. Compiler overlap invalidates timing; actual selected edits compile only after all engine measurements.",
+  "arms": {
+    "baseline-before": {
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3493.210662,
+          "p95_ms": 3493.210662
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "p50_ms": 103.437473,
+          "p95_ms": 104.500111
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 184.19048,
+          "p95_ms": 184.19048
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_gcc_insertions": 4
+    },
+    "candidate": {
+      "engine_sha256": "b113434672d4a28ab600737e3acd3c5463618d306ff3b02c086a2f6a95e1669e",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3460.939532,
+          "p95_ms": 3460.939532
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "p50_ms": 74.109803,
+          "p95_ms": 80.788152
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 157.018524,
+          "p95_ms": 157.018524
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_gcc_insertions": 4
+    },
+    "baseline-after": {
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3728.128612,
+          "p95_ms": 3728.128612
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "p50_ms": 96.36506,
+          "p95_ms": 101.413185
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 170.314215,
+          "p95_ms": 170.314215
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_gcc_insertions": 4
+    }
+  },
+  "correction": "Initial control wrongly assumed unlimited engine limit implies index isIncomplete false. Preserve original failed run; offline completion compares actual returned fields and equal legacy incomplete flags, then actual insertions. No latency rerun or default-workload qualification.",
+  "all_stable_item_edit_fields_equal": true
+}

@@ -118,3 +118,39 @@ which is an attribution lead, not a proven exclusive cause. Isolated traces
 must wait for the distribution to terminate. Product, other-platform and
 long-term qualification remain incomplete; the ledger stays stabilizing.
 Evidence and exact recipes: `tests/evidence/part2-linux/portable-selective69/`.
+
+
+## Unqualified Scope/TU follow-up: 0070 (stabilizing)
+
+The final 0069 Qt matrix completed with all 2,232 request checks and 251
+selected GCC insertions passing, but first-column/ordinary edited p95 failed
+at 201.221592/210.724679 ms. Independent final-byte native traces and private
+batch CPU attribution found that unqualified completion still enumerated
+10,488 TU declarations per lookup (about 29 ms CPU enumeration plus 6 ms
+consumption in the GCC development build).
+
+0070 applies the borrowed completion name predicate to ordinary-name and
+expression Scope traversal, and permits selection of external C++ TU names.
+Local scope, using traversal, visibility, overloads, ordinary lookup, empty
+patterns and C behavior remain intact. The new Sema method is nonvirtual;
+class layout and the existing virtual ABI do not change. Two changed Sema
+objects and completion tests were rebuilt with unchanged 0069 consumers;
+this is a private candidate, not a full clean 0070 consumer build. Two new
+controls and 146 existing CompletionTests pass.
+
+Default top100 comparisons varied even between unchanged baselines at index
+cutoff boundaries; the original failure is retained. Independent unlimited
+engine-response controls compare actual returned fields and equal legacy
+incomplete flags, then compile 24 actual selected edits. This does not imply
+that the index has returned every possible symbol. With the default limit and
+publication/positive index gates restored, 1x5 A/B/A checks all returned items
+against that verified reference, all typed Sema and 39 selected GCC edits pass.
+First-column edited p95 is 181.596/168.870/177.618 ms, ordinary is
+172.074/157.217/178.541 ms. No all-default-top100 equality or final-byte
+qualification claim follows from these short controls.
+
+Export source/series identity: `selective-unqualified-export70/identity.json`.
+Private implementation and original/corrected experiments:
+`unqualified-visible-candidate70/audit.json`. All paths are under
+`tests/evidence/part2-linux/`. Final full-series clean build, distributions,
+product, supported native platforms and release gates remain incomplete.

@@ -1,0 +1,196 @@
+From 441be72d5ca0274541bc1a1ad601425eb42c2887 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 07:08:03 +0900
+Subject: [PATCH] perf(clangd): unqualified completion filters external TU
+ names
+
+Ordinary-name and expression completion previously enumerated complete external
+translation-unit tables before applying clangd fuzzy matching. Use a borrowed
+completion-only predicate for Scope traversal and external C++ TU names,
+preserving local shadowing, using directives, overloads and ordinary lookup.
+Keep C and empty-pattern behavior unchanged, and preserve partial storage.
+
+Tests compare PCH and textual unqualified/global completion including aliases,
+inline namespaces, local shadows and bundled overloads, and verify later
+ordinary lookup still loads omitted TU names. No class layout, virtual ABI,
+BMI format or persistent answer cache changes.
+---
+ .../clangd/unittests/CodeCompleteTests.cpp    | 77 +++++++++++++++++++
+ clang/include/clang/Sema/Sema.h               |  7 ++
+ clang/lib/Sema/SemaCodeComplete.cpp           | 16 ++--
+ clang/lib/Sema/SemaLookup.cpp                 | 12 ++-
+ 4 files changed, 105 insertions(+), 7 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
+index 514319c3c..702c89430 100644
+--- a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
++++ b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
+@@ -5138,6 +5138,83 @@ TEST(CompletionTest, FuzzyMatchMacro) {
+   }
+ }
+ 
++TEST(CompletionTest, ExternalUnqualifiedNamesPreserveScopesAndUsing) {
++  TestTU TU;
++  TU.HeaderCode = R"cpp(
++    int visible(int);
++    int visible(double);
++    int unrelated();
++    namespace backing { int vector_api(int); int version_api(); }
++    namespace bridge { using namespace backing; }
++    using namespace bridge;
++    namespace host { inline namespace abi { int vector_abi(); } }
++    using namespace host;
++    struct vehicle { vehicle(int); };
++    using vehicle_alias = vehicle;
++  )cpp";
++  CodeCompleteOptions Opts;
++  Opts.ForceLoadPreamble = true;
++  Opts.BundleOverloads = true;
++  auto Keys = [](const CodeCompleteResult &R) {
++    std::vector<std::string> Keys;
++    for (const auto &C : R.Completions)
++      Keys.push_back(C.Name + "|" + C.RequiredQualifier + "|" + C.Signature +
++                     "|" + C.SnippetSuffix + "|" +
++                     std::to_string(static_cast<unsigned>(C.Kind)));
++    llvm::sort(Keys);
++    return Keys;
++  };
++  for (llvm::StringRef Pattern : {"vi", "ve", "v_a", ""}) {
++    for (llvm::StringRef Body : {"void probe() { ",
++                                "void probe() { int visible = 0; (void)",
++                                "void probe() { ::"}) {
++      Annotations Code((Body + Pattern + "^ }").str());
++      TU.Code = Code.code().str();
++      auto Result = completions(TU, Code.point(), {}, Opts);
++      // Preserve the completion marker in the textual comparison.
++      Annotations Textual(TU.HeaderCode + "\n" +
++                          (Body + Pattern + "^ }").str());
++      auto LocalTU = TestTU::withCode(Textual.code());
++      auto Local = completions(LocalTU, Textual.point(), {}, Opts);
++      EXPECT_EQ(Keys(Result), Keys(Local)) << Pattern.str() << Body.str();
++      if (Pattern == "ve" && !Body.ends_with("::")) {
++        EXPECT_THAT(Result.Completions, has("vector_api"));
++        EXPECT_THAT(Result.Completions, has("vector_abi"));
++      }
++      if (Pattern == "vi" && Body == "void probe() { ")
++        EXPECT_THAT(Result.Completions,
++                    Contains(AllOf(named("visible"),
++                                   Field(&CodeCompletion::BundleSize, 2u))));
++      if (Pattern == "vi" && Body.contains("int visible"))
++        EXPECT_THAT(Result.Completions,
++                    Contains(AllOf(named("visible"),
++                                   kind(CompletionItemKind::Variable))));
++    }
++  }
++}
++
++TEST(CompletionTest, SelectedExternalTUNamesPreserveOrdinaryLookup) {
++  TestTU TU;
++  TU.HeaderCode = "int visible(int); int visible(double); int unrelated();";
++  auto AST = TU.build();
++  ASSERT_TRUE(AST.getDiagnostics().empty());
++  auto &Ctx = AST.getASTContext();
++  auto *DC = Ctx.getTranslationUnitDecl();
++  auto *Visible = &Ctx.Idents.get("visible");
++  auto *Unrelated = &Ctx.Idents.get("unrelated");
++  ASSERT_TRUE(DC->noload_lookup(Visible).empty());
++  ASSERT_TRUE(DC->noload_lookup(Unrelated).empty());
++  auto Filter = [](llvm::StringRef Name) { return Name == "visible"; };
++  Ctx.getExternalSource()->completeVisibleDeclsMapForCompletion(DC, Filter);
++  EXPECT_EQ(llvm::range_size(DC->noload_lookup(Visible)), 2u);
++  EXPECT_TRUE(DC->noload_lookup(Unrelated).empty());
++  EXPECT_TRUE(DC->hasExternalVisibleStorage());
++  EXPECT_EQ(llvm::range_size(DC->lookup(Unrelated)), 1u);
++  Ctx.getExternalSource()->completeVisibleDeclsMap(DC);
++  EXPECT_FALSE(DC->hasExternalVisibleStorage());
++  EXPECT_EQ(llvm::range_size(DC->lookup(Visible)), 2u);
++}
++
+ TEST(CompletionTest, ExternalNameFilterScopeIsSynchronous) {
+   class Source : public ExternalASTSource {
+   public:
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index 071cc4e92..e25e2c5a2 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -9812,6 +9812,13 @@ public:
+                           bool IncludeDependentBases = false,
+                           bool LoadExternal = true);
+ 
++  /// Completion-only unqualified lookup preserves local scope and using
++  /// traversal while selecting externally stored namespace/TU names.
++  void LookupVisibleDeclsForCompletion(
++      Scope *S, LookupNameKind Kind, VisibleDeclConsumer &Consumer,
++      llvm::function_ref<bool(llvm::StringRef)> NameMayMatch,
++      bool IncludeGlobalScope = true, bool LoadExternal = true);
++
+   /// Completion-only visible lookup with a borrowed name predicate.
+   /// Ordinary lookup continues to materialize the complete visible map.
+   void LookupVisibleDeclsForCompletion(
+diff --git a/clang/lib/Sema/SemaCodeComplete.cpp b/clang/lib/Sema/SemaCodeComplete.cpp
+index dcef39fec..ea5115f50 100644
+--- a/clang/lib/Sema/SemaCodeComplete.cpp
++++ b/clang/lib/Sema/SemaCodeComplete.cpp
+@@ -4911,9 +4911,11 @@ void SemaCodeCompletion::CodeCompleteOrdinaryName(
+   }
+ 
+   CodeCompletionDeclConsumer Consumer(Results, SemaRef.CurContext);
+-  SemaRef.LookupVisibleDecls(S, SemaRef.LookupOrdinaryName, Consumer,
+-                             CodeCompleter->includeGlobals(),
+-                             CodeCompleter->loadExternal());
++  auto NameMayMatch = CodeCompleter->getExternalNameFilter(
++      SemaRef.getPreprocessor().getCodeCompletionFilter());
++  SemaRef.LookupVisibleDeclsForCompletion(
++      S, Sema::LookupOrdinaryName, Consumer, NameMayMatch,
++      CodeCompleter->includeGlobals(), CodeCompleter->loadExternal());
+ 
+   AddOrdinaryNameResults(CompletionContext, S, SemaRef, Results);
+   Results.ExitScope();
+@@ -5322,9 +5324,11 @@ void SemaCodeCompletion::CodeCompleteExpression(
+ 
+   CodeCompletionDeclConsumer Consumer(Results, SemaRef.CurContext);
+   Consumer.setIsAddressOfOperand(IsAddressOfOperand);
+-  SemaRef.LookupVisibleDecls(S, Sema::LookupOrdinaryName, Consumer,
+-                             CodeCompleter->includeGlobals(),
+-                             CodeCompleter->loadExternal());
++  auto NameMayMatch = CodeCompleter->getExternalNameFilter(
++      SemaRef.getPreprocessor().getCodeCompletionFilter());
++  SemaRef.LookupVisibleDeclsForCompletion(
++      S, Sema::LookupOrdinaryName, Consumer, NameMayMatch,
++      CodeCompleter->includeGlobals(), CodeCompleter->loadExternal());
+ 
+   Results.EnterNewScope();
+   AddOrdinaryNameResults(PCC, S, SemaRef, Results);
+diff --git a/clang/lib/Sema/SemaLookup.cpp b/clang/lib/Sema/SemaLookup.cpp
+index c80f2a86c..0e26819c9 100644
+--- a/clang/lib/Sema/SemaLookup.cpp
++++ b/clang/lib/Sema/SemaLookup.cpp
+@@ -4207,7 +4207,8 @@ private:
+     // We sometimes skip loading namespace-level results (they tend to be huge).
+     bool Load = LoadExternal ||
+                 !(isa<TranslationUnitDecl>(Ctx) || isa<NamespaceDecl>(Ctx));
+-    bool SelectNames = Load && NameMayMatch && isa<NamespaceDecl>(Ctx);
++    bool SelectNames = Load && NameMayMatch &&
++                       (isa<NamespaceDecl>(Ctx) || isa<TranslationUnitDecl>(Ctx));
+     if (SelectNames) {
+       auto *Primary = Ctx->getPrimaryContext();
+       if (Primary->hasExternalVisibleStorage())
+@@ -4469,6 +4470,15 @@ void Sema::LookupVisibleDecls(DeclContext *Ctx, LookupNameKind Kind,
+   H.lookupVisibleDecls(*this, Ctx, Kind, IncludeGlobalScope);
+ }
+ 
++void Sema::LookupVisibleDeclsForCompletion(
++    Scope *S, LookupNameKind Kind, VisibleDeclConsumer &Consumer,
++    llvm::function_ref<bool(llvm::StringRef)> NameMayMatch,
++    bool IncludeGlobalScope, bool LoadExternal) {
++  LookupVisibleHelper H(Consumer, /*IncludeDependentBases=*/false,
++                        LoadExternal, NameMayMatch);
++  H.lookupVisibleDecls(*this, S, Kind, IncludeGlobalScope);
++}
++
+ void Sema::LookupVisibleDeclsForCompletion(
+     DeclContext *Ctx, LookupNameKind Kind, VisibleDeclConsumer &Consumer,
+     llvm::function_ref<bool(llvm::StringRef)> NameMayMatch,
+-- 
+2.53.0
+

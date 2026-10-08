@@ -1,0 +1,54 @@
+{
+  "scope": "Private unqualified Scope/TU candidate; no final-floor/distribution or release qualification. Two new controls and146 existing controls pass. Original index/top100 parity failure and mistaken incomplete-false assertion retained; corrected controls do not claim complete index results or all-default-item equality.",
+  "identity": {
+    "scope": "Private Scope/TU candidate, two changed Sema objects and tests rebuilt; 2 new controls and146 existing completion controls pass. Existing69 consumers retained under unchanged class-layout/virtual ABI; final clean rebuild and release qualification still required.",
+    "parent_source_commit": "31c43d3a28723666103f951cd01711c49d9ac459",
+    "source_sha256": {
+      "clang/include/clang/Sema/Sema.h": "a346a3fbc69961de0f41921c50813ce324885771ff67042ad9233a050a86b451",
+      "clang/lib/Sema/SemaLookup.cpp": "3c6dd2bdd2a3e9d15594976ed530f047ec74ebede4c965f64d2590943f55d239",
+      "clang/lib/Sema/SemaCodeComplete.cpp": "f490587063c467a06adce557ddb72074155e44b8ff5911e4f4063fbe64e26274",
+      "clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp": "1becfddb543c22182bd88a213d0c5fddc3f227010469acc6c7291f6a8cf562ba"
+    },
+    "engine_sha256": "b113434672d4a28ab600737e3acd3c5463618d306ff3b02c086a2f6a95e1669e",
+    "test_binary_sha256": "908244ac49ee4ba508c4dd989ed8a3cb8b636418d2c78b3b5f834e5cc25bfb4a",
+    "source_commit": "3510dc8091144c9f6ed0a573a3a7931b9c10b32b",
+    "export_commit": "441be72d5ca0274541bc1a1ad601425eb42c2887",
+    "export_parent": "499609a2a1503ea7fef404e5b72fbb2e9fa2a9f2",
+    "export_tree": "ed9d43ef6888a662e1d070d5d032ecb13e9a0940",
+    "patch_sha256": "687c16bfc431b87c82eae34b1d86e14a447fcb7106559c61481649b1757df27e"
+  },
+  "contexts": {
+    "first-column": {
+      "unlimited_response_parity": true,
+      "unlimited_selected_gcc_insertions": 12,
+      "default_item_reference_membership": true,
+      "default_selected_gcc_insertions": 19,
+      "default_edited_p95_ms": {
+        "baseline-before": 181.596139,
+        "candidate": 168.870401,
+        "baseline-after": 177.618432
+      },
+      "default_warm_p95_ms": {
+        "baseline-before": 110.229477,
+        "candidate": 84.99027,
+        "baseline-after": 105.11815
+      }
+    },
+    "ordinary": {
+      "unlimited_response_parity": true,
+      "unlimited_selected_gcc_insertions": 12,
+      "default_item_reference_membership": true,
+      "default_selected_gcc_insertions": 20,
+      "default_edited_p95_ms": {
+        "baseline-before": 172.074196,
+        "candidate": 157.216707,
+        "baseline-after": 178.541173
+      },
+      "default_warm_p95_ms": {
+        "baseline-before": 110.289923,
+        "candidate": 83.044185,
+        "baseline-after": 109.42663
+      }
+    }
+  }
+}

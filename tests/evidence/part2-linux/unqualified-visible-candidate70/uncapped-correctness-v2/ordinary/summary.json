@@ -1,0 +1,96 @@
+{
+  "scope": "Private Scope/TU uncapped all-item correctness 1x1 A/B/A, standard-library publication and positive index gate before stable replies. Cold replies still require semantics and actual insertions but are not compared for all-index equality. Same GCC compiler and resources. Index may still mark results incomplete; compare actual returned fields and equal incomplete flags, not false completeness. This changes the default result limit, so no default-workload latency qualification. Compiler overlap invalidates timing; actual selected edits compile only after all engine measurements.",
+  "arms": {
+    "baseline-before": {
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3563.470236,
+          "p95_ms": 3563.470236
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "p50_ms": 102.006207,
+          "p95_ms": 106.217177
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 170.305819,
+          "p95_ms": 170.305819
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_gcc_insertions": 4
+    },
+    "candidate": {
+      "engine_sha256": "b113434672d4a28ab600737e3acd3c5463618d306ff3b02c086a2f6a95e1669e",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3409.941422,
+          "p95_ms": 3409.941422
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "p50_ms": 75.313279,
+          "p95_ms": 89.985106
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 149.352471,
+          "p95_ms": 149.352471
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_gcc_insertions": 4
+    },
+    "baseline-after": {
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 3497.838097,
+          "p95_ms": 3497.838097
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "p50_ms": 100.043127,
+          "p95_ms": 107.73899
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "p50_ms": 171.477524,
+          "p95_ms": 171.477524
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_gcc_insertions": 4
+    }
+  },
+  "all_stable_item_edit_fields_equal": true
+}
