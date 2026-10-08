@@ -1,0 +1,77 @@
+From 7ca13e82ed22e05f845e327cd90885d267dcddcf Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 12:17:46 +0900
+Subject: [PATCH] [clangd] Test scan publication within native driver admission
+
+---
+ .../unittests/PrerequisiteModulesTest.cpp     | 40 +++++++++++++------
+ 1 file changed, 27 insertions(+), 13 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 27aebcf55..21765de72 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -437,6 +437,10 @@ private:
+ };
+ 
+ TEST_F(PrerequisiteModulesTests, ScanPublicationReplaysEachRequestView) {
++  // Native non-Linux driver discovery is deliberately not admitted. Still
++  // exercise both request views there and prove fresh service without flights.
++  const bool AdmittedHost =
++      llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux();
+   // Same main bytes and CDB can still have different unsaved header contents.
+   for (unsigned Case = 0; Case < 3; ++Case) {
+     const bool DifferentHeader = Case == 1;
+@@ -473,12 +477,14 @@ TEST_F(PrerequisiteModulesTests, ScanPublicationReplaysEachRequestView) {
+     const bool OwnerBlocked = Blocked.waitForRead();
+     EXPECT_TRUE(OwnerBlocked);
+     std::thread Follower([&] { FollowerResult = Scan(Second); });
+-    const auto Deadline =
+-        std::chrono::steady_clock::now() + std::chrono::seconds(2);
+-    while (Cache.publicationFollowers() == Joined &&
+-           std::chrono::steady_clock::now() < Deadline)
+-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+-    EXPECT_GT(Cache.publicationFollowers(), Joined);
++    if (AdmittedHost) {
++      const auto Deadline =
++          std::chrono::steady_clock::now() + std::chrono::seconds(2);
++      while (Cache.publicationFollowers() == Joined &&
++             std::chrono::steady_clock::now() < Deadline)
++        std::this_thread::sleep_for(std::chrono::milliseconds(1));
++      EXPECT_GT(Cache.publicationFollowers(), Joined);
++    }
+     if (CancelOwner)
+       OwnerTask.second();
+     Blocked.release();
+@@ -487,13 +493,21 @@ TEST_F(PrerequisiteModulesTests, ScanPublicationReplaysEachRequestView) {
+     EXPECT_THAT(OwnerResult, testing::ElementsAre("M"));
+     EXPECT_THAT(FollowerResult,
+                 testing::ElementsAre(DifferentHeader ? "N" : "M"));
+-    EXPECT_EQ(Cache.stats().Stores - Before.Stores, DifferentHeader ? 2u : 1u);
+-    if (!DifferentHeader && !CancelOwner)
+-      EXPECT_GT(Cache.stats().Hits, Before.Hits);
+-    if (DifferentHeader)
+-      EXPECT_GT(Cache.stats().Invalidations, Before.Invalidations);
+-    if (CancelOwner)
+-      EXPECT_GT(Cache.stats().Declines, Before.Declines);
++    if (AdmittedHost) {
++      EXPECT_EQ(Cache.stats().Stores - Before.Stores, DifferentHeader ? 2u : 1u);
++      if (!DifferentHeader && !CancelOwner)
++        EXPECT_GT(Cache.stats().Hits, Before.Hits);
++      if (DifferentHeader)
++        EXPECT_GT(Cache.stats().Invalidations, Before.Invalidations);
++      if (CancelOwner)
++        EXPECT_GT(Cache.stats().Declines, Before.Declines);
++    } else {
++      EXPECT_EQ(Cache.publicationFollowers(), Joined);
++      EXPECT_EQ(Cache.stats().Stores, Before.Stores);
++      EXPECT_EQ(Cache.stats().Hits, Before.Hits);
++      EXPECT_EQ(Cache.stats().Invalidations, Before.Invalidations);
++      EXPECT_EQ(Cache.stats().Declines, Before.Declines);
++    }
+     EXPECT_EQ(Cache.publicationBounds().first, 0u);
+   }
+ }
+-- 
+2.53.0
+
