@@ -110,10 +110,13 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--phases', action='store_true', help='Separate cold open, settled warm and edited requests; cold failures remain failures')
     parser.add_argument('--resources', action='store_true', help='Sample engine CPU/RSS using Linux /proc')
+    parser.add_argument('--settled-index-log', help='Wait for this literal index log before settled phases; each settled reply must actually match an index symbol')
     parser.add_argument('--engine-flag', action='append', default=[],
                         help='Additional engine argument retained in the replay manifest')
     parser.add_argument('--trace', type=Path, help='clangd trace path (one process only)')
     args = parser.parse_args()
+    if args.settled_index_log and not args.phases:
+        parser.error('settled-index-log requires phases')
     if args.trace and args.starts != 1:
         parser.error('trace requires a single process')
     if args.rounds < 1 or args.starts < 1:
@@ -160,6 +163,8 @@ def main():
                 completion['expect'] = {'/jsonrpc': '2.0'}
             if args.phases:
                 sequence.insert(3, completion)
+                if args.settled_index_log:
+                    sequence.append({'action': 'await-log', 'contains': args.settled_index_log})
                 sequence.append(completion)
                 phases += ['cold-open', 'settled-warm']
             for round_index in range(args.rounds):
@@ -206,6 +211,8 @@ def main():
                         origin = origins[index]
                         semantic_origin_failed = bool(require_sema and
                             (origin is None or origin['sema'] == 0))
+                        index_origin_failed = bool(args.settled_index_log and phase != 'cold-open' and
+                            (origin is None or origin['index'] == 0 or origin['matched'] == 0))
                         # Identifier fallback items can compile while only guessing a spelling.
                         typed_names = {re.split(r'[(<]', item.get('filterText', item.get('label', '')))[0].strip()
                                        for item in items if item.get('kind') not in (None, 1)}
@@ -216,8 +223,9 @@ def main():
                         draft = text if index < 2 and args.phases else text + f'\n// probe {draft_round}\n'
                         result['context_answers'].append({'phase': phase, 'elapsed_ms': answer['elapsed_ms'],
                             'missing': missing, 'polluted': polluted, 'unexpected_nonempty': empty_failure,
-                            'semantic_pass': not (missing or polluted or empty_failure or semantic_origin_failed or untyped or 'error' in answer['reply']),
+                            'semantic_pass': not (missing or polluted or empty_failure or semantic_origin_failed or index_origin_failed or untyped or 'error' in answer['reply']),
                             'origin': origin, 'semantic_origin_failed': semantic_origin_failed,
+                            'index_origin_failed': index_origin_failed,
                             'untyped_expected': untyped,
                             'isIncomplete': payload.get('isIncomplete') if isinstance(payload, dict) else None,
                             'items': items, 'draft': draft})
