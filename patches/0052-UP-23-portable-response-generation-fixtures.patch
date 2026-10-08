@@ -1,0 +1,50 @@
+From 032854d43ca66a4a73e945d8034ba279383ef01f Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:56:53 +0900
+Subject: [PATCH] [clangd] Serialize response generation fixture paths as JSON
+
+
+diff --git a/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp b/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
+index f6a65207d..e357abd58 100644
+--- a/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
++++ b/clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp
+@@ -566,13 +566,18 @@ TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest,
+   MockFS FS;
+   auto Stale = std::chrono::steady_clock::now() - std::chrono::minutes(1);
+   auto A = testPath("a.cc"), B = testPath("b.cc");
++  llvm::json::Array Commands{
++      llvm::json::Object{
++          {"directory", std::string(testRoot())},
++          {"file", "a.cc"},
++          {"arguments", llvm::json::Array{"clang", "@a.rsp", "a.cc"}}},
++      llvm::json::Object{
++          {"directory", std::string(testRoot())},
++          {"file", "b.cc"},
++          {"arguments", llvm::json::Array{"clang", "--precompile", "-o",
++                                          "module.pcm", "@b.rsp", "b.cc"}}}};
+   FS.Files["compile_commands.json"] =
+-      "[{\"directory\":\"" + std::string(testRoot()) +
+-      "\",\"file\":\"a.cc\",\"arguments\":[\"clang\",\"@a.rsp\",\"a.cc\"]},"
+-      "{\"directory\":\"" +
+-      std::string(testRoot()) +
+-      "\",\"file\":\"b.cc\",\"arguments\":[\"clang\",\"--precompile\",\"-o\","
+-      "\"module.pcm\",\"@b.rsp\",\"b.cc\"]}]";
++      llvm::formatv("{0}", llvm::json::Value(std::move(Commands))).str();
+   FS.Files["a.rsp"] = "@nested.rsp";
+   FS.Files["nested.rsp"] = "-DOLD -fmodule-file=M=module.pcm";
+   FS.Files["b.rsp"] = "-DBEFORE";
+@@ -643,9 +648,12 @@ TEST_F(DirectoryBasedGlobalCompilationDatabaseCacheTest,
+   } FS;
+   auto Stale = std::chrono::steady_clock::now() - std::chrono::minutes(1);
+   auto File = testPath("a.cc");
++  llvm::json::Array Commands{llvm::json::Object{
++      {"directory", std::string(testRoot())},
++      {"file", "a.cc"},
++      {"arguments", llvm::json::Array{"clang", "@args.rsp", "a.cc"}}}};
+   FS.Files["compile_commands.json"] =
+-      "[{\"directory\":\"" + std::string(testRoot()) +
+-      "\",\"file\":\"a.cc\",\"arguments\":[\"clang\",\"@args.rsp\",\"a.cc\"]}]";
++      llvm::formatv("{0}", llvm::json::Value(std::move(Commands))).str();
+   FS.Files["args.rsp"] = "-DOLD";
+   DirectoryBasedGlobalCompilationDatabase GDB(FS);
+   auto Old = lookupCDB(GDB, File, Stale);

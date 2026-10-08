@@ -97,3 +97,5 @@ they live here and in patch *filenames* only.
 | 0050-UP-23-asynchronous-module-preamble-policy.patch | UP-23 | stabilizing | ci/asynchronous-module-update.md; tests/e2e/module_preamble_mode.py; clangd/unittests/ClangdTests.cpp | Upstream document updates resolve current module preamble policy on the update worker and include that policy in AST input equality |
 
 | 0051-UP-26-owned-preamble-trace-filenames.patch | UP-26 | stabilizing | ci/preamble-trace-lifetime.md; tests/evidence/preamble-trace-lifetime.json; clangd/unittests/PreambleTests.cpp | Upstream preamble trace attachments own filenames through retained asynchronous contexts and the delayed-context canary passes |
+
+| 0052-UP-23-portable-response-generation-fixtures.patch | UP-23 | stabilizing | ci/response-generation-portability.md; clangd/unittests/GlobalCompilationDatabaseTests.cpp | Upstream response-generation fixtures serialize platform paths as JSON and retain all immutable-publication assertions on Windows |
