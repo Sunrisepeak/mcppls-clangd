@@ -50,3 +50,11 @@ Local verification: Python compilation and YAML parsing; sampler subprocess
 controls for output truncation and hard timeout (server untouched), and CLI
 rejection of a control without the single-case selector. Native sampling and
 the real A/B remain pending the first matching artifact.
+
+The opt-in single-case fixture also passed locally with final joint67 binary
+`200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49`:
+both default and standard-library-disabled runs returned all four actual
+Sema items and preserved the one-worker bound. Document symbols took 1061ms
+and 1123ms respectively. These Linux runs used separate fresh directories;
+they validate fixture plumbing, not native shutdown attribution or matched
+same-path A/B performance.
