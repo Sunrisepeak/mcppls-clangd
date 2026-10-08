@@ -1,4 +1,28 @@
-# Current combined 1–46 Qt measurement
+# Current private combined through0054
+
+The ordered47/48/50/51/52/53/54 source matches all23 changed paths against
+privated6ca614826. Eleven changed production TUs and four test TUs are rebuilt
+and linked before read-only root46 archives;134 related units pass. This is
+private integration proof, not a clean whole-tree recipe/native package.
+Four real LSP module mode transitions without AST barriers, the1MiB bounded
+worker dirty-header/default-supervisor fixture, and synthetic8MiB diagnostic
+FIFO transport all pass with normal shutdown/semantic assertions. The latter
+remains transport proof, not actual compiler crash qualification.
+
+Private executablef95b420cd37b6066a18063f0507bd0bfa7cd46d4fbc9a673421f90bedc5b5c54
+returns all four matched-resource Qt semantic requests and a strict UTF8/JSON
+trace. This integration sample reports warm94/96ms, edited204ms, cold2178ms;
+possible private compiler overlap is not ruled out, so no comparative timing
+conclusion is drawn. Separate quiet54 measurements show edited204–210ms and
+warm93–96ms. Edited200ms and the full context/insertion/statistical gate remain
+open. The original Qt CDB/compiler flags remain unchanged. Root source,
+archives, executable and applied-series marker still remain combined46.
+
+[Combined integration evidence](../tests/evidence/combined-worker54.json),
+[exact recording scope](module-scan-recording.md),
+[worker output scope](module-worker-payloads.md).
+
+# Historical combined 1–46 Qt measurement
 
 Actual source 1c4fa5ed2, ordered-series identity fc75a976, executable SHA
 2f91a4aa31c07c7f49b3ddbf6dfa04e1629f4d5668aa7339d8d8ab1f56f71011,
