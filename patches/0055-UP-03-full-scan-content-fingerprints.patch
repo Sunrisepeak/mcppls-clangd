@@ -1,0 +1,109 @@
+From ec868840b0b63bf6dd40d200805850339edf38bf Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 12:01:56 +0900
+Subject: [PATCH] [clangd] Hash complete scan inputs with LLVM BLAKE3
+
+---
+ .../clangd/ModuleDependencyScanCache.h        | 10 ++--
+ .../unittests/PrerequisiteModulesTest.cpp     | 46 +++++++++++++++++++
+ 2 files changed, 53 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index 2ed233094..48af55817 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -26,19 +26,20 @@ extern "C" {
+ extern char **environ;
+ }
+ #endif
++#include "llvm/Support/BLAKE3.h"
+ #include "llvm/Support/SHA256.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include <algorithm>
+ #include <atomic>
+ #include <chrono>
+ #include <condition_variable>
+-#include <thread>
+-#include <utility>
+ #include <list>
+ #include <map>
+ #include <mutex>
+ #include <optional>
+ #include <string>
++#include <thread>
++#include <utility>
+ #include <vector>
+ 
+ namespace clang::clangd {
+@@ -62,7 +63,10 @@ public:
+   static constexpr size_t ByteLimit = 32 * 1024 * 1024;
+   using Digest = std::array<uint8_t, 32>;
+   static Digest fingerprint(llvm::StringRef Bytes) {
+-    llvm::SHA256 Hash;
++    // Hash every byte with a full 256-bit cryptographic digest. LLVM's bundled
++    // BLAKE3 uses runtime CPU dispatch; no platform-specific target requirement
++    // or persisted module/cache-key format is introduced here.
++    llvm::BLAKE3 Hash;
+     Hash.update(Bytes);
+     return Hash.final();
+   }
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index c176faa63..6fa63e43d 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1215,6 +1215,52 @@ TEST_F(PrerequisiteModulesTests, ScanMemoIndexRetainsCollidingFactDifferences) {
+   EXPECT_TRUE(Large.observations().empty());
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ScanMemoHashesCompleteLargeHeaderContents) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include \"large.h\"\n");
++  CDB.addFile("large.h", "import M;\n");
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  const auto Use = getFullPath("Use.cpp");
++  const auto Header = getFullPath("large.h");
++  auto Scan = [&] {
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(Use);
++  };
++  // Exercise tree/chunk boundaries and a large input. Altering only its tail
++  // must invalidate reuse even with identical size, identity and full mtime.
++  for (size_t Padding :
++       {size_t(1023), size_t(1024), size_t(1025), size_t(65535), size_t(65536),
++        size_t(65537), size_t(1024 * 1024)}) {
++    SCOPED_TRACE(Padding);
++    auto Write = [&](char Module) {
++      std::error_code EC;
++      llvm::raw_fd_ostream Out(Header, EC);
++      EXPECT_FALSE(EC);
++      Out << std::string(Padding, ' ') << "import " << Module << ";\n";
++    };
++    Write('M');
++    EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++    auto Before = getModuleDependencyScanCache().stats();
++    EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++    EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++    llvm::sys::fs::file_status Original;
++    ASSERT_FALSE(llvm::sys::fs::status(Header, Original));
++    Write('N');
++    ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++        Header, Original.getLastAccessedTime(),
++        Original.getLastModificationTime()));
++    llvm::sys::fs::file_status Changed;
++    ASSERT_FALSE(llvm::sys::fs::status(Header, Changed));
++    ASSERT_EQ(Original.getSize(), Changed.getSize());
++    ASSERT_EQ(Original.getLastModificationTime(),
++              Changed.getLastModificationTime());
++    EXPECT_THAT(Scan(), testing::ElementsAre("N"));
++    EXPECT_GT(getModuleDependencyScanCache().stats().Invalidations,
++              Before.Invalidations);
++  }
++}
++
+ TEST_F(PrerequisiteModulesTests, FailedScanResponseInputsRemainFresh) {
+   MockFS FS;
+   FS.OverlayRealFileSystemForModules = true;
+-- 
+2.53.0
+
