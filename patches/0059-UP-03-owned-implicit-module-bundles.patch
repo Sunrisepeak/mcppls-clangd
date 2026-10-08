@@ -1,0 +1,854 @@
+From 0af0c9c245f684564df7ffad4b5acd3769750390 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 13:35:09 +0900
+Subject: [PATCH] clangd: retain owned implicit module bundles through stable
+ leases
+
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 331 ++++++++++++++++--
+ clang-tools-extra/clangd/ModuleBuildCache.h   |   4 +
+ .../clangd/ModuleBuildWorker.cpp              |  23 +-
+ .../clangd/ModuleBuildWorkerStorage.cpp       |  39 ++-
+ .../clangd/ModuleBuildWorkerStorage.h         |   4 +
+ .../unittests/PrerequisiteModulesTest.cpp     | 175 ++++++++-
+ 6 files changed, 531 insertions(+), 45 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 43634c10d..1f0e17f02 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -18,6 +18,7 @@
+ #include <cstring>
+ #include <mutex>
+ #include <optional>
++#include <vector>
+ #ifdef __linux__
+ #include <dirent.h>
+ #include <fcntl.h>
+@@ -41,7 +42,9 @@ std::string path(PathRef Root, StringRef Name) {
+ // a different ABI instead of reinterpreting its reservations. Fixed-size banks
+ // bound all reads. No PID, timestamp or arbitrary recursive scan establishes
+ // GC.
+-constexpr uint64_t Magic = 0x314548434143434dULL;
++// Same namespace, new explicit layout. A layout-1 ledger remains charged and
++// rejects new admission; opening another independent quota is not a migration.
++constexpr uint64_t Magic = 0x324548434143434dULL;
+ constexpr unsigned MaximumSlots = 4096;
+ enum Kind : uint64_t { Free, Reserved, Stable, Copy, Retired, Erased };
+ struct Header {
+@@ -53,6 +56,9 @@ struct Record {
+   uint64_t Device = 0, Inode = 0, LeaseDevice = 0, LeaseInode = 0;
+   uint64_t StableSlot = UINT64_MAX, StableGeneration = 0;
+   uint64_t OutputEnvelope = 0, CaptureEnvelope = 0;
++  uint64_t MainBytes = 0, BundleFiles = 0;
++  char MainPath[32] = "payload.pcm";
++  std::array<uint8_t, 32> BundleDigest{};
+   char Key[65] = {};
+   char Source[1024] = {};
+   uint64_t Checksum = 0;
+@@ -63,7 +69,8 @@ uint64_t checksum(const Record &R) {
+ }
+ bool valid(const Record &R) {
+   return R.Sequence && R.Checksum == checksum(R) && R.Type <= Erased &&
+-         R.Key[64] == 0 && R.Source[1023] == 0;
++         R.Key[64] == 0 && R.Source[1023] == 0 && R.MainPath[11] == 0 &&
++         StringRef(R.MainPath) == "payload.pcm";
+ }
+ llvm::Error ioError() {
+   return llvm::errorCodeToError(
+@@ -137,6 +144,179 @@ std::string digest(StringRef Key) {
+   auto H = llvm::SHA256::hash(llvm::arrayRefFromStringRef(Key));
+   return llvm::toHex(llvm::ArrayRef<uint8_t>(H), true);
+ }
++
++struct BundleNode {
++  std::string Relative;
++  bool Directory;
++  uint64_t Device, Inode;
++  std::shared_ptr<FD> Parent;
++};
++struct BundleInventory {
++  uint64_t Bytes = 0, MainBytes = 0, CacheFiles = 0;
++  std::array<uint8_t, 32> Digest{};
++  std::vector<BundleNode> Nodes;
++};
++
++// Inspect only this leased, same-user generation. These bounds match the
++// supervisor's existing bounded unit cleanup, rather than admitting arbitrary
++// recursive trees. Directory cursors, names and inode identities are retained
++// for verified FD-relative deletion; no path alias or symlink is followed.
++llvm::Expected<BundleInventory> inventoryBundle(int Generation,
++                                                bool Retiring = false) {
++  BundleInventory Result;
++  llvm::SHA256 Hash;
++  auto Add = [&](StringRef Value) {
++    Hash.update(Value);
++    Hash.update(StringRef("\0", 1));
++  };
++  auto Marker = [](int Directory, StringRef Name, StringRef Expected) {
++    FD File(openat(Directory, Name.str().c_str(),
++                   O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++    struct stat S;
++    std::array<char, 64> Bytes{};
++    return File.Value >= 0 && !fstat(File.Value, &S) &&
++           uint64_t(S.st_size) == Expected.size() &&
++           Expected.size() <= Bytes.size() &&
++           exactRead(File.Value, Bytes.data(), Expected.size(), 0) &&
++           StringRef(Bytes.data(), Expected.size()) == Expected;
++  };
++  unsigned Units = 0;
++  std::function<llvm::Error(int, StringRef, unsigned)> Visit =
++      [&](int Directory, StringRef Relative, unsigned Depth) -> llvm::Error {
++    auto Parent = std::make_shared<FD>(fcntl(Directory, F_DUPFD_CLOEXEC, 0));
++    if (Parent->Value < 0)
++      return ioError();
++    if (!Retiring &&
++        ((Relative == "workers" &&
++          !Marker(Directory, "owned.root", "clangd-worker-root-v1\n")) ||
++         (Depth == 2 &&
++          !Marker(Directory, "bundle.unit", "clangd-worker-bundle-v1\n"))))
++      return failure("bundle ownership marker missing");
++    FD Cursor(openat(Directory, ".",
++                     O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++    DIR *Stream = Cursor.Value < 0 ? nullptr : fdopendir(Cursor.release());
++    if (!Stream)
++      return ioError();
++    auto Close = llvm::scope_exit([&] { closedir(Stream); });
++    std::vector<std::string> Names;
++    errno = 0;
++    while (auto *Entry = readdir(Stream)) {
++      StringRef Name(Entry->d_name);
++      if (Name == "." || Name == "..")
++        continue;
++      if (Names.size() + Result.Nodes.size() >= 4608)
++        return failure("bundle inventory entry limit");
++      Names.push_back(Name.str());
++    }
++    if (errno)
++      return ioError();
++    llvm::sort(Names);
++    for (const auto &Name : Names) {
++      const std::string Child = Relative.empty() ? Name : path(Relative, Name);
++      if (Child.size() >= 1024 || Result.Nodes.size() >= 4608)
++        return failure("bundle inventory path/entry limit");
++      struct stat S;
++      if (fstatat(Directory, Name.c_str(), &S, AT_SYMLINK_NOFOLLOW))
++        return ioError();
++      if (S.st_uid != geteuid() ||
++          (!S_ISDIR(S.st_mode) && (!S_ISREG(S.st_mode) || S.st_nlink != 1)))
++        return failure("bundle contains foreign, aliased or nonregular output");
++      bool Metadata = false;
++      if (S_ISDIR(S.st_mode)) {
++        bool Known = false;
++        if (Relative.empty())
++          Known = Name == "workers";
++        else if (Relative == "workers") {
++          Known = StringRef(Name).starts_with("unit-") && ++Units == 1;
++        } else if (Depth == 2)
++          Known = Name == "module-cache";
++        else
++          Known = Relative.contains("/module-cache") && Depth < 6;
++        if (!Known)
++          return failure("unknown bundle directory");
++      } else if (Relative.empty()) {
++        Metadata = Name == "owned.generation";
++        if (!Metadata && Name != "payload.pcm" &&
++            !(Retiring && Name == "staged.pcm"))
++          return failure("unknown generation payload");
++        if (Name == "payload.pcm")
++          Result.MainBytes = S.st_size;
++      } else if (Relative == "workers") {
++        Metadata = Name == "owned.root" &&
++                   Marker(Directory, Name, "clangd-worker-root-v1\n");
++        if (!Metadata)
++          return failure("unknown bundle root marker");
++      } else if (Depth == 2) {
++        Metadata = Name == "bundle.unit" &&
++                   Marker(Directory, Name, "clangd-worker-bundle-v1\n");
++        if (!Metadata)
++          return failure("worker capture/startup payload remains");
++      } else {
++        if (!Relative.contains("/module-cache") ||
++            (llvm::sys::path::extension(Name) != ".pcm" &&
++             Name != "modules.idx" && Name != "modules.timestamp") ||
++            ++Result.CacheFiles > 128)
++          return failure("unknown or excessive implicit bundle output");
++      }
++      Result.Nodes.push_back({Child, bool(S_ISDIR(S.st_mode)),
++                              uint64_t(S.st_dev), uint64_t(S.st_ino), Parent});
++      Add(Child);
++      Add(std::to_string(S.st_mode));
++      Add(std::to_string(S.st_dev));
++      Add(std::to_string(S.st_ino));
++      Add(std::to_string(S.st_size));
++      Add(std::to_string(S.st_mtim.tv_sec));
++      Add(std::to_string(S.st_mtim.tv_nsec));
++      if (S_ISDIR(S.st_mode)) {
++        FD ChildFD(openat(Directory, Name.c_str(),
++                          O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++        struct stat Opened;
++        if (ChildFD.Value < 0 || fstat(ChildFD.Value, &Opened) ||
++            Opened.st_dev != S.st_dev || Opened.st_ino != S.st_ino)
++          return failure("bundle directory identity changed");
++        if (auto Error = Visit(ChildFD.Value, Child, Depth + 1))
++          return Error;
++      } else if (!Metadata) {
++        if (S.st_size < 0 || uint64_t(S.st_size) > UINT64_MAX - Result.Bytes)
++          return failure("bundle size overflow");
++        Result.Bytes += S.st_size;
++      }
++    }
++    return llvm::Error::success();
++  };
++  if (auto Error = Visit(Generation, {}, 0))
++    return std::move(Error);
++  Result.Digest = Hash.final();
++  return Result;
++}
++
++bool bundleNodeMatches(const BundleNode &Node) {
++  struct stat Named;
++  const auto Name = llvm::sys::path::filename(Node.Relative);
++  return !fstatat(Node.Parent->Value, Name.str().c_str(), &Named,
++                  AT_SYMLINK_NOFOLLOW) &&
++         uint64_t(Named.st_dev) == Node.Device &&
++         uint64_t(Named.st_ino) == Node.Inode &&
++         bool(S_ISDIR(Named.st_mode)) == Node.Directory &&
++         (Node.Directory || (S_ISREG(Named.st_mode) && Named.st_nlink == 1));
++}
++
++llvm::Error syncBundle(const BundleInventory &Bundle) {
++  for (const auto &Node : Bundle.Nodes) {
++    if (!bundleNodeMatches(Node))
++      return failure("bundle identity changed before durability");
++    const auto Name = llvm::sys::path::filename(Node.Relative);
++    FD File(openat(Node.Parent->Value, Name.str().c_str(),
++                   O_RDONLY | O_NOFOLLOW | O_CLOEXEC |
++                       (Node.Directory ? O_DIRECTORY : 0)));
++    struct stat Opened;
++    if (File.Value < 0 || fstat(File.Value, &Opened) ||
++        uint64_t(Opened.st_dev) != Node.Device ||
++        uint64_t(Opened.st_ino) != Node.Inode || fsync(File.Value))
++      return ioError();
++  }
++  return llvm::Error::success();
++}
+ #endif
+ } // namespace
+ class ModuleBuildCache::Impl {
+@@ -228,7 +408,7 @@ public:
+            Opened.st_ino == Current.st_ino;
+   }
+   std::string marker(unsigned Slot, const Record &R) const {
+-    return "clangd-owned-generation-v1\n" + std::to_string(Slot) + "\n" +
++    return "clangd-owned-generation-v2\n" + std::to_string(Slot) + "\n" +
+            std::to_string(R.Generation) + "\n" + std::to_string(R.LeaseDevice) +
+            "\n" + std::to_string(R.LeaseInode) + "\n";
+   }
+@@ -280,21 +460,24 @@ public:
+       return false;
+     }
+     FD Gen(*G);
++    std::optional<BundleInventory> RetainedBundle;
+     const std::string UnitRoot =
+         path(path(Root, name(Slot, R.Generation)), "workers");
+     struct stat W;
+     if (!fstatat(Gen.Value, "workers", &W, AT_SYMLINK_NOFOLLOW)) {
+       if (!S_ISDIR(W.st_mode) || W.st_uid != geteuid())
+         return false;
+-      ModuleBuildWorkerCollector Collector(UnitRoot);
+-      auto Sweep = Collector.collect(32);
+-      if (!Sweep) {
+-        llvm::consumeError(Sweep.takeError());
+-        return false;
++      if (R.Type != Retired) {
++        ModuleBuildWorkerCollector Collector(UnitRoot);
++        auto Sweep = Collector.collect(32);
++        if (!Sweep) {
++          llvm::consumeError(Sweep.takeError());
++          return false;
++        }
+       }
+-      // Never recurse here. A live/incomplete/foreign unit keeps this
+-      // generation charged. The root marker is the only removable remaining
+-      // entry.
++      // Live/incomplete/foreign units keep the generation charged. A
++      // completed retained bundle is inventoried through no-follow directory
++      // FDs before the generation can enter retirement.
+       FD WF(openat(Gen.Value, "workers",
+                    O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+       if (WF.Value < 0)
+@@ -314,9 +497,23 @@ public:
+         }
+       }
+       closedir(D);
+-      if (!Empty || unlinkat(WF.Value, "owned.root", 0) ||
+-          unlinkat(Gen.Value, "workers", AT_REMOVEDIR))
+-        return false;
++      if (!Empty) {
++        auto Bundle = inventoryBundle(Gen.Value, R.Type == Retired);
++        if (!Bundle) {
++          llvm::consumeError(Bundle.takeError());
++          return false;
++        }
++        if (R.Type == Stable &&
++            (Bundle->Bytes != R.Bytes || Bundle->MainBytes != R.MainBytes ||
++             Bundle->CacheFiles != R.BundleFiles ||
++             Bundle->Digest != R.BundleDigest))
++          return false;
++        RetainedBundle = std::move(*Bundle);
++      } else {
++        if ((unlinkat(WF.Value, "owned.root", 0) && errno != ENOENT) ||
++            unlinkat(Gen.Value, "workers", AT_REMOVEDIR))
++          return false;
++      }
+     } else if (errno != ENOENT)
+       return false;
+     DIR *D = fdopendir(dup(Gen.Value));
+@@ -328,12 +525,15 @@ public:
+       StringRef N(E->d_name);
+       if (N == "." || N == "..")
+         continue;
+-      if (++Seen > 3 || (N != "payload.pcm" && N != "staged.pcm" &&
+-                         N != "owned.generation")) {
++      if (++Seen > 4 ||
++          (N != "payload.pcm" && N != "staged.pcm" &&
++           !(RetainedBundle && N == "workers") && N != "owned.generation")) {
+         Known = false;
+         break;
+       }
+       struct stat S;
++      if (RetainedBundle && N == "workers")
++        continue; // Every descendant was validated through no-follow FDs.
+       if (fstatat(Gen.Value, E->d_name, &S, AT_SYMLINK_NOFOLLOW) ||
+           !S_ISREG(S.st_mode) || S.st_uid != geteuid() || S.st_nlink != 1) {
+         Known = false;
+@@ -353,6 +553,25 @@ public:
+         return std::move(Error);
+       ++R.Sequence;
+     }
++    if (RetainedBundle) {
++      // Preflight all named identities before the first destructive operation.
++      // Open directory handles keep every unlink within the validated tree.
++      for (const auto &Node : RetainedBundle->Nodes)
++        if (!bundleNodeMatches(Node))
++          return false;
++      for (auto I = RetainedBundle->Nodes.rbegin(),
++                End = RetainedBundle->Nodes.rend();
++           I != End; ++I) {
++        if (I->Relative == "owned.generation")
++          continue;
++        if (!bundleNodeMatches(*I))
++          return false;
++        const auto Name = llvm::sys::path::filename(I->Relative);
++        if (unlinkat(I->Parent->Value, Name.str().c_str(),
++                     I->Directory ? AT_REMOVEDIR : 0))
++          return false;
++      }
++    }
+     for (const char *N : {"payload.pcm", "staged.pcm"})
+       if (unlinkat(Gen.Value, N, 0) && errno != ENOENT)
+         return false;
+@@ -452,7 +671,7 @@ std::string ModuleBuildCacheLease::payload() const {
+   return path(path(State->Cache->root(),
+                    State->Cache->State->name(State->Slot,
+                                              State->Description.Generation)),
+-              "payload.pcm");
++              State->Description.MainPath);
+ #else
+   return {};
+ #endif
+@@ -460,6 +679,20 @@ std::string ModuleBuildCacheLease::payload() const {
+ std::string ModuleBuildCacheLease::workers() const {
+   return path(llvm::sys::path::parent_path(payload()), "workers");
+ }
++uint64_t ModuleBuildCacheLease::mainBytes() const {
++#ifdef __linux__
++  return State->Description.MainBytes;
++#else
++  return 0;
++#endif
++}
++uint64_t ModuleBuildCacheLease::payloadBytes() const {
++#ifdef __linux__
++  return State->Description.Bytes;
++#else
++  return 0;
++#endif
++}
+ llvm::StringRef ModuleBuildCache::root() const { return State->Root; }
+ 
+ llvm::Expected<std::shared_ptr<ModuleBuildCache>>
+@@ -607,6 +840,8 @@ ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
+   if (++Selected.Generation == 0)
+     return failure("generation counter exhausted");
+   Selected.Bytes = Bytes;
++  Selected.MainBytes = Selected.BundleFiles = 0;
++  Selected.BundleDigest = {};
+   Selected.Type = Reserved;
+   Selected.StableSlot = UINT64_MAX;
+   Selected.StableGeneration = 0;
+@@ -689,8 +924,15 @@ ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
+     struct stat F;
+     if (fstatat(Gen.Value, "payload.pcm", &F, AT_SYMLINK_NOFOLLOW) ||
+         !S_ISREG(F.st_mode) || F.st_nlink != 1 ||
+-        uint64_t(F.st_size) != R->Bytes)
++        uint64_t(F.st_size) != R->MainBytes)
+       return failure("stable payload changed");
++    auto Bundle = inventoryBundle(Gen.Value);
++    if (!Bundle)
++      return Bundle.takeError();
++    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
++        Bundle->CacheFiles != R->BundleFiles ||
++        Bundle->Digest != R->BundleDigest)
++      return failure("stable bundle changed");
+     if (Usable && !Usable(path(path(State->Root, State->name(S, R->Generation)),
+                                "payload.pcm")))
+       continue;
+@@ -726,8 +968,9 @@ llvm::Error ModuleBuildCacheLease::publish() {
+   if (!G)
+     return G.takeError();
+   FD Gen(*G);
+-  // The supervisor has reaped and destroyed its worker unit. Any remaining
+-  // unit or unexpected side output forbids shrinking the reserved envelope.
++  // Empty worker roots from ordinary builds can be removed. A retained bundle
++  // keeps its ORIGINAL absolute implicit PCM paths; the inventory below must
++  // prove it contains only retired output, never capture/startup payload.
+   const std::string Workers = this->workers();
+   struct stat W;
+   if (!fstatat(Gen.Value, "workers", &W, AT_SYMLINK_NOFOLLOW)) {
+@@ -748,22 +991,33 @@ llvm::Error ModuleBuildCacheLease::publish() {
+       }
+     }
+     closedir(D);
+-    if (!Empty || unlink(path(Workers, "owned.root").c_str()) ||
+-        rmdir(Workers.c_str()))
+-      return failure("worker capture/output cleanup remains charged");
++    if (Empty &&
++        (unlink(path(Workers, "owned.root").c_str()) || rmdir(Workers.c_str())))
++      return failure("worker root cleanup remains charged");
+   } else if (errno != ENOENT)
+     return ioError();
+-  struct stat F;
+-  if (fstatat(Gen.Value, "payload.pcm", &F, AT_SYMLINK_NOFOLLOW) ||
+-      !S_ISREG(F.st_mode) || F.st_nlink != 1 || F.st_size < 0 ||
+-      uint64_t(F.st_size) > R->Bytes)
+-    return failure("invalid stable payload");
++  auto Bundle = inventoryBundle(Gen.Value);
++  if (!Bundle)
++    return Bundle.takeError();
++  if (!Bundle->MainBytes || Bundle->Bytes > R->Bytes ||
++      (R->OutputEnvelope && Bundle->Bytes > R->OutputEnvelope))
++    return failure("invalid stable bundle or output envelope");
++  if (auto Error = syncBundle(*Bundle))
++    return Error;
+   FD Payload(
+       openat(Gen.Value, "payload.pcm", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+   if (Payload.Value < 0 || fsync(Payload.Value) || fsync(Gen.Value))
+     return ioError();
++  auto Confirmed = inventoryBundle(Gen.Value);
++  if (!Confirmed)
++    return Confirmed.takeError();
++  if (Confirmed->Digest != Bundle->Digest || Confirmed->Bytes != Bundle->Bytes)
++    return failure("bundle changed during publication");
+   R->Type = Stable;
+-  R->Bytes = F.st_size;
++  R->Bytes = Bundle->Bytes;
++  R->MainBytes = Bundle->MainBytes;
++  R->BundleFiles = Bundle->CacheFiles;
++  R->BundleDigest = Bundle->Digest;
+   {
+     std::lock_guard<std::mutex> Guard(C.Mutex);
+     Lock Ledger(C.Ledger.Value);
+@@ -794,7 +1048,7 @@ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+       StableLease->State->Description.Type != Stable)
+     return failure("copy requires this namespace's stable lease");
+   const auto &R = StableLease->State->Description;
+-  auto Result = reserve("read-copy", R.Source, R.Bytes);
++  auto Result = reserve("read-copy", R.Source, R.MainBytes);
+   if (!Result)
+     return Result.takeError();
+   {
+@@ -828,13 +1082,13 @@ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+     if (!N)
+       break;
+     // Even a changed source cannot grow the copy past its PRE-WRITE charge.
+-    if (uint64_t(N) > R.Bytes - Written)
++    if (uint64_t(N) > R.MainBytes - Written)
+       return failure("copy source grew");
+     if (!exactWrite(Output.Value, Buffer.data(), N, Written))
+       return ioError();
+     Written += N;
+   }
+-  if (Written != R.Bytes)
++  if (Written != R.MainBytes)
+     return failure("copy source size changed");
+   if (fdatasync(Output.Value))
+     return ioError();
+@@ -847,9 +1101,11 @@ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+   if (!Current)
+     return Current.takeError();
+   Current->Type = Copy;
++  Current->MainBytes = Written;
+   if (auto E = C.write((*Result)->State->Slot, *Current))
+     return std::move(E);
+   (*Result)->State->Description.Type = Copy;
++  (*Result)->State->Description.MainBytes = Written;
+   struct flock Range{};
+   Range.l_type = F_RDLCK;
+   Range.l_whence = SEEK_SET;
+@@ -930,8 +1186,17 @@ ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+   struct stat Payload;
+   if (fstatat(Gen.Value, "payload.pcm", &Payload, AT_SYMLINK_NOFOLLOW) ||
+       !S_ISREG(Payload.st_mode) || Payload.st_nlink != 1 ||
+-      Payload.st_uid != geteuid() || uint64_t(Payload.st_size) != R->Bytes)
++      Payload.st_uid != geteuid() || uint64_t(Payload.st_size) != R->MainBytes)
+     return failure("managed input payload changed");
++  if (R->Type == Stable) {
++    auto Bundle = inventoryBundle(Gen.Value);
++    if (!Bundle)
++      return Bundle.takeError();
++    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
++        Bundle->CacheFiles != R->BundleFiles ||
++        Bundle->Digest != R->BundleDigest)
++      return failure("managed input bundle changed");
++  }
+   std::shared_ptr<ModuleBuildCacheLease> Companion;
+   if (R->Type == Copy) {
+     if (R->StableSlot >= State->Description.Slots || R->StableSlot == Slot)
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
+index 2c200e1b1..b17a403ff 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.h
++++ b/clang-tools-extra/clangd/ModuleBuildCache.h
+@@ -22,6 +22,10 @@ public:
+   ~ModuleBuildCacheLease();
+   std::string payload() const;
+   std::string workers() const;
++  // Published main-copy size versus the entire retained generation's logical
++  // payload charge (including implicit modules and indexes).
++  uint64_t mainBytes() const;
++  uint64_t payloadBytes() const;
+   llvm::Error publish();
+ 
+ private:
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index fef1b029c..0a168c7b9 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -48,7 +48,10 @@ constexpr int ProtocolVersion = 1;
+ // Version 1 workers ignore unknown resource fields. A bounded parent must not
+ // launch one and mistake its successful response for enforcement.
+ constexpr int BoundedProtocolVersion = 2;
+-constexpr int OwnedProtocolVersion = 3;
++// Owned layout 2 retains implicit module bundles. Older children must reject
++// before reading captures or writing into a reservation with different
++// semantics.
++constexpr int OwnedProtocolVersion = 4;
+ constexpr llvm::StringLiteral CapturedFileSystem =
+     "disk-with-captured-overlays";
+ 
+@@ -679,21 +682,29 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
+     return llvm::createStringError(
+         "module worker cancelled or timed out before accepting output");
+-  // A BMI must not reference prerequisites about to disappear with this
+-  // worker's private cache. Explicit prerequisite copies remain parent-owned.
++  // Foreign/legacy outputs still cannot reference a private cache which will
++  // disappear. Admitted owned generations can retain those exact paths and
++  // continuously transfer the whole bundle's reservation and kernel leases.
+   std::error_code EC;
++  bool HasImplicit = false;
+   for (llvm::sys::fs::recursive_directory_iterator I(Path("module-cache"), EC),
+        End;
+        I != End && !EC; I.increment(EC))
+-    if (llvm::sys::path::extension(I->path()) == ".pcm")
+-      return llvm::createStringError(
+-          "module worker built uncaptured implicit prerequisites");
++    if (llvm::sys::path::extension(I->path()) == ".pcm") {
++      if (!Options.OwnedPayloadAdmission)
++        return llvm::createStringError(
++            "module worker built uncaptured implicit prerequisites");
++      HasImplicit = true;
++    }
+   if (EC && EC != std::errc::no_such_file_or_directory)
+     return llvm::errorCodeToError(EC);
+   if (!llvm::sys::fs::exists(WorkerOutput))
+     return llvm::createStringError("module worker produced no staged output");
+   if (auto EC = llvm::sys::fs::rename(WorkerOutput, Output))
+     return llvm::errorCodeToError(EC);
++  if (HasImplicit)
++    if (auto Error = (*Unit)->retainImplicitOutputs())
++      return std::move(Error);
+   Success = true;
+   return std::optional<ModuleBuildWorkerResult>(
+       {std::chrono::duration_cast<std::chrono::milliseconds>(
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+index f9a630394..7e0422f71 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+@@ -119,11 +119,13 @@ std::error_code validateUnitContents(PathRef Unit) {
+       Overlay = !Name.getAsInteger(10, N) && N < 4096;
+     }
+     Name = llvm::sys::path::filename(I->path());
+-    bool Known = Overlay || outputTemporary(Name, true) || Name == "parent.lease" || Name == "worker.lease" ||
++    bool Known = Overlay || outputTemporary(Name, true) ||
++                 Name == "parent.lease" || Name == "worker.lease" ||
+                  Name == "owned.unit" || Name == "retired.unit" ||
+-                 Name == "main.snapshot" || Name == "request.json" ||
+-                 Name == "filesystem.yaml" || Name == "output.pcm" ||
+-                 Name == "owner.pipe" || Name == "stderr.log";
++                 Name == "bundle.unit" || Name == "main.snapshot" ||
++                 Name == "request.json" || Name == "filesystem.yaml" ||
++                 Name == "output.pcm" || Name == "owner.pipe" ||
++                 Name == "stderr.log";
+     if (!Known) return std::make_error_code(std::errc::operation_not_permitted);
+     if (!llvm::sys::fs::is_regular_file(S) &&
+         !(S.type() == llvm::sys::fs::file_type::fifo_file &&
+@@ -266,6 +268,35 @@ ModuleBuildWorkerUnit::create(PathRef Output, PathRef ConfiguredRoot) {
+ std::string ModuleBuildWorkerUnit::file(StringRef Name) const {
+   return unitPath(Directory, Name);
+ }
++llvm::Error ModuleBuildWorkerUnit::retainImplicitOutputs() {
++  if (auto EC = validateUnitContents(Directory))
++    return llvm::errorCodeToError(EC);
++  // The parent still holds both the unit lease and the enclosing generation's
++  // exclusive admission lease. No collector can cross this ownership transfer.
++  if (auto Err = writeMarker(file("bundle.unit"), "clangd-worker-bundle-v1\n"))
++    return Err;
++  if (auto EC = llvm::sys::fs::rename(file("owned.unit"), file("retired.unit")))
++    return llvm::errorCodeToError(EC);
++  if (auto EC = removeOwnerPipe(Directory))
++    return llvm::errorCodeToError(EC);
++  std::error_code EC;
++  for (llvm::sys::fs::directory_iterator I(Directory, EC), End; I != End && !EC;
++       I.increment(EC)) {
++    StringRef Name = llvm::sys::path::filename(I->path());
++    if (Name == "module-cache" || Name == "bundle.unit")
++      continue;
++    if (auto Error = llvm::sys::fs::remove(I->path()))
++      return llvm::errorCodeToError(Error);
++  }
++  if (EC)
++    return llvm::errorCodeToError(EC);
++  // Neither startup nor the separate orphan-unit collector accepts bundle.unit.
++  // It is removed only while holding the enclosing generation's exclusive
++  // lease.
++  ParentLease.reset();
++  Directory.clear();
++  return llvm::Error::success();
++}
+ ModuleBuildWorkerUnit::~ModuleBuildWorkerUnit() {
+   if (Directory.empty())
+     return;
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+index 80684a0b2..3f67c3a4e 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+@@ -40,6 +40,10 @@ public:
+   ~ModuleBuildWorkerUnit();
+   std::string file(llvm::StringRef Name) const;
+   const std::string &directory() const { return Directory; }
++  // After the child is reaped, retain only its immutable implicit module cache
++  // at the original serialized paths. The enclosing admitted generation now
++  // owns cleanup; startup/orphan unit collectors must no longer recognize it.
++  llvm::Error retainImplicitOutputs();
+ 
+ private:
+   ModuleBuildWorkerUnit() = default;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index b390cb706..6b6fe8d2f 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -14,9 +14,10 @@
+ #include "Annotations.h"
+ #include "ModuleBuildCache.h"
+ #ifdef __linux__
+-#include <sys/wait.h>
+-#include <sys/stat.h>
++#include <dirent.h>
+ #include <signal.h>
++#include <sys/stat.h>
++#include <sys/wait.h>
+ #include <unistd.h>
+ #endif
+ #include "CodeComplete.h"
+@@ -942,6 +943,176 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
+ }
+ 
+ #ifdef __linux__
++TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
++  const auto Root = (TestDir + "/bundles/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/source-anchor").str();
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(
++        llvm::sys::fs::create_directories(llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(File, EC);
++    EXPECT_FALSE(EC);
++    Out << Text;
++  };
++  Write(Anchor, "");
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  auto Cache = ModuleBuildCache::open(Root, 20, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Stable = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++  ASSERT_THAT_EXPECTED(Stable, llvm::Succeeded());
++  auto Unit =
++      ModuleBuildWorkerUnit::create((*Stable)->payload(), (*Stable)->workers());
++  ASSERT_THAT_EXPECTED(Unit, llvm::Succeeded());
++  const auto Implicit = (*Unit)->file("module-cache/context/Builtin.pcm");
++  const auto Snapshot = (*Unit)->file("main.snapshot");
++  Write(Implicit, "IMPLICIT");
++  Write(Snapshot, "DATA");
++  Write((*Stable)->payload(), "MAIN");
++  ASSERT_THAT_ERROR((*Unit)->retainImplicitOutputs(), llvm::Succeeded());
++  EXPECT_FALSE(llvm::sys::fs::exists(Snapshot));
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  EXPECT_EQ((*Stable)->mainBytes(), 4u);
++  EXPECT_EQ((*Stable)->payloadBytes(), 12u);
++  auto Copy = (*Cache)->copy(*Stable);
++  ASSERT_THAT_EXPECTED(Copy, llvm::Succeeded());
++  EXPECT_EQ((*Copy)->payloadBytes(), 4u);
++  // Copying the entire 12-byte bundle would exhaust this exact 20-byte quota.
++  const auto CopyPath = (*Copy)->payload();
++  int Ready[2], Continue[2];
++  ASSERT_EQ(pipe(Ready), 0);
++  ASSERT_EQ(pipe(Continue), 0);
++  pid_t Child = fork();
++  ASSERT_GE(Child, 0);
++  if (!Child) {
++    close(Ready[0]);
++    close(Continue[1]);
++    // Close every inherited cache/OFD handle: the independent input API must
++    // acquire both copy and stable companion, rather than inherit ownership.
++    DIR *Descriptors = opendir("/proc/self/fd");
++    if (!Descriptors)
++      _exit(2);
++    std::vector<int> Close;
++    while (auto *Entry = readdir(Descriptors)) {
++      unsigned FD;
++      if (!StringRef(Entry->d_name).getAsInteger(10, FD) && FD > 2 &&
++          int(FD) != Ready[1] && int(FD) != Continue[0] &&
++          int(FD) != dirfd(Descriptors))
++        Close.push_back(FD);
++    }
++    closedir(Descriptors);
++    for (int FD : Close)
++      close(FD);
++    auto Input = ModuleBuildCache::acquireInput(CopyPath);
++    if (!Input || !*Input || (*Input)->mainBytes() != 4)
++      _exit(3);
++    auto Header = llvm::MemoryBuffer::getFile(Implicit);
++    if (!Header || (*Header)->getBuffer() != "IMPLICIT")
++      _exit(4);
++    if (write(Ready[1], "R", 1) != 1)
++      _exit(5);
++    char Signal;
++    if (read(Continue[0], &Signal, 1) != 1)
++      _exit(6);
++    _exit(0);
++  }
++  close(Ready[1]);
++  close(Continue[0]);
++  bool Reaped = false;
++  auto ChildCleanup = llvm::scope_exit([&] {
++    if (!Reaped) {
++      close(Continue[1]);
++      kill(Child, SIGKILL);
++      int Status;
++      waitpid(Child, &Status, 0);
++    }
++  });
++  char Signal;
++  ASSERT_EQ(read(Ready[0], &Signal, 1), 1);
++  close(Ready[0]);
++  Stable->reset();
++  Copy->reset();
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 5),
++                       llvm::Failed());
++  auto Collected = (*Cache)->collect(8);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Implicit));
++  EXPECT_TRUE(llvm::sys::fs::exists(CopyPath));
++  ASSERT_EQ(write(Continue[1], "X", 1), 1);
++  close(Continue[1]);
++  int Status;
++  ASSERT_EQ(waitpid(Child, &Status, 0), Child);
++  Reaped = true;
++  ASSERT_TRUE(WIFEXITED(Status));
++  ASSERT_EQ(WEXITSTATUS(Status), 0);
++  Collected = (*Cache)->collect(8);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 2u);
++  EXPECT_FALSE(llvm::sys::fs::exists(Implicit));
++  EXPECT_FALSE(llvm::sys::fs::exists(CopyPath));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("after-cleanup", Anchor, 20),
++                       llvm::Succeeded());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleChecksOutputAndIdentity) {
++  const auto Root = (TestDir + "/bundle-guards").str();
++  const auto Anchor = (TestDir + "/source-anchor").str();
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(
++        llvm::sys::fs::create_directories(llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(File, EC);
++    EXPECT_FALSE(EC);
++    Out << Text;
++  };
++  Write(Anchor, "");
++  auto Cache = ModuleBuildCache::open(Root, 20, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Make = [&](unsigned HeaderBytes) {
++    auto Reservation = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++    EXPECT_THAT_EXPECTED(Reservation, llvm::Succeeded());
++    auto Unit = ModuleBuildWorkerUnit::create((*Reservation)->payload(),
++                                              (*Reservation)->workers());
++    EXPECT_THAT_EXPECTED(Unit, llvm::Succeeded());
++    Write((*Unit)->file("module-cache/Builtin.pcm"),
++          std::string(HeaderBytes, 'x'));
++    Write((*Reservation)->payload(), "MAIN");
++    EXPECT_THAT_ERROR((*Unit)->retainImplicitOutputs(), llvm::Succeeded());
++    return Reservation;
++  };
++  auto Oversized = Make(16);
++  // Within total capture+output reservation, but exceeds the distinct output
++  // envelope: captures cannot be silently converted to extra compiler output.
++  EXPECT_THAT_ERROR((*Oversized)->publish(), llvm::Failed());
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 1),
++                       llvm::Failed());
++  Oversized->reset();
++  auto Stable = Make(8);
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  std::string Implicit;
++  std::error_code EC;
++  for (llvm::sys::fs::recursive_directory_iterator I((*Stable)->workers(), EC),
++       End;
++       I != End && !EC; I.increment(EC))
++    if (llvm::sys::path::extension(I->path()) == ".pcm")
++      Implicit = I->path();
++  ASSERT_FALSE(EC);
++  ASSERT_FALSE(Implicit.empty());
++  ASSERT_FALSE(llvm::sys::fs::rename(Implicit, Implicit + ".foreign"));
++  Write(Implicit, "xxxxxxxx");
++  // Unknown output/identity prevents both admission and reclamation. The
++  // existing generation remains charged; a new independent quota is absent.
++  EXPECT_THAT_EXPECTED((*Cache)->lookup("M"), llvm::Failed());
++  Stable->reset();
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 9),
++                       llvm::Failed());
++  auto Collected = (*Cache)->collect(4);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Implicit + ".foreign"));
++}
++
+ TEST_F(PrerequisiteModulesTests, OwnedPayloadAdmissionAndImmutableCopyLeases) {
+   auto Root = (TestDir + "/owned").str();
+   auto Anchor = (TestDir + "/source-anchor").str();
+-- 
+2.53.0
+

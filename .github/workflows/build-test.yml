@@ -184,7 +184,8 @@ jobs:
           python3 tests/e2e/module_worker_default.py \
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-worker-default"
+            --workdir "${{ runner.temp }}/module-worker-default" \
+            --dependency-mode MMD
           python3 tests/e2e/module_worker_default.py \
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \

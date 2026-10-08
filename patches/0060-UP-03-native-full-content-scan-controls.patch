@@ -1,0 +1,57 @@
+From a0e69de939ae592eb7f41fb01a4a85d7f44f55be Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 12:59:35 +0900
+Subject: [PATCH] [clangd] Keep complete-content scan controls on unsupported
+ native hosts
+
+---
+ .../unittests/PrerequisiteModulesTest.cpp     | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index b390cb706..db0ba81c1 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1570,6 +1570,10 @@ TEST_F(PrerequisiteModulesTests, ScanMemoIndexRetainsCollidingFactDifferences) {
+ }
+ 
+ TEST_F(PrerequisiteModulesTests, ScanMemoHashesCompleteLargeHeaderContents) {
++  // Unsupported native toolchains intentionally rescan instead of admitting
++  // a manifest. Keep the complete-byte semantic control on those hosts too.
++  const bool AdmittedHost =
++      llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux();
+   PerFileModulesCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("Use.cpp", "#include \"large.h\"\n");
+   CDB.addFile("large.h", "import M;\n");
+@@ -1597,7 +1601,10 @@ TEST_F(PrerequisiteModulesTests, ScanMemoHashesCompleteLargeHeaderContents) {
+     EXPECT_THAT(Scan(), testing::ElementsAre("M"));
+     auto Before = getModuleDependencyScanCache().stats();
+     EXPECT_THAT(Scan(), testing::ElementsAre("M"));
+-    EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++    if (AdmittedHost)
++      EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++    else
++      EXPECT_EQ(getModuleDependencyScanCache().stats().Hits, Before.Hits);
+     llvm::sys::fs::file_status Original;
+     ASSERT_FALSE(llvm::sys::fs::status(Header, Original));
+     Write('N');
+@@ -1610,8 +1617,14 @@ TEST_F(PrerequisiteModulesTests, ScanMemoHashesCompleteLargeHeaderContents) {
+     ASSERT_EQ(Original.getLastModificationTime(),
+               Changed.getLastModificationTime());
+     EXPECT_THAT(Scan(), testing::ElementsAre("N"));
+-    EXPECT_GT(getModuleDependencyScanCache().stats().Invalidations,
+-              Before.Invalidations);
++    if (AdmittedHost)
++      EXPECT_GT(getModuleDependencyScanCache().stats().Invalidations,
++                Before.Invalidations);
++    else {
++      EXPECT_EQ(getModuleDependencyScanCache().stats().Invalidations,
++                Before.Invalidations);
++      EXPECT_EQ(getModuleDependencyScanCache().stats().Stores, Before.Stores);
++    }
+   }
+ }
+ 
+-- 
+2.53.0
+

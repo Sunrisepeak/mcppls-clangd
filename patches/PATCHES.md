@@ -115,3 +115,7 @@ they live here and in patch *filenames* only.
 | 0058-UP-27-optional-overlay-module-mangler.patch | UP-27 | stabilizing | ci/optional-overlay-mangler.md; tests/evidence/optional-overlay-mangler.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream default OverlayCDB module scanning guards its optional command mangler and actual default/explicit module AST controls pass |
 
 | 0049-UP-03-owned-module-payload-admission.patch | UP-03 | stabilizing | ci/owned-module-payloads.md; tests/evidence/owned-module-payloads.json; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_worker_default.py | Upstream persistent aggregate namespace admission precedes capture/output and immutable stable/copy generations retain kernel leases through parent/child consumption and verified retirement |
+
+| 0059-UP-03-owned-implicit-module-bundles.patch | UP-03 | stabilizing | ci/owned-implicit-module-bundles.md; tests/evidence/owned-implicit-module-bundles.json; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_worker_default.py | Upstream implicit producer paths retain full bounded durable bundle charge and independent main-copy/companion leases through publication, reuse and verified retirement |
+
+| 0060-UP-03-native-full-content-scan-controls.patch | UP-03 | stabilizing | ci/native-full-content-scan-controls.md; tests/evidence/native-full-content-scan-controls.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream full-byte semantic controls preserve size and mtime while asserting only the actual native cache admission policy |
