@@ -7,3 +7,7 @@ All92 targeted unit tests pass. Actual original Qt CDB copies preserve argv/cwd/
 The ordered49–67 series reproduces all27 changed paths byte-for-byte, after supplying unchanged pinned command files omitted by the synthetic base. Exact hashes, phase distributions and PCH facts are in [result.json](result.json) and [ordered-series.json](ordered-series.json). Native CI, whole-context3×30 and same-source crash/resource gates remain open.
 
 Final-source recovered original UP20 fanout scenario also passes: zero restarts,8 publications4.107s, probe clear2.203s, recovery4.264s (60s ceiling). Product/conformance snapshots differ from the earlier matched baseline, so this is a final-source validation rather than a controlled product comparison. [Result and limits](up20-result.json); full invocation hashes are retained in companion product evidence.
+
+All12 Qt contexts also pass a single-start/round regression smoke:48 replies satisfy actual semantic/typed/negative-context checks, and48 selected actual original-GCC insertions compile. This covers member/scope/ordinary/include/string/comment contexts, but is not a full variant/insertion bijection or latency qualification. [Context smoke](context-smoke.json).
+
+The std3×30 latency run answers all186 requests with real Sema:93 warm p95180.68ms,90 edited p95257.89ms and3 cold samples retained. Edited exceeds200ms, so the gate stays failed. That run collects latency/origin only; selected-insertion compilation remains independently scoped above. [Exact distribution](std-3x30.json).
