@@ -1,0 +1,142 @@
+{
+  "passed": true,
+  "scope": "CLI/CIndex default completion consumer parity for text/PCH, two overloads and a second name; interpreter declaration execution smoke, not interactive completion or performance qualification.",
+  "tool_sha256": {
+    "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clang-23": "d4d3df8ad8528b343bce8c92c4056165180227c8e1e4d744e2ee1922cfc66533",
+    "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/c-index-test": "7d3ef8b743baa1fe1a1373ad83df781812cac4c6267d49172e44bfe70fedaec6",
+    "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clang-repl": "d8ea17fa5b6fb92b409295c10d4a9af0404fda8e7c923da4402cacdb64f27ae3"
+  },
+  "project": "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov",
+  "stages": {
+    "clang-build-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clang-23",
+        "-x",
+        "c++-header",
+        "-std=c++20",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API.h",
+        "-o",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API.pch"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clang-text": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clang-23",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-include",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API.h",
+        "-Xclang",
+        "-code-completion-at=/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp:1:23",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "240d7918d816d89bea0c20aff2f594db9f3e24fce6da09e4f62ccaa5e0d4ecf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clang-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clang-23",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-include-pch",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API.pch",
+        "-Xclang",
+        "-code-completion-at=/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp:1:23",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "240d7918d816d89bea0c20aff2f594db9f3e24fce6da09e4f62ccaa5e0d4ecf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-build-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/c-index-test",
+        "-write-pch",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API-index.pch",
+        "-x",
+        "c++-header",
+        "-std=c++20",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API.h"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-text": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/c-index-test",
+        "-code-completion-at=/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp:1:23",
+        "-std=c++20",
+        "-include",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API.h",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "b92ddd7c3d1ca958f093fbcfc960077c59b4329578ff0989f2e586eeb2afe74c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/c-index-test",
+        "-code-completion-at=/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp:1:23",
+        "-std=c++20",
+        "-include-pch",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/API-index.pch",
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/frontend-consumer-evidence/consumers-5isu4rov/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "b92ddd7c3d1ca958f093fbcfc960077c59b4329578ff0989f2e586eeb2afe74c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "interpreter": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clang-repl"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "d3e1d8cd636aa4758a9d083f744c7f7e84d396bd0d60b16ee0bc8b2ef2bb61b9",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "parity": {
+    "clang": {
+      "text": [
+        "COMPLETION: vector : [#int#]vector(<#double amount#>)",
+        "COMPLETION: vector : [#int#]vector(<#int count#>)",
+        "COMPLETION: version : [#int#]version()"
+      ],
+      "pch": [
+        "COMPLETION: vector : [#int#]vector(<#double amount#>)",
+        "COMPLETION: vector : [#int#]vector(<#int count#>)",
+        "COMPLETION: version : [#int#]version()"
+      ]
+    },
+    "c-index-test": {
+      "text": [
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder double amount}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder int count}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText version}{LeftParen (}{RightParen )} (50)"
+      ],
+      "pch": [
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder double amount}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder int count}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText version}{LeftParen (}{RightParen )} (50)"
+      ]
+    }
+  },
+  "pch_sha256": {
+    "clang": "bc99f49276045be97ae909423d0d513b4e3f646a738d5f486a41b77af2e94e64",
+    "c-index-test": "7442f5d84ceb736b5f4d7b286e94a81c70e1730f14645972187e109ad6b46098"
+  },
+  "source_unchanged": true
+}

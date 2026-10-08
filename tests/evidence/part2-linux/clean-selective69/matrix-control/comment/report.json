@@ -1,0 +1,957 @@
+{
+  "schema": 4,
+  "engine_sha256": "80012b732be4c55a4d5df49087cb2856519f3f98116951e0ee5196e164607088",
+  "engine_flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "--header-insertion=never",
+    "-j=4",
+    "-resource-dir=/tmp/mcppls-part2-clean-special69/build-linux-x64/lib/clang/23",
+    "--compile-commands-dir=/tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb"
+  ],
+  "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "position": {
+    "line": 23,
+    "character": 14
+  },
+  "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "draft_source": null,
+  "expression": "    // std::ve",
+  "starts": 1,
+  "rounds": 1,
+  "cold_completion_requested": true,
+  "measurement_mode": "cold-warm-edited",
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        3475.961351
+      ],
+      "p50_ms": 3475.961351,
+      "p95_ms": 3475.961351
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        52.228399,
+        38.816526
+      ],
+      "p50_ms": 38.816526,
+      "p95_ms": 52.228399
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        118.681557
+      ],
+      "p50_ms": 118.681557,
+      "p95_ms": 118.681557
+    }
+  },
+  "all_semantic_requests_passed": true,
+  "context": {
+    "name": "comment",
+    "before": "    cli.addHelpOption();",
+    "prefix": "    // std::ve",
+    "suffix": "\n",
+    "expected": [],
+    "expect_empty": true
+  },
+  "insertions": [],
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "all_insertions_compiled": false,
+  "raw_results": [
+    {
+      "id": "project-completion",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "started_monotonic_ns": 113127877909155,
+          "completed_monotonic_ns": 113127879291686,
+          "elapsed_ms": 1.382531
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": []
+            }
+          },
+          "started_monotonic_ns": 113127879421666,
+          "completed_monotonic_ns": 113131355383017,
+          "elapsed_ms": 3475.961351,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113127879416935,
+              "sample_started_monotonic_ns": 113127879340703,
+              "elapsed_ms": 1.5849560004426166,
+              "cpu_ms": 0.0,
+              "rss_kib": 10200,
+              "high_water_rss_kib": 10200
+            },
+            "end": {
+              "monotonic_ns": 113131355554110,
+              "sample_started_monotonic_ns": 113131355393999,
+              "elapsed_ms": 3477.7222740085563,
+              "cpu_ms": 2050.0,
+              "rss_kib": 340260,
+              "high_water_rss_kib": 353048
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 85
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 113131355583932,
+          "completed_monotonic_ns": 113131355850880,
+          "elapsed_ms": 0.266948
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": []
+            }
+          },
+          "started_monotonic_ns": 113131355940183,
+          "completed_monotonic_ns": 113131408168582,
+          "elapsed_ms": 52.228399,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113131355935574,
+              "sample_started_monotonic_ns": 113131355853860,
+              "elapsed_ms": 3478.1036030035466,
+              "cpu_ms": 2050.0,
+              "rss_kib": 340396,
+              "high_water_rss_kib": 353048
+            },
+            "end": {
+              "monotonic_ns": 113131408323389,
+              "sample_started_monotonic_ns": 113131408175280,
+              "elapsed_ms": 3530.4915250017075,
+              "cpu_ms": 2220.0,
+              "rss_kib": 361592,
+              "high_water_rss_kib": 374292
+            }
+          }
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": []
+            }
+          },
+          "started_monotonic_ns": 113131408484152,
+          "completed_monotonic_ns": 113131527165709,
+          "elapsed_ms": 118.681557,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113131408479564,
+              "sample_started_monotonic_ns": 113131408402810,
+              "elapsed_ms": 3530.6476160039892,
+              "cpu_ms": 2220.0,
+              "rss_kib": 361612,
+              "high_water_rss_kib": 374292
+            },
+            "end": {
+              "monotonic_ns": 113131527344352,
+              "sample_started_monotonic_ns": 113131527172278,
+              "elapsed_ms": 3649.5125130022643,
+              "cpu_ms": 2600.0,
+              "rss_kib": 419432,
+              "high_water_rss_kib": 432404
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 85
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 113131527374298,
+          "completed_monotonic_ns": 113131585804404,
+          "elapsed_ms": 58.430106
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 10,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": []
+            }
+          },
+          "started_monotonic_ns": 113131585963705,
+          "completed_monotonic_ns": 113131624780231,
+          "elapsed_ms": 38.816526,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113131585954974,
+              "sample_started_monotonic_ns": 113131585813747,
+              "elapsed_ms": 3708.1230269977823,
+              "cpu_ms": 2790.0,
+              "rss_kib": 428180,
+              "high_water_rss_kib": 432404
+            },
+            "end": {
+              "monotonic_ns": 113131624908485,
+              "sample_started_monotonic_ns": 113131624785219,
+              "elapsed_ms": 3747.0765730104176,
+              "cpu_ms": 2870.0,
+              "rss_kib": 436296,
+              "high_water_rss_kib": 449644
+            }
+          }
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[20:58:02.054] clangd version 23.1.0-mcppls.0\nI[20:58:02.054] Features: linux\nI[20:58:02.054] PID: 2344498\nI[20:58:02.054] Working directory: /home/speak/test/mcpp/qt-demo\nI[20:58:02.054] argv[0]: /tmp/mcppls-part2-clean-special69/build-linux-x64/bin/clangd\nI[20:58:02.054] argv[1]: --experimental-modules-support\nI[20:58:02.054] argv[2]: --background-index=false\nI[20:58:02.054] argv[3]: --header-insertion=never\nI[20:58:02.054] argv[4]: -j=4\nI[20:58:02.054] argv[5]: -resource-dir=/tmp/mcppls-part2-clean-special69/build-linux-x64/lib/clang/23\nI[20:58:02.054] argv[6]: --compile-commands-dir=/tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb\nI[20:58:02.055] Starting LSP over stdin/stdout\nI[20:58:02.055] <-- initialize(1)\nI[20:58:02.055] --> reply:initialize(1) 0 ms\nI[20:58:02.055] <-- initialized\nI[20:58:02.055] <-- textDocument/didOpen\nI[20:58:02.055] <-- textDocument/completion(4)\nI[20:58:02.056] Loaded compilation database from /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/compile_commands.json\nI[20:58:02.056] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.057] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.163] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.163] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.163] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.163] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.330] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.391] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.391] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.391] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.401] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.482] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-clean-special69/build-linux-x64/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[20:58:02.482] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.492] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.492] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.492] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.499] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.499] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.499] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.508] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.518] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.527] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.527] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.527] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.527] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:02.628] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.635] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.641] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.641] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.659] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.666] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:02.672] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:04.042] Built module nlohmann.json to /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm\nI[20:58:04.262] Built module std to /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm\nI[20:58:04.312] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 1.79 seconds\nI[20:58:05.457] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.457] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.467] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.486] Built preamble of size 33643248 for file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 in 1.14 seconds\nI[20:58:05.486] Indexing c++23 standard library in the context of /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[20:58:05.488] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.505] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.506] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.516] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.530] --> textDocument/publishDiagnostics\nI[20:58:05.531] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[20:58:05.531] --> reply:textDocument/completion(4) 3475 ms\nI[20:58:05.531] <-- textDocument/documentSymbol(5)\nI[20:58:05.532] --> reply:textDocument/documentSymbol(5) 0 ms\nI[20:58:05.532] <-- textDocument/completion(6)\nI[20:58:05.534] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.555] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[20:58:05.555] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[20:58:05.555] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.556] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.569] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.584] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[20:58:05.584] --> reply:textDocument/completion(6) 51 ms\nI[20:58:05.584] <-- textDocument/didChange\nI[20:58:05.584] <-- textDocument/completion(8)\nI[20:58:05.586] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.634] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.635] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.676] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[20:58:05.676] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[20:58:05.676] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.676] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.687] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.687] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.687] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:05.687] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:05.695] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[20:58:05.695] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.695] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.703] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[20:58:05.703] --> reply:textDocument/completion(8) 118 ms\nI[20:58:05.703] <-- textDocument/documentSymbol(9)\nI[20:58:05.705] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.719] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 2 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-clean-special69/build-linux-x64/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[20:58:05.719] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.719] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.730] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.742] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[20:58:05.742] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[20:58:05.742] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.761] --> textDocument/publishDiagnostics\nI[20:58:05.761] --> reply:textDocument/documentSymbol(9) 58 ms\nI[20:58:05.762] <-- textDocument/completion(10)\nI[20:58:05.764] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.775] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[20:58:05.775] Module file /tmp/mcppls-part2-clean-special69/matrix-control/comment/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[20:58:05.775] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.775] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.785] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[20:58:05.800] Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.\nI[20:58:05.800] --> reply:textDocument/completion(10) 38 ms\nI[20:58:05.801] <-- shutdown(11)\nI[20:58:05.801] --> reply:shutdown(11) 0 ms\nI[20:58:05.801] <-- exit\nI[20:58:05.801] LSP finished, exiting with status 0\nI[20:58:06.282] Indexed c++23 standard library: 18031 symbols, 2355 filtered\n",
+      "requested_phases": [
+        "cold-open",
+        "settled-warm",
+        "edited",
+        "settled-warm"
+      ],
+      "context_answers": [
+        {
+          "phase": "cold-open",
+          "elapsed_ms": 3475.961351,
+          "started_monotonic_ns": 113127879421666,
+          "completed_monotonic_ns": 113131355383017,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113127879416935,
+              "sample_started_monotonic_ns": 113127879340703,
+              "elapsed_ms": 1.5849560004426166,
+              "cpu_ms": 0.0,
+              "rss_kib": 10200,
+              "high_water_rss_kib": 10200
+            },
+            "end": {
+              "monotonic_ns": 113131355554110,
+              "sample_started_monotonic_ns": 113131355393999,
+              "elapsed_ms": 3477.7222740085563,
+              "cpu_ms": 2050.0,
+              "rss_kib": 340260,
+              "high_water_rss_kib": 353048
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 0,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    // std::ve\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 52.228399,
+          "started_monotonic_ns": 113131355940183,
+          "completed_monotonic_ns": 113131408168582,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113131355935574,
+              "sample_started_monotonic_ns": 113131355853860,
+              "elapsed_ms": 3478.1036030035466,
+              "cpu_ms": 2050.0,
+              "rss_kib": 340396,
+              "high_water_rss_kib": 353048
+            },
+            "end": {
+              "monotonic_ns": 113131408323389,
+              "sample_started_monotonic_ns": 113131408175280,
+              "elapsed_ms": 3530.4915250017075,
+              "cpu_ms": 2220.0,
+              "rss_kib": 361592,
+              "high_water_rss_kib": 374292
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 0,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    // std::ve\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "edited",
+          "elapsed_ms": 118.681557,
+          "started_monotonic_ns": 113131408484152,
+          "completed_monotonic_ns": 113131527165709,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113131408479564,
+              "sample_started_monotonic_ns": 113131408402810,
+              "elapsed_ms": 3530.6476160039892,
+              "cpu_ms": 2220.0,
+              "rss_kib": 361612,
+              "high_water_rss_kib": 374292
+            },
+            "end": {
+              "monotonic_ns": 113131527344352,
+              "sample_started_monotonic_ns": 113131527172278,
+              "elapsed_ms": 3649.5125130022643,
+              "cpu_ms": 2600.0,
+              "rss_kib": 419432,
+              "high_water_rss_kib": 432404
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 0,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    // std::ve\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 38.816526,
+          "started_monotonic_ns": 113131585963705,
+          "completed_monotonic_ns": 113131624780231,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 113131585954974,
+              "sample_started_monotonic_ns": 113131585813747,
+              "elapsed_ms": 3708.1230269977823,
+              "cpu_ms": 2790.0,
+              "rss_kib": 428180,
+              "high_water_rss_kib": 432404
+            },
+            "end": {
+              "monotonic_ns": 113131624908485,
+              "sample_started_monotonic_ns": 113131624785219,
+              "elapsed_ms": 3747.0765730104176,
+              "cpu_ms": 2870.0,
+              "rss_kib": 436296,
+              "high_water_rss_kib": 449644
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 0,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    // std::ve\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        }
+      ],
+      "resources": {
+        "interval_ms": 100,
+        "clock": "time.monotonic_ns; shared with replay request spans",
+        "scope": "Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.",
+        "samples": [
+          {
+            "monotonic_ns": 113127878059486,
+            "sample_started_monotonic_ns": 113127877877369,
+            "elapsed_ms": 0.22763801098335534,
+            "cpu_ms": 0.0,
+            "rss_kib": 4568,
+            "high_water_rss_kib": 4568
+          },
+          {
+            "monotonic_ns": 113127978434782,
+            "sample_started_monotonic_ns": 113127978280647,
+            "elapsed_ms": 100.60320299817249,
+            "cpu_ms": 90.0,
+            "rss_kib": 38176,
+            "high_water_rss_kib": 41668
+          },
+          {
+            "monotonic_ns": 113128078779739,
+            "sample_started_monotonic_ns": 113128078632801,
+            "elapsed_ms": 200.94796300691087,
+            "cpu_ms": 190.0,
+            "rss_kib": 49380,
+            "high_water_rss_kib": 60608
+          },
+          {
+            "monotonic_ns": 113128179320037,
+            "sample_started_monotonic_ns": 113128178983023,
+            "elapsed_ms": 301.4883209980326,
+            "cpu_ms": 290.0,
+            "rss_kib": 53808,
+            "high_water_rss_kib": 60608
+          },
+          {
+            "monotonic_ns": 113128279609440,
+            "sample_started_monotonic_ns": 113128279505951,
+            "elapsed_ms": 401.77745700930245,
+            "cpu_ms": 390.0,
+            "rss_kib": 56772,
+            "high_water_rss_kib": 60608
+          },
+          {
+            "monotonic_ns": 113128379926373,
+            "sample_started_monotonic_ns": 113128379771613,
+            "elapsed_ms": 502.09454700234346,
+            "cpu_ms": 480.0,
+            "rss_kib": 71588,
+            "high_water_rss_kib": 71588
+          },
+          {
+            "monotonic_ns": 113128480234556,
+            "sample_started_monotonic_ns": 113128480105765,
+            "elapsed_ms": 602.4025730002904,
+            "cpu_ms": 590.0,
+            "rss_kib": 85712,
+            "high_water_rss_kib": 85712
+          },
+          {
+            "monotonic_ns": 113128580440433,
+            "sample_started_monotonic_ns": 113128580315935,
+            "elapsed_ms": 702.6086690020747,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113128680730578,
+            "sample_started_monotonic_ns": 113128680606646,
+            "elapsed_ms": 802.8986010031076,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113128781017571,
+            "sample_started_monotonic_ns": 113128780880326,
+            "elapsed_ms": 903.1856729998253,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113128881258495,
+            "sample_started_monotonic_ns": 113128881130628,
+            "elapsed_ms": 1003.4266080037924,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113128981461863,
+            "sample_started_monotonic_ns": 113128981337599,
+            "elapsed_ms": 1103.6300120031228,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129081666519,
+            "sample_started_monotonic_ns": 113129081542636,
+            "elapsed_ms": 1203.834686006303,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129181872768,
+            "sample_started_monotonic_ns": 113129181744511,
+            "elapsed_ms": 1304.0408110100543,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129282116146,
+            "sample_started_monotonic_ns": 113129281981467,
+            "elapsed_ms": 1404.284276010003,
+            "cpu_ms": 630.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129382321952,
+            "sample_started_monotonic_ns": 113129382195108,
+            "elapsed_ms": 1504.4900640059495,
+            "cpu_ms": 640.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129482630393,
+            "sample_started_monotonic_ns": 113129482500590,
+            "elapsed_ms": 1604.798419008148,
+            "cpu_ms": 640.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129582892653,
+            "sample_started_monotonic_ns": 113129582758872,
+            "elapsed_ms": 1705.0607010023668,
+            "cpu_ms": 640.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129683218238,
+            "sample_started_monotonic_ns": 113129683077406,
+            "elapsed_ms": 1805.386318010278,
+            "cpu_ms": 640.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129783479272,
+            "sample_started_monotonic_ns": 113129783332701,
+            "elapsed_ms": 1905.6474680110114,
+            "cpu_ms": 640.0,
+            "rss_kib": 86364,
+            "high_water_rss_kib": 86364
+          },
+          {
+            "monotonic_ns": 113129883682761,
+            "sample_started_monotonic_ns": 113129883558141,
+            "elapsed_ms": 2005.85088400112,
+            "cpu_ms": 650.0,
+            "rss_kib": 86380,
+            "high_water_rss_kib": 86380
+          },
+          {
+            "monotonic_ns": 113129983935810,
+            "sample_started_monotonic_ns": 113129983769907,
+            "elapsed_ms": 2106.103971003904,
+            "cpu_ms": 660.0,
+            "rss_kib": 86400,
+            "high_water_rss_kib": 86400
+          },
+          {
+            "monotonic_ns": 113130084319983,
+            "sample_started_monotonic_ns": 113130084119620,
+            "elapsed_ms": 2206.4881780097494,
+            "cpu_ms": 660.0,
+            "rss_kib": 86404,
+            "high_water_rss_kib": 86404
+          },
+          {
+            "monotonic_ns": 113130184593754,
+            "sample_started_monotonic_ns": 113130184486962,
+            "elapsed_ms": 2306.7617830092786,
+            "cpu_ms": 750.0,
+            "rss_kib": 93792,
+            "high_water_rss_kib": 93792
+          },
+          {
+            "monotonic_ns": 113130284887471,
+            "sample_started_monotonic_ns": 113130284765082,
+            "elapsed_ms": 2407.0556560036493,
+            "cpu_ms": 860.0,
+            "rss_kib": 102644,
+            "high_water_rss_kib": 102644
+          },
+          {
+            "monotonic_ns": 113130385190172,
+            "sample_started_monotonic_ns": 113130385076151,
+            "elapsed_ms": 2507.3581890028436,
+            "cpu_ms": 950.0,
+            "rss_kib": 120276,
+            "high_water_rss_kib": 120276
+          },
+          {
+            "monotonic_ns": 113130485539428,
+            "sample_started_monotonic_ns": 113130485394867,
+            "elapsed_ms": 2607.707536997623,
+            "cpu_ms": 1060.0,
+            "rss_kib": 141992,
+            "high_water_rss_kib": 141992
+          },
+          {
+            "monotonic_ns": 113130585836551,
+            "sample_started_monotonic_ns": 113130585719825,
+            "elapsed_ms": 2708.004569998593,
+            "cpu_ms": 1150.0,
+            "rss_kib": 159384,
+            "high_water_rss_kib": 159384
+          },
+          {
+            "monotonic_ns": 113130686185767,
+            "sample_started_monotonic_ns": 113130686022809,
+            "elapsed_ms": 2808.353910004371,
+            "cpu_ms": 1250.0,
+            "rss_kib": 180756,
+            "high_water_rss_kib": 180756
+          },
+          {
+            "monotonic_ns": 113130786473083,
+            "sample_started_monotonic_ns": 113130786357874,
+            "elapsed_ms": 2908.6411660100566,
+            "cpu_ms": 1350.0,
+            "rss_kib": 199936,
+            "high_water_rss_kib": 199936
+          },
+          {
+            "monotonic_ns": 113130886773557,
+            "sample_started_monotonic_ns": 113130886644895,
+            "elapsed_ms": 3008.9415840047877,
+            "cpu_ms": 1460.0,
+            "rss_kib": 212736,
+            "high_water_rss_kib": 212736
+          },
+          {
+            "monotonic_ns": 113130987060596,
+            "sample_started_monotonic_ns": 113130986916832,
+            "elapsed_ms": 3109.228618006455,
+            "cpu_ms": 1560.0,
+            "rss_kib": 226156,
+            "high_water_rss_kib": 226156
+          },
+          {
+            "monotonic_ns": 113131087369788,
+            "sample_started_monotonic_ns": 113131087228025,
+            "elapsed_ms": 3209.5378960075323,
+            "cpu_ms": 1660.0,
+            "rss_kib": 250964,
+            "high_water_rss_kib": 250964
+          },
+          {
+            "monotonic_ns": 113131187655158,
+            "sample_started_monotonic_ns": 113131187537334,
+            "elapsed_ms": 3309.8232519987505,
+            "cpu_ms": 1760.0,
+            "rss_kib": 275176,
+            "high_water_rss_kib": 275176
+          },
+          {
+            "monotonic_ns": 113131287955579,
+            "sample_started_monotonic_ns": 113131287830985,
+            "elapsed_ms": 3410.1237090071663,
+            "cpu_ms": 1860.0,
+            "rss_kib": 244828,
+            "high_water_rss_kib": 295740
+          },
+          {
+            "monotonic_ns": 113131388256090,
+            "sample_started_monotonic_ns": 113131388139478,
+            "elapsed_ms": 3510.4241090011783,
+            "cpu_ms": 2150.0,
+            "rss_kib": 354676,
+            "high_water_rss_kib": 354676
+          },
+          {
+            "monotonic_ns": 113131488476022,
+            "sample_started_monotonic_ns": 113131488338566,
+            "elapsed_ms": 3610.6441260053543,
+            "cpu_ms": 2450.0,
+            "rss_kib": 418136,
+            "high_water_rss_kib": 418136
+          },
+          {
+            "monotonic_ns": 113131588644193,
+            "sample_started_monotonic_ns": 113131588546537,
+            "elapsed_ms": 3710.8122280042153,
+            "cpu_ms": 2800.0,
+            "rss_kib": 428640,
+            "high_water_rss_kib": 432404
+          },
+          {
+            "monotonic_ns": 113131688840397,
+            "sample_started_monotonic_ns": 113131688717574,
+            "elapsed_ms": 3811.0083830106305,
+            "cpu_ms": 2950.0,
+            "rss_kib": 385252,
+            "high_water_rss_kib": 449644
+          },
+          {
+            "monotonic_ns": 113131789089503,
+            "sample_started_monotonic_ns": 113131788937969,
+            "elapsed_ms": 3911.257553001633,
+            "cpu_ms": 3050.0,
+            "rss_kib": 404652,
+            "high_water_rss_kib": 449644
+          },
+          {
+            "monotonic_ns": 113131889255962,
+            "sample_started_monotonic_ns": 113131889160102,
+            "elapsed_ms": 4011.423978008679,
+            "cpu_ms": 3150.0,
+            "rss_kib": 426380,
+            "high_water_rss_kib": 449644
+          },
+          {
+            "monotonic_ns": 113131989405672,
+            "sample_started_monotonic_ns": 113131989322809,
+            "elapsed_ms": 4111.573709000368,
+            "cpu_ms": 3240.0,
+            "rss_kib": 446128,
+            "high_water_rss_kib": 449644
+          },
+          {
+            "monotonic_ns": 113132089595160,
+            "sample_started_monotonic_ns": 113132089473238,
+            "elapsed_ms": 4211.7631700093625,
+            "cpu_ms": 3350.0,
+            "rss_kib": 459688,
+            "high_water_rss_kib": 459688
+          }
+        ],
+        "errors": [
+          "[Errno 3] No such process"
+        ],
+        "sampler_stopped": true
+      }
+    }
+  ],
+  "limits": [
+    "Single context probe; aggregate context/baseline gate requires separate matrix evidence.",
+    "Cold-open includes fallback responses; semantic contexts require per-request Sema evidence and typed expected items.",
+    "Insertion compilation is opt-in; no baseline speedup proof in this individual report.",
+    "Settled-warm is AST-ready, not proof of a particular cache hit."
+  ]
+}

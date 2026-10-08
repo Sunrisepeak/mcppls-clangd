@@ -1,0 +1,47 @@
+[
+  {
+    "directory": "/tmp/mcppls-part2-native-libcxx-std",
+    "file": "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1/std.cppm",
+    "arguments": [
+      "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+      "--no-default-config",
+      "-std=c++23",
+      "-stdlib=libc++",
+      "-nostdinc++",
+      "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+      "-isystem",
+      "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+      "-isystem",
+      "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+      "-isystem",
+      "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+      "--precompile",
+      "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1/std.cppm",
+      "-o",
+      "/tmp/mcppls-part2-native-libcxx-std/native/std.pcm"
+    ]
+  },
+  {
+    "directory": "/tmp/mcppls-part2-native-libcxx-std",
+    "file": "/tmp/mcppls-part2-native-libcxx-std/Use.cpp",
+    "arguments": [
+      "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+      "--no-default-config",
+      "-std=c++23",
+      "-stdlib=libc++",
+      "-nostdinc++",
+      "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+      "-isystem",
+      "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+      "-isystem",
+      "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+      "-isystem",
+      "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+      "-fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm",
+      "-c",
+      "/tmp/mcppls-part2-native-libcxx-std/Use.cpp",
+      "-o",
+      "/tmp/mcppls-part2-native-libcxx-std/native/Use.o"
+    ]
+  }
+]
