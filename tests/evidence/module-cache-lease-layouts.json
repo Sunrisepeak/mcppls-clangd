@@ -1,0 +1,58 @@
+{
+  "source": "8243fa654",
+  "engine_sha256": "95c1eab37ac582333371a9bfbf8ca396b5bfce4e79597fd19166337d91c5891b",
+  "native_negative": {
+    "run": 37762355929,
+    "job": 113261629129,
+    "reason": "Old lease fixture searched A.pcm; actual successful managed publication is generation-*/payload.pcm."
+  },
+  "controls": {
+    "owned": {
+      "passed": true,
+      "checks": {
+        "published_identity_kept_on_reuse": true,
+        "live_copy_kept": true,
+        "published_identity_kept": true,
+        "killed_reader_copies_reclaimed": true,
+        "other_live_reader_kept": true,
+        "published_survives_reclamation": true
+      },
+      "cache_mode": "owned",
+      "published": "/tmp/mcppls-root65-cache-lease-owned/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm",
+      "full_result_sha256": "a14e24e442746e168345b2472da10d85710e21d3ee7cac4f0f55c5681d8a16a0",
+      "raw_protocol_responses": 15,
+      "engine_exit_codes": [
+        0,
+        -9,
+        0,
+        0
+      ]
+    },
+    "legacy": {
+      "passed": true,
+      "checks": {
+        "published_identity_kept_on_reuse": true,
+        "live_copy_kept": true,
+        "published_identity_kept": true,
+        "killed_reader_copies_reclaimed": true,
+        "other_live_reader_kept": true,
+        "published_survives_reclamation": true
+      },
+      "cache_mode": "legacy",
+      "published": "/tmp/mcppls-root65-cache-lease-legacy/.cache/clangd/modules/A.cppm-E0FD17D6D53CDF39/B83497DE605DAFB3/A.pcm",
+      "full_result_sha256": "d27fb56acf8121c35835953453d2dd164467fa5101547a5721fdc155a5537c7e",
+      "raw_protocol_responses": 15,
+      "engine_exit_codes": [
+        0,
+        -9,
+        0,
+        0
+      ]
+    }
+  },
+  "limits": [
+    "Linux replacement-object development artifact, not clean whole-recipe/native proof.",
+    "Controlled reader termination tests reclamation; it is not a natural-crash qualification.",
+    "Logical cache lease protection only; no physical/global disk or RSS bound claim."
+  ]
+}

@@ -255,12 +255,24 @@ jobs:
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-cache-lease"
 
+      - name: Legacy Linux BMI reader lease contract
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cache_lease.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --cache-mode legacy \
+            --workdir "${{ runner.temp }}/module-cache-lease-legacy"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: module-cache-lease-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-cache-lease/results.json
-          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/module-cache-lease/results.json
+            ${{ runner.temp }}/module-cache-lease-legacy/results.json
+          if-no-files-found: warn
 
       - name: Exact request module inputs
         shell: bash

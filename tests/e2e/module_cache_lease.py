@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
+import sys
 import signal
 import subprocess
 import threading
@@ -13,10 +15,11 @@ import time
 
 
 class Engine:
-    def __init__(self, binary, root):
+    def __init__(self, binary, root, cache_mode="legacy"):
         self.root = root
+        cache_flags = ['--modules-builder-owned-cache-payload-mib=0'] if cache_mode == 'legacy' else []
         self.proc = subprocess.Popen([str(binary), '--experimental-modules-support',
-            '--background-index=false', '--modules-builder-versioned-gc-threshold-seconds=0', '-j=2'],
+            '--background-index=false', '--modules-builder-versioned-gc-threshold-seconds=0', '-j=2', *cache_flags],
             cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, start_new_session=os.name != 'nt')
         self.replies = queue.Queue()
@@ -122,7 +125,9 @@ def main():
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--clang', type=Path, required=True)
     parser.add_argument('--workdir', type=Path, required=True)
+    parser.add_argument('--cache-mode', choices=['auto', 'legacy', 'owned'], default='auto')
     args = parser.parse_args()
+    mode = ('owned' if sys.platform.startswith('linux') else 'legacy') if args.cache_mode == 'auto' else args.cache_mode
     engine, clang = args.engine.resolve(), args.clang.resolve()
     if os.name == 'nt':
         engine, clang = engine.with_suffix('.exe'), clang.with_suffix('.exe')
@@ -138,32 +143,59 @@ def main():
     cache = root / '.cache/clangd/modules'
     clients = []
     report = {'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(),
-              'passed': False, 'checks': {}}
+              'passed': False, 'cache_mode': mode, 'checks': {}}
     try:
-        seed = Engine(engine, root); clients.append(seed); seed.ready(); seed.stop()
-        published = next(p for p in cache.rglob('A.pcm'))
+        seed = Engine(engine, root, mode); clients.append(seed); seed.ready(); seed.stop()
+        if mode == 'owned':
+            match = re.search(r'Built module A to (.+)', seed.logs.decode(errors='replace'))
+            if not match:
+                raise RuntimeError('missing fresh owned publication event')
+            published = Path(match[1].strip())
+            if '.owned-payload-v1' not in published.parts or published.name != 'payload.pcm':
+                raise RuntimeError('default owned admission did not publish its managed generation')
+        else:
+            found = list(cache.rglob('A.pcm'))
+            if len(found) != 1:
+                raise RuntimeError('expected one legacy A publication')
+            published = found[0]
+        report['published'] = str(published)
+        def live_copies():
+            if mode == 'owned':
+                return {p.parent / 'owned.generation': p
+                        for p in cache.glob('.owned-payload-v1/generation-*/payload.pcm')
+                        if p != published}
+            return {p: Path(str(p).removesuffix('.lease')) for p in cache.rglob('*.pcm.lease')}
+
         # Deliberately ancient atime proves GC does not trust timestamps.
         before = published.stat()
         os.utime(published, ns=(0, before.st_mtime_ns))
-        reader = Engine(engine, root); clients.append(reader); reader.ready()
+        reader = Engine(engine, root, mode); clients.append(reader); reader.ready()
         report['checks']['published_identity_kept_on_reuse'] = published.stat().st_ino == before.st_ino and published.stat().st_mtime_ns == before.st_mtime_ns
-        live = set(cache.rglob('*.pcm.lease'))
+        copies = live_copies()
+        live = set(copies)
         if not live:
             raise RuntimeError('reused BMIs lack owner leases')
-        copies = {p: Path(str(p).removesuffix('.lease')) for p in live}
         for path in copies.values():
             stat = path.stat(); os.utime(path, ns=(0, stat.st_mtime_ns))
-        peer = Engine(engine, root); clients.append(peer); peer.ready()
+        peer = Engine(engine, root, mode); clients.append(peer); peer.ready()
         report['checks']['live_copy_kept'] = all(p.exists() for p in copies.values())
         report['checks']['published_identity_kept'] = published.stat().st_ino == before.st_ino and published.stat().st_mtime_ns == before.st_mtime_ns
         if not all(report['checks'].values()):
             raise RuntimeError('GC removed a live copy or rebuilt the published BMI')
-        peer_live = set(cache.rglob('*.pcm.lease')) - live
+        peer_copies = {p: value for p, value in live_copies().items() if p not in live}
+        peer_live = set(peer_copies)
         reader.stop(kill=True)
-        collector = Engine(engine, root); clients.append(collector); collector.ready()
+        collector = Engine(engine, root, mode); clients.append(collector); collector.ready()
+        # Owned maintenance visits bounded slot batches independently of AST work.
+        # Observe its existing reclamation deadline; never force or invoke GC here.
+        if mode == 'owned':
+            deadline = time.monotonic() + 15
+            while any(p.exists() or copies[p].exists() for p in live) and time.monotonic() < deadline:
+                time.sleep(0.05)
         report['checks']['killed_reader_copies_reclaimed'] = all(not p.exists() and not copies[p].exists() for p in live)
-        report['checks']['other_live_reader_kept'] = bool(peer_live) and all(p.exists() and Path(str(p).removesuffix('.lease')).exists() for p in peer_live)
+        report['checks']['other_live_reader_kept'] = bool(peer_live) and all(p.exists() and peer_copies[p].exists() for p in peer_live)
         report['checks']['published_survives_reclamation'] = published.exists() and published.stat().st_ino == before.st_ino
+        report['copies'] = {'killed_reader': [str(p) for p in copies.values()], 'live_peer': [str(p) for p in peer_copies.values()]}
         report['passed'] = all(report['checks'].values())
     except Exception as error:
         report['error'] = str(error)
