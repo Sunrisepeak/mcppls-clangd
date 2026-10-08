@@ -52,3 +52,21 @@ Local evidence:
 Pending qualification includes clean source/consumer identity, correct matched
 stock comparison, resolve/snippet/module visibility, CPU/RSS/cancellation,
 product/VS Code, native Windows/Apple Silicon and long-term release gates.
+
+## Follow-up guide/operator selection (0069)
+
+The follow-up passes StringRef names to the same scoped predicate. Deduction
+guides use the template identifier; operators use exact Sema completion TypedText
+spellings (not diagnostic names), including operatorco_await. Unknown names and
+other declaration-name categories retain conservative loading. No BMI format,
+public class layout or persistent cache changes. All consumers must be rebuilt.
+
+146 CompletionTest and five NamespaceLookupTest controls pass in development
+objects. The full matched Linux four-arm distribution has 744 typed replies,
+83 selected GCC insertions and within-mode item/edit parity. Edited p95 in ms:
+headers 180.13 -> 134.67; modules 250.61 -> 144.09. Warm p95 remains 37.90 vs
+76.16. Full records include two invalid load-overlap attempts, explicitly
+excluded; final candidate-modules-retry2 timing ran independently.
+Evidence: tests/evidence/part2-linux/filtered-special-names-candidate/four-arm/.
+Clean 0069 source/build and final consumer/platform/product qualification remain
+pending; this is stabilizing evidence, not release approval.

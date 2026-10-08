@@ -1,0 +1,1316 @@
+{
+  "policy": "All engine timing complete before compilation. Per start/phase first,last,slowest distinct replies.",
+  "proofs": [
+    {
+      "start": 0,
+      "answer": 0,
+      "phase": "cold-open",
+      "symbol": "vector",
+      "item": {
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.2068569660186768,
+        "sortText": "406585b6vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2507.689128993661,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-4x1g3tsy.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8cb8afb9807457b8b7f715e7f1ca2b569ba8ee5e75197cad8f8b91985d39c870"
+    },
+    {
+      "start": 0,
+      "answer": 1,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2492.9741650121287,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-30g9y9wv.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8cb8afb9807457b8b7f715e7f1ca2b569ba8ee5e75197cad8f8b91985d39c870"
+    },
+    {
+      "start": 0,
+      "answer": 2,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2512.6956029998837,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-gnd_1m1_.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "693dddcd0b3453870489a12debf226e3ed17a30006dbf28e0ae5403a6c93e87b"
+    },
+    {
+      "start": 0,
+      "answer": 33,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2494.8751500051003,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-0n3acvjx.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "7a2e6b8ed2529f2f5cb8e37a5fd59890f08cb4bf78a7695eab0f267e9826ee4c"
+    },
+    {
+      "start": 0,
+      "answer": 38,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2500.4109850124223,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-n92m8cmg.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "677034d6032e0397ac45ed3090c2228c9f990121883f6b6bbca269547f109be7"
+    },
+    {
+      "start": 0,
+      "answer": 60,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2479.5804339955794,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-bc4ahlhx.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "ee1c1bf45139b2c6e79fdd6e588f834de0921bd0731cca3b1aaefab16d7d1c4c"
+    },
+    {
+      "start": 0,
+      "answer": 61,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2468.467270009569,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-orcr8c3y.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "ee1c1bf45139b2c6e79fdd6e588f834de0921bd0731cca3b1aaefab16d7d1c4c"
+    },
+    {
+      "start": 1,
+      "answer": 0,
+      "phase": "cold-open",
+      "symbol": "vector",
+      "item": {
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.2068569660186768,
+        "sortText": "406585b6vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2468.8383980101207,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-bff1mg1z.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8cb8afb9807457b8b7f715e7f1ca2b569ba8ee5e75197cad8f8b91985d39c870"
+    },
+    {
+      "start": 1,
+      "answer": 1,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2484.6309189888416,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-zh_ov_nx.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8cb8afb9807457b8b7f715e7f1ca2b569ba8ee5e75197cad8f8b91985d39c870"
+    },
+    {
+      "start": 1,
+      "answer": 2,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2479.5781550055835,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-d8tz313g.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "693dddcd0b3453870489a12debf226e3ed17a30006dbf28e0ae5403a6c93e87b"
+    },
+    {
+      "start": 1,
+      "answer": 10,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2501.6998289938783,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-5ihcghr3.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "bca44060d3661326936ecbad6bdf8c0fcd853bafaaf40de05088cc1dc0c2d5a1"
+    },
+    {
+      "start": 1,
+      "answer": 19,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2472.4284700059798,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-jwn17m28.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8f165458f3791f1ee8b13e33c7a38f08845b5f1046b706a13e2c504a3810818d"
+    },
+    {
+      "start": 1,
+      "answer": 60,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2463.0925490055233,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-ywynhsz1.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "ee1c1bf45139b2c6e79fdd6e588f834de0921bd0731cca3b1aaefab16d7d1c4c"
+    },
+    {
+      "start": 1,
+      "answer": 61,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2432.0085840008687,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-n1bhq2x7.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "ee1c1bf45139b2c6e79fdd6e588f834de0921bd0731cca3b1aaefab16d7d1c4c"
+    },
+    {
+      "start": 2,
+      "answer": 0,
+      "phase": "cold-open",
+      "symbol": "vector",
+      "item": {
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.2068569660186768,
+        "sortText": "406585b6vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2470.2143329923274,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-wbwq4yct.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8cb8afb9807457b8b7f715e7f1ca2b569ba8ee5e75197cad8f8b91985d39c870"
+    },
+    {
+      "start": 2,
+      "answer": 1,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2482.491372997174,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-dzk9c_ps.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "8cb8afb9807457b8b7f715e7f1ca2b569ba8ee5e75197cad8f8b91985d39c870"
+    },
+    {
+      "start": 2,
+      "answer": 2,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2515.0267370045185,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-45r4zkzx.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "693dddcd0b3453870489a12debf226e3ed17a30006dbf28e0ae5403a6c93e87b"
+    },
+    {
+      "start": 2,
+      "answer": 51,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2485.7901359937387,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-7p4vfrq9.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "afb4250078e851a5b49ccff74a095a013ed9b661076d650b2b4e3045eca5f539"
+    },
+    {
+      "start": 2,
+      "answer": 56,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2498.188890996971,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-jmqe4e7x.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "d564f45d4d93900ad4acc80050191e145f467206aa39fb100f8dfd3d1c565017"
+    },
+    {
+      "start": 2,
+      "answer": 60,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2459.1048900038004,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-dis9et53.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "ee1c1bf45139b2c6e79fdd6e588f834de0921bd0731cca3b1aaefab16d7d1c4c"
+    },
+    {
+      "start": 2,
+      "answer": 61,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "documentation": {
+          "kind": "plaintext",
+          "value": "From <vector>\n\n@brief A standard container which offers fixed time access to individual elements in any order.\n\n@ingroup sequences\n@headerfile vector\n@since C++98\n\n@tparam _Tp Type of element.\n@tparam _Alloc Allocator type, defaults to allocator<_Tp>.\n\nMeets the requirements of a <a href=\"tables.html#65\">container</a>, a <a href=\"tables.html#66\">reversible container</a>, and a <a href=\"tables.html#67\">sequence</a>, including the <a href=\"tables.html#68\">optional sequence requirements</a> with the %exception of @c push_front and @c pop_front.\n\nIn some terminology a %vector can be described as a dynamic C-style array, it offers fast and efficient access to individual elements in any order and saves the user from worrying about memory and size allocation. Subscripting ( @c [] ) access is also provided as with C-style arrays."
+        },
+        "filterText": "vector",
+        "insertText": "vector<${1:typename Tp}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<typename Tp, typename Alloc>",
+        "score": 1.3807123899459839,
+        "sortText": "404f44d1vector",
+        "textEdit": {
+          "newText": "vector<${1:typename Tp}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 41
+            },
+            "start": {
+              "character": 9,
+              "line": 41
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2432.311272001243,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-s5t09sty.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "ee1c1bf45139b2c6e79fdd6e588f834de0921bd0731cca3b1aaefab16d7d1c4c"
+    }
+  ]
+}

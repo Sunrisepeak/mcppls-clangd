@@ -1,0 +1,474 @@
+From 499609a2a1503ea7fef404e5b72fbb2e9fa2a9f2 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 05:10:11 +0900
+Subject: [PATCH] perf(clangd): qualified completion filters guides and exact
+ operator names
+
+External namespace completion still materialized deduction guides and operator
+overloads that could not match the typed query. Match guide template names and
+operator completion spellings before loading their declarations, preserving
+unknown names, ordinary lookup, all overloads and partial external storage.
+Use the actual Sema typed spelling, including operatorco_await.
+
+Tests compare external and textual completion names, signatures and edits,
+and preserve omitted ordinary lookups and selected overload sets.
+---
+ clang-tools-extra/clangd/CodeComplete.cpp     |   8 +-
+ .../clangd/unittests/CodeCompleteTests.cpp    | 194 +++++++++++++++++-
+ clang/include/clang/AST/ExternalASTSource.h   |   4 +-
+ .../include/clang/Sema/CodeCompleteConsumer.h |   4 +-
+ clang/include/clang/Sema/Sema.h               |   2 +-
+ clang/lib/AST/ExternalASTSource.cpp           |   6 +-
+ clang/lib/Sema/SemaLookup.cpp                 |   6 +-
+ clang/lib/Serialization/ASTReader.cpp         |  33 ++-
+ .../Serialization/NamespaceLookupTest.cpp     |   4 +-
+ 9 files changed, 231 insertions(+), 30 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index fd259d224..8fbcbb0ec 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -917,12 +917,12 @@ struct CompletionRecorder : public CodeCompleteConsumer {
+   // This matcher and callable are owned by the synchronous recorder. The
+   // AST source borrows the predicate only while enumerating external names.
+   std::optional<FuzzyMatcher> ExternalNameMatcher;
+-  std::function<bool(const IdentifierInfo *)> ExternalNamePredicate =
+-      [this](const IdentifierInfo *II) {
+-        return !II || ExternalNameMatcher->match(II->getName()).has_value();
++  std::function<bool(llvm::StringRef)> ExternalNamePredicate =
++      [this](llvm::StringRef Name) {
++        return ExternalNameMatcher->match(Name).has_value();
+       };
+ 
+-  llvm::function_ref<bool(const IdentifierInfo *)>
++  llvm::function_ref<bool(llvm::StringRef)>
+   getExternalNameFilter(llvm::StringRef Pattern) override {
+     if (Pattern.empty())
+       return {};
+diff --git a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
+index fae57af7f..514319c3c 100644
+--- a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
++++ b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
+@@ -5148,8 +5148,8 @@ TEST(CompletionTest, ExternalNameFilterScopeIsSynchronous) {
+       auto Filter = takeCompletionNameFilter(DC);
+       SawFilter.push_back(bool(Filter));
+       if (Filter) {
+-        EXPECT_TRUE(Filter(&Idents.get("selected")));
+-        EXPECT_FALSE(Filter(&Idents.get("ordinary")));
++        EXPECT_TRUE(Filter("selected"));
++        EXPECT_FALSE(Filter("ordinary"));
+         if (Recurse) {
+           Recurse = false;
+           completeVisibleDeclsMap(DC);
+@@ -5159,9 +5159,9 @@ TEST(CompletionTest, ExternalNameFilterScopeIsSynchronous) {
+   } External;
+   External.Recurse = true;
+   unsigned Calls = 0;
+-  auto Filter = [&](const IdentifierInfo *II) {
++  auto Filter = [&](llvm::StringRef Name) {
+     ++Calls;
+-    return II->getName() == "selected";
++    return Name == "selected";
+   };
+   External.completeVisibleDeclsMapForCompletion(nullptr, Filter);
+   EXPECT_THAT(External.SawFilter, ElementsAre(true, false));
+@@ -5180,7 +5180,7 @@ TEST(CompletionTest, ExternalNameFilterScopeClearsAfterCancelledReturn) {
+       auto Filter = takeCompletionNameFilter(DC);
+       SawFilter.push_back(bool(Filter));
+       if (Filter) {
+-        Filter(&Idents.get("selected"));
++        Filter("selected");
+         if (isCancelled())
+           return;
+       }
+@@ -5190,7 +5190,7 @@ TEST(CompletionTest, ExternalNameFilterScopeClearsAfterCancelledReturn) {
+   unsigned Calls = 0;
+   {
+     WithContext Context(std::move(Task.first));
+-    auto Filter = [&](const IdentifierInfo *) {
++    auto Filter = [&](llvm::StringRef) {
+       ++Calls;
+       Task.second();
+       return false;
+@@ -5215,8 +5215,8 @@ TEST(CompletionTest, SelectedExternalNamesPreserveOrdinaryLookup) {
+   auto *NS = cast<NamespaceDecl>(Names.front())->getPrimaryContext();
+   ASSERT_TRUE(NS->hasExternalVisibleStorage());
+   ASSERT_TRUE(NS->noload_lookup(&Ctx.Idents.get("ordinary")).empty());
+-  auto Filter = [](const IdentifierInfo *II) {
+-    return II->getName() == "selected";
++  auto Filter = [](llvm::StringRef Name) {
++    return Name == "selected";
+   };
+   Ctx.getExternalSource()->completeVisibleDeclsMapForCompletion(NS, Filter);
+   EXPECT_TRUE(NS->hasExternalVisibleStorage());
+@@ -5261,6 +5261,182 @@ TEST(CompletionTest, ExternalQualifiedFuzzyUsingAndOverloads) {
+   }
+ }
+ 
++TEST(CompletionTest, SelectedExternalOperatorNamesPreserveOverloadsAndLookup) {
++  TestTU TU;
++  TU.HeaderCode = R"cpp(
++    namespace api {
++      struct value {};
++      value operator+(value, int);
++      value operator+(value, double);
++      value operator-(value, int);
++      value operator<<(value, int);
++    }
++  )cpp";
++  auto AST = TU.build();
++  ASSERT_TRUE(AST.getDiagnostics().empty());
++  auto &Ctx = AST.getASTContext();
++  auto *NS = cast<NamespaceDecl>(Ctx.getTranslationUnitDecl()
++                                    ->lookup(&Ctx.Idents.get("api")).front())
++                 ->getPrimaryContext();
++  auto Plus = Ctx.DeclarationNames.getCXXOperatorName(OO_Plus);
++  auto Minus = Ctx.DeclarationNames.getCXXOperatorName(OO_Minus);
++  ASSERT_TRUE(NS->noload_lookup(Plus).empty());
++  ASSERT_TRUE(NS->noload_lookup(Minus).empty());
++  auto Filter = [](llvm::StringRef Name) { return Name == "operator+"; };
++  Ctx.getExternalSource()->completeVisibleDeclsMapForCompletion(NS, Filter);
++  EXPECT_EQ(llvm::range_size(NS->noload_lookup(Plus)), 2u);
++  EXPECT_TRUE(NS->noload_lookup(Minus).empty());
++  EXPECT_TRUE(NS->hasExternalVisibleStorage());
++  EXPECT_EQ(llvm::range_size(NS->lookup(Minus)), 1u);
++  Ctx.getExternalSource()->completeVisibleDeclsMap(NS);
++  EXPECT_FALSE(NS->hasExternalVisibleStorage());
++  EXPECT_EQ(llvm::range_size(NS->lookup(Plus)), 2u);
++}
++
++TEST(CompletionTest, ExternalQualifiedOperatorNamesMatchTextualResults) {
++  TestTU TU;
++  TU.ExtraArgs.push_back("-std=c++20");
++  TU.HeaderCode = R"cpp(
++    namespace api {
++      struct value {};
++      value operator+(value, int);
++      value operator+(value, double);
++      value operator-(value, int);
++      value operator<<(value, int);
++      value operator co_await(value);
++      int ordinary();
++    }
++  )cpp";
++  CodeCompleteOptions Opts;
++  Opts.ForceLoadPreamble = true;
++  auto Keys = [](const CodeCompleteResult &R) {
++    std::vector<std::string> Keys;
++    for (const auto &C : R.Completions)
++      Keys.push_back(C.Name + "|" + C.RequiredQualifier + "|" + C.Signature +
++                     "|" + C.SnippetSuffix + "|" +
++                     std::to_string(static_cast<unsigned>(C.Kind)));
++    llvm::sort(Keys);
++    return Keys;
++  };
++  for (llvm::StringRef Pattern : {"ope", "op", "operatorco", "ord", ""}) {
++    Annotations Code(("void probe() { api::" + Pattern + "^ }").str());
++    TU.Code = Code.code().str();
++    auto Result = completions(TU, Code.point(), {}, Opts);
++    Annotations LocalCode(TU.HeaderCode + "\nvoid probe() { api::" +
++                          Pattern.str() + "^ }");
++    auto LocalTU = TestTU::withCode(LocalCode.code());
++    LocalTU.ExtraArgs.push_back("-std=c++20");
++    auto Local = completions(LocalTU, LocalCode.point(), {}, Opts);
++    ASSERT_FALSE(Result.Completions.empty());
++    if (Pattern == "ope" || Pattern == "op" || Pattern.empty()) {
++      EXPECT_THAT(Result.Completions, Contains(named("operator+")));
++      EXPECT_THAT(Result.Completions, Contains(named("operator<<")));
++    }
++    if (Pattern == "operatorco") {
++      EXPECT_THAT(Result.Completions, Contains(named("operatorco_await")));
++    }
++    EXPECT_EQ(Keys(Result), Keys(Local));
++  }
++}
++
++TEST(CompletionTest, SelectedExternalNamesPreserveOrdinaryDeductionGuideLookup) {
++  TestTU TU;
++  TU.ExtraArgs.push_back("-std=c++20");
++  TU.HeaderCode = R"cpp(
++    namespace api {
++      template <typename T> struct vector { vector(T); };
++      vector(int) -> vector<int>;
++      template <typename T> struct ordinary { ordinary(T); };
++      ordinary(int) -> ordinary<int>;
++    }
++  )cpp";
++  auto AST = TU.build();
++  ASSERT_TRUE(AST.getDiagnostics().empty());
++  auto &Ctx = AST.getASTContext();
++  auto *NS = cast<NamespaceDecl>(Ctx.getTranslationUnitDecl()
++                                    ->lookup(&Ctx.Idents.get("api"))
++                                    .front())
++                 ->getPrimaryContext();
++  auto *OrdinaryName = &Ctx.Idents.get("ordinary");
++  ASSERT_TRUE(NS->noload_lookup(OrdinaryName).empty());
++  auto Filter = [](llvm::StringRef Name) {
++    return Name == "vector";
++  };
++  Ctx.getExternalSource()->completeVisibleDeclsMapForCompletion(NS, Filter);
++  EXPECT_TRUE(NS->hasExternalVisibleStorage());
++  // Deserializing a guide also loads its template. Checking the template before
++  // lookup therefore proves that neither its name nor its guides were loaded.
++  EXPECT_TRUE(NS->noload_lookup(OrdinaryName).empty());
++  auto *Ordinary = cast<ClassTemplateDecl>(NS->lookup(OrdinaryName).front());
++  auto GuideName = Ctx.DeclarationNames.getCXXDeductionGuideName(Ordinary);
++  auto Guides = NS->lookup(GuideName);
++  ASSERT_FALSE(Guides.empty());
++  bool HasExplicitGuide = false;
++  for (auto *D : Guides) {
++    if (auto *Template = dyn_cast<FunctionTemplateDecl>(D))
++      D = Template->getTemplatedDecl();
++    ASSERT_TRUE(isa<CXXDeductionGuideDecl>(D));
++    HasExplicitGuide |= !D->isImplicit();
++  }
++  EXPECT_TRUE(HasExplicitGuide);
++  Ctx.getExternalSource()->completeVisibleDeclsMap(NS);
++  EXPECT_FALSE(NS->hasExternalVisibleStorage());
++  EXPECT_FALSE(NS->lookup(GuideName).empty());
++}
++
++TEST(CompletionTest, ExternalQualifiedDeductionGuidesPreserveAliasResults) {
++  TestTU TU;
++  TU.ExtraArgs.push_back("-std=c++20");
++  TU.HeaderCode = R"cpp(
++    namespace api {
++      template <typename T> struct vector {
++        vector(T);
++      };
++      vector(int) -> vector<int>;
++      template <typename T> struct ordinary {
++        ordinary(T);
++      };
++      ordinary(int) -> ordinary<int>;
++      template <typename T> using view = ordinary<T>;
++      int version();
++    }
++  )cpp";
++  CodeCompleteOptions Opts;
++  Opts.ForceLoadPreamble = true;
++  auto Keys = [](const CodeCompleteResult &R) {
++    std::vector<std::string> Keys;
++    for (const auto &C : R.Completions)
++      Keys.push_back(C.Name + "|" + C.RequiredQualifier + "|" + C.Signature +
++                     "|" + C.SnippetSuffix + "|" +
++                     std::to_string(static_cast<unsigned>(C.Kind)));
++    llvm::sort(Keys);
++    return Keys;
++  };
++  // The alias's own name can match even when its underlying template does not.
++  // Compare the full result fields with ordinary, nonserialized declarations.
++  for (llvm::StringRef Pattern : {"ve", "vi", "", "ord"}) {
++    Annotations Code(("void probe() { api::" + Pattern + "^ }").str());
++    TU.Code = Code.code().str();
++    auto Result = completions(TU, Code.point(), {}, Opts);
++    Annotations LocalCode(TU.HeaderCode + "\nvoid probe() { api::" +
++                          Pattern.str() + "^ }");
++    auto LocalTU = TestTU::withCode(LocalCode.code());
++    LocalTU.ExtraArgs.push_back("-std=c++20");
++    auto Local = completions(LocalTU, LocalCode.point(), {}, Opts);
++    ASSERT_FALSE(Result.Completions.empty());
++    if (Pattern == "vi") {
++      EXPECT_THAT(Result.Completions, Contains(named("view")));
++    }
++    if (Pattern == "ord") {
++      EXPECT_THAT(Result.Completions, Contains(named("ordinary")));
++    }
++    if (Pattern == "ve" || Pattern.empty()) {
++      EXPECT_THAT(Result.Completions, Contains(named("vector")));
++    }
++    EXPECT_EQ(Keys(Result), Keys(Local));
++  }
++}
++
+ TEST(CompletionTest, ExternalNameFilterBindsExactSourceAndContext) {
+   auto AST = TestTU::withCode("namespace one {} namespace two {}").build();
+   auto &Ctx = AST.getASTContext();
+@@ -5286,7 +5462,7 @@ TEST(CompletionTest, ExternalNameFilterBindsExactSourceAndContext) {
+   } Parent, Other;
+   Parent.Other = &Other;
+   Parent.WrongContext = Two;
+-  auto Filter = [](const IdentifierInfo *) { return true; };
++  auto Filter = [](llvm::StringRef) { return true; };
+   Parent.completeVisibleDeclsMapForCompletion(One, Filter);
+   EXPECT_THAT(Other.SawFilter, ElementsAre(false));
+   EXPECT_THAT(Parent.SawFilter, ElementsAre(false, true));
+diff --git a/clang/include/clang/AST/ExternalASTSource.h b/clang/include/clang/AST/ExternalASTSource.h
+index 86d0a3aab..3b8835290 100644
+--- a/clang/include/clang/AST/ExternalASTSource.h
++++ b/clang/include/clang/AST/ExternalASTSource.h
+@@ -188,13 +188,13 @@ public:
+   /// A selective source must retain external visible storage for omitted names.
+   void completeVisibleDeclsMapForCompletion(
+       const DeclContext *DC,
+-      llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch);
++      llvm::function_ref<bool(llvm::StringRef)> NameMayMatch);
+ 
+ protected:
+   /// Consume the predicate for the exact source/context being requested.
+   /// Nested ordinary lookups receive no predicate. Never retain the returned
+   /// function_ref beyond the synchronous completeVisibleDeclsMap call.
+-  llvm::function_ref<bool(const IdentifierInfo *)>
++  llvm::function_ref<bool(llvm::StringRef)>
+   takeCompletionNameFilter(const DeclContext *DC);
+ 
+ public:
+diff --git a/clang/include/clang/Sema/CodeCompleteConsumer.h b/clang/include/clang/Sema/CodeCompleteConsumer.h
+index 38f70fd92..c9ba45ab7 100644
+--- a/clang/include/clang/Sema/CodeCompleteConsumer.h
++++ b/clang/include/clang/Sema/CodeCompleteConsumer.h
+@@ -1240,10 +1240,10 @@ public:
+ 
+   virtual CodeCompletionTUInfo &getCodeCompletionTUInfo() = 0;
+ 
+-  /// Optional synchronous identifier filter for external namespace lookup.
++  /// Optional synchronous completion spelling filter for external namespace lookup.
+   /// Return an empty predicate to retain complete loading. The predicate must
+   /// keep every name that this consumer could accept in finalized results.
+-  virtual llvm::function_ref<bool(const IdentifierInfo *)>
++  virtual llvm::function_ref<bool(llvm::StringRef)>
+   getExternalNameFilter(StringRef Pattern) { return {}; }
+ };
+ 
+diff --git a/clang/include/clang/Sema/Sema.h b/clang/include/clang/Sema/Sema.h
+index 8d18ff45d..071cc4e92 100644
+--- a/clang/include/clang/Sema/Sema.h
++++ b/clang/include/clang/Sema/Sema.h
+@@ -9816,7 +9816,7 @@ public:
+   /// Ordinary lookup continues to materialize the complete visible map.
+   void LookupVisibleDeclsForCompletion(
+       DeclContext *Ctx, LookupNameKind Kind, VisibleDeclConsumer &Consumer,
+-      llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch,
++      llvm::function_ref<bool(llvm::StringRef)> NameMayMatch,
+       bool IncludeGlobalScope = true, bool IncludeDependentBases = false,
+       bool LoadExternal = true);
+ 
+diff --git a/clang/lib/AST/ExternalASTSource.cpp b/clang/lib/AST/ExternalASTSource.cpp
+index 4a2a346a3..00e59a6f7 100644
+--- a/clang/lib/AST/ExternalASTSource.cpp
++++ b/clang/lib/AST/ExternalASTSource.cpp
+@@ -116,7 +116,7 @@ namespace {
+ struct CompletionVisibleLookup {
+   const ExternalASTSource *Source;
+   const DeclContext *Context;
+-  llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch;
++  llvm::function_ref<bool(llvm::StringRef)> NameMayMatch;
+   bool Consumed = false;
+ };
+ // The public call provides a synchronous, source/context-bound scope. This
+@@ -126,7 +126,7 @@ thread_local CompletionVisibleLookup *CurrentCompletionLookup = nullptr;
+ 
+ void ExternalASTSource::completeVisibleDeclsMapForCompletion(
+     const DeclContext *DC,
+-    llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch) {
++    llvm::function_ref<bool(llvm::StringRef)> NameMayMatch) {
+   if (!NameMayMatch) {
+     completeVisibleDeclsMap(DC);
+     return;
+@@ -138,7 +138,7 @@ void ExternalASTSource::completeVisibleDeclsMapForCompletion(
+   completeVisibleDeclsMap(DC);
+ }
+ 
+-llvm::function_ref<bool(const IdentifierInfo *)>
++llvm::function_ref<bool(llvm::StringRef)>
+ ExternalASTSource::takeCompletionNameFilter(const DeclContext *DC) {
+   auto *Lookup = CurrentCompletionLookup;
+   if (!Lookup || Lookup->Source != this || Lookup->Context != DC ||
+diff --git a/clang/lib/Sema/SemaLookup.cpp b/clang/lib/Sema/SemaLookup.cpp
+index 58fe8d3f7..c80f2a86c 100644
+--- a/clang/lib/Sema/SemaLookup.cpp
++++ b/clang/lib/Sema/SemaLookup.cpp
+@@ -4115,7 +4115,7 @@ public:
+   LookupVisibleHelper(
+       VisibleDeclConsumer &Consumer, bool IncludeDependentBases,
+       bool LoadExternal,
+-      llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch = {})
++      llvm::function_ref<bool(llvm::StringRef)> NameMayMatch = {})
+       : Consumer(Consumer), IncludeDependentBases(IncludeDependentBases),
+         LoadExternal(LoadExternal), NameMayMatch(NameMayMatch) {}
+ 
+@@ -4449,7 +4449,7 @@ private:
+   VisibleDeclConsumer &Consumer;
+   bool IncludeDependentBases;
+   bool LoadExternal;
+-  llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch;
++  llvm::function_ref<bool(llvm::StringRef)> NameMayMatch;
+ };
+ } // namespace
+ 
+@@ -4471,7 +4471,7 @@ void Sema::LookupVisibleDecls(DeclContext *Ctx, LookupNameKind Kind,
+ 
+ void Sema::LookupVisibleDeclsForCompletion(
+     DeclContext *Ctx, LookupNameKind Kind, VisibleDeclConsumer &Consumer,
+-    llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch,
++    llvm::function_ref<bool(llvm::StringRef)> NameMayMatch,
+     bool IncludeGlobalScope, bool IncludeDependentBases, bool LoadExternal) {
+   LookupVisibleHelper H(Consumer, IncludeDependentBases, LoadExternal,
+                         NameMayMatch);
+diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
+index 055213b15..05d15e930 100644
+--- a/clang/lib/Serialization/ASTReader.cpp
++++ b/clang/lib/Serialization/ASTReader.cpp
+@@ -8973,15 +8973,40 @@ bool ASTReader::FindExternalVisibleDeclsByName(const DeclContext *DC,
+ namespace {
+ bool completionNameMayMatch(
+     serialization::DeclarationNameKey Key,
+-    llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch) {
+-  if (Key.getKind() != DeclarationName::Identifier)
++    llvm::function_ref<bool(llvm::StringRef)> NameMayMatch) {
++  // Deduction-guide keys carry their class template's identifier. Retain all
++  // guides for a matching template; omitted guides remain available to ordinary
++  // lookup because selective completion does not close external storage.
++  if (Key.getKind() == DeclarationName::CXXOperatorName) {
++    auto Op = Key.getOperatorKind();
++    // Invalid/non-overloadable operator keys keep the conservative path.
++    if (Op == OO_None || Op == OO_Conditional || Op == NUM_OVERLOADED_OPERATORS)
++      return true;
++    // Match Sema's AddTypedNameChunk spelling, which differs from diagnostic
++    // DeclarationName printing for co_await. Do not intern synthetic identifiers.
++    switch (Op) {
++#define OVERLOADED_OPERATOR(Name, Spelling, Token, Unary, Binary, MemberOnly) \
++    case OO_##Name: return NameMayMatch("operator" Spelling);
++#define OVERLOADED_OPERATOR_MULTI(Name, Spelling, Unary, Binary, MemberOnly)
++#include "clang/Basic/OperatorKinds.def"
++    case OO_New: return NameMayMatch("operator new");
++    case OO_Delete: return NameMayMatch("operator delete");
++    case OO_Array_New: return NameMayMatch("operator new[]");
++    case OO_Array_Delete: return NameMayMatch("operator delete[]");
++    case OO_Call: return NameMayMatch("operator()");
++    case OO_Subscript: return NameMayMatch("operator[]");
++    default: return true;
++    }
++  }
++  if (Key.getKind() != DeclarationName::Identifier &&
++      Key.getKind() != DeclarationName::CXXDeductionGuideName)
+     return true;
+   auto *II = Key.getIdentifier();
+-  return !II || NameMayMatch(II);
++  return !II || NameMayMatch(II->getName());
+ }
+ bool completionNameMayMatch(
+     std::pair<serialization::DeclarationNameKey, unsigned> Key,
+-    llvm::function_ref<bool(const IdentifierInfo *)> NameMayMatch) {
++    llvm::function_ref<bool(llvm::StringRef)> NameMayMatch) {
+   return completionNameMayMatch(Key.first, NameMayMatch);
+ }
+ }
+diff --git a/clang/unittests/Serialization/NamespaceLookupTest.cpp b/clang/unittests/Serialization/NamespaceLookupTest.cpp
+index 29610b75c..24fb4423c 100644
+--- a/clang/unittests/Serialization/NamespaceLookupTest.cpp
++++ b/clang/unittests/Serialization/NamespaceLookupTest.cpp
+@@ -168,8 +168,8 @@ public:
+       ASSERT_TRUE(DC->noload_lookup(Selected).empty());
+       ASSERT_TRUE(DC->noload_lookup(Omitted).empty());
+     }
+-    auto Filter = [](const IdentifierInfo *II) {
+-      return II && II->getName() == "selected";
++    auto Filter = [](llvm::StringRef Name) {
++      return Name == "selected";
+     };
+     Reader->completeVisibleDeclsMapForCompletion(DC, Filter);
+     EXPECT_EQ(llvm::range_size(DC->noload_lookup(Selected)), ExpectedOverloads);
+-- 
+2.53.0
+
