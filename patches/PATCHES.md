@@ -101,3 +101,5 @@ they live here and in patch *filenames* only.
 | 0052-UP-23-portable-response-generation-fixtures.patch | UP-23 | stabilizing | ci/response-generation-portability.md; clangd/unittests/GlobalCompilationDatabaseTests.cpp | Upstream response-generation fixtures serialize platform paths as JSON and retain all immutable-publication assertions on Windows |
 
 | 0053-UP-03-bounded-scan-publication-coordination.patch | UP-03 | stabilizing | ci/module-scan-publication.md; tests/evidence/module-scan-publication.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream identical scan publications use bounded notification coordination and each follower validates the result against its own current VFS |
+
+| 0047-UP-03-bounded-worker-output-and-captured-inputs.patch | UP-03 | stabilizing | ci/module-worker-payloads.md; tests/evidence/module-worker-payloads.json; tests/e2e/module_worker_default.py; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream bounded worker output covers reduced/implicit/index writers, capture preflight precedes writes, and older workers reject bounded protocol requests |

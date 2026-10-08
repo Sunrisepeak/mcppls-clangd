@@ -185,6 +185,12 @@ jobs:
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \
             --workdir "${{ runner.temp }}/module-worker-default"
+          python3 tests/e2e/module_worker_default.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-payloads" \
+            --engine-flag=--modules-builder-worker-output-mib=1 \
+            --engine-flag=--modules-builder-worker-capture-mib=1
           python3 tests/e2e/module_worker_failure.py \
             --engine "build-${{ matrix.platform }}/bin/clangd" \
             --clang "build-${{ matrix.platform }}/bin/clang" \
@@ -199,6 +205,7 @@ jobs:
           name: module-worker-default-${{ matrix.platform }}
           path: |
             ${{ runner.temp }}/module-worker-default/result.json
+            ${{ runner.temp }}/module-worker-payloads/result.json
             ${{ runner.temp }}/module-worker-failure/result.json
             ${{ runner.temp }}/module-worker-diagnostics/result.json
           if-no-files-found: warn

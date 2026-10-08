@@ -1,0 +1,156 @@
+{
+  "source_commit": "6c265ca45d3e122829c80e6a5848e4fb6c0e2298",
+  "export_commit": "045e15a6fff996d70f513d0a1c7448b3473458e3",
+  "source_tree": "c741a5aae374bd6b53e3b2f767caf4d1559527c0",
+  "engine_sha256": "04aaf09a69ef5357a6b8aec0b76bd0e21f4d4aa20ddecac50087e16580f92150",
+  "scope": "eight private changed TUs linked before read-only root46 archives; Linux only; optional defaults0; not full recipe or aggregate/physical-disk/RSS cap",
+  "unit_tests": {
+    "passed": 49,
+    "elapsed_ms": 370
+  },
+  "child_cases": [
+    {
+      "mode": "baseline",
+      "limit": 0,
+      "exit": 0,
+      "ms": 4.68,
+      "files": {
+        "output.pcm": 35248,
+        "M.cppm": 42,
+        "request.json": 2262,
+        "main.snapshot": 50
+      }
+    },
+    {
+      "mode": "positive",
+      "limit": 65536,
+      "exit": 0,
+      "ms": 4.39,
+      "files": {
+        "output.pcm": 35248,
+        "M.cppm": 42,
+        "request.json": 2266,
+        "main.snapshot": 50
+      }
+    },
+    {
+      "mode": "low",
+      "limit": 16,
+      "exit": 1,
+      "ms": 3.93,
+      "files": {
+        "M.cppm": 42,
+        "request.json": 2228,
+        "main.snapshot": 50
+      }
+    },
+    {
+      "mode": "implicit-baseline",
+      "limit": 0,
+      "exit": 0,
+      "ms": 7.58,
+      "files": {
+        "output.pcm": 35652,
+        "M.cppm": 42,
+        "request.json": 2473,
+        "h.h": 34,
+        "main.snapshot": 77,
+        "module.modulemap": 40,
+        "module-cache/25DLVEKTQUAZ3/modules.idx": 580,
+        "module-cache/25DLVEKTQUAZ3/Header-32OIWEM94XJAI.pcm": 35780
+      }
+    },
+    {
+      "mode": "implicit-positive",
+      "limit": 131072,
+      "exit": 0,
+      "ms": 7.28,
+      "files": {
+        "output.pcm": 35652,
+        "M.cppm": 42,
+        "request.json": 2478,
+        "h.h": 34,
+        "main.snapshot": 77,
+        "module.modulemap": 40,
+        "module-cache/25DLVEKTQUAZ3/modules.idx": 580,
+        "module-cache/25DLVEKTQUAZ3/Header-3FJEAW3OF7TAB.pcm": 35780
+      }
+    },
+    {
+      "mode": "implicit",
+      "limit": 16,
+      "exit": 1,
+      "ms": 5.11,
+      "files": {
+        "M.cppm": 42,
+        "request.json": 2402,
+        "h.h": 34,
+        "main.snapshot": 77,
+        "module.modulemap": 40
+      }
+    },
+    {
+      "mode": "implicit-index",
+      "limit": 71432,
+      "exit": 1,
+      "ms": 6.78,
+      "files": {
+        "M.cppm": 42,
+        "request.json": 2453,
+        "h.h": 34,
+        "main.snapshot": 77,
+        "module.modulemap": 40,
+        "module-cache/25DLVEKTQUAZ3/Header-3KNAIY9MIBTTV.pcm": 35772
+      }
+    },
+    {
+      "mode": "side",
+      "limit": 65536,
+      "exit": 1,
+      "ms": 2.63,
+      "files": {
+        "M.cppm": 42,
+        "request.json": 2321,
+        "main.snapshot": 50
+      }
+    },
+    {
+      "mode": "plugin",
+      "limit": 65536,
+      "exit": 1,
+      "ms": 2.66,
+      "files": {
+        "M.cppm": 42,
+        "request.json": 2286,
+        "main.snapshot": 50
+      }
+    },
+    {
+      "mode": "module-source",
+      "limit": 65536,
+      "exit": 1,
+      "ms": 3.9,
+      "files": {
+        "M.cppm": 42,
+        "request.json": 2352,
+        "main.snapshot": 139
+      }
+    }
+  ],
+  "actual_pcm_consumption": "real clang static_assert(Value==42) passes simple and implicit positive outputs",
+  "default_bounded_lsp": {
+    "outcome": "pass",
+    "exit_code": 0,
+    "readers_stopped": true,
+    "engine_sha256": "04aaf09a69ef5357a6b8aec0b76bd0e21f4d4aa20ddecac50087e16580f92150"
+  },
+  "old_worker_refusal_lsp": {
+    "outcome": "pass",
+    "exit_code": 0,
+    "readers_stopped": true,
+    "engine_sha256": "04aaf09a69ef5357a6b8aec0b76bd0e21f4d4aa20ddecac50087e16580f92150"
+  },
+  "old_worker_sha256": "2f91a4aa31c07c7f49b3ddbf6dfa04e1629f4d5668aa7339d8d8ab1f56f71011",
+  "protocol": "bounded output or address-space request usesv2; old worker refuses before output; v1 rejects positive new bounds",
+  "remaining": "49 aggregate ledger/publication/read leases and native Windows/Darwin validation"
+}
