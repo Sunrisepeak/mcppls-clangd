@@ -46,6 +46,16 @@ def pointer(value, path):
     return value
 
 
+def within_project(path, project):
+    # Ubuntu 20.04 ships Python 3.8, before Path.is_relative_to.
+    # Callers resolve both paths first, so symlink escapes remain rejected.
+    try:
+        path.relative_to(project)
+        return True
+    except ValueError:
+        return False
+
+
 def replay(engine, manifest, process_started=None):
     case = json.loads(manifest.read_text())
     if case.get("platform") != platform_name():
@@ -144,7 +154,7 @@ def replay(engine, manifest, process_started=None):
                 return aliases[value[10:-1]][0]
             if value.startswith("${FILE_TEXT:") and value.endswith("}"):
                 source = (project / value[12:-1]).resolve()
-                if not source.is_relative_to(project):
+                if not within_project(source, project):
                     raise ValueError("fixture text escapes project")
                 return source.read_text(encoding="utf-8-sig")
             return value.replace("${PROJECT_URI}", project.as_uri()).replace("${PROJECT_PATH}", project.as_posix())
@@ -190,7 +200,7 @@ def replay(engine, manifest, process_started=None):
                 continue
             if step.get("action") == "write-file":
                 path = (project / step["file"]).resolve()
-                if not path.is_relative_to(project):
+                if not within_project(path, project):
                     raise ValueError("fixture edit escapes project")
                 if path.exists():
                     stat = path.stat()
@@ -201,7 +211,7 @@ def replay(engine, manifest, process_started=None):
                 continue
             if step.get("action") == "replace-file":
                 path = (project / step["file"]).resolve()
-                if not path.is_relative_to(project):
+                if not within_project(path, project):
                     raise ValueError("fixture edit escapes project")
                 original = path.read_bytes()
                 stat = path.stat()

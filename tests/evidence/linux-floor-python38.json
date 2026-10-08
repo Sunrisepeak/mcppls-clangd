@@ -1,0 +1,26 @@
+{
+  "run_id": 37714424693,
+  "job_id": 113107536287,
+  "engine_head": "c5d2a5e",
+  "environment": "pinned Ubuntu20.04 rootfs/Python3.8",
+  "native_before": {
+    "engine_build": "pass",
+    "same_source_clang_build": "pass",
+    "packaging": "pass",
+    "module_request_inputs": "pass",
+    "module_dag_cases_passed": 10,
+    "cold_completion": "pass",
+    "scan_memo_failure": "PosixPath has no attribute is_relative_to"
+  },
+  "log_sha256": "e81e56a8e6d954b59770549f8b100509b8a929bd0f7b1dbfc90baba023153eb7",
+  "fix": "resolved path.relative_to with ValueError preserves root/sibling/parent/symlink boundary checks on Python3.8",
+  "local_after": {
+    "python38_syntax_parse": "pass",
+    "boundary_checks": "pass",
+    "real_scan_memo": "pass",
+    "memo_hits": 83,
+    "memo_invalidations": 4,
+    "main_contents_unchanged": true
+  },
+  "native_corrected_head": "pending; local validation is not actual Python3.8 runtime qualification"
+}
