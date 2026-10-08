@@ -106,6 +106,22 @@ jobs:
           CMAKE_EXTRA: ${{ matrix.platform == 'win32-x64' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }}
         run: ./ci/ci_build.sh
 
+      - name: Retain same-build Intel Darwin DAG diagnostic payload
+        if: matrix.platform == 'darwin-x64'
+        env:
+          WORKFLOW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          python3 ci/darwin_dag_diagnostic.py bundle --build build-darwin-x64 \
+            --output "${{ runner.temp }}/darwin-dag-payload"
+      - uses: actions/upload-artifact@v4
+        if: matrix.platform == 'darwin-x64' && always()
+        with:
+          name: darwin-x64-dag-diagnostic-payload
+          path: ${{ runner.temp }}/darwin-dag-payload/darwin-dag-payload.tar.gz
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Real standard-library const fixes remain compilable
         if: matrix.platform == 'linux-x64'
         shell: bash

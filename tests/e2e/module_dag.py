@@ -67,8 +67,12 @@ def generate(root, clang, shape, heavy=False):
     return source, text, dependencies
 
 
-def run_case(engine, clang, root, shape, workers, baseline=False):
+def run_case(engine, clang, root, shape, workers, baseline=False,
+             disable_standard_library=False, darwin_timeout_sample=False,
+             diagnostic_case=False):
     source, text, dependencies = generate(root, clang, shape, heavy=shape in ('wide', 'concurrent'))
+    if disable_standard_library:
+        (root / '.clangd').write_text('Index:\n  StandardLibrary: false\n')
     document = {'textDocument': {'uri': source.as_uri()}}
     sequence = [
         {'method': 'initialize', 'params': {'rootUri': root.as_uri(), 'capabilities': {}}},
@@ -107,13 +111,16 @@ def run_case(engine, clang, root, shape, workers, baseline=False):
             'textDocument': {'uri': (root / 'Peer.cpp').as_uri()},
             'position': position}, 'expected_symbols': ['fn' + name for name in dependencies]})
     flags = ['--experimental-modules-support', '--background-index=false', '-j=4', '--log=verbose']
+    if diagnostic_case:
+        flags.append('--enable-config=true')
     if not baseline:
         flags.append(f'--modules-builder-workers={workers}')
     manifest = root / 'case.json'
     manifest.write_text(json.dumps({'id': f'{shape}-{workers}', 'project': '.',
         'platform': replay.platform_name(), 'baseline': 'pass',
         'timeout_seconds': 30, 'flags': flags, 'sequence': sequence}))
-    result = replay.replay(engine, manifest)
+    diagnostics = (lambda proc: replay.sample_darwin_timeout(proc, root)) if darwin_timeout_sample else None
+    result = replay.replay(engine, manifest, timeout_diagnostics=diagnostics)
     # Keep natural exits and raw replies even when a later assertion fails.
     (root / 'replay-result.json').write_text(json.dumps(result, indent=2) + '\n')
     if result['outcome'] != 'pass':
@@ -164,13 +171,26 @@ def main():
     parser.add_argument('--clang', type=Path, required=True)
     parser.add_argument('--baseline-engine', type=Path)
     parser.add_argument('--workdir', type=Path, required=True)
+    parser.add_argument('--case', choices=['wide-1'], help='Diagnostic single-case selection; default runs the full matrix')
+    parser.add_argument('--disable-standard-library', action='store_true', help='Diagnostic control only; requires --case wide-1')
+    parser.add_argument('--darwin-timeout-sample', action='store_true', help='Sample a live Darwin server before timeout cleanup')
     args = parser.parse_args()
+    if args.disable_standard_library and args.case != 'wide-1':
+        parser.error('--disable-standard-library requires --case wide-1')
+    if args.case and args.baseline_engine:
+        parser.error('--case cannot be combined with --baseline-engine')
     engine, clang = replay.executable(args.engine), replay.executable(args.clang)
     root = args.workdir.resolve()
+    if args.case and root.exists():
+        parser.error('diagnostic --case requires a fresh workdir')
     results = []
-    for shape, workers in [('wide', 1), ('wide', 2), ('wide', 4), ('diamond', 1),
-                           ('diamond', 4), ('failure', 1), ('failure', 4), ('prebuilt', 4), ('concurrent', 2), ('textual', 4)]:
-        result = run_case(engine, clang, root / f'{shape}-{workers}', shape, workers)
+    cases = [('wide', 1)] if args.case else [('wide', 1), ('wide', 2), ('wide', 4), ('diamond', 1),
+                           ('diamond', 4), ('failure', 1), ('failure', 4), ('prebuilt', 4), ('concurrent', 2), ('textual', 4)]
+    for shape, workers in cases:
+        result = run_case(engine, clang, root / f'{shape}-{workers}', shape, workers,
+                          disable_standard_library=args.disable_standard_library,
+                          darwin_timeout_sample=args.darwin_timeout_sample,
+                          diagnostic_case=bool(args.case))
         results.append(result)
         print(result['id'], result['outcome'], 'max_active', result['max_active'],
               'document_symbol_ms', round(result['document_symbol_ms'], 2))

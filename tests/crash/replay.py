@@ -16,6 +16,7 @@ from pathlib import Path
 import queue
 import platform
 import re
+import select
 import signal
 import subprocess
 import sys
@@ -56,7 +57,70 @@ def within_project(path, project):
         return False
 
 
-def replay(engine, manifest, process_started=None):
+def sample_darwin_timeout(proc, directory):
+    """Diagnostic only: sample a live timed-out server, never change its verdict."""
+    info = {"pid": proc.pid, "alive_before_sample": proc.poll() is None,
+            "duration_seconds": 1, "hard_timeout_seconds": 3,
+            "retained_byte_limit": 262144}
+    if sys.platform != "darwin" or not info["alive_before_sample"]:
+        info["skipped"] = "requires a still-alive Darwin process"
+        return info
+    directory.mkdir(parents=True, exist_ok=True)
+    output = directory / "timeout-sample.txt"
+    sampler = subprocess.Popen(
+        ["/usr/bin/sample", str(proc.pid), "1", "10", "-file", "/dev/stdout"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+    retained = bytearray()
+    truncated = threading.Event()
+    stopped = threading.Event()
+    os.set_blocking(sampler.stdout.fileno(), False)
+
+    def drain():
+        while not stopped.is_set():
+            if not select.select([sampler.stdout], [], [], 0.05)[0]:
+                continue
+            try:
+                chunk = os.read(sampler.stdout.fileno(), 4096)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                break
+            remaining = info["retained_byte_limit"] - len(retained)
+            retained.extend(chunk[:remaining])
+            if len(chunk) > remaining:
+                truncated.set()
+                try:
+                    sampler.kill()
+                except ProcessLookupError:
+                    pass
+
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
+    try:
+        try:
+            sampler.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            info["sample_timed_out"] = True
+    finally:
+        # The sampler has its own group: never signal the server being sampled.
+        try:
+            os.killpg(sampler.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        sampler.wait(timeout=1)
+        reader.join(timeout=0.1)
+        stopped.set()
+        reader.join(timeout=0.2)
+        sampler.stdout.close()
+    info.update(sample_exit_code=sampler.returncode, truncated=truncated.is_set(),
+                reader_stopped=not reader.is_alive(), alive_after_sample=proc.poll() is None)
+    if not reader.is_alive():
+        output.write_bytes(retained)
+        info["output"] = str(output)
+    return info
+
+
+def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
     case = json.loads(manifest.read_text())
     if case.get("platform") != platform_name():
         raise ValueError(f"{manifest}: wrong platform")
@@ -290,6 +354,11 @@ def replay(engine, manifest, process_started=None):
         result["outcome"] = "pass" if proc.returncode == 0 else "crash"
     except (queue.Empty, subprocess.TimeoutExpired):
         result["outcome"] = "timeout"
+        if timeout_diagnostics:
+            try:
+                result["timeout_diagnostics"] = timeout_diagnostics(proc)
+            except Exception as exc:
+                result["timeout_diagnostics"] = {"error": str(exc)}
     except EOFError as exc:
         # Closing stdout can precede the process becoming waitable. Observe
         # its natural exit before cleanup; a forced kill is never evidence of
