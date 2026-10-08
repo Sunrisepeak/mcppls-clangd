@@ -1,0 +1,604 @@
+From 595c78212a050f6450726a5feadc3ff9868774c8 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 09:11:03 +0900
+Subject: [PATCH] Collect orphan module worker units only after both owners
+ release leases
+
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |   1 +
+ .../clangd/ModuleBuildWorker.cpp              |  35 +-
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |   1 +
+ .../clangd/ModuleBuildWorkerStorage.cpp       | 319 ++++++++++++++++++
+ .../clangd/ModuleBuildWorkerStorage.h         |  72 ++++
+ .../unittests/PrerequisiteModulesTest.cpp     |  59 ++++
+ 6 files changed, 476 insertions(+), 11 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index 154c3d89a..8657f955c 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -98,6 +98,7 @@ add_clang_library(clangDaemon STATIC
+   JSONTransport.cpp
+   ModuleBuildMemoryBudget.cpp
+   ModuleBuildWorker.cpp
++  ModuleBuildWorkerStorage.cpp
+   ModulesBuilder.cpp
+   PathMapping.cpp
+   ProjectModules.cpp
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 4fe648695..23420cdfe 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -9,6 +9,7 @@
+ #include "ModuleBuildWorker.h"
+ #include "Compiler.h"
+ #include "ModuleBuildMemoryBudget.h"
++#include "ModuleBuildWorkerStorage.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Frontend/TextDiagnosticPrinter.h"
+ #include "clang/Lex/PreprocessorOptions.h"
+@@ -376,21 +377,15 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   if (llvm::sys::fs::exists(Output))
+     return llvm::createStringError(
+         "module worker staged output already exists");
+-  llvm::SmallString<256> Directory;
+-  if (auto EC = llvm::sys::fs::createUniqueDirectory("clangd-module-worker",
+-                                                     Directory))
+-    return llvm::errorCodeToError(EC);
++  auto Unit = ModuleBuildWorkerUnit::create(Output, Options.UnitRoot);
++  if (!Unit)
++    return Unit.takeError();
+   bool Success = false;
+   auto Cleanup = llvm::scope_exit([&] {
+-    llvm::sys::fs::remove_directories(Directory);
+     if (!Success)
+       llvm::sys::fs::remove(Output);
+   });
+-  auto Path = [&](StringRef Name) {
+-    llvm::SmallString<256> Result(Directory);
+-    llvm::sys::path::append(Result, Name);
+-    return Result.str().str();
+-  };
++  auto Path = [&](StringRef Name) { return (*Unit)->file(Name); };
+   ModuleBuildWorkerInputs Inputs;
+   Inputs.FileSystem =
+       ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
+@@ -427,6 +422,8 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   if (auto Err = writeSnapshot(Inputs.OverlayFiles.front(), YAML))
+     return std::move(Err);
+   CompilerInvocation WorkerInvocation(Invocation);
++  const std::string WorkerOutput = Path("output.pcm");
++  WorkerInvocation.getFrontendOpts().OutputFile = WorkerOutput;
+   WorkerInvocation.getHeaderSearchOpts().ModuleCachePath = Path("module-cache");
+   auto Request = serializeModuleBuildWorkerRequest(WorkerInvocation, Inputs);
+   if (!Request)
+@@ -500,8 +497,10 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+           "module worker built uncaptured implicit prerequisites");
+   if (EC && EC != std::errc::no_such_file_or_directory)
+     return llvm::errorCodeToError(EC);
+-  if (!llvm::sys::fs::exists(Output))
++  if (!llvm::sys::fs::exists(WorkerOutput))
+     return llvm::createStringError("module worker produced no staged output");
++  if (auto EC = llvm::sys::fs::rename(WorkerOutput, Output))
++    return llvm::errorCodeToError(EC);
+   Success = true;
+   return std::optional<ModuleBuildWorkerResult>(
+       {std::chrono::duration_cast<std::chrono::milliseconds>(
+@@ -524,6 +523,20 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+   }
+   if (auto Err = enterModuleBuildWorkerMemoryBudget(MemoryBudgetToken))
+     return Err;
++  std::unique_ptr<ModuleBuildWorkerLease> WorkerLease;
++  const auto UnitDirectory = llvm::sys::path::parent_path(RequestFile);
++  llvm::SmallString<256> RootMarker(
++      llvm::sys::path::parent_path(UnitDirectory));
++  llvm::sys::path::append(RootMarker, "owned.root");
++  // Direct protocol probes remain supported outside owned roots. A replay
++  // inside an owned root must retain its worker lease even without an owner
++  // token, and a retired unit must never restart through that debug path.
++  if (!OwnerToken.empty() || llvm::sys::fs::exists(RootMarker)) {
++    auto Lease = ModuleBuildWorkerLease::acquire(UnitDirectory, true);
++    if (!Lease)
++      return Lease.takeError();
++    WorkerLease = std::move(*Lease);
++  }
+   auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
+   if (!Buffer)
+     return llvm::errorCodeToError(Buffer.getError());
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index 49fe100b1..62d6538b2 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -51,6 +51,7 @@ struct ModuleBuildWorkerOptions {
+   Policy Isolation = Policy::InProcess;
+   std::string Executable;
+   std::chrono::milliseconds Timeout{60000};
++  std::string UnitRoot;
+   std::function<bool()> Cancelled;
+   // Explicit aggregate Linux worker budget; share the same owner across calls.
+   // Supplying a budget forbids every in-process/unsupported fallback.
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+new file mode 100644
+index 000000000..aa4fb05f1
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+@@ -0,0 +1,319 @@
++//===--- ModuleBuildWorkerStorage.cpp - compiler worker ownership ---------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#include "ModuleBuildWorkerStorage.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringMap.h"
++#include "llvm/ADT/StringSet.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/Process.h"
++#include "llvm/Support/raw_ostream.h"
++#include <algorithm>
++#include <chrono>
++#include <mutex>
++#ifndef _WIN32
++#include <cerrno>
++#include <unistd.h>
++#endif
++
++namespace clang::clangd {
++using llvm::StringRef;
++namespace {
++constexpr llvm::StringLiteral RootMarker = "clangd-worker-root-v1\n";
++constexpr llvm::StringLiteral UnitMarker = "clangd-worker-unit-v1\n";
++std::mutex ActiveUnitsMutex;
++// POSIX record locks do not exclude another thread in the same process, and
++// closing its second descriptor could release the first descriptor's lock.
++llvm::StringMap<unsigned> ActiveUnits;
++llvm::StringSet<> CollectingUnits;
++
++llvm::Expected<std::string> ownershipKey(PathRef Unit) {
++  llvm::sys::fs::UniqueID ID;
++  if (auto EC = llvm::sys::fs::getUniqueID(Unit, ID))
++    return llvm::errorCodeToError(EC);
++  // Physical directory identity also covers case aliases on filesystems
++  // where real_path() can preserve the caller's component spelling.
++  return std::to_string(ID.getDevice()) + ":" + std::to_string(ID.getFile());
++}
++
++std::string unitPath(PathRef Unit, StringRef Name) {
++  llvm::SmallString<256> Path(Unit);
++  llvm::sys::path::append(Path, Name);
++  return Path.str().str();
++}
++bool hasMarker(PathRef Path, StringRef Marker) {
++  uint64_t Size = 0;
++  if (llvm::sys::fs::file_size(Path, Size) || Size != Marker.size())
++    return false;
++  auto Contents = llvm::MemoryBuffer::getFile(Path);
++  return Contents && (*Contents)->getBuffer() == Marker;
++}
++llvm::Error writeMarker(PathRef Path, StringRef Marker) {
++  std::error_code EC;
++  llvm::raw_fd_ostream Out(Path, EC);
++  if (EC)
++    return llvm::errorCodeToError(EC);
++  Out << Marker;
++  Out.flush();
++  if (Out.has_error()) {
++    EC = Out.error();
++    Out.clear_error();
++    return llvm::errorCodeToError(EC);
++  }
++  return llvm::Error::success();
++}
++std::error_code removeOwnerPipe(PathRef Unit) {
++  const std::string Path = unitPath(Unit, "owner.pipe");
++#ifdef _WIN32
++  return llvm::sys::fs::remove(Path);
++#else
++  // LLVM's remove()/remove_directories() intentionally skip FIFO files.
++  if (unlink(Path.c_str()) && errno != ENOENT)
++    return std::error_code(errno, std::generic_category());
++  return {};
++#endif
++}
++llvm::Error prepareRoot(PathRef Root) {
++  if (!llvm::sys::path::is_absolute(Root) || Root.contains('\0'))
++    return llvm::createStringError("worker unit root must be absolute");
++  if (auto EC = llvm::sys::fs::create_directories(Root))
++    return llvm::errorCodeToError(EC);
++  const std::string MarkerPath = unitPath(Root, "owned.root");
++  if (!llvm::sys::fs::exists(MarkerPath)) {
++    int FD = -1;
++    llvm::SmallString<256> Temporary;
++    if (auto EC = llvm::sys::fs::createUniqueFile(
++            unitPath(Root, "root-marker-%%%%%%"), FD, Temporary))
++      return llvm::errorCodeToError(EC);
++    auto Cleanup = llvm::scope_exit([&] { llvm::sys::fs::remove(Temporary); });
++    llvm::raw_fd_ostream Out(FD, true);
++    Out << RootMarker;
++    Out.flush();
++    if (Out.has_error()) {
++      auto EC = Out.error();
++      Out.clear_error();
++      return llvm::errorCodeToError(EC);
++    }
++    // Publish complete contents without replacing another root marker.
++    if (auto EC = llvm::sys::fs::create_hard_link(Temporary, MarkerPath))
++      if (EC != std::errc::file_exists)
++        return llvm::errorCodeToError(EC);
++  }
++  if (!hasMarker(MarkerPath, RootMarker))
++    return llvm::createStringError("unrecognized worker unit root");
++  return llvm::Error::success();
++}
++} // namespace
++
++std::string defaultModuleBuildWorkerRoot(PathRef Output) {
++  return unitPath(llvm::sys::path::parent_path(Output),
++                  ".clangd-module-workers-v1");
++}
++
++ModuleBuildWorkerLease::ModuleBuildWorkerLease(PathRef Unit, StringRef Key)
++    : Unit(Unit), OwnershipKey(Key) {
++  // acquire() owns ActiveUnitsMutex until this registration is complete.
++  ++ActiveUnits[OwnershipKey];
++}
++ModuleBuildWorkerLease::~ModuleBuildWorkerLease() {
++  if (FD >= 0) {
++    llvm::sys::fs::unlockFile(FD);
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++  }
++  std::lock_guard<std::mutex> Guard(ActiveUnitsMutex);
++  auto I = ActiveUnits.find(OwnershipKey);
++  if (--I->second == 0)
++    ActiveUnits.erase(I);
++}
++llvm::Expected<std::unique_ptr<ModuleBuildWorkerLease>>
++ModuleBuildWorkerLease::acquire(PathRef Unit, bool Worker) {
++  llvm::SmallString<256> Canonical;
++  if (auto EC = llvm::sys::fs::real_path(Unit, Canonical))
++    return llvm::errorCodeToError(EC);
++  Unit = Canonical;
++  auto Key = ownershipKey(Unit);
++  if (!Key)
++    return Key.takeError();
++  std::unique_ptr<ModuleBuildWorkerLease> Lease;
++  {
++    std::lock_guard<std::mutex> Guard(ActiveUnitsMutex);
++    if (CollectingUnits.contains(*Key))
++      return llvm::createStringError("worker unit is being collected");
++    Lease.reset(new ModuleBuildWorkerLease(Unit, *Key));
++  }
++  if (auto EC = llvm::sys::fs::openFileForReadWrite(
++          unitPath(Unit, Worker ? "worker.lease" : "parent.lease"), Lease->FD,
++          Worker ? llvm::sys::fs::CD_OpenExisting : llvm::sys::fs::CD_CreateNew,
++          llvm::sys::fs::OF_None))
++    return llvm::errorCodeToError(EC);
++  if (auto EC = llvm::sys::fs::tryLockFile(Lease->FD))
++    return llvm::errorCodeToError(EC);
++  // Check after acquiring, not before: a collector retires this marker while
++  // owning both leases, then closes handles to permit Windows deletion.
++  if (Worker && !hasMarker(unitPath(Unit, "owned.unit"), UnitMarker))
++    return llvm::createStringError("worker unit was retired before startup");
++  return std::move(Lease);
++}
++
++llvm::Expected<std::unique_ptr<ModuleBuildWorkerUnit>>
++ModuleBuildWorkerUnit::create(PathRef Output, PathRef ConfiguredRoot) {
++  std::string Root = ConfiguredRoot.empty()
++                         ? defaultModuleBuildWorkerRoot(Output)
++                         : ConfiguredRoot.str();
++  if (auto Err = prepareRoot(Root))
++    return std::move(Err);
++  auto Unit = std::unique_ptr<ModuleBuildWorkerUnit>(new ModuleBuildWorkerUnit);
++  llvm::SmallString<256> Directory;
++  if (auto EC = llvm::sys::fs::createUniqueDirectory(unitPath(Root, "unit"),
++                                                     Directory))
++    return llvm::errorCodeToError(EC);
++  Unit->Directory = Directory.str().str();
++  auto Lease = ModuleBuildWorkerLease::acquire(Unit->Directory, false);
++  if (!Lease)
++    return Lease.takeError();
++  Unit->ParentLease = std::move(*Lease);
++  if (auto Err = writeMarker(Unit->file("worker.lease"), ""))
++    return std::move(Err);
++  // Only fully initialized, leased units advertise collector ownership.
++  if (auto Err = writeMarker(Unit->file("owned.unit"), UnitMarker))
++    return std::move(Err);
++  return std::move(Unit);
++}
++std::string ModuleBuildWorkerUnit::file(StringRef Name) const {
++  return unitPath(Directory, Name);
++}
++ModuleBuildWorkerUnit::~ModuleBuildWorkerUnit() {
++  if (Directory.empty())
++    return;
++  // Parent lease is still held while retiring the marker. Delayed child
++  // startup must not begin compilation after normal failure cleanup either.
++  llvm::sys::fs::remove(file("owned.unit"));
++  // Windows cannot unlink open lease files. The worker has been reaped by
++  // the caller before this object is destroyed.
++  ParentLease.reset();
++  removeOwnerPipe(Directory);
++  llvm::sys::fs::remove_directories(Directory);
++}
++
++class ModuleBuildWorkerCollector::Impl {
++public:
++  explicit Impl(PathRef Root) : Root(Root) {}
++  std::string Root;
++  std::mutex Mutex;
++  std::chrono::steady_clock::time_point NextSweep{};
++  llvm::sys::fs::directory_iterator Cursor;
++};
++ModuleBuildWorkerCollector::ModuleBuildWorkerCollector(PathRef Root)
++    : State(std::make_unique<Impl>(Root)) {}
++ModuleBuildWorkerCollector::~ModuleBuildWorkerCollector() = default;
++
++llvm::Expected<ModuleBuildWorkerSweepResult>
++ModuleBuildWorkerCollector::collect(unsigned MaxEntries) {
++  ModuleBuildWorkerSweepResult Result;
++  std::unique_lock<std::mutex> SweepGuard(State->Mutex, std::try_to_lock);
++  if (!SweepGuard.owns_lock() ||
++      std::chrono::steady_clock::now() < State->NextSweep) {
++    Result.Deferred = true;
++    return Result;
++  }
++  State->NextSweep =
++      std::chrono::steady_clock::now() + std::chrono::seconds(30);
++  if (!llvm::sys::path::is_absolute(State->Root) ||
++      StringRef(State->Root).contains('\0'))
++    return llvm::createStringError("worker collection root must be absolute");
++  if (!hasMarker(unitPath(State->Root, "owned.root"), RootMarker))
++    return llvm::createStringError("unrecognized worker collection root");
++  std::error_code EC;
++  const llvm::sys::fs::directory_iterator End;
++  if (State->Cursor == End)
++    State->Cursor = llvm::sys::fs::directory_iterator(State->Root, EC, false);
++  if (EC)
++    return llvm::errorCodeToError(EC);
++  const unsigned Limit = (std::min)(MaxEntries, 128u);
++  while (State->Cursor != End && Result.Examined < Limit) {
++    const auto Entry = *State->Cursor;
++    State->Cursor.increment(EC);
++    if (EC)
++      return llvm::errorCodeToError(EC);
++    ++Result.Examined;
++    llvm::SmallString<256> Canonical;
++    if (llvm::sys::fs::real_path(Entry.path(), Canonical))
++      continue;
++    const std::string Unit = Canonical.str().str();
++    auto Key = ownershipKey(Unit);
++    if (!Key) {
++      llvm::consumeError(Key.takeError());
++      continue;
++    }
++    const bool Retired = hasMarker(unitPath(Unit, "retired.unit"), UnitMarker);
++    if (Entry.type() != llvm::sys::fs::file_type::directory_file ||
++        (!Retired && !hasMarker(unitPath(Unit, "owned.unit"), UnitMarker)))
++      continue;
++    // Same-process ownership must be checked before opening either sidecar.
++    // Reserve collection under the mutex, then release before all filesystem
++    // I/O. Requests never wait behind a collector's opens/removals.
++    std::unique_lock<std::mutex> ActiveGuard(ActiveUnitsMutex,
++                                             std::try_to_lock);
++    if (!ActiveGuard.owns_lock() || ActiveUnits.contains(*Key) ||
++        CollectingUnits.contains(*Key))
++      continue;
++    CollectingUnits.insert(*Key);
++    ActiveGuard.unlock();
++    auto ReleaseCollection = llvm::scope_exit([&] {
++      std::lock_guard<std::mutex> Guard(ActiveUnitsMutex);
++      CollectingUnits.erase(*Key);
++    });
++    int ParentFD = -1, WorkerFD = -1;
++    auto Close = llvm::scope_exit([&] {
++      for (int FD : {ParentFD, WorkerFD})
++        if (FD >= 0) {
++          llvm::sys::fs::unlockFile(FD);
++          llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++        }
++    });
++    if (llvm::sys::fs::openFileForReadWrite(
++            unitPath(Unit, "parent.lease"), ParentFD,
++            llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None) ||
++        llvm::sys::fs::tryLockFile(ParentFD) ||
++        llvm::sys::fs::openFileForReadWrite(
++            unitPath(Unit, "worker.lease"), WorkerFD,
++            llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None) ||
++        llvm::sys::fs::tryLockFile(WorkerFD))
++      continue;
++    // Retire under BOTH leases. A worker starting after we close them must
++    // fail its post-lock marker check, even before deletion has completed.
++    if (!Retired && llvm::sys::fs::rename(unitPath(Unit, "owned.unit"),
++                                          unitPath(Unit, "retired.unit")))
++      continue;
++    // Close before deletion on Windows. No startup can cross retired.unit.
++    Close.release();
++    for (int FD : {ParentFD, WorkerFD}) {
++      llvm::sys::fs::unlockFile(FD);
++      llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    }
++    if (removeOwnerPipe(Unit))
++      continue;
++    llvm::sys::fs::remove_directories(Unit);
++    if (!llvm::sys::fs::exists(Unit))
++      ++Result.Removed;
++    else {
++      // Keep failed removals eligible for a later sweep. The retired marker
++      // permanently forbids frontend startup, even if recursive deletion
++      // already removed one of the sidecars before encountering an IO error.
++      for (StringRef Name :
++           {StringRef("parent.lease"), StringRef("worker.lease")})
++        if (!llvm::sys::fs::exists(unitPath(Unit, Name)))
++          llvm::consumeError(writeMarker(unitPath(Unit, Name), ""));
++      llvm::consumeError(
++          writeMarker(unitPath(Unit, "retired.unit"), UnitMarker));
++    }
++  }
++  return Result;
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+new file mode 100644
+index 000000000..80684a0b2
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+@@ -0,0 +1,72 @@
++//===--- ModuleBuildWorkerStorage.h - compiler worker ownership ---*- C++
++//-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKERSTORAGE_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKERSTORAGE_H
++
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include <memory>
++#include <string>
++
++namespace clang::clangd {
++
++// Empty configured roots default to a versioned root beside the caller's
++// staged output, keeping final rename on the same filesystem.
++std::string defaultModuleBuildWorkerRoot(PathRef StagedOutput);
++
++class ModuleBuildWorkerLease {
++public:
++  static llvm::Expected<std::unique_ptr<ModuleBuildWorkerLease>>
++  acquire(PathRef Unit, bool Worker);
++  ~ModuleBuildWorkerLease();
++
++private:
++  ModuleBuildWorkerLease(PathRef Unit, llvm::StringRef OwnershipKey);
++  std::string Unit;
++  std::string OwnershipKey;
++  int FD = -1;
++};
++
++class ModuleBuildWorkerUnit {
++public:
++  static llvm::Expected<std::unique_ptr<ModuleBuildWorkerUnit>>
++  create(PathRef StagedOutput, PathRef ConfiguredRoot = {});
++  ~ModuleBuildWorkerUnit();
++  std::string file(llvm::StringRef Name) const;
++  const std::string &directory() const { return Directory; }
++
++private:
++  ModuleBuildWorkerUnit() = default;
++  std::string Directory;
++  std::unique_ptr<ModuleBuildWorkerLease> ParentLease;
++};
++
++struct ModuleBuildWorkerSweepResult {
++  unsigned Examined = 0;
++  unsigned Removed = 0;
++  bool Deferred = false;
++};
++
++// Maintenance-only: never called by buildModuleInWorker. One collector owns
++// its directory cursor and a 30s cadence. Calls do not wait for another sweep
++// or any lease. Each call examines at most min(MaxEntries, 128) root entries.
++// Unit removal can perform filesystem I/O, so call from a maintenance thread.
++class ModuleBuildWorkerCollector {
++public:
++  explicit ModuleBuildWorkerCollector(PathRef Root);
++  ~ModuleBuildWorkerCollector();
++  llvm::Expected<ModuleBuildWorkerSweepResult>
++  collect(unsigned MaxEntries = 32);
++
++private:
++  class Impl;
++  std::unique_ptr<Impl> State;
++};
++} // namespace clang::clangd
++#endif
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index c5aecfc30..2d44a60c0 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -16,6 +16,7 @@
+ #include "Compiler.h"
+ #include "ModuleBuildMemoryBudget.h"
+ #include "ModuleBuildWorker.h"
++#include "ModuleBuildWorkerStorage.h"
+ #include "ModuleDependencyScanCache.h"
+ #include "ModulesBuilder.h"
+ #include "Preamble.h"
+@@ -462,6 +463,64 @@ TEST_F(PrerequisiteModulesTests,
+   llvm::consumeError(std::move(Err));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
++  const std::string Root = (TestDir + "/owned-workers").str();
++  auto Parent = ModuleBuildWorkerUnit::create(
++      (TestDir + "/staged.pcm").str(), Root);
++  ASSERT_TRUE(static_cast<bool>(Parent));
++  auto Write = [&](StringRef Path, StringRef Text) {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Path, EC);
++    ASSERT_FALSE(EC);
++    Out << Text;
++  };
++  auto Fixture = [&](StringRef Name, bool Marked) {
++    std::string Directory = (Root + "/" + Name).str();
++    EXPECT_FALSE(llvm::sys::fs::create_directories(Directory));
++    Write(Directory + "/parent.lease", "");
++    Write(Directory + "/worker.lease", "");
++    if (Marked)
++      Write(Directory + "/owned.unit", "clangd-worker-unit-v1\n");
++    Write(Directory + "/output.pcm", "owned partial output");
++    return Directory;
++  };
++  const std::string Orphan = Fixture("orphan", true);
++  const std::string Worker = Fixture("worker-only", true);
++  auto WorkerLease = ModuleBuildWorkerLease::acquire(Worker, true);
++  ASSERT_TRUE(static_cast<bool>(WorkerLease));
++  const std::string Legacy = Fixture("legacy", false);
++  const std::string Retired = Fixture("retired", true);
++  ASSERT_FALSE(llvm::sys::fs::rename(Retired + "/owned.unit",
++                                      Retired + "/retired.unit"));
++  auto LateWorker = ModuleBuildWorkerLease::acquire(Retired, true);
++  ASSERT_FALSE(static_cast<bool>(LateWorker));
++  EXPECT_THAT(llvm::toString(LateWorker.takeError()),
++              testing::HasSubstr("retired before startup"));
++  Write(Retired + "/request.json", "invalid request must not be read");
++  EXPECT_THAT(llvm::toString(runModuleBuildWorker(Retired + "/request.json")),
++              testing::HasSubstr("retired before startup"));
++
++  // A lexical alias must not bypass same-process lease ownership: merely
++  // opening/closing a second POSIX descriptor can release the owner's lock.
++  ModuleBuildWorkerCollector Collector(Root + "/../owned-workers");
++  auto Swept = Collector.collect();
++  ASSERT_TRUE(static_cast<bool>(Swept));
++  EXPECT_EQ(Swept->Removed, 2u);
++  EXPECT_FALSE(llvm::sys::fs::exists(Orphan));
++  EXPECT_FALSE(llvm::sys::fs::exists(Retired));
++  EXPECT_TRUE(llvm::sys::fs::exists((*Parent)->directory()));
++  EXPECT_TRUE(llvm::sys::fs::exists(Worker + "/output.pcm"));
++  EXPECT_TRUE(llvm::sys::fs::exists(Legacy + "/output.pcm"));
++  auto Throttled = Collector.collect();
++  ASSERT_TRUE(static_cast<bool>(Throttled));
++  EXPECT_TRUE(Throttled->Deferred);
++  EXPECT_EQ(Throttled->Examined, 0u);
++  ModuleBuildWorkerCollector SmallBatch(Root);
++  auto Limited = SmallBatch.collect(2);
++  ASSERT_TRUE(static_cast<bool>(Limited));
++  EXPECT_LE(Limited->Examined, 2u);
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleWorkerPreservesCapturedInputs) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "#error disk main must not be read\n");
+-- 
+2.53.0
+

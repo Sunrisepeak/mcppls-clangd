@@ -1,0 +1,141 @@
+From 1b82a6af7ffa6463ad60d8cdbffce007ac7f88f4 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:56:23 +0900
+Subject: [PATCH] Apply checked address-space limits before worker frontend
+ allocation
+
+---
+ .../clangd/ModuleBuildWorker.cpp              | 49 +++++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |  7 +++
+ 2 files changed, 56 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 23420cdfe..0b37c05a9 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -17,6 +17,7 @@
+ #include "llvm/ADT/StringMap.h"
+ #include "llvm/Config/llvm-config.h"
+ #include "llvm/Support/Process.h"
++#include "llvm/Support/ErrorHandling.h"
+ #include <array>
+ #include <atomic>
+ #include <cstdlib>
+@@ -45,6 +46,40 @@ constexpr int ProtocolVersion = 1;
+ constexpr llvm::StringLiteral CapturedFileSystem =
+     "disk-with-captured-overlays";
+ 
++llvm::Error applyAddressSpaceLimit(uint64_t Bytes) {
++  if (!Bytes)
++    return llvm::Error::success();
++#if defined(RLIMIT_AS) && !defined(_WIN32)
++  struct rlimit Previous;
++  if (getrlimit(RLIMIT_AS, &Previous))
++    return llvm::errorCodeToError(
++        std::error_code(errno, std::generic_category()));
++  if (Bytes > (std::numeric_limits<rlim_t>::max)())
++    return llvm::createStringError("module worker address limit is too large");
++  const rlim_t Limit = (std::min)(static_cast<rlim_t>(Bytes), Previous.rlim_max);
++  struct rlimit Requested { Limit, Limit };
++  if (setrlimit(RLIMIT_AS, &Requested))
++    return llvm::errorCodeToError(
++        std::error_code(errno, std::generic_category()));
++  struct rlimit Actual;
++  if (getrlimit(RLIMIT_AS, &Actual))
++    return llvm::errorCodeToError(
++        std::error_code(errno, std::generic_category()));
++  if (Actual.rlim_cur != Limit || Actual.rlim_max != Limit)
++    return llvm::createStringError("module worker address limit did not apply");
++  // LLVM's ordinary allocation failure path may allocate while printing a
++  // stack, recursively exhaust this deliberately bounded process and hang.
++  // This internal worker cannot publish its staged output; the parent owns
++  // cleanup after this immediate, allocation-free failure exit.
++  llvm::install_bad_alloc_error_handler(
++      [](void *, const char *, bool) { std::_Exit(1); }, nullptr);
++  return llvm::Error::success();
++#else
++  return llvm::createStringError(
++      "module worker address-space limits are unsupported on this platform");
++#endif
++}
++
+ llvm::Error validateInputs(const ModuleBuildWorkerInputs &Inputs) {
+   if (Inputs.FileSystem !=
+       ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays)
+@@ -328,6 +363,9 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+     return std::move(Err);
+   if (auto Err = validateInvocation(Invocation, Inputs))
+     return std::move(Err);
++  if (Inputs.AddressSpaceLimitBytes >
++      static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
++    return llvm::createStringError("module worker address limit is too large");
+   llvm::json::Object Request{
+       {"version", ProtocolVersion},
+       {"filesystem", CapturedFileSystem},
+@@ -335,6 +373,7 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+       {"mainFile", Inputs.MainFile},
+       {"mainContentsFile", Inputs.MainContentsFile},
+       {"overlays", llvm::json::Array(Inputs.OverlayFiles)},
++      {"addressSpaceLimitBytes", static_cast<int64_t>(Inputs.AddressSpaceLimitBytes)},
+       {"cc1Arguments", llvm::json::Array(Invocation.getCC1CommandLine())}};
+   return llvm::formatv("{0}", llvm::json::Value(std::move(Request))).str();
+ }
+@@ -387,6 +426,7 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   });
+   auto Path = [&](StringRef Name) { return (*Unit)->file(Name); };
+   ModuleBuildWorkerInputs Inputs;
++  Inputs.AddressSpaceLimitBytes = Options.AddressSpaceLimitBytes;
+   Inputs.FileSystem =
+       ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
+   Inputs.WorkingDirectory = WorkingDirectory.str();
+@@ -548,6 +588,15 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+       Object->getString("filesystem") != CapturedFileSystem)
+     return llvm::createStringError(
+         "unsupported module worker request protocol");
++  if (Object->get("addressSpaceLimitBytes")) {
++    auto Limit = Object->getInteger("addressSpaceLimitBytes");
++    if (!Limit || *Limit < 0)
++      return llvm::createStringError("invalid module worker address limit");
++    // The small request JSON is already loaded. Apply/read back the ceiling
++    // before loading the captured main, overlays or invoking the frontend.
++    if (auto Err = applyAddressSpaceLimit(static_cast<uint64_t>(*Limit)))
++      return Err;
++  }
+   ModuleBuildWorkerInputs Inputs;
+   Inputs.FileSystem =
+       ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index 62d6538b2..fbede47cc 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -13,6 +13,7 @@
+ #include "llvm/Support/Error.h"
+ #include "llvm/Support/Program.h"
+ #include <chrono>
++#include <cstdint>
+ #include <functional>
+ #include <memory>
+ #include <optional>
+@@ -36,6 +37,9 @@ struct ModuleBuildWorkerInputs {
+   std::string MainFile;
+   std::string MainContentsFile;
+   std::vector<std::string> OverlayFiles;
++  // Optional checked address-space ceiling for this child, distinct from
++  // kernel-accounted group memory. Zero preserves direct protocol probes.
++  uint64_t AddressSpaceLimitBytes = 0;
+ };
+ 
+ // Only opt into DiskWithCapturedOverlays if it reproduces the entire request
+@@ -56,6 +60,9 @@ struct ModuleBuildWorkerOptions {
+   // Explicit aggregate Linux worker budget; share the same owner across calls.
+   // Supplying a budget forbids every in-process/unsupported fallback.
+   std::shared_ptr<ModuleBuildWorkerMemoryBudget> MemoryBudget;
++  // Applies to launched workers; WhenSupported still selects in-process
++  // execution before launch for an unexportable filesystem.
++  uint64_t AddressSpaceLimitBytes = 0;
+ };
+ struct ModuleBuildWorkerResult {
+   std::chrono::milliseconds WallTime;
+-- 
+2.53.0
+

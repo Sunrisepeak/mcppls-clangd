@@ -185,3 +185,51 @@ permits temporary overshoot. All covered calls must share the same owner.
 Parent-death group directory collection and default/native integration remain
 required. Evidence retains the private source and executable identities in
 tests/evidence/module-worker-memory-budget.json.
+
+## 0039 leased worker units and maintenance collection
+
+A versioned owned root now holds each request, overlays, implicit cache,
+private output, stderr and owner FIFO. The parent holds parent.lease before
+publishing ownership; a worker acquires worker.lease and checks the marker
+after locking. Successful natural reap transfers output to caller staging.
+Normal destruction removes the unit, including an explicit FIFO unlink.
+
+Collection is a separate maintenance API with a persistent cursor, 30-second
+cadence and bounded entry count. It requires both nonblocking kernel leases,
+reserves physical directory identity against same-process alias ownership,
+and retires the marker before deletion to reject delayed worker startup.
+No filesystem I/O happens under the process registry mutex. Unmarked legacy
+or partial startup units remain untouched. Published BMIs and caller staging
+remain outside this collector's ownership.
+
+Private actual Linux proof kills the supervisor during marked frontend work:
+the worker exits naturally in 3.16 ms. A fresh collector removes exactly that
+orphan while retaining live parent-only and worker-only units and unmarked
+legacy data; after helpers close it removes their two units. Success, timeout
+and cancellation reap only the worker and clean all normal units. This proof
+is based on 0037; the exported integrated patch includes 0038 admission but
+that combined root and default server still require validation. See
+tests/evidence/module-worker-collection.json.
+
+## 0040 checked worker address space
+
+An optional protocol field supplies a launched worker's address-space ceiling.
+After reading the small request, before overlays/main/frontend allocation,
+bootstrap sets both RLIMIT_AS limits and verifies exact readback. It respects
+an existing tighter hard limit. Invalid protocol values and unsupported
+positive limits fail closed. This complements explicit shared kernel-memory
+admission; it does not replace or bypass its checks.
+
+LLVM's usual OOM reporting can itself allocate after exhaustion. A worker
+with a positive limit therefore installs an allocation-free bad-allocation
+exit callback. A deliberately small 16 MiB ceiling now ends naturally in
+11 ms with no PCM, reaped child and cleaned unit. A 1 GiB success and active
+frontend timeout observe both actual OS limits at 1073741824 bytes and retain
+an unrelated child. Negative, string and boolean protocol values are rejected.
+Evidence in tests/evidence/module-worker-address-space.json identifies the
+private binaries and source, separate from pending combined root proof.
+
+Address space differs from RSS and kernel-accounted shared group memory.
+WhenSupported may select compatibility execution for an unexportable filesystem
+before launch; this option then supplies no in-process bound. Parent/scanner
+allocations and native platform qualification remain separate work.

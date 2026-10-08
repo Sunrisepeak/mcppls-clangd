@@ -1,0 +1,66 @@
+{
+  "scope": "Private Linux changed translation unit at 6deb92dce on patch 0037 with read-only root 0037 archives; integrated source 1b82a6af7 includes 0038/0039, not yet rebuilt/default-wired.",
+  "binaries": {
+    "clangd": "78d123e5f5a15dd1e123dceebab32b0d96267c949e5f4cb44c5b672c823d30b7",
+    "probe": "2d15867ade9d760abb5520f3bbee3a48efc1d0a0520e42d5b4f05fc51e425949"
+  },
+  "cases": [
+    {
+      "mode": "success",
+      "limit_bytes": 1073741824,
+      "exit": 0,
+      "stdout": "elapsed_ms=21 other_alive=1 no_children=1 output=1\nworker_success=1\n",
+      "stderr": "",
+      "checked_limits_observed": [
+        "Max address space         1073741824           1073741824           bytes     "
+      ],
+      "remaining_units": []
+    },
+    {
+      "mode": "timeout",
+      "limit_bytes": 1073741824,
+      "exit": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\nmodule worker timed out (pid 816807): /tmp/mcppls-worker-address-evidence/timeout-1073741824/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "checked_limits_observed": [
+        "Max address space         1073741824           1073741824           bytes     "
+      ],
+      "remaining_units": []
+    },
+    {
+      "mode": "cancel",
+      "limit_bytes": 16777216,
+      "exit": 0,
+      "stdout": "elapsed_ms=11 other_alive=1 no_children=1 output=0\nmodule worker failed: \n",
+      "stderr": "",
+      "checked_limits_observed": [],
+      "remaining_units": []
+    }
+  ],
+  "malformed_protocol": [
+    {
+      "limit": -1,
+      "exit": 1,
+      "stderr": "invalid module worker address limit\n",
+      "output_exists": false
+    },
+    {
+      "limit": "64MiB",
+      "exit": 1,
+      "stderr": "invalid module worker address limit\n",
+      "output_exists": false
+    },
+    {
+      "limit": true,
+      "exit": 1,
+      "stderr": "invalid module worker address limit\n",
+      "output_exists": false
+    }
+  ],
+  "limits": [
+    "RLIMIT_AS bounds this launched process address space, not RSS or group kernel memory.",
+    "Unknown filesystem WhenSupported fallback remains in-process.",
+    "Positive limits on unsupported platforms fail closed.",
+    "No final native package qualification."
+  ]
+}

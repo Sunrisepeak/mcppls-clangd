@@ -1,0 +1,62 @@
+{
+  "scope": "Private Linux proof at c524b66c3 on patch 0037; integrated source 595c78212 includes patch 0038, not yet rebuilt or default-wired.",
+  "collection": {
+    "owner_death": {
+      "parent_exit": -9,
+      "worker_exit": 1,
+      "elapsed_ms": 3.16,
+      "frontend_marker": "/tmp/module-worker-supervisor-evidence/39-owner-o7fpp0sf/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n",
+      "orphan_unit": "/tmp/module-worker-supervisor-evidence/39-owner-o7fpp0sf/.clangd-module-workers-v1/unit-f29ae5",
+      "private_output_exists": false,
+      "original_output_exists": false
+    },
+    "sweeps": [
+      {
+        "phase": "active-parent-and-worker-retained",
+        "exit": 0,
+        "stdout": "examined=5 removed=0 deferred=0\n",
+        "stderr": ""
+      },
+      {
+        "phase": "dead-owner-real-orphan-collected",
+        "exit": 0,
+        "stdout": "examined=5 removed=1 deferred=0\n",
+        "stderr": ""
+      },
+      {
+        "phase": "closed-helper-leases-collected",
+        "exit": 0,
+        "stdout": "examined=4 removed=2 deferred=0\n",
+        "stderr": ""
+      }
+    ],
+    "legacy_retained": true
+  },
+  "supervision": [
+    {
+      "mode": "success",
+      "exit": 0,
+      "stdout": "elapsed_ms=21 other_alive=1 no_children=1 output=1\nworker_success=1\n",
+      "stderr": "",
+      "remaining_units": []
+    },
+    {
+      "mode": "timeout",
+      "exit": 0,
+      "stdout": "elapsed_ms=104 other_alive=1 no_children=1 output=0\nmodule worker timed out (pid 948101): /tmp/module-worker-supervisor-evidence/timeout/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "remaining_units": []
+    },
+    {
+      "mode": "cancel",
+      "exit": 0,
+      "stdout": "elapsed_ms=102 other_alive=1 no_children=1 output=0\nmodule worker cancelled (pid 948217): /tmp/module-worker-supervisor-evidence/cancel/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n\n",
+      "stderr": "",
+      "remaining_units": []
+    }
+  ],
+  "limits": [
+    "Collector retains unmarked units and caller-side stable BMI/staging ownership.",
+    "No default-server, native platform or final package qualification."
+  ]
+}

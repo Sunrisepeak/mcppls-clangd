@@ -74,4 +74,8 @@ they live here and in patch *filenames* only.
 
 | 0037-UP-03-module-worker-owner-lifetime.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerPreservesCapturedInputs; ci/module-worker-isolation.md | Upstream supervised compiler workers use a real inherited owner object and exit when that owner dies; orphan directory collection remains separate |
 
-| 0038-UP-03-shared-module-worker-memory-budget.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerMemoryBudgetFailsClosed; ci/module-worker-isolation.md | Upstream worker admission shares a checked owned cgroup budget and rejects unverifiable limits, membership and in-process fallback |
+| 0038-UP-03-shared-module-worker-memory-budget.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerBudgetFailsClosedBeforeRequestRead; ci/module-worker-isolation.md | Upstream worker admission shares a checked owned cgroup budget and rejects unverifiable limits, membership and in-process fallback |
+
+| 0039-UP-03-collect-leased-module-worker-units.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp ModuleWorkerCollectionRequiresBothOwnersGone; ci/module-worker-isolation.md | Upstream owned worker units use parent and worker kernel leases and bounded maintenance collection without deleting live or unmarked data |
+
+| 0040-UP-03-module-worker-address-space-limits.patch | UP-03 | stabilizing | tests/evidence/module-worker-address-space.json; ci/module-worker-isolation.md | Upstream worker launch checks configured address-space limits before frontend allocations and exits without recursive allocation diagnostics on exhaustion |
