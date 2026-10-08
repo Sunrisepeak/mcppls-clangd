@@ -1,0 +1,103 @@
+From d4ca05e95466e2581bc29d40bf76274e33bf8d83 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:58:52 +0900
+Subject: [PATCH] [clangd] Own preamble filenames retained by asynchronous
+ trace spans
+
+JSON StringRef metadata borrows the caller storage, while a callback can retain the tracing context beyond buildPreamble return. Own the filename at both preamble trace attachment sites and exercise an actual retained callback context with caller storage overwritten before event serialization.
+---
+ clang-tools-extra/clangd/Preamble.cpp         |  6 ++-
+ .../clangd/unittests/PreambleTests.cpp        | 46 +++++++++++++++++++
+ 2 files changed, 50 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index 21ff29576..f9d45ca1c 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -582,7 +582,8 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+                                       Inputs.Opts.SkipPreambleBuild);
+ 
+   trace::Span Tracer("BuildPreamble");
+-  SPAN_ATTACH(Tracer, "File", FileName);
++  // Asynchronous callbacks can retain this span beyond the filename owner.
++  SPAN_ATTACH(Tracer, "File", FileName.str());
+   std::vector<std::unique_ptr<FeatureModule::ASTListener>> ASTListeners;
+   if (Inputs.FeatureModules) {
+     for (auto &M : *Inputs.FeatureModules) {
+@@ -795,7 +796,8 @@ PreamblePatch PreamblePatch::create(llvm::StringRef FileName,
+                                     const PreambleData &Baseline,
+                                     PatchType PatchType) {
+   trace::Span Tracer("CreatePreamblePatch");
+-  SPAN_ATTACH(Tracer, "File", FileName);
++  // Asynchronous callbacks can retain this span beyond the filename owner.
++  SPAN_ATTACH(Tracer, "File", FileName.str());
+   assert(llvm::sys::path::is_absolute(FileName) && "relative FileName!");
+   // First scan preprocessor directives in Baseline and Modified. These will be
+   // used to figure out newly added directives in Modified. Scanning can fail,
+diff --git a/clang-tools-extra/clangd/unittests/PreambleTests.cpp b/clang-tools-extra/clangd/unittests/PreambleTests.cpp
+index ac0320dac..b56aa62ea 100644
+--- a/clang-tools-extra/clangd/unittests/PreambleTests.cpp
++++ b/clang-tools-extra/clangd/unittests/PreambleTests.cpp
+@@ -20,6 +20,7 @@
+ #include "TestTU.h"
+ #include "XRefs.h"
+ #include "support/Context.h"
++#include "support/Trace.h"
+ #include "clang/Basic/SourceManager.h"
+ #include "clang/Format/Format.h"
+ #include "clang/Frontend/FrontendActions.h"
+@@ -107,6 +108,51 @@ collectPatchedIncludes(llvm::StringRef ModifiedContents,
+ 
+ // Check preamble lexing logic by building an empty preamble and patching it
+ // with all the contents.
++TEST(PreambleTest, TraceFilenameSurvivesRetainedCallbackContext) {
++  MockFS FS;
++  auto TU = TestTU::withCode("#define VALUE 1\nint value = VALUE;\n");
++  auto Inputs = TU.inputs(FS);
++  IgnoreDiagnostics Diags;
++  auto CI = buildCompilerInvocation(Inputs, Diags);
++  ASSERT_TRUE(CI);
++  const std::string Expected = testPath(TU.Filename);
++  std::string Filename = Expected;
++  std::string JSON;
++  llvm::raw_string_ostream OS(JSON);
++  auto Tracer = trace::createJSONTracer(OS);
++  {
++    trace::Session Session(*Tracer);
++    std::optional<Context> Retained;
++    auto Preamble = buildPreamble(
++        Filename, *CI, Inputs, true,
++        [&](CapturedASTCtx, std::shared_ptr<const include_cleaner::PragmaIncludes>) {
++          Retained.emplace(Context::current().clone());
++        });
++    ASSERT_TRUE(Preamble);
++    ASSERT_TRUE(Retained);
++    // The real callback retained the BuildPreamble span. Overwrite the caller's
++    // storage after return, before releasing the asynchronous event context.
++    Filename.assign(Filename.size(), 'x');
++    Retained.reset();
++  }
++  Tracer.reset();
++  auto Parsed = llvm::json::parse(JSON);
++  ASSERT_TRUE(static_cast<bool>(Parsed)) << llvm::toString(Parsed.takeError());
++  auto *Events = Parsed->getAsObject()->getArray("traceEvents");
++  ASSERT_TRUE(Events);
++  bool Found = false;
++  for (const auto &Event : *Events) {
++    const auto *Object = Event.getAsObject();
++    if (!Object || Object->getString("name") != "BuildPreamble")
++      continue;
++    Found = true;
++    const auto *Args = Object->getObject("args");
++    ASSERT_TRUE(Args);
++    EXPECT_EQ(Args->getString("File"), Expected);
++  }
++  EXPECT_TRUE(Found);
++}
++
+ TEST(PreambleTest, RecordsPreambleBuildMode) {
+   auto TU = TestTU::withCode("#define VALUE 1\nint value = VALUE;\n");
+   for (bool Skip : {false, true}) {
+-- 
+2.53.0
+

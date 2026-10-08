@@ -95,3 +95,5 @@ they live here and in patch *filenames* only.
 | 0048-UP-25-reuse-preamble-build-mode-in-completion.patch | UP-25 | stabilizing | ci/completion-preamble-policy.md; tests/evidence/completion-preamble-mode.json; clangd/unittests/ClangdTests.cpp; clangd/unittests/PreambleTests.cpp | Upstream completion carries the actual preamble build mode and avoids redundant policy scans while retaining fresh module validation |
 
 | 0050-UP-23-asynchronous-module-preamble-policy.patch | UP-23 | stabilizing | ci/asynchronous-module-update.md; tests/e2e/module_preamble_mode.py; clangd/unittests/ClangdTests.cpp | Upstream document updates resolve current module preamble policy on the update worker and include that policy in AST input equality |
+
+| 0051-UP-26-owned-preamble-trace-filenames.patch | UP-26 | stabilizing | ci/preamble-trace-lifetime.md; tests/evidence/preamble-trace-lifetime.json; clangd/unittests/PreambleTests.cpp | Upstream preamble trace attachments own filenames through retained asynchronous contexts and the delayed-context canary passes |
