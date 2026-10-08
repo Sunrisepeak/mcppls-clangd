@@ -1,0 +1,11 @@
+{
+  "scope": "Execution environment recovery; not product behavior or release evidence.",
+  "previous_failure": "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted",
+  "host": "Ubuntu 24.04.1 LTS",
+  "apparmor_restrict_unprivileged_userns": 1,
+  "unprivileged_userns_clone": 1,
+  "direct_bwrap_reproduced": true,
+  "audit_observation": "userns_create transitioned unconfined bwrap to unprivileged_userns",
+  "interpretation": "AppArmor user namespace policy is the likely cause; individual RTM_NEWADDR capability denial was not observed in the available audit line. Unrestricted execution restores commands without altering system policy.",
+  "build_recovery": "Retained 75 compiled objects; original process and tool handle absent. Remaining 73 recipes resumed; historical ASTReader object superseded by separately compiled exact completion spelling object."
+}

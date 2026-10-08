@@ -1,0 +1,162 @@
+{
+  "scope": "Short no-added-instrumentation A/B/A against private guide-only candidate, explicit index log and positive index-match controls. Full3x30, headers alignment and final consumers remain separate.",
+  "arms": {
+    "baseline-before": {
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            3526.1664550052956
+          ],
+          "p50_ms": 3526.1664550052956,
+          "p95_ms": 3526.1664550052956
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            100.69766199740116,
+            94.11606799403671,
+            97.07817400339991,
+            98.10494599514641,
+            93.96471398940776,
+            98.70667199720629
+          ],
+          "p50_ms": 97.07817400339991,
+          "p95_ms": 100.69766199740116
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            166.69264499796554,
+            175.57127599138767,
+            168.902083998546,
+            167.0240600069519,
+            164.00212500593625
+          ],
+          "p50_ms": 167.0240600069519,
+          "p95_ms": 175.57127599138767
+        }
+      },
+      "engine_sha256": "16f0db268a83d1810e75245756fb1b7f3ca8d687d1609b3a554d5197091f8349",
+      "semantic_replies": 12,
+      "selected_gcc_insertions": 12,
+      "compiler_overlap": false
+    },
+    "candidate": {
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            3536.022826010594
+          ],
+          "p50_ms": 3536.022826010594,
+          "p95_ms": 3536.022826010594
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            68.12844600062817,
+            81.61733001179527,
+            64.02033200720325,
+            65.00966000021435,
+            77.53862800018396,
+            66.37106600101106
+          ],
+          "p50_ms": 66.37106600101106,
+          "p95_ms": 81.61733001179527
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            127.11032399965916,
+            131.41855101275723,
+            132.5422620138852,
+            133.7026480032364,
+            135.8343129977584
+          ],
+          "p50_ms": 132.5422620138852,
+          "p95_ms": 135.8343129977584
+        }
+      },
+      "engine_sha256": "e716110a08281c0b64101a74344677ddd5e82153696decb8c49590b0f0ea4d0f",
+      "semantic_replies": 12,
+      "selected_gcc_insertions": 12,
+      "compiler_overlap": false
+    },
+    "baseline-after": {
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            3566.1346910055727
+          ],
+          "p50_ms": 3566.1346910055727,
+          "p95_ms": 3566.1346910055727
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            99.92320100718644,
+            93.8405659981072,
+            96.28228600195143,
+            97.16368600493297,
+            103.69248400093056,
+            102.4720759887714
+          ],
+          "p50_ms": 97.16368600493297,
+          "p95_ms": 103.69248400093056
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            176.66879198804963,
+            166.9779119984014,
+            174.16229500668123,
+            168.24794501008,
+            177.92268299672287
+          ],
+          "p50_ms": 174.16229500668123,
+          "p95_ms": 177.92268299672287
+        }
+      },
+      "engine_sha256": "16f0db268a83d1810e75245756fb1b7f3ca8d687d1609b3a554d5197091f8349",
+      "semantic_replies": 12,
+      "selected_gcc_insertions": 12,
+      "compiler_overlap": false
+    }
+  },
+  "all_item_edit_fields_equal": true,
+  "fields": [
+    "label",
+    "kind",
+    "textEdit",
+    "insertText",
+    "insertTextFormat",
+    "additionalTextEdits"
+  ],
+  "items_per_reply": 65,
+  "engine_timing_completed_before_gcc_compilation": true,
+  "unit_tests": {
+    "CompletionTest": 146,
+    "NamespaceLookupTest": 5
+  },
+  "source_commit": "31c43d3a2"
+}
