@@ -70,3 +70,21 @@ excluded; final candidate-modules-retry2 timing ran independently.
 Evidence: tests/evidence/part2-linux/filtered-special-names-candidate/four-arm/.
 Clean 0069 source/build and final consumer/platform/product qualification remain
 pending; this is stabilizing evidence, not release approval.
+
+## Resource phase correlation
+
+The probe and replay record time.monotonic_ns on raw request send/observed
+response spans and /proc sample read intervals. Context answers retain the
+request markers. Deferred completion markers end when the client awaits and
+observes the response; they are not server execution timestamps. Resource
+samples are not atomic CPU/RSS snapshots and exclude descendants. A stable
+window audit must distinguish cold/index preparation, account for sample
+coverage and report missing boundary coverage; lower-bound sampled CPU alone
+cannot prove a hard process-tree memory limit or the final 20% regression gate.
+Historical records without these markers remain unchanged and do not gain
+stable-phase qualification retroactively.
+
+`python3 -m unittest discover -s tests/probes -p test_resource_timeline.py -v`
+passes a real framed subprocess with ordinary/deferred replies and /proc
+sampling. Four `ci/test_soak.py` regression controls also pass after the shared
+replay change. This validates measurement plumbing, not engine performance.
