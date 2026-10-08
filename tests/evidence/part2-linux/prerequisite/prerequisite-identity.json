@@ -1,0 +1,34 @@
+{
+  "base": "66ed2d104d8affc9e75c82a5b015f9e6869a6b00",
+  "source_diff_sha256": "3b58dd50f3a8e2a049ae74b0263dfe231604353d91f48faeb651e0ac1c4bddb8",
+  "test_binary_sha256": "e71f4f3e4ee238270f2b0475ac517639f074db7a0f8146ef0e877b1faf815c1f",
+  "log": "prerequisite-fields-narrow-final.log",
+  "result": "5 tests PASS, 315 ms",
+  "scope": "prerequisite only; no assisted production scan wired; no public headers/layout changed",
+  "fields": {
+    "UsePredefines": "original 1 -> assisted 1",
+    "RetainCommentsFromSystemHeaders": "original 0 -> assisted 1 (Compatible LangOption)",
+    "DisablePCHOrModuleValidation": "None -> None",
+    "original_cc1_flags_removed": [],
+    "assisted_cc1_flags_added": [
+      "-fretain-comments-from-system-headers",
+      "-include-pch <owned-memory-path>",
+      "-preamble-bytes=45,1"
+    ],
+    "RetainRemappedFileBuffers": "true with 1 exact current main buffer",
+    "AllowPCHWithDifferentModulesCachePath": "original scanner true -> assisted true; unchanged"
+  },
+  "controls": [
+    "longer full current body M -> macro-selected N",
+    "builtin __TIME__ callback equality",
+    "active current #error diagnostic equality",
+    "current supplying module role equality",
+    "same-length prefix change rejects old PCH",
+    "same-size/mtime header content and dirty overlay",
+    "native hardlink/symlink decline plus semantic fallback",
+    "same-spelling pragma-once self include semantic AST",
+    "conditional/import/time/error prefix refusal",
+    "exact current command changes"
+  ],
+  "note": "Earlier whole-PPOpts copying was narrowed to owned PCH/main integration fields; this identity supersedes earlier artifacts."
+}
