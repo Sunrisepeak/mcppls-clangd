@@ -1,0 +1,47 @@
+Note: Google Test filter = PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from PrerequisiteModulesTests
+[ RUN      ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback
+Module dependency scan memo miss: /tmp/modules-test-798f18/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-798f18/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-798f18/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-798f18/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo hit: /tmp/modules-test-798f18/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-798f18/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-798f18/M.cppm (entries=3, bytes=258367)
+Module dependency scan memo miss: /tmp/modules-test-798f18/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-798f18/Header.hpp (entries=4, bytes=344074)
+Module dependency scan memo hit: /tmp/modules-test-798f18/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-798f18/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-798f18/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-798f18/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-798f18/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-798f18/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-798f18/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-798f18/.cache/clangd/modules/M.cppm-ABF29AF077609C9F/109300905995D42C/M-20261008-113004-740519.-8b0ab4.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-798f18/Use.cpp in 0.00 seconds
+Could not build a preamble for file /tmp/modules-test-798f18/Use.cpp version null: Could not emit PCH
+  error: file '/tmp/modules-test-798f18/Broken.pcm' is not a valid module file: file doesn't start with precompiled file magic
+/tmp/mcppls-textual65/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp:3552: Failure
+Value of: Preamble
+  Actual: false
+Expected: true
+
+[  FAILED  ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback (13 ms)
+[----------] 1 test from PrerequisiteModulesTests (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback
+
+ 1 FAILED TEST

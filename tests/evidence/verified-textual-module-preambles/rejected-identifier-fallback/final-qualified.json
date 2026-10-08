@@ -1,0 +1,1019 @@
+{
+  "schema": 3,
+  "engine_sha256": "d582caf122657b02640e21df306dd133bafe072f5e41aff00363840603701ed0",
+  "engine_flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "--header-insertion=never",
+    "-j=4",
+    "-resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23"
+  ],
+  "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "position": {
+    "line": 23,
+    "character": 15
+  },
+  "expression": "    nlohmann::j",
+  "starts": 1,
+  "rounds": 1,
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        1891.1838159983745
+      ],
+      "p50_ms": 1891.1838159983745,
+      "p95_ms": 1891.1838159983745
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        1.187699002912268,
+        1.0714060044847429
+      ],
+      "p50_ms": 1.0714060044847429,
+      "p95_ms": 1.187699002912268
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        0.7801369938533753
+      ],
+      "p50_ms": 0.7801369938533753,
+      "p95_ms": 0.7801369938533753
+    }
+  },
+  "all_semantic_requests_passed": true,
+  "context": {
+    "name": "json-qualified",
+    "before": "    cli.addHelpOption();",
+    "prefix": "    nlohmann::j",
+    "suffix": " probe_json;\n",
+    "expected": [
+      "json"
+    ],
+    "limit_ms": 200,
+    "forbidden": [
+      "qVersion",
+      "Counter",
+      "AdlTester"
+    ]
+  },
+  "insertions": [
+    {
+      "start": 0,
+      "answer": 0,
+      "phase": "cold-open",
+      "symbol": "json",
+      "item": {
+        "deprecated": true,
+        "filterText": "json",
+        "insertText": "json",
+        "insertTextFormat": 1,
+        "kind": 1,
+        "label": " json",
+        "score": 0.11814375966787338,
+        "sortText": "420e0aa5json",
+        "textEdit": {
+          "newText": "json",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 23
+            },
+            "start": {
+              "character": 14,
+              "line": 23
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2158.7889609945705,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-8kj8naqq.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "4d6410d23854021095259d82069d897a073c2702e41c6f84bfb0bd9ffa6089f3"
+    },
+    {
+      "start": 0,
+      "answer": 1,
+      "phase": "settled-warm",
+      "symbol": "json",
+      "item": {
+        "deprecated": true,
+        "filterText": "json",
+        "insertText": "json",
+        "insertTextFormat": 1,
+        "kind": 1,
+        "label": " json",
+        "score": 0.11814375966787338,
+        "sortText": "420e0aa5json",
+        "textEdit": {
+          "newText": "json",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 23
+            },
+            "start": {
+              "character": 14,
+              "line": 23
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2312.632039000164,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-7_mmotwm.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "4d6410d23854021095259d82069d897a073c2702e41c6f84bfb0bd9ffa6089f3"
+    },
+    {
+      "start": 0,
+      "answer": 2,
+      "phase": "edited",
+      "symbol": "json",
+      "item": {
+        "deprecated": true,
+        "filterText": "json",
+        "insertText": "json",
+        "insertTextFormat": 1,
+        "kind": 1,
+        "label": " json",
+        "score": 0.11814375966787338,
+        "sortText": "420e0aa5json",
+        "textEdit": {
+          "newText": "json",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 23
+            },
+            "start": {
+              "character": 14,
+              "line": 23
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2198.7676800054032,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-a4k0e1mc.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "04c23b4805c58609e5866300144a8507cd1395b742a812339481df8711cccb1d"
+    },
+    {
+      "start": 0,
+      "answer": 3,
+      "phase": "settled-warm",
+      "symbol": "json",
+      "item": {
+        "deprecated": true,
+        "filterText": "json",
+        "insertText": "json",
+        "insertTextFormat": 1,
+        "kind": 1,
+        "label": " json",
+        "score": 0.11814375966787338,
+        "sortText": "420e0aa5json",
+        "textEdit": {
+          "newText": "json",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 23
+            },
+            "start": {
+              "character": 14,
+              "line": 23
+            }
+          }
+        }
+      },
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_ms": 2327.8301370010013,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui",
+        "-I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets",
+        "-I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt",
+        "-std=c++23",
+        "-fmodules",
+        "-O0",
+        "-g",
+        "-fPIC",
+        "--sysroot=/home/speak/.mcpp/registry/subos/default",
+        "-B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin",
+        "-D__MCPP_TARGET_LINUX__=1",
+        "-fPIC",
+        "-DQT_CORE_LIB",
+        "-DQT_GUI_LIB",
+        "-DQT_WIDGETS_LIB",
+        "-fmodule-mapper=modmap/qt-demo-2f905a9c.map",
+        "/home/speak/test/mcpp/qt-demo/src/.mcppls-insertion-luhhc9qh.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c",
+      "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+      "applied_tu_sha256": "04c23b4805c58609e5866300144a8507cd1395b742a812339481df8711cccb1d"
+    }
+  ],
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "all_insertions_compiled": true,
+  "raw_results": [
+    {
+      "id": "project-completion",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 1.6109120042528957
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "deprecated": true,
+                  "filterText": "json",
+                  "insertText": "json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " json",
+                  "score": 0.11814375966787338,
+                  "sortText": "420e0aa5json",
+                  "textEdit": {
+                    "newText": "json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                },
+                {
+                  "deprecated": true,
+                  "filterText": "probe_json",
+                  "insertText": "probe_json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " probe_json",
+                  "score": 0.11814375966787338,
+                  "sortText": "80000000probe_json",
+                  "textEdit": {
+                    "newText": "probe_json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 1891.1838159983745
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 85
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "elapsed_ms": 1498.988328006817
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "deprecated": true,
+                  "filterText": "json",
+                  "insertText": "json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " json",
+                  "score": 0.11814375966787338,
+                  "sortText": "420e0aa5json",
+                  "textEdit": {
+                    "newText": "json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                },
+                {
+                  "deprecated": true,
+                  "filterText": "probe_json",
+                  "insertText": "probe_json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " probe_json",
+                  "score": 0.11814375966787338,
+                  "sortText": "80000000probe_json",
+                  "textEdit": {
+                    "newText": "probe_json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 1.187699002912268
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "deprecated": true,
+                  "filterText": "json",
+                  "insertText": "json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " json",
+                  "score": 0.11814375966787338,
+                  "sortText": "420e0aa5json",
+                  "textEdit": {
+                    "newText": "json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                },
+                {
+                  "deprecated": true,
+                  "filterText": "probe_json",
+                  "insertText": "probe_json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " probe_json",
+                  "score": 0.11814375966787338,
+                  "sortText": "80000000probe_json",
+                  "textEdit": {
+                    "newText": "probe_json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 0.7801369938533753
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 85
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "elapsed_ms": 1593.1164369976614
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 10,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "deprecated": true,
+                  "filterText": "json",
+                  "insertText": "json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " json",
+                  "score": 0.11814375966787338,
+                  "sortText": "420e0aa5json",
+                  "textEdit": {
+                    "newText": "json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                },
+                {
+                  "deprecated": true,
+                  "filterText": "probe_json",
+                  "insertText": "probe_json",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " probe_json",
+                  "score": 0.11814375966787338,
+                  "sortText": "80000000probe_json",
+                  "textEdit": {
+                    "newText": "probe_json",
+                    "range": {
+                      "end": {
+                        "character": 15,
+                        "line": 23
+                      },
+                      "start": {
+                        "character": 14,
+                        "line": 23
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 1.0714060044847429
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[10:51:12.116] clangd version 23.1.0-mcppls.0\nI[10:51:12.116] Features: linux\nI[10:51:12.116] PID: 1694993\nI[10:51:12.116] Working directory: /home/speak/test/mcpp/qt-demo\nI[10:51:12.116] argv[0]: /tmp/mcppls-textual65-build/clangd\nI[10:51:12.116] argv[1]: --experimental-modules-support\nI[10:51:12.116] argv[2]: --background-index=false\nI[10:51:12.116] argv[3]: --header-insertion=never\nI[10:51:12.116] argv[4]: -j=4\nI[10:51:12.116] argv[5]: -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23\nI[10:51:12.116] Starting LSP over stdin/stdout\nI[10:51:12.116] <-- initialize(1)\nE[10:51:12.116] Failed to auto-detect resource directory, specify it manually via --resource-dir command line argument\nI[10:51:12.116] --> reply:initialize(1) 0 ms\nI[10:51:12.116] <-- initialized\nI[10:51:12.116] <-- textDocument/didOpen\nI[10:51:12.116] <-- textDocument/completion(4)\nI[10:51:12.116] Loaded compilation database from /home/speak/test/mcpp/qt-demo/compile_commands.json\nI[10:51:12.117] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.117] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.208] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.208] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.208] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.208] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[10:51:12.393] Scanning modules dependencies for /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc failed: While building module '_Builtin_inttypes' imported from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:\nIn file included from <module-includes>:1:\nIn file included from /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/inttypes.h:24:\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:26: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:27: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:27: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:45: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:368:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:372:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:376:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:381:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:389:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:392:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:395:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:399:8: error: unknown type name 'uintmax_t'\nIn file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc:26:\nIn file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/x86_64-linux-gnu/bits/stdc++.h:124:\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:11: fatal error: could not build module '_Builtin_inttypes'\n\nE[10:51:12.393] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -std=c++23 -fmodules -O2 --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -c -o std.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc \nI[10:51:12.394] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.456] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:12.456] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.456] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.456] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.467] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.549] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[10:51:12.550] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.564] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.564] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.564] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.571] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:12.571] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.571] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.571] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.582] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.592] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.602] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.602] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.602] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:12.602] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[10:51:12.638] Scanning modules dependencies for /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc failed: While building module '_Builtin_inttypes' imported from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:\nIn file included from <module-includes>:1:\nIn file included from /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/inttypes.h:24:\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:26: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:27: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:27: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:45: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:368:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:372:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:376:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:381:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:389:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:392:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:395:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:399:8: error: unknown type name 'uintmax_t'\nIn file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc:26:\nIn file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/x86_64-linux-gnu/bits/stdc++.h:124:\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:11: fatal error: could not build module '_Builtin_inttypes'\n\nE[10:51:12.638] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -std=c++23 -fmodules -O2 --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -c -o std.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc \nI[10:51:12.638] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nE[10:51:12.645] Keeping import of third-party module std textual; no module unit for it in this project\nI[10:51:12.645] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.652] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:12.652] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.652] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:12.652] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.653] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.659] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.666] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:12.666] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:12.715] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 0.12 seconds\nI[10:51:13.955] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:13.955] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:13.967] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[10:51:13.987] Textual module preamble input/import audit declined: /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[10:51:14.007] Code complete: 0 results from Sema, 0 from Index, 0 matched, 2 from identifiers, 2 returned.\nI[10:51:14.007] --> reply:textDocument/completion(4) 1890 ms\nI[10:51:14.007] <-- textDocument/documentSymbol(5)\nI[10:51:15.506] --> textDocument/publishDiagnostics\nI[10:51:15.506] --> reply:textDocument/documentSymbol(5) 1498 ms\nI[10:51:15.506] <-- textDocument/completion(6)\nI[10:51:15.507] Code complete: 0 results from Sema, 0 from Index, 0 matched, 2 from identifiers, 2 returned.\nI[10:51:15.507] --> reply:textDocument/completion(6) 0 ms\nI[10:51:15.508] <-- textDocument/didChange\nI[10:51:15.508] <-- textDocument/completion(8)\nI[10:51:15.508] Code complete: 0 results from Sema, 0 from Index, 0 matched, 2 from identifiers, 2 returned.\nI[10:51:15.508] --> reply:textDocument/completion(8) 0 ms\nI[10:51:15.508] <-- textDocument/documentSymbol(9)\nI[10:51:15.509] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.509] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.603] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.603] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.603] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.610] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:15.610] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.610] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.610] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.622] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.645] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 2 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[10:51:15.645] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.656] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.657] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.657] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.664] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:15.664] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.664] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.664] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.675] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.687] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.698] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.698] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.698] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:15.698] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[10:51:15.736] Scanning modules dependencies for /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc failed: While building module '_Builtin_inttypes' imported from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:\nIn file included from <module-includes>:1:\nIn file included from /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/inttypes.h:24:\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:26: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:27: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:27: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:45: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:368:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:372:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:376:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:381:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:389:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:392:8: error: unknown type name 'uintmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:395:8: error: unknown type name 'intmax_t'\n/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:399:8: error: unknown type name 'uintmax_t'\nIn file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc:26:\nIn file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/x86_64-linux-gnu/bits/stdc++.h:124:\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:11: fatal error: could not build module '_Builtin_inttypes'\n\nE[10:51:15.736] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -std=c++23 -fmodules -O2 --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -c -o std.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc \nI[10:51:15.736] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nE[10:51:15.744] Keeping import of third-party module std textual; no module unit for it in this project\nI[10:51:15.744] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.751] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:15.751] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.751] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:15.751] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.752] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.759] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.766] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm\nI[10:51:15.766] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[10:51:15.766] Module file /home/speak/.cache/clangd/modules/.owned-payload-v1/generation-1-4/payload.pcm is up to date via the validation cache\nI[10:51:15.808] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 0.12 seconds\nI[10:51:17.057] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:17.057] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[10:51:17.068] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[10:51:17.089] Textual module preamble input/import audit declined: /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[10:51:17.101] --> textDocument/publishDiagnostics\nI[10:51:17.101] --> reply:textDocument/documentSymbol(9) 1592 ms\nI[10:51:17.102] <-- textDocument/completion(10)\nI[10:51:17.102] Code complete: 0 results from Sema, 0 from Index, 0 matched, 2 from identifiers, 2 returned.\nI[10:51:17.102] --> reply:textDocument/completion(10) 0 ms\nI[10:51:17.103] <-- shutdown(11)\nI[10:51:17.103] --> reply:shutdown(11) 0 ms\nI[10:51:17.103] <-- exit\nI[10:51:17.103] LSP finished, exiting with status 0\n",
+      "requested_phases": [
+        "cold-open",
+        "settled-warm",
+        "edited",
+        "settled-warm"
+      ],
+      "context_answers": [
+        {
+          "phase": "cold-open",
+          "elapsed_ms": 1891.1838159983745,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "isIncomplete": false,
+          "items": [
+            {
+              "deprecated": true,
+              "filterText": "json",
+              "insertText": "json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " json",
+              "score": 0.11814375966787338,
+              "sortText": "420e0aa5json",
+              "textEdit": {
+                "newText": "json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            },
+            {
+              "deprecated": true,
+              "filterText": "probe_json",
+              "insertText": "probe_json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " probe_json",
+              "score": 0.11814375966787338,
+              "sortText": "80000000probe_json",
+              "textEdit": {
+                "newText": "probe_json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::j probe_json;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 1.187699002912268,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "isIncomplete": false,
+          "items": [
+            {
+              "deprecated": true,
+              "filterText": "json",
+              "insertText": "json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " json",
+              "score": 0.11814375966787338,
+              "sortText": "420e0aa5json",
+              "textEdit": {
+                "newText": "json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            },
+            {
+              "deprecated": true,
+              "filterText": "probe_json",
+              "insertText": "probe_json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " probe_json",
+              "score": 0.11814375966787338,
+              "sortText": "80000000probe_json",
+              "textEdit": {
+                "newText": "probe_json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::j probe_json;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "edited",
+          "elapsed_ms": 0.7801369938533753,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "isIncomplete": false,
+          "items": [
+            {
+              "deprecated": true,
+              "filterText": "json",
+              "insertText": "json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " json",
+              "score": 0.11814375966787338,
+              "sortText": "420e0aa5json",
+              "textEdit": {
+                "newText": "json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            },
+            {
+              "deprecated": true,
+              "filterText": "probe_json",
+              "insertText": "probe_json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " probe_json",
+              "score": 0.11814375966787338,
+              "sortText": "80000000probe_json",
+              "textEdit": {
+                "newText": "probe_json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::j probe_json;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 1.0714060044847429,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "isIncomplete": false,
+          "items": [
+            {
+              "deprecated": true,
+              "filterText": "json",
+              "insertText": "json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " json",
+              "score": 0.11814375966787338,
+              "sortText": "420e0aa5json",
+              "textEdit": {
+                "newText": "json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            },
+            {
+              "deprecated": true,
+              "filterText": "probe_json",
+              "insertText": "probe_json",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " probe_json",
+              "score": 0.11814375966787338,
+              "sortText": "80000000probe_json",
+              "textEdit": {
+                "newText": "probe_json",
+                "range": {
+                  "end": {
+                    "character": 15,
+                    "line": 23
+                  },
+                  "start": {
+                    "character": 14,
+                    "line": 23
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::j probe_json;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Single context probe; aggregate context/baseline gate requires separate matrix evidence.",
+    "Cold-open includes fallback responses: missing symbols fail, not excluded.",
+    "Insertion compilation is opt-in; no baseline speedup proof in this individual report.",
+    "Settled-warm is AST-ready, not proof of a particular cache hit."
+  ]
+}

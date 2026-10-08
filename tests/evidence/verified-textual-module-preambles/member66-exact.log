@@ -1,0 +1,172 @@
+I[11:21:35.471] clangd version 23.1.0-mcppls.0
+I[11:21:35.471] Features: linux
+I[11:21:35.471] PID: 1722054
+I[11:21:35.471] Working directory: /home/speak/test/mcpp/qt-demo
+I[11:21:35.471] argv[0]: /tmp/mcppls-textual65-build/clangd
+I[11:21:35.471] argv[1]: --experimental-modules-support
+I[11:21:35.471] argv[2]: --background-index=false
+I[11:21:35.471] argv[3]: --header-insertion=never
+I[11:21:35.471] argv[4]: -j=4
+I[11:21:35.471] argv[5]: -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23
+I[11:21:35.471] Starting LSP over stdin/stdout
+I[11:21:35.471] <-- initialize(1)
+E[11:21:35.471] Failed to auto-detect resource directory, specify it manually via --resource-dir command line argument
+I[11:21:35.471] --> reply:initialize(1) 0 ms
+I[11:21:35.471] <-- initialized
+I[11:21:35.471] <-- textDocument/didOpen
+I[11:21:35.471] <-- textDocument/completion(4)
+I[11:21:35.472] Loaded compilation database from /home/speak/test/mcpp/qt-demo/compile_commands.json
+I[11:21:35.472] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.473] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.563] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.563] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.563] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.563] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+E[11:21:35.753] Scanning modules dependencies for /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc failed: While building module '_Builtin_inttypes' imported from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:
+In file included from <module-includes>:1:
+In file included from /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/inttypes.h:24:
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:26: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:27: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:27: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:45: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:368:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:372:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:376:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:381:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:389:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:392:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:395:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:399:8: error: unknown type name 'uintmax_t'
+In file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc:26:
+In file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/x86_64-linux-gnu/bits/stdc++.h:124:
+/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:11: fatal error: could not build module '_Builtin_inttypes'
+
+E[11:21:35.753] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -std=c++23 -fmodules -O2 --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -c -o std.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc 
+I[11:21:35.755] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.816] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm
+I[11:21:35.816] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.816] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.816] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.827] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.909] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 with command 
+[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]
+/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp
+I[11:21:35.909] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.920] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.920] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.920] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.927] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm
+I[11:21:35.927] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.927] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.927] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.937] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.947] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.956] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.956] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:35.957] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:35.957] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+E[11:21:35.990] Scanning modules dependencies for /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc failed: While building module '_Builtin_inttypes' imported from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:
+In file included from <module-includes>:1:
+In file included from /home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23/include/inttypes.h:24:
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:356:26: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:360:27: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:27: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:364:45: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:368:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:372:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:376:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:381:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:389:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:392:8: error: unknown type name 'uintmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:395:8: error: unknown type name 'intmax_t'
+/home/speak/.mcpp/registry/subos/default/usr/include/inttypes.h:399:8: error: unknown type name 'uintmax_t'
+In file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc:26:
+In file included from /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/x86_64-linux-gnu/bits/stdc++.h:124:
+/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/../lib/gcc/x86_64-linux-gnu/16.1.0/../../../../include/c++/16.1.0/cinttypes:48:11: fatal error: could not build module '_Builtin_inttypes'
+
+E[11:21:35.990] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -std=c++23 -fmodules -O2 --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -c -o std.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/include/c++/16.1.0/bits/std.cc 
+I[11:21:35.990] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+E[11:21:35.996] Keeping import of third-party module std textual; no module unit for it in this project
+I[11:21:35.997] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:36.003] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm
+I[11:21:36.003] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:36.003] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm
+I[11:21:36.003] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:36.003] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:36.009] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:36.016] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm
+I[11:21:36.016] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:36.059] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 0.11 seconds
+I[11:21:37.270] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.270] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.281] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.300] Built preamble of size 33643636 for file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 in 1.21 seconds
+I[11:21:37.301] Indexing c++23 standard library in the context of /home/speak/test/mcpp/qt-demo/src/main.cpp
+I[11:21:37.303] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.320] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.320] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.327] --> textDocument/publishDiagnostics
+I[11:21:37.331] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.356] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>
+I[11:21:37.357] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+I[11:21:37.358] --> reply:textDocument/completion(4) 1886 ms
+I[11:21:37.358] <-- textDocument/documentSymbol(5)
+I[11:21:37.358] --> reply:textDocument/documentSymbol(5) 0 ms
+I[11:21:37.358] <-- textDocument/completion(6)
+I[11:21:37.360] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.382] Module file /home/speak/.cache/clangd/modules/.owned-payload-v1/generation-1-4/payload.pcm is up to date via the validation cache
+I[11:21:37.382] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.382] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.404] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.429] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>
+I[11:21:37.430] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+I[11:21:37.430] --> reply:textDocument/completion(6) 72 ms
+I[11:21:37.431] <-- textDocument/didChange
+I[11:21:37.431] <-- textDocument/completion(8)
+I[11:21:37.433] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.481] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.481] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.522] Module file /home/speak/.cache/clangd/modules/.owned-payload-v1/generation-1-4/payload.pcm is up to date via the validation cache
+I[11:21:37.523] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.523] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.534] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.534] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.535] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:37.535] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:37.542] Failed to find compilation database for /home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/mcpp_generated/nlohmann.json.cppm
+I[11:21:37.542] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'
+I[11:21:37.542] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.542] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.553] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.559] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>
+I[11:21:37.560] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+I[11:21:37.560] --> reply:textDocument/completion(8) 129 ms
+I[11:21:37.560] <-- textDocument/documentSymbol(9)
+I[11:21:37.566] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 2 with command 
+[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]
+/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp
+I[11:21:37.567] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.567] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.578] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.590] Module file /home/speak/.cache/clangd/modules/.owned-payload-v1/generation-1-4/payload.pcm is up to date via the validation cache
+I[11:21:37.590] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.592] --> textDocument/publishDiagnostics
+I[11:21:37.592] --> reply:textDocument/documentSymbol(9) 31 ms
+I[11:21:37.592] <-- textDocument/completion(10)
+I[11:21:37.594] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.605] Module file /home/speak/.cache/clangd/modules/.owned-payload-v1/generation-1-4/payload.pcm is up to date via the validation cache
+I[11:21:37.605] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.605] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.616] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'
+I[11:21:37.638] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>
+I[11:21:37.640] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+I[11:21:37.640] --> reply:textDocument/completion(10) 47 ms
+I[11:21:37.640] <-- shutdown(11)
+I[11:21:37.640] --> reply:shutdown(11) 0 ms
+I[11:21:37.640] <-- exit
+I[11:21:37.640] LSP finished, exiting with status 0
+I[11:21:38.114] Indexed c++23 standard library: 18031 symbols, 2355 filtered
