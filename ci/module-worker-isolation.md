@@ -319,3 +319,12 @@ cgroup directory lifetime after parent SIGKILL, stable published cache growth,
 native macOS/Windows resource policy, final immutable packages/floor tests and
 qualifying joint nightlies/RC load. This batch does not close the full release
 resource or crash-corpus gates.
+
+Actual default failure gate tests/e2e/module_worker_failure.py sets a two-worker
+pool with 32 MiB aggregate address allowance, waits for the launched-worker
+failure event, then requests an independent ControlValue document symbol.
+That semantic reply succeeds, the parent exits normally, disk is unchanged and
+no BMI or worker unit remains. There is no in-process retry. Empty worker stderr
+does not separately decode its allocation failure mechanism; the assertion is
+post-launch failure isolation under the configured small allowance. Both default
+success and failure gates run in Linux CI and retain full replay reports.

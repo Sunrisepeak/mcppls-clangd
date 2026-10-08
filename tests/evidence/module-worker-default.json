@@ -133,6 +133,45 @@
           "elapsed_ms": 324.286081995524
         }
       ]
+    },
+    "worker-failure-parent-survives": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "disk_unchanged": true,
+      "remaining_bmis": [],
+      "remaining_worker_units": [],
+      "semantic_responses": [
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 13,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 21,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/mcppls-root-worker42-failure/failed-worker-jsexh6oa/Control.cpp"
+                },
+                "name": "ControlValue"
+              }
+            ]
+          },
+          "elapsed_ms": 17.804226001317147
+        }
+      ],
+      "scope": "Default isolation, configured two workers and aggregate address allowance 32 MiB. Wait for actual launched-worker failure before requesting independent ControlValue. Exact allocation failure mechanism is not decoded from empty stderr."
     }
   }
 }
