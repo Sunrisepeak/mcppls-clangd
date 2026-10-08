@@ -49,3 +49,12 @@ timed. All four typed Sema controls passed, with no insertion compilation in
 this profiling run. A session-provenance-aware reduction of repeated opens
 is only a proposed approximately 2.85 ms opportunity; no optimization was
 implemented. Cross-request stat/hash reuse remains unsupported.
+
+`empty-index-candidate/` archives a held private CodeComplete change that
+skips USR matching when the index slab is empty. Existing 136 completion
+unit tests and an earlier four actual GCC insertions passed. A short
+1-start/5-round A/B/A preserved every typed Sema reply: warm medians were
+167.49/163.63 ms for the baselines and 161.01 ms for the candidate; edited
+medians were 239.51/241.32 versus 239.57 ms. This neither closes the edited
+gate nor proves a matched p95 benefit. The change is not exported; canonical
+scan and repeated proof costs remain the implementation priority.

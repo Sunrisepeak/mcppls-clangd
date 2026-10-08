@@ -1,0 +1,190 @@
+{
+  "status": "held private; not exported",
+  "scope": "Single-TU empty index USR lookup optimization, exact unchanged final67 headers. One A/B/A, each 1 start x 5 rounds, fresh probe caches, identical CDB flags, release-gate qualification not attempted.",
+  "decision": "Warm medians suggest only a few ms improvement; edited medians unchanged about240ms and p95 above200ms. No matched p95 improvement proven; prioritize canonical/PCH work. Existing136 CompletionTest tests and earlier4 actual GCC insertions passed, not repeated here.",
+  "archives": [
+    {
+      "archive": "candidate.patch.gz",
+      "sha256": "d7a1e9882847d6ae0e2497e7432bfc9effb30911407871adb3a26f5fbdaee0b3"
+    },
+    {
+      "archive": "compile-empty-index.json.gz",
+      "sha256": "76a94684fa72c0d3bf54127b29a11c33f486814e1f7c61a84d96d8aca707da45"
+    },
+    {
+      "archive": "clangd-link-empty-index.json.gz",
+      "sha256": "17446f3e02c2a88b229a7cf7b3e2529c5ce5d58a2440a40e1ba5ac606d4732d9"
+    },
+    {
+      "archive": "ClangdTests-link-empty-index.json.gz",
+      "sha256": "b0a39eb2a0162c943b4f6bfe2fead45fe1affffd64042985a909c06b726862f9"
+    },
+    {
+      "archive": "empty-index-units.log.gz",
+      "sha256": "dd4236ce531f78c11aa1ddd3e7878daf1990174fe2ce6fbb93d4cca28c7db41c"
+    },
+    {
+      "archive": "empty-index-aba-commands.json.gz",
+      "sha256": "2e3e45f15e79bde93aa52b309c4b9ba7cdf1c3b628c06d56dba9e1ffde0c241e"
+    },
+    {
+      "archive": "empty-index-aba-baseline-before.json.gz",
+      "sha256": "66bea34b63c234147b1fe30ca1b4408683ee6e130735e43063f92ff202bb421b"
+    },
+    {
+      "archive": "empty-index-aba-empty-index.json.gz",
+      "sha256": "d28861e21816633d592978057a067cc8d029b4463193be1e07702ab4abf442e8"
+    },
+    {
+      "archive": "empty-index-aba-baseline-after.json.gz",
+      "sha256": "0ac6a0eb396c6c1702b8d77870f682d7b7995aea3413d8b6c2233416680edc87"
+    }
+  ],
+  "results": [
+    {
+      "name": "baseline-before",
+      "engine_sha256": "200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49",
+      "all_semantic_requests_passed": true,
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            2042.7051860024221
+          ],
+          "p50_ms": 2042.7051860024221,
+          "p95_ms": 2042.7051860024221
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            172.23430499143433,
+            167.67684600199573,
+            167.4907830019947,
+            168.2827670010738,
+            162.00172499520704,
+            164.3251289933687
+          ],
+          "p50_ms": 167.4907830019947,
+          "p95_ms": 172.23430499143433
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            237.845618990832,
+            237.26182901009452,
+            242.0688519923715,
+            240.5357899988303,
+            239.51291100820526
+          ],
+          "p50_ms": 239.51291100820526,
+          "p95_ms": 242.0688519923715
+        }
+      }
+    },
+    {
+      "name": "empty-index",
+      "engine_sha256": "6a0caae33dd030fc23c4216ff503e732d61672071febeeebe8f08edba006ce86",
+      "all_semantic_requests_passed": true,
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            2039.7761960048229
+          ],
+          "p50_ms": 2039.7761960048229,
+          "p95_ms": 2039.7761960048229
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            178.50267699395772,
+            174.89105199638288,
+            160.14425600587856,
+            161.8906529911328,
+            161.00763701251708,
+            159.52369599835947
+          ],
+          "p50_ms": 161.00763701251708,
+          "p95_ms": 178.50267699395772
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            256.711529000313,
+            239.4803640054306,
+            239.75597199751064,
+            237.21173900412396,
+            239.56687100871932
+          ],
+          "p50_ms": 239.56687100871932,
+          "p95_ms": 256.711529000313
+        }
+      }
+    },
+    {
+      "name": "baseline-after",
+      "engine_sha256": "200acd4f71d3e8f9927d9923b7005db7b98923e42f42880ef5e39ef483ce6d49",
+      "all_semantic_requests_passed": true,
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            2025.2675789961359
+          ],
+          "p50_ms": 2025.2675789961359,
+          "p95_ms": 2025.2675789961359
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            179.22011700284202,
+            166.4557909971336,
+            163.63453099620529,
+            160.2840019913856,
+            163.35294699820224,
+            164.01566100830678
+          ],
+          "p50_ms": 163.63453099620529,
+          "p95_ms": 179.22011700284202
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            243.09856099716853,
+            235.8504889998585,
+            241.31526400742587,
+            235.96998800348956,
+            244.30967900843825
+          ],
+          "p50_ms": 241.31526400742587,
+          "p95_ms": 244.30967900843825
+        }
+      }
+    }
+  ],
+  "identity": {
+    "source_base": "66ed2d104d8affc9e75c82a5b015f9e6869a6b00",
+    "codecomplete_sha256": "3091aac429a5485e6cdd0fdc40a55f45deec8028d4f4a70d143809b154153f0a",
+    "cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+    "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+    "scope": "Incremental one-TU link, all final67 headers identical; not a clean recipe release build."
+  }
+}
