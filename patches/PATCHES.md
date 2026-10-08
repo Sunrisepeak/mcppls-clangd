@@ -111,3 +111,5 @@ they live here and in patch *filenames* only.
 | 0056-UP-03-native-scan-publication-admission.patch | UP-03 | stabilizing | ci/module-scan-native-admission.md; tests/evidence/module-scan-native-admission.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream publication test covers both admitted Linux coordination and unsupported native fresh-scan behavior without assuming cache admission |
 
 | 0057-UP-03-requesting-project-provider-commands.patch | UP-03 | stabilizing | ci/module-provider-commands.md; tests/evidence/module-provider-commands.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream buildability/prebuilt/DAG resolution uses the importing request generation for explicit external providers while preserving global/overlay command precedence |
+
+| 0058-UP-27-optional-overlay-module-mangler.patch | UP-27 | stabilizing | ci/optional-overlay-mangler.md; tests/evidence/optional-overlay-mangler.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream default OverlayCDB module scanning guards its optional command mangler and actual default/explicit module AST controls pass |

@@ -1,0 +1,50 @@
+From 33b6813188b423c7e30346d1f67565cfd60e8ecd Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 12:51:13 +0900
+Subject: [PATCH] [clangd] Guard the optional overlay command mangler during
+ module scans
+
+---
+ .../clangd/GlobalCompilationDatabase.cpp              |  3 ++-
+ .../clangd/unittests/PrerequisiteModulesTest.cpp      | 11 +++++++++++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
+index d87bbcadc..e733c6f4b 100644
+--- a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
++++ b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
+@@ -948,7 +948,8 @@ OverlayCDB::getProjectModules(PathRef File) const {
+   }
+   MDB->setCommandMangler([&Mangler = Mangler](tooling::CompileCommand &Command,
+                                               PathRef CommandPath) {
+-    Mangler(Command, CommandPath);
++    if (Mangler)
++      Mangler(Command, CommandPath);
+   });
+   return MDB;
+ }
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index cbf9b4ea5..2a989cc2d 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1620,6 +1620,17 @@ TEST_F(PrerequisiteModulesTests, ExternalProviderUsesImportingProjectCommand) {
+   Overlay.setCompileCommand(External, Override);
+   ModulesBuilder OverrideBuilder(Overlay);
+   Parse("old_value", Overlay, OverrideBuilder);
++  // The public default callback is empty. It must retain fresh inventory
++  // commands and actual module scanning/AST behavior without a null call.
++  OverlayCDB Default(&CDB);
++  auto DefaultModules = Default.getProjectModules(Use);
++  ASSERT_TRUE(DefaultModules);
++  ASSERT_TRUE(DefaultModules->getCompileCommand(External));
++  EXPECT_THAT(DefaultModules->getCompileCommand(External)->CommandLine,
++              testing::Contains("-DMODE=2"));
++  EXPECT_THAT(DefaultModules->getRequiredModules(Use), testing::ElementsAre("M"));
++  ModulesBuilder DefaultBuilder(Default);
++  Parse("new_value", Default, DefaultBuilder);
+ }
+ 
+ TEST_F(PrerequisiteModulesTests, UnsavedImportUsesExactRequestBuffer) {
+-- 
+2.53.0
+
