@@ -1,0 +1,88 @@
+{
+  "scope": "Short A/B/A semantic and actual edit parity only. Unrelated compiler workload invalidates latency qualification. No performance improvement claimed.",
+  "arms": {
+    "baseline-before": {
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 6,
+          "passed": 6,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 5,
+          "passed": 5,
+          "failed": 0
+        }
+      },
+      "all_insertions_compiled": true,
+      "selected_insertions": 12,
+      "engine_sha256": "6de880807d5d81c7c98341570d123fb88847928c523fc06042c92a11dba6ddb7"
+    },
+    "candidate": {
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 6,
+          "passed": 6,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 5,
+          "passed": 5,
+          "failed": 0
+        }
+      },
+      "all_insertions_compiled": true,
+      "selected_insertions": 12,
+      "engine_sha256": "16f0db268a83d1810e75245756fb1b7f3ca8d687d1609b3a554d5197091f8349"
+    },
+    "baseline-after": {
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 6,
+          "passed": 6,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 5,
+          "passed": 5,
+          "failed": 0
+        }
+      },
+      "all_insertions_compiled": true,
+      "selected_insertions": 12,
+      "engine_sha256": "6de880807d5d81c7c98341570d123fb88847928c523fc06042c92a11dba6ddb7"
+    }
+  },
+  "parity": {
+    "compared_replies_per_arm": 12,
+    "items_per_reply": 65,
+    "all_item_fields_equal": true,
+    "fields": [
+      "label",
+      "kind",
+      "textEdit",
+      "insertText",
+      "insertTextFormat",
+      "additionalTextEdits"
+    ]
+  },
+  "unfiltered_0068_control": {
+    "exit_code": 1,
+    "failure": "ordinary template already loaded after unfiltered deduction guide traversal; final filtering test detects this work"
+  }
+}

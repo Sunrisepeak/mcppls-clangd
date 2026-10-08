@@ -1,0 +1,139 @@
+{
+  "scope": "No-instrumentation short 1x5 A/B/A after observed compiler workload ended. Existing same-binary actual insertion proof retained in parent. Short sample, not formal distribution; no claimed 28ms endpoint gain.",
+  "arms": {
+    "baseline-before": {
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            4342.284958998789
+          ],
+          "p50_ms": 4342.284958998789,
+          "p95_ms": 4342.284958998789
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            116.15076799353119,
+            109.59786000603344,
+            103.261044001556,
+            118.7965770077426,
+            109.49761299707461,
+            105.3832780016819
+          ],
+          "p50_ms": 109.49761299707461,
+          "p95_ms": 118.7965770077426
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            184.87334199016914,
+            189.9027390027186,
+            178.7616780056851,
+            192.55711400182918,
+            180.2612239989685
+          ],
+          "p50_ms": 184.87334199016914,
+          "p95_ms": 192.55711400182918
+        }
+      },
+      "engine_sha256": "6de880807d5d81c7c98341570d123fb88847928c523fc06042c92a11dba6ddb7"
+    },
+    "candidate": {
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            4909.798554988811
+          ],
+          "p50_ms": 4909.798554988811,
+          "p95_ms": 4909.798554988811
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            104.71682199568022,
+            100.01135501079261,
+            102.68385999370366,
+            113.06840500037652,
+            99.76263799762819,
+            97.96978799568024
+          ],
+          "p50_ms": 100.01135501079261,
+          "p95_ms": 113.06840500037652
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            179.0589589945739,
+            178.4815879946109,
+            183.8277289934922,
+            173.98186099308077,
+            171.70239800179843
+          ],
+          "p50_ms": 178.4815879946109,
+          "p95_ms": 183.8277289934922
+        }
+      },
+      "engine_sha256": "16f0db268a83d1810e75245756fb1b7f3ca8d687d1609b3a554d5197091f8349"
+    },
+    "baseline-after": {
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            4366.799292998621
+          ],
+          "p50_ms": 4366.799292998621,
+          "p95_ms": 4366.799292998621
+        },
+        "settled-warm": {
+          "requested": 6,
+          "answered": 6,
+          "missing": 0,
+          "samples_ms": [
+            111.92062399641145,
+            112.38909799430985,
+            106.8657560099382,
+            105.4362559953006,
+            107.17584000667557,
+            110.36133300513029
+          ],
+          "p50_ms": 107.17584000667557,
+          "p95_ms": 112.38909799430985
+        },
+        "edited": {
+          "requested": 5,
+          "answered": 5,
+          "missing": 0,
+          "samples_ms": [
+            185.02583699591924,
+            182.24421999184415,
+            180.70769699988887,
+            179.79617600212805,
+            181.10161399818026
+          ],
+          "p50_ms": 181.10161399818026,
+          "p95_ms": 185.02583699591924
+        }
+      },
+      "engine_sha256": "6de880807d5d81c7c98341570d123fb88847928c523fc06042c92a11dba6ddb7"
+    }
+  },
+  "all_item_edit_fields_equal": true,
+  "selected_insertion_compilation": "not repeated here; same-engine parent control covers selected edits"
+}
