@@ -1,0 +1,1620 @@
+{
+  "schema": 4,
+  "engine_sha256": "5213fa91c24f93f9d3a6f625f4a0699f4ea93892063a7032b2b9ef34b13a179e",
+  "engine_flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "--header-insertion=never",
+    "-j=4",
+    "-resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23",
+    "--compile-commands-dir=/tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb"
+  ],
+  "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "position": {
+    "line": 24,
+    "character": 17
+  },
+  "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "draft_source": null,
+  "expression": "    nlohmann::json probe_json{};\n    probe_json.em",
+  "starts": 1,
+  "rounds": 1,
+  "cold_completion_requested": true,
+  "measurement_mode": "cold-warm-edited",
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        3456.497449
+      ],
+      "p50_ms": 3456.497449,
+      "p95_ms": 3456.497449
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        67.838835,
+        67.530904
+      ],
+      "p50_ms": 67.530904,
+      "p95_ms": 67.838835
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        141.590227
+      ],
+      "p50_ms": 141.590227,
+      "p95_ms": 141.590227
+    }
+  },
+  "all_semantic_requests_passed": true,
+  "context": {
+    "name": "module-member",
+    "before": "    cli.addHelpOption();",
+    "prefix": "    nlohmann::json probe_json{};\n    probe_json.em",
+    "suffix": ";\n",
+    "expected": [
+      "empty"
+    ],
+    "limit_ms": 300,
+    "forbidden": [
+      "qVersion",
+      "Counter",
+      "AdlTester"
+    ],
+    "require_sema": true
+  },
+  "insertions": [],
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "all_insertions_compiled": false,
+  "raw_results": [
+    {
+      "id": "project-completion",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "started_monotonic_ns": 119643233660289,
+          "completed_monotonic_ns": 119643235141284,
+          "elapsed_ms": 1.480995
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "std::pair<iterator, bool>",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+                  },
+                  "filterText": "emplace",
+                  "insertText": "emplace(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace",
+                  "textEdit": {
+                    "newText": "emplace(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "reference",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+                  },
+                  "filterText": "emplace_back",
+                  "insertText": "emplace_back(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace_back(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace_back",
+                  "textEdit": {
+                    "newText": "emplace_back(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+                  },
+                  "filterText": "empty",
+                  "insertText": "empty()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " empty() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60empty",
+                  "textEdit": {
+                    "newText": "empty()",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119643235271806,
+          "completed_monotonic_ns": 119646691769255,
+          "elapsed_ms": 3456.497449,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119643235266984,
+              "sample_started_monotonic_ns": 119643235189894,
+              "elapsed_ms": 1.8223060033051297,
+              "cpu_ms": 0.0,
+              "rss_kib": 10944,
+              "high_water_rss_kib": 10944
+            },
+            "end": {
+              "monotonic_ns": 119646691895140,
+              "sample_started_monotonic_ns": 119646691777626,
+              "elapsed_ms": 3458.450612000888,
+              "cpu_ms": 2090.0,
+              "rss_kib": 346568,
+              "high_water_rss_kib": 400560
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 86
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 119646691919750,
+          "completed_monotonic_ns": 119646692234797,
+          "elapsed_ms": 0.315047
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "std::pair<iterator, bool>",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+                  },
+                  "filterText": "emplace",
+                  "insertText": "emplace(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace",
+                  "textEdit": {
+                    "newText": "emplace(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "reference",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+                  },
+                  "filterText": "emplace_back",
+                  "insertText": "emplace_back(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace_back(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace_back",
+                  "textEdit": {
+                    "newText": "emplace_back(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+                  },
+                  "filterText": "empty",
+                  "insertText": "empty()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " empty() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60empty",
+                  "textEdit": {
+                    "newText": "empty()",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119646692313890,
+          "completed_monotonic_ns": 119646760152725,
+          "elapsed_ms": 67.838835,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119646692309885,
+              "sample_started_monotonic_ns": 119646692238835,
+              "elapsed_ms": 3458.865225999034,
+              "cpu_ms": 2090.0,
+              "rss_kib": 346488,
+              "high_water_rss_kib": 400560
+            },
+            "end": {
+              "monotonic_ns": 119646760261860,
+              "sample_started_monotonic_ns": 119646760157173,
+              "elapsed_ms": 3526.8172579962993,
+              "cpu_ms": 2300.0,
+              "rss_kib": 383108,
+              "high_water_rss_kib": 437140
+            }
+          }
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "std::pair<iterator, bool>",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+                  },
+                  "filterText": "emplace",
+                  "insertText": "emplace(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace",
+                  "textEdit": {
+                    "newText": "emplace(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "reference",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+                  },
+                  "filterText": "emplace_back",
+                  "insertText": "emplace_back(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace_back(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace_back",
+                  "textEdit": {
+                    "newText": "emplace_back(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+                  },
+                  "filterText": "empty",
+                  "insertText": "empty()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " empty() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60empty",
+                  "textEdit": {
+                    "newText": "empty()",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119646760384373,
+          "completed_monotonic_ns": 119646901974600,
+          "elapsed_ms": 141.590227,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119646760381599,
+              "sample_started_monotonic_ns": 119646760338913,
+              "elapsed_ms": 3526.9368900044356,
+              "cpu_ms": 2300.0,
+              "rss_kib": 383044,
+              "high_water_rss_kib": 437140
+            },
+            "end": {
+              "monotonic_ns": 119646902128340,
+              "sample_started_monotonic_ns": 119646901979211,
+              "elapsed_ms": 3668.6838419991545,
+              "cpu_ms": 2750.0,
+              "rss_kib": 366312,
+              "high_water_rss_kib": 458716
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 86
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 119646902150064,
+          "completed_monotonic_ns": 119646948054392,
+          "elapsed_ms": 45.904328
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 10,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "std::pair<iterator, bool>",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+                  },
+                  "filterText": "emplace",
+                  "insertText": "emplace(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace",
+                  "textEdit": {
+                    "newText": "emplace(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "reference",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+                  },
+                  "filterText": "emplace_back",
+                  "insertText": "emplace_back(${1:Args &&args...})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " emplace_back(Args &&args...)",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60emplace_back",
+                  "textEdit": {
+                    "newText": "emplace_back(${1:Args &&args...})",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+                  },
+                  "filterText": "empty",
+                  "insertText": "empty()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " empty() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60empty",
+                  "textEdit": {
+                    "newText": "empty()",
+                    "range": {
+                      "end": {
+                        "character": 17,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 15,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119646948148475,
+          "completed_monotonic_ns": 119647015679379,
+          "elapsed_ms": 67.530904,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119646948144106,
+              "sample_started_monotonic_ns": 119646948060770,
+              "elapsed_ms": 3714.699403004488,
+              "cpu_ms": 2870.0,
+              "rss_kib": 432452,
+              "high_water_rss_kib": 458716
+            },
+            "end": {
+              "monotonic_ns": 119647015802028,
+              "sample_started_monotonic_ns": 119647015684334,
+              "elapsed_ms": 3782.3575340007665,
+              "cpu_ms": 3010.0,
+              "rss_kib": 447480,
+              "high_water_rss_kib": 484636
+            }
+          }
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[07:46:37.410] clangd version 23.1.0-mcppls.0\nI[07:46:37.410] Features: linux\nI[07:46:37.410] PID: 2435896\nI[07:46:37.410] Working directory: /home/speak/test/mcpp/qt-demo\nI[07:46:37.410] argv[0]: /tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[07:46:37.410] argv[1]: --experimental-modules-support\nI[07:46:37.410] argv[2]: --background-index=false\nI[07:46:37.410] argv[3]: --header-insertion=never\nI[07:46:37.410] argv[4]: -j=4\nI[07:46:37.410] argv[5]: -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23\nI[07:46:37.410] argv[6]: --compile-commands-dir=/tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb\nI[07:46:37.410] Starting LSP over stdin/stdout\nI[07:46:37.410] <-- initialize(1)\nI[07:46:37.411] --> reply:initialize(1) 0 ms\nI[07:46:37.411] <-- initialized\nI[07:46:37.411] <-- textDocument/didOpen\nI[07:46:37.411] <-- textDocument/completion(4)\nI[07:46:37.411] Loaded compilation database from /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/compile_commands.json\nI[07:46:37.412] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.412] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.507] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.507] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.507] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.507] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.670] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.729] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.729] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.729] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.739] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.819] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:46:37.819] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.829] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.829] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.830] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.836] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.836] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.836] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.845] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.854] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.863] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.863] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.863] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.863] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:37.892] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.898] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.904] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.904] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.920] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.926] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:37.932] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:39.286] Built module nlohmann.json to /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm\nI[07:46:39.538] Built module std to /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm\nI[07:46:39.554] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 1.70 seconds\nI[07:46:40.764] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.764] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.774] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.793] Built preamble of size 33448496 for file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 in 1.21 seconds\nI[07:46:40.794] Indexing c++23 standard library in the context of /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:46:40.796] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.815] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.815] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.826] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.847] --> textDocument/publishDiagnostics\nI[07:46:40.865] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:40.867] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.\nI[07:46:40.867] --> reply:textDocument/completion(4) 3456 ms\nI[07:46:40.868] <-- textDocument/documentSymbol(5)\nI[07:46:40.868] --> reply:textDocument/documentSymbol(5) 0 ms\nI[07:46:40.868] <-- textDocument/completion(6)\nI[07:46:40.870] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.885] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:40.885] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:40.885] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.885] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.896] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.933] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:40.936] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.\nI[07:46:40.936] --> reply:textDocument/completion(6) 67 ms\nI[07:46:40.936] <-- textDocument/didChange\nI[07:46:40.936] <-- textDocument/completion(8)\nI[07:46:40.938] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.986] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:40.987] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.028] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:41.028] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:41.028] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.028] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.040] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.040] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.040] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:41.040] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:41.047] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:41.047] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.048] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.058] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.072] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 2 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:46:41.073] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.073] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.075] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:41.077] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.\nI[07:46:41.077] --> reply:textDocument/completion(8) 141 ms\nI[07:46:41.078] <-- textDocument/documentSymbol(9)\nI[07:46:41.084] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.096] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:41.096] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:41.096] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.124] --> textDocument/publishDiagnostics\nI[07:46:41.124] --> reply:textDocument/documentSymbol(9) 45 ms\nI[07:46:41.124] <-- textDocument/completion(10)\nI[07:46:41.126] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.145] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:41.145] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/module-member/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:41.145] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.145] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.155] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:41.189] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:41.191] Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.\nI[07:46:41.191] --> reply:textDocument/completion(10) 67 ms\nI[07:46:41.192] <-- shutdown(11)\nI[07:46:41.192] --> reply:shutdown(11) 0 ms\nI[07:46:41.192] <-- exit\nI[07:46:41.192] LSP finished, exiting with status 0\nI[07:46:41.614] Indexed c++23 standard library: 18031 symbols, 2355 filtered\n",
+      "requested_phases": [
+        "cold-open",
+        "settled-warm",
+        "edited",
+        "settled-warm"
+      ],
+      "context_answers": [
+        {
+          "phase": "cold-open",
+          "elapsed_ms": 3456.497449,
+          "started_monotonic_ns": 119643235271806,
+          "completed_monotonic_ns": 119646691769255,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119643235266984,
+              "sample_started_monotonic_ns": 119643235189894,
+              "elapsed_ms": 1.8223060033051297,
+              "cpu_ms": 0.0,
+              "rss_kib": 10944,
+              "high_water_rss_kib": 10944
+            },
+            "end": {
+              "monotonic_ns": 119646691895140,
+              "sample_started_monotonic_ns": 119646691777626,
+              "elapsed_ms": 3458.450612000888,
+              "cpu_ms": 2090.0,
+              "rss_kib": 346568,
+              "high_water_rss_kib": 400560
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 3,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "std::pair<iterator, bool>",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+              },
+              "filterText": "emplace",
+              "insertText": "emplace(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace",
+              "textEdit": {
+                "newText": "emplace(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "reference",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+              },
+              "filterText": "emplace_back",
+              "insertText": "emplace_back(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace_back(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace_back",
+              "textEdit": {
+                "newText": "emplace_back(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+              },
+              "filterText": "empty",
+              "insertText": "empty()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " empty() const",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60empty",
+              "textEdit": {
+                "newText": "empty()",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::json probe_json{};\n    probe_json.em;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 67.838835,
+          "started_monotonic_ns": 119646692313890,
+          "completed_monotonic_ns": 119646760152725,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119646692309885,
+              "sample_started_monotonic_ns": 119646692238835,
+              "elapsed_ms": 3458.865225999034,
+              "cpu_ms": 2090.0,
+              "rss_kib": 346488,
+              "high_water_rss_kib": 400560
+            },
+            "end": {
+              "monotonic_ns": 119646760261860,
+              "sample_started_monotonic_ns": 119646760157173,
+              "elapsed_ms": 3526.8172579962993,
+              "cpu_ms": 2300.0,
+              "rss_kib": 383108,
+              "high_water_rss_kib": 437140
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 3,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "std::pair<iterator, bool>",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+              },
+              "filterText": "emplace",
+              "insertText": "emplace(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace",
+              "textEdit": {
+                "newText": "emplace(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "reference",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+              },
+              "filterText": "emplace_back",
+              "insertText": "emplace_back(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace_back(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace_back",
+              "textEdit": {
+                "newText": "emplace_back(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+              },
+              "filterText": "empty",
+              "insertText": "empty()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " empty() const",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60empty",
+              "textEdit": {
+                "newText": "empty()",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::json probe_json{};\n    probe_json.em;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "edited",
+          "elapsed_ms": 141.590227,
+          "started_monotonic_ns": 119646760384373,
+          "completed_monotonic_ns": 119646901974600,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119646760381599,
+              "sample_started_monotonic_ns": 119646760338913,
+              "elapsed_ms": 3526.9368900044356,
+              "cpu_ms": 2300.0,
+              "rss_kib": 383044,
+              "high_water_rss_kib": 437140
+            },
+            "end": {
+              "monotonic_ns": 119646902128340,
+              "sample_started_monotonic_ns": 119646901979211,
+              "elapsed_ms": 3668.6838419991545,
+              "cpu_ms": 2750.0,
+              "rss_kib": 366312,
+              "high_water_rss_kib": 458716
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 3,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "std::pair<iterator, bool>",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+              },
+              "filterText": "emplace",
+              "insertText": "emplace(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace",
+              "textEdit": {
+                "newText": "emplace(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "reference",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+              },
+              "filterText": "emplace_back",
+              "insertText": "emplace_back(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace_back(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace_back",
+              "textEdit": {
+                "newText": "emplace_back(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+              },
+              "filterText": "empty",
+              "insertText": "empty()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " empty() const",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60empty",
+              "textEdit": {
+                "newText": "empty()",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::json probe_json{};\n    probe_json.em;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 67.530904,
+          "started_monotonic_ns": 119646948148475,
+          "completed_monotonic_ns": 119647015679379,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119646948144106,
+              "sample_started_monotonic_ns": 119646948060770,
+              "elapsed_ms": 3714.699403004488,
+              "cpu_ms": 2870.0,
+              "rss_kib": 432452,
+              "high_water_rss_kib": 458716
+            },
+            "end": {
+              "monotonic_ns": 119647015802028,
+              "sample_started_monotonic_ns": 119647015684334,
+              "elapsed_ms": 3782.3575340007665,
+              "cpu_ms": 3010.0,
+              "rss_kib": 447480,
+              "high_water_rss_kib": 484636
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 3,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "std::pair<iterator, bool>",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an object if key does not exist\n@sa https://json.nlohmann.me/api/basic_json/emplace/"
+              },
+              "filterText": "emplace",
+              "insertText": "emplace(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace",
+              "textEdit": {
+                "newText": "emplace(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "reference",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief add an object to an array\n@sa https://json.nlohmann.me/api/basic_json/emplace_back/"
+              },
+              "filterText": "emplace_back",
+              "insertText": "emplace_back(${1:Args &&args...})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " emplace_back(Args &&args...)",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60emplace_back",
+              "textEdit": {
+                "newText": "emplace_back(${1:Args &&args...})",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "documentation": {
+                "kind": "plaintext",
+                "value": "@brief checks whether the container is empty.\n@sa https://json.nlohmann.me/api/basic_json/empty/"
+              },
+              "filterText": "empty",
+              "insertText": "empty()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " empty() const",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60empty",
+              "textEdit": {
+                "newText": "empty()",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    nlohmann::json probe_json{};\n    probe_json.em;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        }
+      ],
+      "resources": {
+        "interval_ms": 100,
+        "cpu_tick_ms": 10.0,
+        "clock": "time.monotonic_ns; shared with replay request spans",
+        "scope": "Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.",
+        "samples": [
+          {
+            "monotonic_ns": 119643233813033,
+            "sample_started_monotonic_ns": 119643233627227,
+            "elapsed_ms": 0.3684859984787181,
+            "cpu_ms": 0.0,
+            "rss_kib": 4036,
+            "high_water_rss_kib": 4036
+          },
+          {
+            "monotonic_ns": 119643334324297,
+            "sample_started_monotonic_ns": 119643334007915,
+            "elapsed_ms": 100.8799029950751,
+            "cpu_ms": 90.0,
+            "rss_kib": 37136,
+            "high_water_rss_kib": 40608
+          },
+          {
+            "monotonic_ns": 119643434595131,
+            "sample_started_monotonic_ns": 119643434488797,
+            "elapsed_ms": 201.15053400513716,
+            "cpu_ms": 190.0,
+            "rss_kib": 46976,
+            "high_water_rss_kib": 49284
+          },
+          {
+            "monotonic_ns": 119643534886620,
+            "sample_started_monotonic_ns": 119643534763320,
+            "elapsed_ms": 301.441944000544,
+            "cpu_ms": 290.0,
+            "rss_kib": 47512,
+            "high_water_rss_kib": 49284
+          },
+          {
+            "monotonic_ns": 119643635215071,
+            "sample_started_monotonic_ns": 119643635076918,
+            "elapsed_ms": 401.7704519937979,
+            "cpu_ms": 400.0,
+            "rss_kib": 47988,
+            "high_water_rss_kib": 49284
+          },
+          {
+            "monotonic_ns": 119643735501910,
+            "sample_started_monotonic_ns": 119643735384997,
+            "elapsed_ms": 502.0572929934133,
+            "cpu_ms": 490.0,
+            "rss_kib": 51604,
+            "high_water_rss_kib": 51604
+          },
+          {
+            "monotonic_ns": 119643835806060,
+            "sample_started_monotonic_ns": 119643835677783,
+            "elapsed_ms": 602.3615229933057,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119643936138422,
+            "sample_started_monotonic_ns": 119643936012236,
+            "elapsed_ms": 702.6937530026771,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644036438120,
+            "sample_started_monotonic_ns": 119644036312052,
+            "elapsed_ms": 802.9934429941932,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644136762010,
+            "sample_started_monotonic_ns": 119644136627352,
+            "elapsed_ms": 903.3174170035636,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644237073632,
+            "sample_started_monotonic_ns": 119644236933391,
+            "elapsed_ms": 1003.6291199940024,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644337376273,
+            "sample_started_monotonic_ns": 119644337250637,
+            "elapsed_ms": 1103.9316639944445,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644437672941,
+            "sample_started_monotonic_ns": 119644437541546,
+            "elapsed_ms": 1204.2283289920306,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644537925354,
+            "sample_started_monotonic_ns": 119644537797327,
+            "elapsed_ms": 1304.4808190024924,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644638240879,
+            "sample_started_monotonic_ns": 119644638110776,
+            "elapsed_ms": 1404.7963409975637,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644738450417,
+            "sample_started_monotonic_ns": 119644738323540,
+            "elapsed_ms": 1505.0058240012731,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644838765018,
+            "sample_started_monotonic_ns": 119644838628835,
+            "elapsed_ms": 1605.3204909985652,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119644939086978,
+            "sample_started_monotonic_ns": 119644938936996,
+            "elapsed_ms": 1705.6422989990097,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119645039315086,
+            "sample_started_monotonic_ns": 119645039172527,
+            "elapsed_ms": 1805.8706339943456,
+            "cpu_ms": 540.0,
+            "rss_kib": 52164,
+            "high_water_rss_kib": 52164
+          },
+          {
+            "monotonic_ns": 119645139625907,
+            "sample_started_monotonic_ns": 119645139490315,
+            "elapsed_ms": 1906.1814269953175,
+            "cpu_ms": 570.0,
+            "rss_kib": 52208,
+            "high_water_rss_kib": 52208
+          },
+          {
+            "monotonic_ns": 119645239934088,
+            "sample_started_monotonic_ns": 119645239798749,
+            "elapsed_ms": 2006.4895389950834,
+            "cpu_ms": 570.0,
+            "rss_kib": 52208,
+            "high_water_rss_kib": 52208
+          },
+          {
+            "monotonic_ns": 119645340208391,
+            "sample_started_monotonic_ns": 119645340074812,
+            "elapsed_ms": 2106.7637859960087,
+            "cpu_ms": 570.0,
+            "rss_kib": 52208,
+            "high_water_rss_kib": 52208
+          },
+          {
+            "monotonic_ns": 119645440525808,
+            "sample_started_monotonic_ns": 119645440380915,
+            "elapsed_ms": 2207.0813169993926,
+            "cpu_ms": 650.0,
+            "rss_kib": 75816,
+            "high_water_rss_kib": 75816
+          },
+          {
+            "monotonic_ns": 119645540717587,
+            "sample_started_monotonic_ns": 119645540606609,
+            "elapsed_ms": 2307.272934995126,
+            "cpu_ms": 750.0,
+            "rss_kib": 97416,
+            "high_water_rss_kib": 97416
+          },
+          {
+            "monotonic_ns": 119645640961894,
+            "sample_started_monotonic_ns": 119645640838779,
+            "elapsed_ms": 2407.517296000151,
+            "cpu_ms": 850.0,
+            "rss_kib": 114500,
+            "high_water_rss_kib": 114500
+          },
+          {
+            "monotonic_ns": 119645741191837,
+            "sample_started_monotonic_ns": 119645741069555,
+            "elapsed_ms": 2507.747237003059,
+            "cpu_ms": 950.0,
+            "rss_kib": 135944,
+            "high_water_rss_kib": 135944
+          },
+          {
+            "monotonic_ns": 119645841489007,
+            "sample_started_monotonic_ns": 119645841357500,
+            "elapsed_ms": 2608.044478998636,
+            "cpu_ms": 1050.0,
+            "rss_kib": 153452,
+            "high_water_rss_kib": 153452
+          },
+          {
+            "monotonic_ns": 119645941770781,
+            "sample_started_monotonic_ns": 119645941657469,
+            "elapsed_ms": 2708.326150997891,
+            "cpu_ms": 1150.0,
+            "rss_kib": 174696,
+            "high_water_rss_kib": 174696
+          },
+          {
+            "monotonic_ns": 119646042032355,
+            "sample_started_monotonic_ns": 119646041897237,
+            "elapsed_ms": 2808.5877760022413,
+            "cpu_ms": 1250.0,
+            "rss_kib": 189776,
+            "high_water_rss_kib": 189776
+          },
+          {
+            "monotonic_ns": 119646142304221,
+            "sample_started_monotonic_ns": 119646142196293,
+            "elapsed_ms": 2908.859563001897,
+            "cpu_ms": 1350.0,
+            "rss_kib": 203508,
+            "high_water_rss_kib": 203508
+          },
+          {
+            "monotonic_ns": 119646242508429,
+            "sample_started_monotonic_ns": 119646242385292,
+            "elapsed_ms": 3009.0638199908426,
+            "cpu_ms": 1450.0,
+            "rss_kib": 216052,
+            "high_water_rss_kib": 216052
+          },
+          {
+            "monotonic_ns": 119646342701624,
+            "sample_started_monotonic_ns": 119646342591393,
+            "elapsed_ms": 3109.2570170003455,
+            "cpu_ms": 1550.0,
+            "rss_kib": 237436,
+            "high_water_rss_kib": 237436
+          },
+          {
+            "monotonic_ns": 119646443021698,
+            "sample_started_monotonic_ns": 119646442873723,
+            "elapsed_ms": 3209.577112997067,
+            "cpu_ms": 1650.0,
+            "rss_kib": 254928,
+            "high_water_rss_kib": 254928
+          },
+          {
+            "monotonic_ns": 119646543223443,
+            "sample_started_monotonic_ns": 119646543112485,
+            "elapsed_ms": 3309.778861992527,
+            "cpu_ms": 1750.0,
+            "rss_kib": 279564,
+            "high_water_rss_kib": 281516
+          },
+          {
+            "monotonic_ns": 119646643520985,
+            "sample_started_monotonic_ns": 119646643391107,
+            "elapsed_ms": 3410.0765000039246,
+            "cpu_ms": 1920.0,
+            "rss_kib": 311512,
+            "high_water_rss_kib": 311512
+          },
+          {
+            "monotonic_ns": 119646743770090,
+            "sample_started_monotonic_ns": 119646743650073,
+            "elapsed_ms": 3510.3254830028163,
+            "cpu_ms": 2240.0,
+            "rss_kib": 424348,
+            "high_water_rss_kib": 424348
+          },
+          {
+            "monotonic_ns": 119646843989829,
+            "sample_started_monotonic_ns": 119646843854124,
+            "elapsed_ms": 3610.5454880016623,
+            "cpu_ms": 2550.0,
+            "rss_kib": 414704,
+            "high_water_rss_kib": 437140
+          },
+          {
+            "monotonic_ns": 119646944388132,
+            "sample_started_monotonic_ns": 119646944254902,
+            "elapsed_ms": 3710.9436610044213,
+            "cpu_ms": 2870.0,
+            "rss_kib": 430668,
+            "high_water_rss_kib": 458716
+          },
+          {
+            "monotonic_ns": 119647044679771,
+            "sample_started_monotonic_ns": 119647044561612,
+            "elapsed_ms": 3811.2351979943924,
+            "cpu_ms": 3050.0,
+            "rss_kib": 385424,
+            "high_water_rss_kib": 484636
+          },
+          {
+            "monotonic_ns": 119647144982820,
+            "sample_started_monotonic_ns": 119647144841798,
+            "elapsed_ms": 3911.538221000228,
+            "cpu_ms": 3140.0,
+            "rss_kib": 404248,
+            "high_water_rss_kib": 484636
+          },
+          {
+            "monotonic_ns": 119647245326118,
+            "sample_started_monotonic_ns": 119647245184340,
+            "elapsed_ms": 4011.88147799985,
+            "cpu_ms": 3250.0,
+            "rss_kib": 423852,
+            "high_water_rss_kib": 484636
+          },
+          {
+            "monotonic_ns": 119647345623417,
+            "sample_started_monotonic_ns": 119647345490201,
+            "elapsed_ms": 4112.178802999551,
+            "cpu_ms": 3350.0,
+            "rss_kib": 445248,
+            "high_water_rss_kib": 484636
+          },
+          {
+            "monotonic_ns": 119647445974571,
+            "sample_started_monotonic_ns": 119647445801466,
+            "elapsed_ms": 4212.530163000338,
+            "cpu_ms": 3450.0,
+            "rss_kib": 459484,
+            "high_water_rss_kib": 484636
+          }
+        ],
+        "errors": [],
+        "sampler_stopped": true
+      }
+    }
+  ],
+  "limits": [
+    "Single context probe; aggregate context/baseline gate requires separate matrix evidence.",
+    "Cold-open includes fallback responses; semantic contexts require per-request Sema evidence and typed expected items.",
+    "Insertion compilation is opt-in; no baseline speedup proof in this individual report.",
+    "Settled-warm is AST-ready, not proof of a particular cache hit."
+  ]
+}

@@ -1,0 +1,2266 @@
+{
+  "schema": 4,
+  "engine_sha256": "5213fa91c24f93f9d3a6f625f4a0699f4ea93892063a7032b2b9ef34b13a179e",
+  "engine_flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "--header-insertion=never",
+    "-j=4",
+    "-resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23",
+    "--compile-commands-dir=/tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb"
+  ],
+  "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "position": {
+    "line": 24,
+    "character": 10
+  },
+  "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "draft_source": null,
+  "expression": "    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad",
+  "starts": 1,
+  "rounds": 1,
+  "cold_completion_requested": true,
+  "measurement_mode": "cold-warm-edited",
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        3427.631467
+      ],
+      "p50_ms": 3427.631467,
+      "p95_ms": 3427.631467
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        56.713851,
+        57.991754
+      ],
+      "p50_ms": 56.713851,
+      "p95_ms": 57.991754
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        135.841133
+      ],
+      "p50_ms": 135.841133,
+      "p95_ms": 135.841133
+    }
+  },
+  "all_semantic_requests_passed": true,
+  "context": {
+    "name": "member-prefix",
+    "before": "    cli.addHelpOption();",
+    "prefix": "    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad",
+    "suffix": ";\n",
+    "expected": [
+      "addHelpOption",
+      "addOption"
+    ],
+    "bindings": {
+      "addOption": {
+        "1": "option"
+      }
+    },
+    "limit_ms": 300,
+    "forbidden": [
+      "qVersion",
+      "Counter",
+      "AdlTester"
+    ],
+    "require_sema": true
+  },
+  "insertions": [],
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "all_insertions_compiled": false,
+  "raw_results": [
+    {
+      "id": "project-completion",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "started_monotonic_ns": 119623400300993,
+          "completed_monotonic_ns": 119623401459966,
+          "elapsed_ms": 1.158973
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOption",
+                  "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOption(const QCommandLineOption &commandLineOption)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOption",
+                  "textEdit": {
+                    "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOptions",
+                  "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOptions(const QList<QCommandLineOption> &options)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOptions",
+                  "textEdit": {
+                    "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addVersionOption",
+                  "insertText": "addVersionOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addVersionOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddVersionOption",
+                  "textEdit": {
+                    "newText": "addVersionOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "addPositionalArgument",
+                  "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addPositionalArgument",
+                  "textEdit": {
+                    "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QString",
+                  "filterText": "applicationDescription",
+                  "insertText": "applicationDescription()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " applicationDescription() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40cc2208applicationDescription",
+                  "textEdit": {
+                    "newText": "applicationDescription()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "setApplicationDescription",
+                  "insertText": "setApplicationDescription(${1:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " setApplicationDescription(const QString &description)",
+                  "score": 0.9368076324462891,
+                  "sortText": "42102d60setApplicationDescription",
+                  "textEdit": {
+                    "newText": "setApplicationDescription(${1:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119623401601987,
+          "completed_monotonic_ns": 119626829233454,
+          "elapsed_ms": 3427.631467,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119623401597059,
+              "sample_started_monotonic_ns": 119623401508584,
+              "elapsed_ms": 1.4936319930711761,
+              "cpu_ms": 0.0,
+              "rss_kib": 11112,
+              "high_water_rss_kib": 11112
+            },
+            "end": {
+              "monotonic_ns": 119626829360542,
+              "sample_started_monotonic_ns": 119626829241687,
+              "elapsed_ms": 3429.257156996755,
+              "cpu_ms": 2040.0,
+              "rss_kib": 353324,
+              "high_water_rss_kib": 381536
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 86
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 119626829384703,
+          "completed_monotonic_ns": 119626829733686,
+          "elapsed_ms": 0.348983
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOption",
+                  "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOption(const QCommandLineOption &commandLineOption)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOption",
+                  "textEdit": {
+                    "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOptions",
+                  "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOptions(const QList<QCommandLineOption> &options)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOptions",
+                  "textEdit": {
+                    "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addVersionOption",
+                  "insertText": "addVersionOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addVersionOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddVersionOption",
+                  "textEdit": {
+                    "newText": "addVersionOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "addPositionalArgument",
+                  "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addPositionalArgument",
+                  "textEdit": {
+                    "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QString",
+                  "filterText": "applicationDescription",
+                  "insertText": "applicationDescription()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " applicationDescription() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40cc2208applicationDescription",
+                  "textEdit": {
+                    "newText": "applicationDescription()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "setApplicationDescription",
+                  "insertText": "setApplicationDescription(${1:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " setApplicationDescription(const QString &description)",
+                  "score": 0.9368076324462891,
+                  "sortText": "42102d60setApplicationDescription",
+                  "textEdit": {
+                    "newText": "setApplicationDescription(${1:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119626829815768,
+          "completed_monotonic_ns": 119626886529619,
+          "elapsed_ms": 56.713851,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119626829811877,
+              "sample_started_monotonic_ns": 119626829737490,
+              "elapsed_ms": 3429.708509996999,
+              "cpu_ms": 2040.0,
+              "rss_kib": 353348,
+              "high_water_rss_kib": 381536
+            },
+            "end": {
+              "monotonic_ns": 119626886655594,
+              "sample_started_monotonic_ns": 119626886534613,
+              "elapsed_ms": 3486.5523560001748,
+              "cpu_ms": 2210.0,
+              "rss_kib": 376568,
+              "high_water_rss_kib": 404512
+            }
+          }
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOption",
+                  "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOption(const QCommandLineOption &commandLineOption)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOption",
+                  "textEdit": {
+                    "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOptions",
+                  "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOptions(const QList<QCommandLineOption> &options)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOptions",
+                  "textEdit": {
+                    "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addVersionOption",
+                  "insertText": "addVersionOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addVersionOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddVersionOption",
+                  "textEdit": {
+                    "newText": "addVersionOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "addPositionalArgument",
+                  "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addPositionalArgument",
+                  "textEdit": {
+                    "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QString",
+                  "filterText": "applicationDescription",
+                  "insertText": "applicationDescription()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " applicationDescription() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40cc2208applicationDescription",
+                  "textEdit": {
+                    "newText": "applicationDescription()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "setApplicationDescription",
+                  "insertText": "setApplicationDescription(${1:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " setApplicationDescription(const QString &description)",
+                  "score": 0.9368076324462891,
+                  "sortText": "42102d60setApplicationDescription",
+                  "textEdit": {
+                    "newText": "setApplicationDescription(${1:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119626886756203,
+          "completed_monotonic_ns": 119627022597336,
+          "elapsed_ms": 135.841133,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119626886753648,
+              "sample_started_monotonic_ns": 119626886713778,
+              "elapsed_ms": 3486.650193997775,
+              "cpu_ms": 2210.0,
+              "rss_kib": 376580,
+              "high_water_rss_kib": 404512
+            },
+            "end": {
+              "monotonic_ns": 119627022730367,
+              "sample_started_monotonic_ns": 119627022603415,
+              "elapsed_ms": 3622.627224001917,
+              "cpu_ms": 2660.0,
+              "rss_kib": 360320,
+              "high_water_rss_kib": 454216
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 86
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 119627022753495,
+          "completed_monotonic_ns": 119627072576394,
+          "elapsed_ms": 49.822899
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 10,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addHelpOption",
+                  "insertText": "addHelpOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addHelpOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddHelpOption",
+                  "textEdit": {
+                    "newText": "addHelpOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOption",
+                  "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOption(const QCommandLineOption &commandLineOption)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOption",
+                  "textEdit": {
+                    "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "bool",
+                  "filterText": "addOptions",
+                  "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addOptions(const QList<QCommandLineOption> &options)",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddOptions",
+                  "textEdit": {
+                    "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QCommandLineOption",
+                  "filterText": "addVersionOption",
+                  "insertText": "addVersionOption()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addVersionOption()",
+                  "score": 1.236538290977478,
+                  "sortText": "4061b91daddVersionOption",
+                  "textEdit": {
+                    "newText": "addVersionOption()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "addPositionalArgument",
+                  "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+                  "score": 0.9368076324462891,
+                  "sortText": "40902d60addPositionalArgument",
+                  "textEdit": {
+                    "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "QString",
+                  "filterText": "applicationDescription",
+                  "insertText": "applicationDescription()",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " applicationDescription() const",
+                  "score": 0.9368076324462891,
+                  "sortText": "40cc2208applicationDescription",
+                  "textEdit": {
+                    "newText": "applicationDescription()",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                },
+                {
+                  "detail": "void",
+                  "filterText": "setApplicationDescription",
+                  "insertText": "setApplicationDescription(${1:const QString &description})",
+                  "insertTextFormat": 2,
+                  "kind": 2,
+                  "label": " setApplicationDescription(const QString &description)",
+                  "score": 0.9368076324462891,
+                  "sortText": "42102d60setApplicationDescription",
+                  "textEdit": {
+                    "newText": "setApplicationDescription(${1:const QString &description})",
+                    "range": {
+                      "end": {
+                        "character": 10,
+                        "line": 24
+                      },
+                      "start": {
+                        "character": 8,
+                        "line": 24
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119627072702397,
+          "completed_monotonic_ns": 119627130694151,
+          "elapsed_ms": 57.991754,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119627072696424,
+              "sample_started_monotonic_ns": 119627072584184,
+              "elapsed_ms": 3672.5930999964476,
+              "cpu_ms": 2820.0,
+              "rss_kib": 429504,
+              "high_water_rss_kib": 454216
+            },
+            "end": {
+              "monotonic_ns": 119627130802648,
+              "sample_started_monotonic_ns": 119627130698588,
+              "elapsed_ms": 3730.6993090023752,
+              "cpu_ms": 2940.0,
+              "rss_kib": 448068,
+              "high_water_rss_kib": 475928
+            }
+          }
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[07:46:17.577] clangd version 23.1.0-mcppls.0\nI[07:46:17.577] Features: linux\nI[07:46:17.577] PID: 2435817\nI[07:46:17.577] Working directory: /home/speak/test/mcpp/qt-demo\nI[07:46:17.577] argv[0]: /tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[07:46:17.577] argv[1]: --experimental-modules-support\nI[07:46:17.577] argv[2]: --background-index=false\nI[07:46:17.577] argv[3]: --header-insertion=never\nI[07:46:17.577] argv[4]: -j=4\nI[07:46:17.577] argv[5]: -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23\nI[07:46:17.577] argv[6]: --compile-commands-dir=/tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb\nI[07:46:17.577] Starting LSP over stdin/stdout\nI[07:46:17.577] <-- initialize(1)\nI[07:46:17.577] --> reply:initialize(1) 0 ms\nI[07:46:17.577] <-- initialized\nI[07:46:17.577] <-- textDocument/didOpen\nI[07:46:17.577] <-- textDocument/completion(4)\nI[07:46:17.578] Loaded compilation database from /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/compile_commands.json\nI[07:46:17.578] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.579] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.669] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.669] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:17.669] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.669] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.831] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:17.890] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:17.890] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.890] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.900] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.980] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:46:17.980] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.990] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.990] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:17.990] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:17.996] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:17.996] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:17.997] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:18.006] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:18.015] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:18.023] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:18.024] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.024] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:18.024] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:18.052] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.058] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.064] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.064] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.080] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.086] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:18.092] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:19.446] Built module nlohmann.json to /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm\nI[07:46:19.699] Built module std to /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm\nI[07:46:19.716] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 1.70 seconds\nI[07:46:20.916] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.916] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.926] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.944] Built preamble of size 33448496 for file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 in 1.20 seconds\nI[07:46:20.945] Indexing c++23 standard library in the context of /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:46:20.946] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.958] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.958] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.968] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:20.997] --> textDocument/publishDiagnostics\nI[07:46:21.003] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:21.005] Code complete: 7 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 7 returned.\nI[07:46:21.005] --> reply:textDocument/completion(4) 3427 ms\nI[07:46:21.005] <-- textDocument/documentSymbol(5)\nI[07:46:21.005] --> reply:textDocument/documentSymbol(5) 0 ms\nI[07:46:21.006] <-- textDocument/completion(6)\nI[07:46:21.008] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.019] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:21.019] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:21.019] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.019] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.029] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.060] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:21.062] Code complete: 7 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 7 returned.\nI[07:46:21.062] --> reply:textDocument/completion(6) 56 ms\nI[07:46:21.063] <-- textDocument/didChange\nI[07:46:21.063] <-- textDocument/completion(8)\nI[07:46:21.065] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.113] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.113] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.153] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:21.153] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:21.153] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.153] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.164] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.164] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.165] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:21.165] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:21.172] Warning: detected unsupported options '-fmodule-mapper=modmap/nlohmann.json-2f905a9c.map'\nI[07:46:21.172] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.172] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.183] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.196] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:21.197] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 2 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:46:21.197] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.197] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.198] Code complete: 7 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 7 returned.\nI[07:46:21.198] --> reply:textDocument/completion(8) 135 ms\nI[07:46:21.199] <-- textDocument/documentSymbol(9)\nI[07:46:21.209] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.224] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:21.224] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:21.224] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.248] --> textDocument/publishDiagnostics\nI[07:46:21.248] --> reply:textDocument/documentSymbol(9) 49 ms\nI[07:46:21.249] <-- textDocument/completion(10)\nI[07:46:21.250] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.261] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-0-1/payload.pcm is up to date via the validation cache\nI[07:46:21.261] Module file /tmp/mcppls-part2-floor70/qualification/matrix-control/member-prefix/cdb/.cache/clangd/modules/.owned-payload-v1/generation-1-1/payload.pcm is up to date via the validation cache\nI[07:46:21.261] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.261] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.272] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:46:21.304] Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type <none>\nI[07:46:21.306] Code complete: 7 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 7 returned.\nI[07:46:21.306] --> reply:textDocument/completion(10) 57 ms\nI[07:46:21.307] <-- shutdown(11)\nI[07:46:21.307] --> reply:shutdown(11) 0 ms\nI[07:46:21.307] <-- exit\nI[07:46:21.307] LSP finished, exiting with status 0\nI[07:46:21.752] Indexed c++23 standard library: 18031 symbols, 2355 filtered\n",
+      "requested_phases": [
+        "cold-open",
+        "settled-warm",
+        "edited",
+        "settled-warm"
+      ],
+      "context_answers": [
+        {
+          "phase": "cold-open",
+          "elapsed_ms": 3427.631467,
+          "started_monotonic_ns": 119623401601987,
+          "completed_monotonic_ns": 119626829233454,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119623401597059,
+              "sample_started_monotonic_ns": 119623401508584,
+              "elapsed_ms": 1.4936319930711761,
+              "cpu_ms": 0.0,
+              "rss_kib": 11112,
+              "high_water_rss_kib": 11112
+            },
+            "end": {
+              "monotonic_ns": 119626829360542,
+              "sample_started_monotonic_ns": 119626829241687,
+              "elapsed_ms": 3429.257156996755,
+              "cpu_ms": 2040.0,
+              "rss_kib": 353324,
+              "high_water_rss_kib": 381536
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 7,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addHelpOption",
+              "insertText": "addHelpOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addHelpOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddHelpOption",
+              "textEdit": {
+                "newText": "addHelpOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOption",
+              "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOption(const QCommandLineOption &commandLineOption)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOption",
+              "textEdit": {
+                "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOptions",
+              "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOptions(const QList<QCommandLineOption> &options)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOptions",
+              "textEdit": {
+                "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addVersionOption",
+              "insertText": "addVersionOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addVersionOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddVersionOption",
+              "textEdit": {
+                "newText": "addVersionOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "addPositionalArgument",
+              "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60addPositionalArgument",
+              "textEdit": {
+                "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QString",
+              "filterText": "applicationDescription",
+              "insertText": "applicationDescription()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " applicationDescription() const",
+              "score": 0.9368076324462891,
+              "sortText": "40cc2208applicationDescription",
+              "textEdit": {
+                "newText": "applicationDescription()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "setApplicationDescription",
+              "insertText": "setApplicationDescription(${1:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " setApplicationDescription(const QString &description)",
+              "score": 0.9368076324462891,
+              "sortText": "42102d60setApplicationDescription",
+              "textEdit": {
+                "newText": "setApplicationDescription(${1:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 56.713851,
+          "started_monotonic_ns": 119626829815768,
+          "completed_monotonic_ns": 119626886529619,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119626829811877,
+              "sample_started_monotonic_ns": 119626829737490,
+              "elapsed_ms": 3429.708509996999,
+              "cpu_ms": 2040.0,
+              "rss_kib": 353348,
+              "high_water_rss_kib": 381536
+            },
+            "end": {
+              "monotonic_ns": 119626886655594,
+              "sample_started_monotonic_ns": 119626886534613,
+              "elapsed_ms": 3486.5523560001748,
+              "cpu_ms": 2210.0,
+              "rss_kib": 376568,
+              "high_water_rss_kib": 404512
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 7,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addHelpOption",
+              "insertText": "addHelpOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addHelpOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddHelpOption",
+              "textEdit": {
+                "newText": "addHelpOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOption",
+              "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOption(const QCommandLineOption &commandLineOption)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOption",
+              "textEdit": {
+                "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOptions",
+              "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOptions(const QList<QCommandLineOption> &options)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOptions",
+              "textEdit": {
+                "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addVersionOption",
+              "insertText": "addVersionOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addVersionOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddVersionOption",
+              "textEdit": {
+                "newText": "addVersionOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "addPositionalArgument",
+              "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60addPositionalArgument",
+              "textEdit": {
+                "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QString",
+              "filterText": "applicationDescription",
+              "insertText": "applicationDescription()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " applicationDescription() const",
+              "score": 0.9368076324462891,
+              "sortText": "40cc2208applicationDescription",
+              "textEdit": {
+                "newText": "applicationDescription()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "setApplicationDescription",
+              "insertText": "setApplicationDescription(${1:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " setApplicationDescription(const QString &description)",
+              "score": 0.9368076324462891,
+              "sortText": "42102d60setApplicationDescription",
+              "textEdit": {
+                "newText": "setApplicationDescription(${1:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "edited",
+          "elapsed_ms": 135.841133,
+          "started_monotonic_ns": 119626886756203,
+          "completed_monotonic_ns": 119627022597336,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119626886753648,
+              "sample_started_monotonic_ns": 119626886713778,
+              "elapsed_ms": 3486.650193997775,
+              "cpu_ms": 2210.0,
+              "rss_kib": 376580,
+              "high_water_rss_kib": 404512
+            },
+            "end": {
+              "monotonic_ns": 119627022730367,
+              "sample_started_monotonic_ns": 119627022603415,
+              "elapsed_ms": 3622.627224001917,
+              "cpu_ms": 2660.0,
+              "rss_kib": 360320,
+              "high_water_rss_kib": 454216
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 7,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addHelpOption",
+              "insertText": "addHelpOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addHelpOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddHelpOption",
+              "textEdit": {
+                "newText": "addHelpOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOption",
+              "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOption(const QCommandLineOption &commandLineOption)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOption",
+              "textEdit": {
+                "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOptions",
+              "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOptions(const QList<QCommandLineOption> &options)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOptions",
+              "textEdit": {
+                "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addVersionOption",
+              "insertText": "addVersionOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addVersionOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddVersionOption",
+              "textEdit": {
+                "newText": "addVersionOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "addPositionalArgument",
+              "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60addPositionalArgument",
+              "textEdit": {
+                "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QString",
+              "filterText": "applicationDescription",
+              "insertText": "applicationDescription()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " applicationDescription() const",
+              "score": 0.9368076324462891,
+              "sortText": "40cc2208applicationDescription",
+              "textEdit": {
+                "newText": "applicationDescription()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "setApplicationDescription",
+              "insertText": "setApplicationDescription(${1:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " setApplicationDescription(const QString &description)",
+              "score": 0.9368076324462891,
+              "sortText": "42102d60setApplicationDescription",
+              "textEdit": {
+                "newText": "setApplicationDescription(${1:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 57.991754,
+          "started_monotonic_ns": 119627072702397,
+          "completed_monotonic_ns": 119627130694151,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119627072696424,
+              "sample_started_monotonic_ns": 119627072584184,
+              "elapsed_ms": 3672.5930999964476,
+              "cpu_ms": 2820.0,
+              "rss_kib": 429504,
+              "high_water_rss_kib": 454216
+            },
+            "end": {
+              "monotonic_ns": 119627130802648,
+              "sample_started_monotonic_ns": 119627130698588,
+              "elapsed_ms": 3730.6993090023752,
+              "cpu_ms": 2940.0,
+              "rss_kib": 448068,
+              "high_water_rss_kib": 475928
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 7,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addHelpOption",
+              "insertText": "addHelpOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addHelpOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddHelpOption",
+              "textEdit": {
+                "newText": "addHelpOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOption",
+              "insertText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOption(const QCommandLineOption &commandLineOption)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOption",
+              "textEdit": {
+                "newText": "addOption(${1:const QCommandLineOption &commandLineOption})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "bool",
+              "filterText": "addOptions",
+              "insertText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addOptions(const QList<QCommandLineOption> &options)",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddOptions",
+              "textEdit": {
+                "newText": "addOptions(${1:const QList<QCommandLineOption> &options})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QCommandLineOption",
+              "filterText": "addVersionOption",
+              "insertText": "addVersionOption()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addVersionOption()",
+              "score": 1.236538290977478,
+              "sortText": "4061b91daddVersionOption",
+              "textEdit": {
+                "newText": "addVersionOption()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "addPositionalArgument",
+              "insertText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " addPositionalArgument(const QString &name, const QString &description, const QString &syntax = QString())",
+              "score": 0.9368076324462891,
+              "sortText": "40902d60addPositionalArgument",
+              "textEdit": {
+                "newText": "addPositionalArgument(${1:const QString &name}, ${2:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "QString",
+              "filterText": "applicationDescription",
+              "insertText": "applicationDescription()",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " applicationDescription() const",
+              "score": 0.9368076324462891,
+              "sortText": "40cc2208applicationDescription",
+              "textEdit": {
+                "newText": "applicationDescription()",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            },
+            {
+              "detail": "void",
+              "filterText": "setApplicationDescription",
+              "insertText": "setApplicationDescription(${1:const QString &description})",
+              "insertTextFormat": 2,
+              "kind": 2,
+              "label": " setApplicationDescription(const QString &description)",
+              "score": 0.9368076324462891,
+              "sortText": "42102d60setApplicationDescription",
+              "textEdit": {
+                "newText": "setApplicationDescription(${1:const QString &description})",
+                "range": {
+                  "end": {
+                    "character": 10,
+                    "line": 24
+                  },
+                  "start": {
+                    "character": 8,
+                    "line": 24
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QCommandLineParser>\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        }
+      ],
+      "resources": {
+        "interval_ms": 100,
+        "cpu_tick_ms": 10.0,
+        "clock": "time.monotonic_ns; shared with replay request spans",
+        "scope": "Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.",
+        "samples": [
+          {
+            "monotonic_ns": 119623400478836,
+            "sample_started_monotonic_ns": 119623400243707,
+            "elapsed_ms": 0.3756139922188595,
+            "cpu_ms": 0.0,
+            "rss_kib": 3972,
+            "high_water_rss_kib": 3972
+          },
+          {
+            "monotonic_ns": 119623500831437,
+            "sample_started_monotonic_ns": 119623500670431,
+            "elapsed_ms": 100.72812899306882,
+            "cpu_ms": 90.0,
+            "rss_kib": 37104,
+            "high_water_rss_kib": 40232
+          },
+          {
+            "monotonic_ns": 119623601198240,
+            "sample_started_monotonic_ns": 119623601039636,
+            "elapsed_ms": 201.09494699863717,
+            "cpu_ms": 190.0,
+            "rss_kib": 46936,
+            "high_water_rss_kib": 48956
+          },
+          {
+            "monotonic_ns": 119623701554579,
+            "sample_started_monotonic_ns": 119623701391780,
+            "elapsed_ms": 301.45127899595536,
+            "cpu_ms": 290.0,
+            "rss_kib": 47472,
+            "high_water_rss_kib": 48956
+          },
+          {
+            "monotonic_ns": 119623801929866,
+            "sample_started_monotonic_ns": 119623801763397,
+            "elapsed_ms": 401.82665499742143,
+            "cpu_ms": 390.0,
+            "rss_kib": 47956,
+            "high_water_rss_kib": 48956
+          },
+          {
+            "monotonic_ns": 119623902300666,
+            "sample_started_monotonic_ns": 119623902142227,
+            "elapsed_ms": 502.19736200233456,
+            "cpu_ms": 490.0,
+            "rss_kib": 51572,
+            "high_water_rss_kib": 51572
+          },
+          {
+            "monotonic_ns": 119624002690691,
+            "sample_started_monotonic_ns": 119624002511170,
+            "elapsed_ms": 602.5874009937979,
+            "cpu_ms": 540.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624103062765,
+            "sample_started_monotonic_ns": 119624102885685,
+            "elapsed_ms": 702.9594750056276,
+            "cpu_ms": 540.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624203321135,
+            "sample_started_monotonic_ns": 119624203138572,
+            "elapsed_ms": 803.2178319990635,
+            "cpu_ms": 540.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624303703040,
+            "sample_started_monotonic_ns": 119624303531957,
+            "elapsed_ms": 903.5998320032377,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624404103194,
+            "sample_started_monotonic_ns": 119624403917084,
+            "elapsed_ms": 1003.9998900028877,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624504474878,
+            "sample_started_monotonic_ns": 119624504306827,
+            "elapsed_ms": 1104.371599998558,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624604869117,
+            "sample_started_monotonic_ns": 119624604690007,
+            "elapsed_ms": 1204.7658149967901,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624705279715,
+            "sample_started_monotonic_ns": 119624705110765,
+            "elapsed_ms": 1305.17641500046,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624805656083,
+            "sample_started_monotonic_ns": 119624805484093,
+            "elapsed_ms": 1405.5527989985421,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119624906038744,
+            "sample_started_monotonic_ns": 119624905862963,
+            "elapsed_ms": 1505.935455992585,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119625006458718,
+            "sample_started_monotonic_ns": 119625006275071,
+            "elapsed_ms": 1606.3554279971868,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119625106846832,
+            "sample_started_monotonic_ns": 119625106668360,
+            "elapsed_ms": 1706.7435320059303,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119625207236154,
+            "sample_started_monotonic_ns": 119625207049526,
+            "elapsed_ms": 1807.1328499936499,
+            "cpu_ms": 550.0,
+            "rss_kib": 52128,
+            "high_water_rss_kib": 52128
+          },
+          {
+            "monotonic_ns": 119625307634026,
+            "sample_started_monotonic_ns": 119625307450483,
+            "elapsed_ms": 1907.5307379971491,
+            "cpu_ms": 570.0,
+            "rss_kib": 52172,
+            "high_water_rss_kib": 52172
+          },
+          {
+            "monotonic_ns": 119625408027964,
+            "sample_started_monotonic_ns": 119625407837485,
+            "elapsed_ms": 2007.924709992949,
+            "cpu_ms": 570.0,
+            "rss_kib": 52172,
+            "high_water_rss_kib": 52172
+          },
+          {
+            "monotonic_ns": 119625508472983,
+            "sample_started_monotonic_ns": 119625508299032,
+            "elapsed_ms": 2108.369686000515,
+            "cpu_ms": 570.0,
+            "rss_kib": 52172,
+            "high_water_rss_kib": 52172
+          },
+          {
+            "monotonic_ns": 119625608772307,
+            "sample_started_monotonic_ns": 119625608593781,
+            "elapsed_ms": 2208.669004001422,
+            "cpu_ms": 660.0,
+            "rss_kib": 77104,
+            "high_water_rss_kib": 77104
+          },
+          {
+            "monotonic_ns": 119625709143263,
+            "sample_started_monotonic_ns": 119625708989617,
+            "elapsed_ms": 2309.039978994406,
+            "cpu_ms": 760.0,
+            "rss_kib": 99056,
+            "high_water_rss_kib": 99056
+          },
+          {
+            "monotonic_ns": 119625809521365,
+            "sample_started_monotonic_ns": 119625809349591,
+            "elapsed_ms": 2409.418064999045,
+            "cpu_ms": 870.0,
+            "rss_kib": 116052,
+            "high_water_rss_kib": 116052
+          },
+          {
+            "monotonic_ns": 119625909890028,
+            "sample_started_monotonic_ns": 119625909740432,
+            "elapsed_ms": 2509.7867290023714,
+            "cpu_ms": 960.0,
+            "rss_kib": 136940,
+            "high_water_rss_kib": 136940
+          },
+          {
+            "monotonic_ns": 119626010263440,
+            "sample_started_monotonic_ns": 119626010092306,
+            "elapsed_ms": 2610.1601340051275,
+            "cpu_ms": 1070.0,
+            "rss_kib": 154360,
+            "high_water_rss_kib": 154360
+          },
+          {
+            "monotonic_ns": 119626110613437,
+            "sample_started_monotonic_ns": 119626110464197,
+            "elapsed_ms": 2710.510135992081,
+            "cpu_ms": 1160.0,
+            "rss_kib": 174844,
+            "high_water_rss_kib": 174844
+          },
+          {
+            "monotonic_ns": 119626210987510,
+            "sample_started_monotonic_ns": 119626210818136,
+            "elapsed_ms": 2810.8842139918124,
+            "cpu_ms": 1260.0,
+            "rss_kib": 191824,
+            "high_water_rss_kib": 191824
+          },
+          {
+            "monotonic_ns": 119626311352928,
+            "sample_started_monotonic_ns": 119626311205486,
+            "elapsed_ms": 2911.2497290043393,
+            "cpu_ms": 1360.0,
+            "rss_kib": 205456,
+            "high_water_rss_kib": 205456
+          },
+          {
+            "monotonic_ns": 119626411727603,
+            "sample_started_monotonic_ns": 119626411554757,
+            "elapsed_ms": 3011.6243029915495,
+            "cpu_ms": 1460.0,
+            "rss_kib": 218228,
+            "high_water_rss_kib": 218228
+          },
+          {
+            "monotonic_ns": 119626512047445,
+            "sample_started_monotonic_ns": 119626511889365,
+            "elapsed_ms": 3111.944282994955,
+            "cpu_ms": 1560.0,
+            "rss_kib": 243524,
+            "high_water_rss_kib": 243524
+          },
+          {
+            "monotonic_ns": 119626612379306,
+            "sample_started_monotonic_ns": 119626612200311,
+            "elapsed_ms": 3212.2760159982136,
+            "cpu_ms": 1660.0,
+            "rss_kib": 263088,
+            "high_water_rss_kib": 263088
+          },
+          {
+            "monotonic_ns": 119626712752526,
+            "sample_started_monotonic_ns": 119626712582138,
+            "elapsed_ms": 3312.6492540031904,
+            "cpu_ms": 1760.0,
+            "rss_kib": 290664,
+            "high_water_rss_kib": 290664
+          },
+          {
+            "monotonic_ns": 119626813160469,
+            "sample_started_monotonic_ns": 119626812956320,
+            "elapsed_ms": 3413.0572010035394,
+            "cpu_ms": 1990.0,
+            "rss_kib": 364296,
+            "high_water_rss_kib": 364296
+          },
+          {
+            "monotonic_ns": 119626913538400,
+            "sample_started_monotonic_ns": 119626913373490,
+            "elapsed_ms": 3513.435105996905,
+            "cpu_ms": 2290.0,
+            "rss_kib": 400828,
+            "high_water_rss_kib": 404512
+          },
+          {
+            "monotonic_ns": 119627013913378,
+            "sample_started_monotonic_ns": 119627013739707,
+            "elapsed_ms": 3613.8101760006975,
+            "cpu_ms": 2630.0,
+            "rss_kib": 452408,
+            "high_water_rss_kib": 452408
+          },
+          {
+            "monotonic_ns": 119627114279829,
+            "sample_started_monotonic_ns": 119627114117123,
+            "elapsed_ms": 3714.176508001401,
+            "cpu_ms": 2900.0,
+            "rss_kib": 463372,
+            "high_water_rss_kib": 463372
+          },
+          {
+            "monotonic_ns": 119627214662583,
+            "sample_started_monotonic_ns": 119627214486580,
+            "elapsed_ms": 3814.559232996544,
+            "cpu_ms": 3020.0,
+            "rss_kib": 396852,
+            "high_water_rss_kib": 475928
+          },
+          {
+            "monotonic_ns": 119627315028478,
+            "sample_started_monotonic_ns": 119627314855014,
+            "elapsed_ms": 3914.925110992044,
+            "cpu_ms": 3130.0,
+            "rss_kib": 415584,
+            "high_water_rss_kib": 475928
+          },
+          {
+            "monotonic_ns": 119627415386311,
+            "sample_started_monotonic_ns": 119627415225383,
+            "elapsed_ms": 4015.282954002032,
+            "cpu_ms": 3230.0,
+            "rss_kib": 436248,
+            "high_water_rss_kib": 475928
+          },
+          {
+            "monotonic_ns": 119627515756064,
+            "sample_started_monotonic_ns": 119627515577282,
+            "elapsed_ms": 4115.652752996539,
+            "cpu_ms": 3330.0,
+            "rss_kib": 460112,
+            "high_water_rss_kib": 475928
+          },
+          {
+            "monotonic_ns": 119627616325789,
+            "sample_started_monotonic_ns": 119627615962231,
+            "elapsed_ms": 4216.222795992508,
+            "cpu_ms": 3430.0,
+            "rss_kib": 434336,
+            "high_water_rss_kib": 475928
+          }
+        ],
+        "errors": [],
+        "sampler_stopped": true
+      }
+    }
+  ],
+  "limits": [
+    "Single context probe; aggregate context/baseline gate requires separate matrix evidence.",
+    "Cold-open includes fallback responses; semantic contexts require per-request Sema evidence and typed expected items.",
+    "Insertion compilation is opt-in; no baseline speedup proof in this individual report.",
+    "Settled-warm is AST-ready, not proof of a particular cache hit."
+  ]
+}

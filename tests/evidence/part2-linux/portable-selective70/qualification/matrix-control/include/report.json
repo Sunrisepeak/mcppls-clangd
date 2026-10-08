@@ -1,0 +1,1679 @@
+{
+  "schema": 4,
+  "engine_sha256": "5213fa91c24f93f9d3a6f625f4a0699f4ea93892063a7032b2b9ef34b13a179e",
+  "engine_flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "--header-insertion=never",
+    "-j=4",
+    "-resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23",
+    "--compile-commands-dir=/tmp/mcppls-part2-floor70/qualification/matrix-control/include/cdb"
+  ],
+  "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "position": {
+    "line": 3,
+    "character": 22
+  },
+  "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+  "draft_source": null,
+  "expression": "#include <QtCore/QComm",
+  "starts": 1,
+  "rounds": 1,
+  "cold_completion_requested": true,
+  "measurement_mode": "cold-warm-edited",
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        1320.472997
+      ],
+      "p50_ms": 1320.472997,
+      "p95_ms": 1320.472997
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        13.503149,
+        18.964766
+      ],
+      "p50_ms": 13.503149,
+      "p95_ms": 18.964766
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        96.894437
+      ],
+      "p50_ms": 96.894437,
+      "p95_ms": 96.894437
+    }
+  },
+  "all_semantic_requests_passed": true,
+  "context": {
+    "name": "include",
+    "before": "#include <QtCore/QCommandLineParser>",
+    "replace_anchor": true,
+    "prefix": "#include <QtCore/QComm",
+    "suffix": ">\n",
+    "expected": [
+      "QCommandLineParser>"
+    ],
+    "limit_ms": 200
+  },
+  "insertions": [],
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "all_insertions_compiled": false,
+  "raw_results": [
+    {
+      "id": "project-completion",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": true
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "started_monotonic_ns": 119580437810968,
+          "completed_monotonic_ns": 119580439502817,
+          "elapsed_ms": 1.691849
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "QCommandLineOption>",
+                  "insertText": "QCommandLineOption>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineOption>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineOption>",
+                  "textEdit": {
+                    "newText": "QCommandLineOption>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QCommandLineParser>",
+                  "insertText": "QCommandLineParser>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineParser>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineParser>",
+                  "textEdit": {
+                    "newText": "QCommandLineParser>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineoption.h>",
+                  "insertText": "qcommandlineoption.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineoption.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineoption.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineoption.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineparser.h>",
+                  "insertText": "qcommandlineparser.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineparser.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineparser.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineparser.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QtCborCommon>",
+                  "insertText": "QtCborCommon>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QtCborCommon>",
+                  "score": 0.787254273891449,
+                  "sortText": "40d4b187QtCborCommon>",
+                  "textEdit": {
+                    "newText": "QtCborCommon>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119580439656785,
+          "completed_monotonic_ns": 119581760129782,
+          "elapsed_ms": 1320.472997,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119580439651086,
+              "sample_started_monotonic_ns": 119580439554755,
+              "elapsed_ms": 1.9835229904856533,
+              "cpu_ms": 0.0,
+              "rss_kib": 11648,
+              "high_water_rss_kib": 11648
+            },
+            "end": {
+              "monotonic_ns": 119581760238494,
+              "sample_started_monotonic_ns": 119581760138776,
+              "elapsed_ms": 1322.5710439874092,
+              "cpu_ms": 1360.0,
+              "rss_kib": 273692,
+              "high_water_rss_kib": 274616
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 85
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 19
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 119581760261256,
+          "completed_monotonic_ns": 119581761362588,
+          "elapsed_ms": 1.101332
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "QCommandLineOption>",
+                  "insertText": "QCommandLineOption>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineOption>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineOption>",
+                  "textEdit": {
+                    "newText": "QCommandLineOption>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QCommandLineParser>",
+                  "insertText": "QCommandLineParser>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineParser>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineParser>",
+                  "textEdit": {
+                    "newText": "QCommandLineParser>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineoption.h>",
+                  "insertText": "qcommandlineoption.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineoption.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineoption.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineoption.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineparser.h>",
+                  "insertText": "qcommandlineparser.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineparser.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineparser.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineparser.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QtCborCommon>",
+                  "insertText": "QtCborCommon>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QtCborCommon>",
+                  "score": 0.787254273891449,
+                  "sortText": "40d4b187QtCborCommon>",
+                  "textEdit": {
+                    "newText": "QtCborCommon>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119581761415467,
+          "completed_monotonic_ns": 119581774918616,
+          "elapsed_ms": 13.503149,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119581761412366,
+              "sample_started_monotonic_ns": 119581761364768,
+              "elapsed_ms": 1323.7447229912505,
+              "cpu_ms": 1360.0,
+              "rss_kib": 274392,
+              "high_water_rss_kib": 274616
+            },
+            "end": {
+              "monotonic_ns": 119581774985757,
+              "sample_started_monotonic_ns": 119581774926704,
+              "elapsed_ms": 1337.3181369970553,
+              "cpu_ms": 1400.0,
+              "rss_kib": 276568,
+              "high_water_rss_kib": 276568
+            }
+          }
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "QCommandLineOption>",
+                  "insertText": "QCommandLineOption>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineOption>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineOption>",
+                  "textEdit": {
+                    "newText": "QCommandLineOption>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QCommandLineParser>",
+                  "insertText": "QCommandLineParser>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineParser>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineParser>",
+                  "textEdit": {
+                    "newText": "QCommandLineParser>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineoption.h>",
+                  "insertText": "qcommandlineoption.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineoption.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineoption.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineoption.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineparser.h>",
+                  "insertText": "qcommandlineparser.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineparser.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineparser.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineparser.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QtCborCommon>",
+                  "insertText": "QtCborCommon>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QtCborCommon>",
+                  "score": 0.787254273891449,
+                  "sortText": "40d4b187QtCborCommon>",
+                  "textEdit": {
+                    "newText": "QtCborCommon>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119581775075340,
+          "completed_monotonic_ns": 119581871969777,
+          "elapsed_ms": 96.894437,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119581775072906,
+              "sample_started_monotonic_ns": 119581775026596,
+              "elapsed_ms": 1337.405285987188,
+              "cpu_ms": 1400.0,
+              "rss_kib": 276572,
+              "high_water_rss_kib": 276572
+            },
+            "end": {
+              "monotonic_ns": 119581872098280,
+              "sample_started_monotonic_ns": 119581871975184,
+              "elapsed_ms": 1434.4307899882551,
+              "cpu_ms": 1690.0,
+              "rss_kib": 347456,
+              "high_water_rss_kib": 347456
+            }
+          }
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 85
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 19
+                    }
+                  },
+                  "uri": "file:///home/speak/test/mcpp/qt-demo/src/main.cpp"
+                },
+                "name": "main"
+              }
+            ]
+          },
+          "started_monotonic_ns": 119581872119775,
+          "completed_monotonic_ns": 119581902094727,
+          "elapsed_ms": 29.974952
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 10,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "QCommandLineOption>",
+                  "insertText": "QCommandLineOption>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineOption>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineOption>",
+                  "textEdit": {
+                    "newText": "QCommandLineOption>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QCommandLineParser>",
+                  "insertText": "QCommandLineParser>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QCommandLineParser>",
+                  "score": 0.787254273891449,
+                  "sortText": "40b67681QCommandLineParser>",
+                  "textEdit": {
+                    "newText": "QCommandLineParser>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineoption.h>",
+                  "insertText": "qcommandlineoption.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineoption.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineoption.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineoption.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "qcommandlineparser.h>",
+                  "insertText": "qcommandlineparser.h>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " qcommandlineparser.h>",
+                  "score": 0.787254273891449,
+                  "sortText": "40ca9ddaqcommandlineparser.h>",
+                  "textEdit": {
+                    "newText": "qcommandlineparser.h>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "QtCborCommon>",
+                  "insertText": "QtCborCommon>",
+                  "insertTextFormat": 1,
+                  "kind": 17,
+                  "label": " QtCborCommon>",
+                  "score": 0.787254273891449,
+                  "sortText": "40d4b187QtCborCommon>",
+                  "textEdit": {
+                    "newText": "QtCborCommon>",
+                    "range": {
+                      "end": {
+                        "character": 23,
+                        "line": 3
+                      },
+                      "start": {
+                        "character": 17,
+                        "line": 3
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "started_monotonic_ns": 119581902224430,
+          "completed_monotonic_ns": 119581921189196,
+          "elapsed_ms": 18.964766,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119581902217239,
+              "sample_started_monotonic_ns": 119581902103183,
+              "elapsed_ms": 1464.5496459997958,
+              "cpu_ms": 1800.0,
+              "rss_kib": 353852,
+              "high_water_rss_kib": 353852
+            },
+            "end": {
+              "monotonic_ns": 119581921305632,
+              "sample_started_monotonic_ns": 119581921193511,
+              "elapsed_ms": 1483.6380669876235,
+              "cpu_ms": 1860.0,
+              "rss_kib": 357664,
+              "high_water_rss_kib": 357664
+            }
+          }
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[07:45:34.615] clangd version 23.1.0-mcppls.0\nI[07:45:34.615] Features: linux\nI[07:45:34.615] PID: 2435634\nI[07:45:34.615] Working directory: /home/speak/test/mcpp/qt-demo\nI[07:45:34.615] argv[0]: /tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[07:45:34.615] argv[1]: --experimental-modules-support\nI[07:45:34.615] argv[2]: --background-index=false\nI[07:45:34.615] argv[3]: --header-insertion=never\nI[07:45:34.615] argv[4]: -j=4\nI[07:45:34.615] argv[5]: -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23\nI[07:45:34.615] argv[6]: --compile-commands-dir=/tmp/mcppls-part2-floor70/qualification/matrix-control/include/cdb\nI[07:45:34.615] Starting LSP over stdin/stdout\nI[07:45:34.615] <-- initialize(1)\nI[07:45:34.615] --> reply:initialize(1) 0 ms\nI[07:45:34.615] <-- initialized\nI[07:45:34.615] <-- textDocument/didOpen\nI[07:45:34.615] <-- textDocument/completion(4)\nI[07:45:34.616] Loaded compilation database from /tmp/mcppls-part2-floor70/qualification/matrix-control/include/cdb/compile_commands.json\nI[07:45:34.616] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:45:34.617] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:34.705] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:34.705] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:34.705] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:45:34.705] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:34.715] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:34.715] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:34.715] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:34.724] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:34.724] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:34.724] Built prerequisite modules for file /home/speak/test/mcpp/qt-demo/src/main.cpp in 0.01 seconds\nI[07:45:35.916] Built preamble of size 32716168 for file /home/speak/test/mcpp/qt-demo/src/main.cpp version 1 in 1.19 seconds\nI[07:45:35.916] Indexing c++23 standard library in the context of /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:45:35.919] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:35.933] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:35.933] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:35.935] Code complete: sema context IncludedFile, query scopes [] (AnyScope=true), expected type <none>\nI[07:45:35.936] Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.\nI[07:45:35.936] --> reply:textDocument/completion(4) 1320 ms\nE[07:45:35.936] IncludeCleaner: Failed to get an entry for resolved path '' from include <QtCore/QComm> : '': No such file or directory\nI[07:45:35.936] <-- textDocument/documentSymbol(5)\nI[07:45:35.937] --> textDocument/publishDiagnostics\nI[07:45:35.937] --> reply:textDocument/documentSymbol(5) 1 ms\nI[07:45:35.937] <-- textDocument/completion(6)\nI[07:45:35.939] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:35.949] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:35.949] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:35.950] Code complete: sema context IncludedFile, query scopes [] (AnyScope=true), expected type <none>\nI[07:45:35.950] Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.\nI[07:45:35.951] --> reply:textDocument/completion(6) 13 ms\nI[07:45:35.951] <-- textDocument/didChange\nI[07:45:35.951] <-- textDocument/completion(8)\nI[07:45:35.953] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:45:36.001] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nI[07:45:36.002] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:36.046] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:36.046] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:36.047] Code complete: sema context IncludedFile, query scopes [] (AnyScope=true), expected type <none>\nI[07:45:36.047] Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.\nI[07:45:36.048] --> reply:textDocument/completion(8) 96 ms\nI[07:45:36.048] <-- textDocument/documentSymbol(9)\nE[07:45:36.057] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:36.057] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:36.058] ASTWorker building file /home/speak/test/mcpp/qt-demo/src/main.cpp version 2 with command \n[/home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c]\n/home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp\nI[07:45:36.059] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:36.069] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:36.069] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nE[07:45:36.077] IncludeCleaner: Failed to get an entry for resolved path '' from include <QtCore/QComm> : '': No such file or directory\nI[07:45:36.078] --> textDocument/publishDiagnostics\nI[07:45:36.078] --> reply:textDocument/documentSymbol(9) 29 ms\nI[07:45:36.078] <-- textDocument/completion(10)\nI[07:45:36.080] Warning: detected unsupported options '-fmodule-mapper=modmap/qt-demo-2f905a9c.map'\nE[07:45:36.095] Scanning modules dependencies for /home/speak/test/mcpp/qt-demo/src/main.cpp failed: /home/speak/test/mcpp/qt-demo/src/main.cpp:4:10: fatal error: 'QtCore/QComm' file not found\n\nE[07:45:36.095] The command line the scanning tool use is: /home/speak/.mcpp/registry/data/xpkgs/xim-x-gcc/16.1.0/bin/g++ --driver-mode=g++ -I/home/speak/.mcpp/registry/data/xpkgs/nlohmann-x-json/3.12.0/json-3.12.0/single_include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtCore -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtGui -I/home/speak/.mcpp/registry/data/xpkgs/xim-x-qt-base/6.11.1/include/QtWidgets -I/home/speak/test/mcpp/qt-demo/target/.build-mcpp/out/qt -std=c++23 -fmodules -O0 -g -fPIC --sysroot=/home/speak/.mcpp/registry/subos/default -B/home/speak/.mcpp/registry/data/xpkgs/xim-x-binutils/2.42/bin -D__MCPP_TARGET_LINUX__=1 -fPIC -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -c -o /home/speak/test/mcpp/qt-demo/target/x86_64-linux-gnu/14f5d5bc19b3fa5c/obj/main.o -resource-dir=/tmp/mcppls-part2-floor70/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -fno-implicit-module-maps -- /home/speak/test/mcpp/qt-demo/src/main.cpp \nI[07:45:36.096] Code complete: sema context IncludedFile, query scopes [] (AnyScope=true), expected type <none>\nI[07:45:36.097] Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.\nI[07:45:36.097] --> reply:textDocument/completion(10) 18 ms\nI[07:45:36.097] <-- shutdown(11)\nI[07:45:36.097] --> reply:shutdown(11) 0 ms\nI[07:45:36.097] <-- exit\nI[07:45:36.097] LSP finished, exiting with status 0\nI[07:45:36.743] Indexed c++23 standard library: 18031 symbols, 2355 filtered\n",
+      "requested_phases": [
+        "cold-open",
+        "settled-warm",
+        "edited",
+        "settled-warm"
+      ],
+      "context_answers": [
+        {
+          "phase": "cold-open",
+          "elapsed_ms": 1320.472997,
+          "started_monotonic_ns": 119580439656785,
+          "completed_monotonic_ns": 119581760129782,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119580439651086,
+              "sample_started_monotonic_ns": 119580439554755,
+              "elapsed_ms": 1.9835229904856533,
+              "cpu_ms": 0.0,
+              "rss_kib": 11648,
+              "high_water_rss_kib": 11648
+            },
+            "end": {
+              "monotonic_ns": 119581760238494,
+              "sample_started_monotonic_ns": 119581760138776,
+              "elapsed_ms": 1322.5710439874092,
+              "cpu_ms": 1360.0,
+              "rss_kib": 273692,
+              "high_water_rss_kib": 274616
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 5,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "QCommandLineOption>",
+              "insertText": "QCommandLineOption>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineOption>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineOption>",
+              "textEdit": {
+                "newText": "QCommandLineOption>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QCommandLineParser>",
+              "insertText": "QCommandLineParser>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineParser>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineParser>",
+              "textEdit": {
+                "newText": "QCommandLineParser>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineoption.h>",
+              "insertText": "qcommandlineoption.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineoption.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineoption.h>",
+              "textEdit": {
+                "newText": "qcommandlineoption.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineparser.h>",
+              "insertText": "qcommandlineparser.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineparser.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineparser.h>",
+              "textEdit": {
+                "newText": "qcommandlineparser.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QtCborCommon>",
+              "insertText": "QtCborCommon>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QtCborCommon>",
+              "score": 0.787254273891449,
+              "sortText": "40d4b187QtCborCommon>",
+              "textEdit": {
+                "newText": "QtCborCommon>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QComm>\n\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 13.503149,
+          "started_monotonic_ns": 119581761415467,
+          "completed_monotonic_ns": 119581774918616,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119581761412366,
+              "sample_started_monotonic_ns": 119581761364768,
+              "elapsed_ms": 1323.7447229912505,
+              "cpu_ms": 1360.0,
+              "rss_kib": 274392,
+              "high_water_rss_kib": 274616
+            },
+            "end": {
+              "monotonic_ns": 119581774985757,
+              "sample_started_monotonic_ns": 119581774926704,
+              "elapsed_ms": 1337.3181369970553,
+              "cpu_ms": 1400.0,
+              "rss_kib": 276568,
+              "high_water_rss_kib": 276568
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 5,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "QCommandLineOption>",
+              "insertText": "QCommandLineOption>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineOption>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineOption>",
+              "textEdit": {
+                "newText": "QCommandLineOption>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QCommandLineParser>",
+              "insertText": "QCommandLineParser>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineParser>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineParser>",
+              "textEdit": {
+                "newText": "QCommandLineParser>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineoption.h>",
+              "insertText": "qcommandlineoption.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineoption.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineoption.h>",
+              "textEdit": {
+                "newText": "qcommandlineoption.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineparser.h>",
+              "insertText": "qcommandlineparser.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineparser.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineparser.h>",
+              "textEdit": {
+                "newText": "qcommandlineparser.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QtCborCommon>",
+              "insertText": "QtCborCommon>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QtCborCommon>",
+              "score": 0.787254273891449,
+              "sortText": "40d4b187QtCborCommon>",
+              "textEdit": {
+                "newText": "QtCborCommon>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QComm>\n\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n"
+        },
+        {
+          "phase": "edited",
+          "elapsed_ms": 96.894437,
+          "started_monotonic_ns": 119581775075340,
+          "completed_monotonic_ns": 119581871969777,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119581775072906,
+              "sample_started_monotonic_ns": 119581775026596,
+              "elapsed_ms": 1337.405285987188,
+              "cpu_ms": 1400.0,
+              "rss_kib": 276572,
+              "high_water_rss_kib": 276572
+            },
+            "end": {
+              "monotonic_ns": 119581872098280,
+              "sample_started_monotonic_ns": 119581871975184,
+              "elapsed_ms": 1434.4307899882551,
+              "cpu_ms": 1690.0,
+              "rss_kib": 347456,
+              "high_water_rss_kib": 347456
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 5,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "QCommandLineOption>",
+              "insertText": "QCommandLineOption>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineOption>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineOption>",
+              "textEdit": {
+                "newText": "QCommandLineOption>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QCommandLineParser>",
+              "insertText": "QCommandLineParser>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineParser>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineParser>",
+              "textEdit": {
+                "newText": "QCommandLineParser>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineoption.h>",
+              "insertText": "qcommandlineoption.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineoption.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineoption.h>",
+              "textEdit": {
+                "newText": "qcommandlineoption.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineparser.h>",
+              "insertText": "qcommandlineparser.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineparser.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineparser.h>",
+              "textEdit": {
+                "newText": "qcommandlineparser.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QtCborCommon>",
+              "insertText": "QtCborCommon>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QtCborCommon>",
+              "score": 0.787254273891449,
+              "sortText": "40d4b187QtCborCommon>",
+              "textEdit": {
+                "newText": "QtCborCommon>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QComm>\n\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 18.964766,
+          "started_monotonic_ns": 119581902224430,
+          "completed_monotonic_ns": 119581921189196,
+          "resource_snapshots": {
+            "start": {
+              "monotonic_ns": 119581902217239,
+              "sample_started_monotonic_ns": 119581902103183,
+              "elapsed_ms": 1464.5496459997958,
+              "cpu_ms": 1800.0,
+              "rss_kib": 353852,
+              "high_water_rss_kib": 353852
+            },
+            "end": {
+              "monotonic_ns": 119581921305632,
+              "sample_started_monotonic_ns": 119581921193511,
+              "elapsed_ms": 1483.6380669876235,
+              "cpu_ms": 1860.0,
+              "rss_kib": 357664,
+              "high_water_rss_kib": 357664
+            }
+          },
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 5,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "index_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "QCommandLineOption>",
+              "insertText": "QCommandLineOption>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineOption>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineOption>",
+              "textEdit": {
+                "newText": "QCommandLineOption>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QCommandLineParser>",
+              "insertText": "QCommandLineParser>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QCommandLineParser>",
+              "score": 0.787254273891449,
+              "sortText": "40b67681QCommandLineParser>",
+              "textEdit": {
+                "newText": "QCommandLineParser>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineoption.h>",
+              "insertText": "qcommandlineoption.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineoption.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineoption.h>",
+              "textEdit": {
+                "newText": "qcommandlineoption.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "qcommandlineparser.h>",
+              "insertText": "qcommandlineparser.h>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " qcommandlineparser.h>",
+              "score": 0.787254273891449,
+              "sortText": "40ca9ddaqcommandlineparser.h>",
+              "textEdit": {
+                "newText": "qcommandlineparser.h>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "QtCborCommon>",
+              "insertText": "QtCborCommon>",
+              "insertTextFormat": 1,
+              "kind": 17,
+              "label": " QtCborCommon>",
+              "score": 0.787254273891449,
+              "sortText": "40d4b187QtCborCommon>",
+              "textEdit": {
+                "newText": "QtCborCommon>",
+                "range": {
+                  "end": {
+                    "character": 23,
+                    "line": 3
+                  },
+                  "start": {
+                    "character": 17,
+                    "line": 3
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "#include \"counter.h\"\n#include \"ui_mainwindow.h\"\n\n#include <QtCore/QComm>\n\n#include <QtCore/QFile>\n#include <QtCore/QLibraryInfo>\n#include <QtCore/QTimer>\n#include <QtCore/QTranslator>\n#include <QtWidgets/QApplication>\n#include <QtWidgets/QDialogButtonBox>\n#include <QtWidgets/QMainWindow>\n#include <QtWidgets/QPushButton>\n\n#include <cstdio>\n\nimport std;\nimport nlohmann.json;\n\nint main(int argc, char** argv) {\n\n    QApplication app(argc, argv);\n\n    QCommandLineParser cli;\n    cli.addHelpOption();\n    cli.addOption({\"lang\", \"UI language: en or zh_CN.\", \"lang\", \"zh_CN\"});\n    cli.addOption({\"screenshot\", \"Save the window to <file> and quit.\", \"file\"});\n    cli.process(app);\n\n    // The project's translation (lrelease) and Qt's own (lconvert), both placed\n    // under translations/ beside the program by rules-qt.\n    const QString dir = QCoreApplication::applicationDirPath() + \"/translations\";\n    QTranslator mine, qts;\n    if (cli.value(\"lang\") == \"zh_CN\") {\n        if (mine.load(\"qt_demo_zh_CN\", dir)) QCoreApplication::installTranslator(&mine);\n        if (qts.load(\"qt_zh_CN\", dir)) QCoreApplication::installTranslator(&qts);\n    }\n\n    QMainWindow window;\n    Ui::MainWindow ui;\n    ui.setupUi(&window);\n    window.setWindowTitle(QCoreApplication::translate(\"demo\", \"mcpp Qt demo\"));\n    ui.title->setText(QCoreApplication::translate(\"demo\", \"Built by mcpp with rules-qt\"));\n    ui.addButton->setText(QCoreApplication::translate(\"demo\", \"Add one\"));\n    ui.resetButton->setText(QCoreApplication::translate(\"demo\", \"Reset\"));\n\n    // rcc: the text below is embedded in the executable.\n    QFile about(\":/about.txt\");\n    if (about.open(QIODevice::ReadOnly)) ui.about->setPlainText(QString::fromUtf8(about.readAll()));\n\n    // moc: Counter's signal drives the label.\n    Counter counter;\n    auto show = [&](int v) {\n        ui.count->setText(QCoreApplication::translate(\"demo\", \"Clicked %1 times\").arg(v));\n    };\n    QObject::connect(ui.addButton, &QPushButton::clicked, &counter, &Counter::increment);\n    QObject::connect(ui.resetButton, &QPushButton::clicked, &counter, &Counter::reset);\n    QObject::connect(&counter, &Counter::changed, show);\n    show(0);\n\n    ui.info->setText(QString(\"Qt %1 \u00b7 %2 \u00b7 %3\")\n                         .arg(qVersion(), QGuiApplication::platformName(),\n                              QLibraryInfo::isSharedBuild() ? \"shared\" : \"static\"));\n    // Qt's own strings, translated by qt_zh_CN.qm.\n    ui.buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);\n    QObject::connect(ui.buttons, &QDialogButtonBox::accepted, &app, &QApplication::quit);\n    QObject::connect(ui.buttons, &QDialogButtonBox::rejected, &app, &QApplication::quit);\n\n    window.show();\n    std::printf(\"qt-demo: Qt %s, platform %s, language %s\\n\", qVersion(),\n                QGuiApplication::platformName().toUtf8().constData(),\n                cli.value(\"lang\").toUtf8().constData());\n\n    if (cli.isSet(\"screenshot\")) {\n        const QString file = cli.value(\"screenshot\");\n        QTimer::singleShot(400, [&] {\n            counter.increment();\n            counter.increment();\n            counter.increment();\n            window.grab().save(file);\n            std::printf(\"qt-demo: saved %s\\n\", file.toUtf8().constData());\n            app.quit();\n        });\n    }\n    return app.exec();\n}\n\n// probe 0\n"
+        }
+      ],
+      "resources": {
+        "interval_ms": 100,
+        "cpu_tick_ms": 10.0,
+        "clock": "time.monotonic_ns; shared with replay request spans",
+        "scope": "Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.",
+        "samples": [
+          {
+            "monotonic_ns": 119580437972250,
+            "sample_started_monotonic_ns": 119580437778783,
+            "elapsed_ms": 0.30486499599646777,
+            "cpu_ms": 0.0,
+            "rss_kib": 3136,
+            "high_water_rss_kib": 3136
+          },
+          {
+            "monotonic_ns": 119580538182784,
+            "sample_started_monotonic_ns": 119580538022939,
+            "elapsed_ms": 100.51532599027269,
+            "cpu_ms": 90.0,
+            "rss_kib": 37548,
+            "high_water_rss_kib": 40024
+          },
+          {
+            "monotonic_ns": 119580638465142,
+            "sample_started_monotonic_ns": 119580638306970,
+            "elapsed_ms": 200.7976780005265,
+            "cpu_ms": 190.0,
+            "rss_kib": 68536,
+            "high_water_rss_kib": 68536
+          },
+          {
+            "monotonic_ns": 119580738841924,
+            "sample_started_monotonic_ns": 119580738674929,
+            "elapsed_ms": 301.17449699901044,
+            "cpu_ms": 290.0,
+            "rss_kib": 92012,
+            "high_water_rss_kib": 92012
+          },
+          {
+            "monotonic_ns": 119580839216912,
+            "sample_started_monotonic_ns": 119580839041929,
+            "elapsed_ms": 401.5495679923333,
+            "cpu_ms": 390.0,
+            "rss_kib": 110216,
+            "high_water_rss_kib": 110216
+          },
+          {
+            "monotonic_ns": 119580939593341,
+            "sample_started_monotonic_ns": 119580939427153,
+            "elapsed_ms": 501.92587199853733,
+            "cpu_ms": 500.0,
+            "rss_kib": 127736,
+            "high_water_rss_kib": 127736
+          },
+          {
+            "monotonic_ns": 119581039974223,
+            "sample_started_monotonic_ns": 119581039793739,
+            "elapsed_ms": 602.3071160016116,
+            "cpu_ms": 590.0,
+            "rss_kib": 146092,
+            "high_water_rss_kib": 146092
+          },
+          {
+            "monotonic_ns": 119581140351564,
+            "sample_started_monotonic_ns": 119581140186356,
+            "elapsed_ms": 702.6840869948501,
+            "cpu_ms": 690.0,
+            "rss_kib": 163200,
+            "high_water_rss_kib": 163200
+          },
+          {
+            "monotonic_ns": 119581240728637,
+            "sample_started_monotonic_ns": 119581240560666,
+            "elapsed_ms": 803.0611589929322,
+            "cpu_ms": 800.0,
+            "rss_kib": 182020,
+            "high_water_rss_kib": 182020
+          },
+          {
+            "monotonic_ns": 119581341120850,
+            "sample_started_monotonic_ns": 119581340930177,
+            "elapsed_ms": 903.4533599915449,
+            "cpu_ms": 900.0,
+            "rss_kib": 194216,
+            "high_water_rss_kib": 194216
+          },
+          {
+            "monotonic_ns": 119581441507019,
+            "sample_started_monotonic_ns": 119581441341328,
+            "elapsed_ms": 1003.8395390001824,
+            "cpu_ms": 1000.0,
+            "rss_kib": 206324,
+            "high_water_rss_kib": 206324
+          },
+          {
+            "monotonic_ns": 119581541887248,
+            "sample_started_monotonic_ns": 119581541712601,
+            "elapsed_ms": 1104.2197799979476,
+            "cpu_ms": 1090.0,
+            "rss_kib": 230616,
+            "high_water_rss_kib": 230616
+          },
+          {
+            "monotonic_ns": 119581642271840,
+            "sample_started_monotonic_ns": 119581642092586,
+            "elapsed_ms": 1204.6043739974266,
+            "cpu_ms": 1200.0,
+            "rss_kib": 254724,
+            "high_water_rss_kib": 255740
+          },
+          {
+            "monotonic_ns": 119581742566506,
+            "sample_started_monotonic_ns": 119581742403053,
+            "elapsed_ms": 1304.8990229872288,
+            "cpu_ms": 1290.0,
+            "rss_kib": 230564,
+            "high_water_rss_kib": 274616
+          },
+          {
+            "monotonic_ns": 119581842938510,
+            "sample_started_monotonic_ns": 119581842773079,
+            "elapsed_ms": 1405.2711080003064,
+            "cpu_ms": 1610.0,
+            "rss_kib": 318376,
+            "high_water_rss_kib": 318376
+          },
+          {
+            "monotonic_ns": 119581943294174,
+            "sample_started_monotonic_ns": 119581943138677,
+            "elapsed_ms": 1505.6266299943672,
+            "cpu_ms": 1910.0,
+            "rss_kib": 340832,
+            "high_water_rss_kib": 356044
+          },
+          {
+            "monotonic_ns": 119582043613450,
+            "sample_started_monotonic_ns": 119582043445643,
+            "elapsed_ms": 1605.9458989911946,
+            "cpu_ms": 2060.0,
+            "rss_kib": 341300,
+            "high_water_rss_kib": 356044
+          },
+          {
+            "monotonic_ns": 119582143967689,
+            "sample_started_monotonic_ns": 119582143808918,
+            "elapsed_ms": 1706.3001479982631,
+            "cpu_ms": 2160.0,
+            "rss_kib": 363740,
+            "high_water_rss_kib": 363740
+          },
+          {
+            "monotonic_ns": 119582244353963,
+            "sample_started_monotonic_ns": 119582244189783,
+            "elapsed_ms": 1806.6864269931102,
+            "cpu_ms": 2260.0,
+            "rss_kib": 382740,
+            "high_water_rss_kib": 382740
+          },
+          {
+            "monotonic_ns": 119582344705058,
+            "sample_started_monotonic_ns": 119582344547937,
+            "elapsed_ms": 1907.0375129958848,
+            "cpu_ms": 2360.0,
+            "rss_kib": 402612,
+            "high_water_rss_kib": 402612
+          },
+          {
+            "monotonic_ns": 119582445088700,
+            "sample_started_monotonic_ns": 119582444909572,
+            "elapsed_ms": 2007.4211679893779,
+            "cpu_ms": 2460.0,
+            "rss_kib": 422212,
+            "high_water_rss_kib": 422212
+          },
+          {
+            "monotonic_ns": 119582545443061,
+            "sample_started_monotonic_ns": 119582545286817,
+            "elapsed_ms": 2107.7755320002325,
+            "cpu_ms": 2560.0,
+            "rss_kib": 435604,
+            "high_water_rss_kib": 435604
+          }
+        ],
+        "errors": [],
+        "sampler_stopped": true
+      }
+    }
+  ],
+  "limits": [
+    "Single context probe; aggregate context/baseline gate requires separate matrix evidence.",
+    "Cold-open includes fallback responses; semantic contexts require per-request Sema evidence and typed expected items.",
+    "Insertion compilation is opt-in; no baseline speedup proof in this individual report.",
+    "Settled-warm is AST-ready, not proof of a particular cache hit."
+  ]
+}
