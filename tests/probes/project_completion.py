@@ -121,12 +121,15 @@ def main():
     parser.add_argument('--starts', type=int, default=1)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--phases', action='store_true', help='Separate cold open, settled warm and edited requests; cold failures remain failures')
+    parser.add_argument('--settled-only', action='store_true', help='With phases, request completions only after AST readiness; cold completion is explicitly not measured')
     parser.add_argument('--resources', action='store_true', help='Sample engine CPU/RSS using Linux /proc')
     parser.add_argument('--settled-index-log', help='Wait for this literal index log before settled phases; each settled reply must actually match an index symbol')
     parser.add_argument('--engine-flag', action='append', default=[],
                         help='Additional engine argument retained in the replay manifest')
     parser.add_argument('--trace', type=Path, help='clangd trace path (one process only)')
     args = parser.parse_args()
+    if args.settled_only and not args.phases:
+        parser.error('settled-only requires phases')
     if args.settled_index_log and not args.phases:
         parser.error('settled-index-log requires phases')
     if args.trace and args.starts != 1:
@@ -168,17 +171,22 @@ def main():
                  'params': {'textDocument': {'uri': source.as_uri()}}},
             ]
             phases = []
+            phase_drafts = []
             completion = {'method': 'textDocument/completion', 'expected_symbols': args.expected,
                           'params': {'textDocument': {'uri': source.as_uri()}, 'position': position}}
             if context:
                 completion.pop('expected_symbols')
                 completion['expect'] = {'/jsonrpc': '2.0'}
             if args.phases:
-                sequence.insert(3, completion)
+                if not args.settled_only:
+                    sequence.insert(3, completion)
+                    phases.append('cold-open')
+                    phase_drafts.append(text)
                 if args.settled_index_log:
                     sequence.append({'action': 'await-log', 'contains': args.settled_index_log})
                 sequence.append(completion)
-                phases += ['cold-open', 'settled-warm']
+                phases.append('settled-warm')
+                phase_drafts.append(text)
             for round_index in range(args.rounds):
                 # Independent starts use the same thirty distinct edit inputs.
                 # Every round still changes bytes. This permits exact-byte
@@ -192,10 +200,12 @@ def main():
                     completion,
                 ]
                 phases.append('edited')
+                phase_drafts.append(text + f'\n// probe {edit_label}\n')
                 if args.phases:
                     sequence += [{'method': 'textDocument/documentSymbol',
                                   'params': {'textDocument': {'uri': source.as_uri()}}}, completion]
                     phases.append('settled-warm')
+                    phase_drafts.append(text + f'\n// probe {edit_label}\n')
             manifest.write_text(json.dumps({'id': 'project-completion', 'project': str(project),
                 'platform': replay.platform_name(), 'baseline': 'pass',
                 'timeout_seconds': max(120, args.rounds * 10),
@@ -232,8 +242,7 @@ def main():
                         untyped = sorted(set(args.expected) - typed_names) if require_sema else []
                         polluted = sorted(set(context.get('forbidden', [])) & names)
                         empty_failure = bool(context.get('expect_empty') and items)
-                        draft_round = (index - 2) // 2 if args.phases else index
-                        draft = text if index < 2 and args.phases else text + f'\n// probe {draft_round}\n'
+                        draft = phase_drafts[index]
                         result['context_answers'].append({'phase': phase, 'elapsed_ms': answer['elapsed_ms'],
                             'started_monotonic_ns': answer['started_monotonic_ns'],
                             'completed_monotonic_ns': answer['completed_monotonic_ns'],
@@ -295,6 +304,8 @@ def main():
                   'draft_source_sha256': hashlib.sha256(base_bytes).hexdigest(),
                   'draft_source': str(args.draft_source.resolve()) if args.draft_source else None,
                   'expression': args.expression, 'starts': args.starts, 'rounds': args.rounds,
+                  'cold_completion_requested': args.phases and not args.settled_only,
+                  'measurement_mode': 'ast-ready-only' if args.settled_only else ('cold-warm-edited' if args.phases else 'edited-only'),
                   'phases': {phase: statistics(phase_samples.get(phase, []), count)
                              for phase, count in phase_requests.items()},
                   'all_semantic_requests_passed': all(r['outcome'] == 'pass' and all(a['semantic_pass'] for a in r.get('context_answers', [])) for r in results),
