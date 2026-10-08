@@ -1,5 +1,10 @@
 # Intel Darwin DAG shutdown diagnosis
 
+Historical diagnostic only: Intel macOS is outside the 0.0.12 Part 2 scope.
+The automatic payload producer and dispatch workflow have been retired from
+this branch. No further native Intel replay or qualification is scheduled.
+The implementation and original evidence below are retained as history.
+
 The retained `bfce1f1` run 37767844227 / job 113279779233 / artifact
 11549619310 completed all four module tasks and returned four actual Sema
 completion items. It logged a shutdown reply and `LSP finished` before the

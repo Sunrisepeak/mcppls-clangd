@@ -8,7 +8,7 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
-PLATFORMS = {'linux-x64', 'win32-x64', 'darwin-x64', 'darwin-arm64', 'linux-arm64'}
+PLATFORMS = {'linux-x64', 'win32-x64', 'darwin-arm64'}
 
 
 def sha(path):

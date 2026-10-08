@@ -25,7 +25,7 @@ Eleven asserted raw LSP cases check grammar and target boundaries. The probe
 applies the actual edits and fills snippet fields, then compiles those results:
 GNU introducer, cleanup attribute, cleanup function reference and Windows SEH.
 A minimal unsupported Linux SEH example must fail for the specific target
-reason. PR CI runs this focused probe on all four hosts; the Ubuntu floor
+reason. PR CI runs this focused probe on all three supported hosts; the Ubuntu floor
 recipe also checks packaged bytes. Raw baseline and local candidate evidence
 is in tests/evidence/compiler-extensions.json. This does not prove release soak,
 real-project latency or a native Windows run before CI completes.

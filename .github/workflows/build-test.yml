@@ -11,7 +11,7 @@ on:
         required: false
         default: "linux-x64"
         type: choice
-        options: [linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, all]
+        options: [linux-x64, darwin-arm64, win32-x64, all]
 
 jobs:
   setup:
@@ -23,17 +23,15 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
              && [ "${{ github.event.inputs.platform }}" = "all" ]; then
-            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"darwin-x64","os":"macos-15-intel"},{"platform":"darwin-arm64","os":"macos-14"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
+            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"darwin-arm64","os":"macos-14"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             case "${{ github.event.inputs.platform }}" in
               linux-x64)   echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"}]' >> "$GITHUB_OUTPUT" ;;
-              linux-arm64) echo 'matrix=[{"platform":"linux-arm64","os":"ubuntu-22.04-arm"}]' >> "$GITHUB_OUTPUT" ;;
-              darwin-x64) echo 'matrix=[{"platform":"darwin-x64","os":"macos-15-intel"}]' >> "$GITHUB_OUTPUT" ;;
               darwin-arm64) echo 'matrix=[{"platform":"darwin-arm64","os":"macos-14"}]' >> "$GITHUB_OUTPUT" ;;
               win32-x64)   echo 'matrix=[{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT" ;;
             esac
           else
-            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"darwin-x64","os":"macos-15-intel"},{"platform":"darwin-arm64","os":"macos-14"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
+            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"darwin-arm64","os":"macos-14"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
           fi
 
   build:
@@ -105,22 +103,6 @@ jobs:
           SCCACHE_IDLE_TIMEOUT: "0"
           CMAKE_EXTRA: ${{ matrix.platform == 'win32-x64' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }}
         run: ./ci/ci_build.sh
-
-      - name: Retain same-build Intel Darwin DAG diagnostic payload
-        if: matrix.platform == 'darwin-x64'
-        env:
-          WORKFLOW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        shell: bash
-        run: |
-          python3 ci/darwin_dag_diagnostic.py bundle --build build-darwin-x64 \
-            --output "${{ runner.temp }}/darwin-dag-payload"
-      - uses: actions/upload-artifact@v4
-        if: matrix.platform == 'darwin-x64' && always()
-        with:
-          name: darwin-x64-dag-diagnostic-payload
-          path: ${{ runner.temp }}/darwin-dag-payload/darwin-dag-payload.tar.gz
-          if-no-files-found: warn
-          retention-days: 14
 
       - name: Real standard-library const fixes remain compilable
         if: matrix.platform == 'linux-x64'

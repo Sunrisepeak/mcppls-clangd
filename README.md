@@ -24,6 +24,12 @@ architecture live in [.agents/docs](.agents/docs); the carried patches are in
 `23.1.0-mcppls.0`. See [PR1](https://github.com/Sunrisepeak/mcppls-clangd/pull/1)
 for the full review trail.
 
+The 0.0.12 Part 2 target matrix is Linux x64, Windows x64 and Apple Silicon
+macOS. Implementation and performance qualification proceed on local Linux
+first, followed by the other native targets. Intel macOS is outside this
+iteration; historical evidence is retained without claiming its failures fixed.
+The current experimental engine is not release-qualified and PRs remain draft.
+
 ## License
 
 Same as LLVM: Apache License v2.0 with LLVM Exceptions (see [LICENSE](LICENSE)).
