@@ -1,0 +1,40 @@
+{
+  "workflow_run": 37772914678,
+  "workflow_head_sha": "36687a9225f53235023404605ea8e105bf847c47",
+  "built_merge_checkout_sha": "a867faae35c9ad65a1fc1d8a48fdb37607bca600",
+  "identity_evidence": "Linux and Windows checkout log records git log -1 --format=%H; PR API head can move and is not used as historical built identity.",
+  "jobs": {
+    "linux-x64": {
+      "job_id": 113296958986,
+      "conclusion": "success",
+      "focused_unit_groups_passed": [
+        109,
+        2
+      ]
+    },
+    "win32-x64": {
+      "job_id": 113296959178,
+      "conclusion": "success",
+      "focused_unit_groups_passed": [
+        40
+      ]
+    },
+    "darwin-arm64": {
+      "job_id": 113296959085,
+      "conclusion": "success"
+    },
+    "ubuntu20": {
+      "job_id": 113296626336,
+      "conclusion": "success"
+    },
+    "darwin-x64": {
+      "job_id": 113296959526,
+      "status": "in_progress_at_capture"
+    }
+  },
+  "limits": [
+    "Partial native checkpoint, not final cross-platform green or immutable payload qualification.",
+    "Focused unit subsets differ by host; no claim of identical full test suites.",
+    "Actual built checkout is PR merge commit, distinct from workflow head."
+  ]
+}

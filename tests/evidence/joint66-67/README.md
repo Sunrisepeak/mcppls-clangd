@@ -8,6 +8,13 @@ The ordered49–67 series reproduces all27 changed paths byte-for-byte, after su
 
 Final-source recovered original UP20 fanout scenario also passes: zero restarts,8 publications4.107s, probe clear2.203s, recovery4.264s (60s ceiling). Product/conformance snapshots differ from the earlier matched baseline, so this is a final-source validation rather than a controlled product comparison. [Result and limits](up20-result.json); full invocation hashes are retained in companion product evidence.
 
+Native workflow37772914678 currently passes Linux, Windows, ARM64 Darwin and
+Ubuntu20; Intel Darwin is still building at this checkpoint. Linux and Windows
+checkout logs identify actual PR merge source `a867faae35c9ad65a1fc1d8a48fdb37607bca600`,
+distinct from workflow head `36687a9`. Linux passes focused groups of109 and2
+tests; Windows passes40. Host subsets differ and this is not final native green
+or a qualified payload. [Scoped native checkpoint](native-progress.json).
+
 All12 Qt contexts also pass a single-start/round regression smoke:48 replies satisfy actual semantic/typed/negative-context checks, and48 selected actual original-GCC insertions compile. This covers member/scope/ordinary/include/string/comment contexts, but is not a full variant/insertion bijection or latency qualification. [Context smoke](context-smoke.json).
 
 The std3×30 latency run answers all186 requests with real Sema:93 warm p95180.68ms,90 edited p95257.89ms and3 cold samples retained. Edited exceeds200ms, so the gate stays failed. That run collects latency/origin only; selected-insertion compilation remains independently scoped above. [Exact distribution](std-3x30.json).
