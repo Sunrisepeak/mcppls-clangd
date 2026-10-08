@@ -58,5 +58,44 @@
   "limits": [
     "Collector retains unmarked units and caller-side stable BMI/staging ownership.",
     "No default-server, native platform or final package qualification."
-  ]
+  ],
+  "root_integration": {
+    "source_commit": "1b82a6af7ffa6463ad60d8cdbffce007ac7f88f4",
+    "engine_sha256": "d32104ec0e8c6344719cf3dce8219ca0462f7f1929d0a52655450ad4a7779395",
+    "related_units": 94,
+    "units_ms": 540,
+    "collection": {
+      "owner_death": {
+        "parent_exit": -9,
+        "worker_exit": 1,
+        "elapsed_ms": 3.31,
+        "frontend_marker": "/tmp/mcppls-root-worker40-supervision/39-owner-bm5ip608/M.cppm:2:9: warning: entered frontend\n    2 | #pragma message(\"entered frontend\")\n      |         ^\n",
+        "orphan_unit": "/tmp/mcppls-root-worker40-supervision/39-owner-bm5ip608/.clangd-module-workers-v1/unit-2e28d6",
+        "private_output_exists": false,
+        "original_output_exists": false
+      },
+      "sweeps": [
+        {
+          "phase": "active-parent-and-worker-retained",
+          "exit": 0,
+          "stdout": "examined=5 removed=0 deferred=0\n",
+          "stderr": ""
+        },
+        {
+          "phase": "dead-owner-real-orphan-collected",
+          "exit": 0,
+          "stdout": "examined=5 removed=1 deferred=0\n",
+          "stderr": ""
+        },
+        {
+          "phase": "closed-helper-leases-collected",
+          "exit": 0,
+          "stdout": "examined=4 removed=2 deferred=0\n",
+          "stderr": ""
+        }
+      ],
+      "legacy_retained": true
+    },
+    "scope": "Actual root daemon/main archives rebuilt with all changed/new 0038-0040 units, linked clangd and fresh probes. Default production path not yet wired; no final package/native qualification."
+  }
 }

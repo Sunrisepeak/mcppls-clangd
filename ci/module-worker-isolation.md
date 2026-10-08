@@ -233,3 +233,15 @@ Address space differs from RSS and kernel-accounted shared group memory.
 WhenSupported may select compatibility execution for an unexportable filesystem
 before launch; this option then supplies no in-process bound. Parent/scanner
 allocations and native platform qualification remain separate work.
+
+Combined root integration through 0040 now rebuilds all changed worker/main/test
+units and both new budget/storage units, rearchives daemon/main and relinks the
+actual root clangd and ClangdTests. All 94 related units pass in 540 ms. Fresh
+root probes observe checked 1 GiB limits on success (22 ms) and frontend timeout
+(103 ms), plus natural low-limit failure (11 ms), all with specific-child reap,
+unit cleanup and an unrelated child retained. Actual parent SIGKILL during
+frontend work produces owner-monitor exit in 3.31 ms; fresh collection removes
+exactly that orphan, protects both live lease classes and unmarked legacy, then
+removes two helper units after owners close. Evidence identifies this root
+source and executable separately from the private precursors. Production
+Builder default wiring and final native/floor artifacts remain unqualified.
