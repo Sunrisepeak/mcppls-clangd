@@ -1,0 +1,45 @@
+{
+  "scope": "Candidate independent correctness; no baseline speedup proof. Original stock cold failure retained separately. Same-URI/CDB, same explicit completion-parse=always on both engines, real typed Sema required; no index gate for this prebuilt native std fixture. Compiler overlap invalidates timing; actual selected edits compile only after all engine measurements.",
+  "arms": {
+    "candidate": {
+      "engine_sha256": "b7eba8bfdd1c26ff93ba4fba53678916a9f8d3d4e79ce3cf1a97375a07593e8f",
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            1786.55241
+          ],
+          "p50_ms": 1786.55241,
+          "p95_ms": 1786.55241
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            22.687662,
+            15.497786
+          ],
+          "p50_ms": 15.497786,
+          "p95_ms": 22.687662
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            16.414108
+          ],
+          "p50_ms": 16.414108,
+          "p95_ms": 16.414108
+        }
+      },
+      "compiler_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_native_insertions": 4
+    }
+  }
+}

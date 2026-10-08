@@ -88,3 +88,33 @@ stable-phase qualification retroactively.
 passes a real framed subprocess with ordinary/deferred replies and /proc
 sampling. Four `ci/test_soak.py` regression controls also pass after the shared
 replay change. This validates measurement plumbing, not engine performance.
+
+
+## Final Linux floor bytes: 0069 qualification in progress
+
+The same 69-patch source completed the offline Ubuntu 20.04/glibc 2.31
+Clang 12 build, 16 lit tests, 255 selected clangd tests, namespace/memo
+controls and all seven frontend consumer stages. Packaging and actual floor
+startup/dependency checks passed. The stripped engine SHA is
+`b7eba8bfdd1c26ff93ba4fba53678916a9f8d3d4e79ce3cf1a97375a07593e8f`;
+its build records fork `affe666292c6b53b842df1d217a811bdfc85e47c` and
+source `4b26052750b46f7fbfaceb5bd3c7c16b0d01f2ca`.
+
+All 12 short contexts and 52 selected GCC insertions passed. The full native
+std AST-ready stock/candidate/stock 3x30 comparison passed all 549 typed Sema
+replies, item/edit parity and 49 selected native insertions. Edited p95 was
+89.234/22.159/89.194 ms. Stable main-process CPU conservative ratios were
+0.56885/0.56860 and maximum per-start observed RSS p95 ratios were
+0.57910/0.57324. This is one fixture, excludes cold completion explicitly,
+and does not certify descendants or a hard memory ceiling. Stock cold
+negative records remain unchanged in `clean-selective69`.
+
+The final Qt 12-context full distribution is still running. Its completed
+first-column context failed the 200 ms edited p95 budget at 201.221592 ms,
+while all semantic replies and selected insertions passed. Preserve this
+negative; do not qualify the candidate from the short controls or native
+fixture alone. The Scope expression path still uses ordinary visible lookup,
+which is an attribution lead, not a proven exclusive cause. Isolated traces
+must wait for the distribution to terminate. Product, other-platform and
+long-term qualification remain incomplete; the ledger stays stabilizing.
+Evidence and exact recipes: `tests/evidence/part2-linux/portable-selective69/`.

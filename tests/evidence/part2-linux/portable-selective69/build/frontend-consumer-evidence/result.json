@@ -1,0 +1,142 @@
+{
+  "passed": true,
+  "scope": "CLI/CIndex default completion consumer parity for text/PCH, two overloads and a second name; interpreter declaration execution smoke, not interactive completion or performance qualification.",
+  "tool_sha256": {
+    "/out/build/bin/clang-23": "25ea09c6107b335494a5355f287b52979a92337d47206c800f9f623db2b33cca",
+    "/out/build/bin/c-index-test": "abcd8a5cd35a6a5697485d03b05e4452a74523f4b883d524c7b2f520860dab85",
+    "/out/build/bin/clang-repl": "a65e170f6bebc847ce9bdaf5d7de5257d659685598151ef972df09febf7e87c5"
+  },
+  "project": "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr",
+  "stages": {
+    "clang-build-pch": {
+      "argv": [
+        "/out/build/bin/clang-23",
+        "-x",
+        "c++-header",
+        "-std=c++20",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API.h",
+        "-o",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API.pch"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clang-text": {
+      "argv": [
+        "/out/build/bin/clang-23",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-include",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API.h",
+        "-Xclang",
+        "-code-completion-at=/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp:1:23",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "240d7918d816d89bea0c20aff2f594db9f3e24fce6da09e4f62ccaa5e0d4ecf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clang-pch": {
+      "argv": [
+        "/out/build/bin/clang-23",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-include-pch",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API.pch",
+        "-Xclang",
+        "-code-completion-at=/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp:1:23",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "240d7918d816d89bea0c20aff2f594db9f3e24fce6da09e4f62ccaa5e0d4ecf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-build-pch": {
+      "argv": [
+        "/out/build/bin/c-index-test",
+        "-write-pch",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API-index.pch",
+        "-x",
+        "c++-header",
+        "-std=c++20",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API.h"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-text": {
+      "argv": [
+        "/out/build/bin/c-index-test",
+        "-code-completion-at=/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp:1:23",
+        "-std=c++20",
+        "-include",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API.h",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "b92ddd7c3d1ca958f093fbcfc960077c59b4329578ff0989f2e586eeb2afe74c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-pch": {
+      "argv": [
+        "/out/build/bin/c-index-test",
+        "-code-completion-at=/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp:1:23",
+        "-std=c++20",
+        "-include-pch",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/API-index.pch",
+        "/out/build/frontend-consumer-evidence/consumers-tnxrjuwr/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "b92ddd7c3d1ca958f093fbcfc960077c59b4329578ff0989f2e586eeb2afe74c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "interpreter": {
+      "argv": [
+        "/out/build/bin/clang-repl"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "d3e1d8cd636aa4758a9d083f744c7f7e84d396bd0d60b16ee0bc8b2ef2bb61b9",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "parity": {
+    "clang": {
+      "text": [
+        "COMPLETION: vector : [#int#]vector(<#double amount#>)",
+        "COMPLETION: vector : [#int#]vector(<#int count#>)",
+        "COMPLETION: version : [#int#]version()"
+      ],
+      "pch": [
+        "COMPLETION: vector : [#int#]vector(<#double amount#>)",
+        "COMPLETION: vector : [#int#]vector(<#int count#>)",
+        "COMPLETION: version : [#int#]version()"
+      ]
+    },
+    "c-index-test": {
+      "text": [
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder double amount}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder int count}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText version}{LeftParen (}{RightParen )} (50)"
+      ],
+      "pch": [
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder double amount}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder int count}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText version}{LeftParen (}{RightParen )} (50)"
+      ]
+    }
+  },
+  "pch_sha256": {
+    "clang": "fe6bd8ffb3ec7c62082f8846edc75a31f45a506ce5593ddf920760465b37d749",
+    "c-index-test": "bfe61871ed87c543e4dc9dcc790f50c09564dc7fff9e795b635164a734cfda8b"
+  },
+  "source_unchanged": true
+}

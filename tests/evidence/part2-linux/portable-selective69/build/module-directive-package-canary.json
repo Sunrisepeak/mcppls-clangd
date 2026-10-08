@@ -1,0 +1,421 @@
+{
+  "outcome": "pass",
+  "engine_sha256": "b7eba8bfdd1c26ff93ba4fba53678916a9f8d3d4e79ce3cf1a97375a07593e8f",
+  "exit_code": 0,
+  "shutdown_reply": true,
+  "cases": [
+    {
+      "id": "import",
+      "text": "import A\nimport B;\n",
+      "expected_range": {
+        "start": {
+          "line": 0,
+          "character": 8
+        },
+        "end": {
+          "line": 0,
+          "character": 8
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "expected_semi_after_module_or_import",
+          "message": "Import directive must end with a ';' (fix available)",
+          "range": {
+            "end": {
+              "character": 8,
+              "line": 0
+            },
+            "start": {
+              "character": 8,
+              "line": 0
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "id": "continued-import",
+      "text": "import \\\n  A\nimport B;\n",
+      "expected_range": {
+        "start": {
+          "line": 1,
+          "character": 3
+        },
+        "end": {
+          "line": 1,
+          "character": 3
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "expected_semi_after_module_or_import",
+          "message": "Import directive must end with a ';' (fix available)",
+          "range": {
+            "end": {
+              "character": 3,
+              "line": 1
+            },
+            "start": {
+              "character": 3,
+              "line": 1
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "id": "module",
+      "text": "export module M // pending\nint marker;\n",
+      "expected_range": {
+        "start": {
+          "line": 0,
+          "character": 15
+        },
+        "end": {
+          "line": 0,
+          "character": 15
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "pp_unexpected_tok_after_module_name",
+          "message": "Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 0
+            },
+            "start": {
+              "character": 15,
+              "line": 0
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "id": "continued-module",
+      "text": "export module \\\n  M\nint marker;\n",
+      "expected_range": {
+        "start": {
+          "line": 1,
+          "character": 3
+        },
+        "end": {
+          "line": 1,
+          "character": 3
+        }
+      },
+      "diagnostics": [
+        {
+          "code": "pp_unexpected_tok_after_module_name",
+          "message": "Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)",
+          "range": {
+            "end": {
+              "character": 3,
+              "line": 1
+            },
+            "start": {
+              "character": 3,
+              "line": 1
+            }
+          },
+          "severity": 1,
+          "source": "clang"
+        }
+      ],
+      "pass": true
+    }
+  ],
+  "raw_replies": [
+    {
+      "id": 0,
+      "jsonrpc": "2.0",
+      "result": {
+        "capabilities": {
+          "astProvider": true,
+          "callHierarchyProvider": true,
+          "clangdInlayHintsProvider": true,
+          "codeActionProvider": true,
+          "compilationDatabase": {
+            "automaticReload": true
+          },
+          "completionProvider": {
+            "resolveProvider": false,
+            "triggerCharacters": [
+              ".",
+              "<",
+              ">",
+              ":",
+              "\"",
+              "/",
+              "*"
+            ]
+          },
+          "declarationProvider": true,
+          "definitionProvider": true,
+          "documentFormattingProvider": true,
+          "documentHighlightProvider": true,
+          "documentLinkProvider": {
+            "resolveProvider": false
+          },
+          "documentOnTypeFormattingProvider": {
+            "firstTriggerCharacter": "\n",
+            "moreTriggerCharacter": []
+          },
+          "documentRangeFormattingProvider": {
+            "rangesSupport": true
+          },
+          "documentSymbolProvider": true,
+          "executeCommandProvider": {
+            "commands": [
+              "clangd.applyFix",
+              "clangd.applyRename",
+              "clangd.applyTweak"
+            ]
+          },
+          "foldingRangeProvider": true,
+          "hoverProvider": true,
+          "implementationProvider": true,
+          "inactiveRegionsProvider": true,
+          "inlayHintProvider": true,
+          "memoryUsageProvider": true,
+          "referencesProvider": true,
+          "renameProvider": true,
+          "selectionRangeProvider": true,
+          "semanticTokensProvider": {
+            "full": {
+              "delta": true
+            },
+            "legend": {
+              "tokenModifiers": [
+                "declaration",
+                "definition",
+                "deprecated",
+                "deduced",
+                "readonly",
+                "static",
+                "abstract",
+                "virtual",
+                "dependentName",
+                "defaultLibrary",
+                "usedAsMutableReference",
+                "usedAsMutablePointer",
+                "constructorOrDestructor",
+                "userDefined",
+                "functionScope",
+                "classScope",
+                "fileScope",
+                "globalScope"
+              ],
+              "tokenTypes": [
+                "variable",
+                "variable",
+                "parameter",
+                "function",
+                "method",
+                "function",
+                "property",
+                "variable",
+                "class",
+                "interface",
+                "enum",
+                "enumMember",
+                "type",
+                "type",
+                "unknown",
+                "namespace",
+                "typeParameter",
+                "concept",
+                "type",
+                "macro",
+                "modifier",
+                "operator",
+                "bracket",
+                "label",
+                "comment"
+              ]
+            },
+            "range": true
+          },
+          "signatureHelpProvider": {
+            "triggerCharacters": [
+              "(",
+              ")",
+              "{",
+              "}",
+              "<",
+              ">",
+              ","
+            ]
+          },
+          "standardTypeHierarchyProvider": true,
+          "textDocumentSync": {
+            "change": 2,
+            "openClose": true,
+            "save": true
+          },
+          "typeDefinitionProvider": true,
+          "typeHierarchyProvider": true,
+          "workspaceSymbolProvider": true
+        },
+        "serverInfo": {
+          "name": "clangd",
+          "version": "clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "expected_semi_after_module_or_import",
+            "message": "Import directive must end with a ';' (fix available)",
+            "range": {
+              "end": {
+                "character": 8,
+                "line": 0
+              },
+              "start": {
+                "character": 8,
+                "line": 0
+              }
+            },
+            "severity": 1,
+            "source": "clang"
+          },
+          {
+            "code": "module_not_found",
+            "message": "Module 'A' not found",
+            "range": {
+              "end": {
+                "character": 8,
+                "line": 0
+              },
+              "start": {
+                "character": 7,
+                "line": 0
+              }
+            },
+            "severity": 1,
+            "source": "clang"
+          }
+        ],
+        "uri": "file:///clangd-test/import.cpp",
+        "version": 1
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "expected_semi_after_module_or_import",
+            "message": "Import directive must end with a ';' (fix available)",
+            "range": {
+              "end": {
+                "character": 3,
+                "line": 1
+              },
+              "start": {
+                "character": 3,
+                "line": 1
+              }
+            },
+            "severity": 1,
+            "source": "clang"
+          },
+          {
+            "code": "module_not_found",
+            "message": "Module 'A' not found",
+            "range": {
+              "end": {
+                "character": 3,
+                "line": 1
+              },
+              "start": {
+                "character": 2,
+                "line": 1
+              }
+            },
+            "severity": 1,
+            "source": "clang"
+          }
+        ],
+        "uri": "file:///clangd-test/continued-import.cpp",
+        "version": 1
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "pp_unexpected_tok_after_module_name",
+            "message": "Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 0
+              },
+              "start": {
+                "character": 15,
+                "line": 0
+              }
+            },
+            "severity": 1,
+            "source": "clang"
+          }
+        ],
+        "uri": "file:///clangd-test/module.cpp",
+        "version": 1
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "pp_unexpected_tok_after_module_name",
+            "message": "Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)",
+            "range": {
+              "end": {
+                "character": 3,
+                "line": 1
+              },
+              "start": {
+                "character": 3,
+                "line": 1
+              }
+            },
+            "severity": 1,
+            "source": "clang"
+          }
+        ],
+        "uri": "file:///clangd-test/continued-module.cpp",
+        "version": 1
+      }
+    },
+    {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": null
+    }
+  ],
+  "stderr": "I[21:28:46.262] clangd version 23.1.0-mcppls.0\nI[21:28:46.262] Features: linux\nI[21:28:46.262] PID: 11567\nI[21:28:46.262] Working directory: /repo\nI[21:28:46.262] argv[0]: /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/bin/clangd\nI[21:28:46.262] argv[1]: -lit-test\nI[21:28:46.262] argv[2]: --background-index=false\nI[21:28:46.262] Starting LSP over stdin/stdout\nV[21:28:46.263] <<< {\n  \"id\": 0,\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"initialize\",\n  \"params\": {\n    \"capabilities\": {},\n    \"initializationOptions\": {\n      \"fallbackFlags\": [\n        \"-std=c++20\"\n      ]\n    },\n    \"rootUri\": \"test:///\"\n  }\n}\n\nI[21:28:46.263] <-- initialize(0)\nI[21:28:46.263] --> reply:initialize(0) 0 ms\nV[21:28:46.263] >>> {\n  \"id\": 0,\n  \"jsonrpc\": \"2.0\",\n  \"result\": {\n    \"capabilities\": {\n      \"astProvider\": true,\n      \"callHierarchyProvider\": true,\n      \"clangdInlayHintsProvider\": true,\n      \"codeActionProvider\": true,\n      \"compilationDatabase\": {\n        \"automaticReload\": true\n      },\n      \"completionProvider\": {\n        \"resolveProvider\": false,\n        \"triggerCharacters\": [\n          \".\",\n          \"<\",\n          \">\",\n          \":\",\n          \"\\\"\",\n          \"/\",\n          \"*\"\n        ]\n      },\n      \"declarationProvider\": true,\n      \"definitionProvider\": true,\n      \"documentFormattingProvider\": true,\n      \"documentHighlightProvider\": true,\n      \"documentLinkProvider\": {\n        \"resolveProvider\": false\n      },\n      \"documentOnTypeFormattingProvider\": {\n        \"firstTriggerCharacter\": \"\\n\",\n        \"moreTriggerCharacter\": []\n      },\n      \"documentRangeFormattingProvider\": {\n        \"rangesSupport\": true\n      },\n      \"documentSymbolProvider\": true,\n      \"executeCommandProvider\": {\n        \"commands\": [\n          \"clangd.applyFix\",\n          \"clangd.applyRename\",\n          \"clangd.applyTweak\"\n        ]\n      },\n      \"foldingRangeProvider\": true,\n      \"hoverProvider\": true,\n      \"implementationProvider\": true,\n      \"inactiveRegionsProvider\": true,\n      \"inlayHintProvider\": true,\n      \"memoryUsageProvider\": true,\n      \"referencesProvider\": true,\n      \"renameProvider\": true,\n      \"selectionRangeProvider\": true,\n      \"semanticTokensProvider\": {\n        \"full\": {\n          \"delta\": true\n        },\n        \"legend\": {\n          \"tokenModifiers\": [\n            \"declaration\",\n            \"definition\",\n            \"deprecated\",\n            \"deduced\",\n            \"readonly\",\n            \"static\",\n            \"abstract\",\n            \"virtual\",\n            \"dependentName\",\n            \"defaultLibrary\",\n            \"usedAsMutableReference\",\n            \"usedAsMutablePointer\",\n            \"constructorOrDestructor\",\n            \"userDefined\",\n            \"functionScope\",\n            \"classScope\",\n            \"fileScope\",\n            \"globalScope\"\n          ],\n          \"tokenTypes\": [\n            \"variable\",\n            \"variable\",\n            \"parameter\",\n            \"function\",\n            \"method\",\n            \"function\",\n            \"property\",\n            \"variable\",\n            \"class\",\n            \"interface\",\n            \"enum\",\n            \"enumMember\",\n            \"type\",\n            \"type\",\n            \"unknown\",\n            \"namespace\",\n            \"typeParameter\",\n            \"concept\",\n            \"type\",\n            \"macro\",\n            \"modifier\",\n            \"operator\",\n            \"bracket\",\n            \"label\",\n            \"comment\"\n          ]\n        },\n        \"range\": true\n      },\n      \"signatureHelpProvider\": {\n        \"triggerCharacters\": [\n          \"(\",\n          \")\",\n          \"{\",\n          \"}\",\n          \"<\",\n          \">\",\n          \",\"\n        ]\n      },\n      \"standardTypeHierarchyProvider\": true,\n      \"textDocumentSync\": {\n        \"change\": 2,\n        \"openClose\": true,\n        \"save\": true\n      },\n      \"typeDefinitionProvider\": true,\n      \"typeHierarchyProvider\": true,\n      \"workspaceSymbolProvider\": true\n    },\n    \"serverInfo\": {\n      \"name\": \"clangd\",\n      \"version\": \"clangd version 23.1.0-mcppls.0 linux x86_64-unknown-linux-gnu\"\n    }\n  }\n}\n\nV[21:28:46.263] <<< {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/didOpen\",\n  \"params\": {\n    \"textDocument\": {\n      \"languageId\": \"cpp\",\n      \"text\": \"import A\\nimport B;\\n\",\n      \"uri\": \"test:///import.cpp\",\n      \"version\": 1\n    }\n  }\n}\n\nI[21:28:46.263] <-- textDocument/didOpen\nI[21:28:46.263] Failed to find compilation database for /clangd-test/import.cpp\nE[21:28:46.263] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.263] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name import.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/repo -fcoverage-compilation-dir=/repo -resource-dir /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/import.cpp\nI[21:28:46.263] ASTWorker building file /clangd-test/import.cpp version 1 with command clangd fallback\n[/clangd-test]\n/usr/bin/clang -std=c++20 -resource-dir=/out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /clangd-test/import.cpp\nV[21:28:46.263] Building first preamble for /clangd-test/import.cpp version 1\nE[21:28:46.263] VFS: failed to set CWD to /clangd-test: No such file or directory\nI[21:28:46.266] Built preamble of size 251848 for file /clangd-test/import.cpp version 1 in 0.00 seconds\nV[21:28:46.266] indexed preamble AST for /clangd-test/import.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nE[21:28:46.266] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.269] indexed file AST for /clangd-test/import.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:28:46.269] Build dynamic index for main-file symbols with estimated memory usage of 216 bytes\nI[21:28:46.269] --> textDocument/publishDiagnostics\nV[21:28:46.269] >>> {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/publishDiagnostics\",\n  \"params\": {\n    \"diagnostics\": [\n      {\n        \"code\": \"expected_semi_after_module_or_import\",\n        \"message\": \"Import directive must end with a ';' (fix available)\",\n        \"range\": {\n          \"end\": {\n            \"character\": 8,\n            \"line\": 0\n          },\n          \"start\": {\n            \"character\": 8,\n            \"line\": 0\n          }\n        },\n        \"severity\": 1,\n        \"source\": \"clang\"\n      },\n      {\n        \"code\": \"module_not_found\",\n        \"message\": \"Module 'A' not found\",\n        \"range\": {\n          \"end\": {\n            \"character\": 8,\n            \"line\": 0\n          },\n          \"start\": {\n            \"character\": 7,\n            \"line\": 0\n          }\n        },\n        \"severity\": 1,\n        \"source\": \"clang\"\n      }\n    ],\n    \"uri\": \"file:///clangd-test/import.cpp\",\n    \"version\": 1\n  }\n}\n\nV[21:28:46.269] <<< {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/didOpen\",\n  \"params\": {\n    \"textDocument\": {\n      \"languageId\": \"cpp\",\n      \"text\": \"import \\\\\\n  A\\nimport B;\\n\",\n      \"uri\": \"test:///continued-import.cpp\",\n      \"version\": 1\n    }\n  }\n}\n\nI[21:28:46.269] <-- textDocument/didOpen\nI[21:28:46.269] Failed to find compilation database for /clangd-test/continued-import.cpp\nE[21:28:46.269] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.269] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name continued-import.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/repo -fcoverage-compilation-dir=/repo -resource-dir /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/continued-import.cpp\nI[21:28:46.269] ASTWorker building file /clangd-test/continued-import.cpp version 1 with command clangd fallback\n[/clangd-test]\n/usr/bin/clang -std=c++20 -resource-dir=/out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /clangd-test/continued-import.cpp\nV[21:28:46.269] Building first preamble for /clangd-test/continued-import.cpp version 1\nE[21:28:46.270] VFS: failed to set CWD to /clangd-test: No such file or directory\nI[21:28:46.272] Built preamble of size 251880 for file /clangd-test/continued-import.cpp version 1 in 0.00 seconds\nV[21:28:46.272] indexed preamble AST for /clangd-test/continued-import.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nE[21:28:46.272] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.274] indexed file AST for /clangd-test/continued-import.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:28:46.274] Build dynamic index for main-file symbols with estimated memory usage of 432 bytes\nI[21:28:46.274] --> textDocument/publishDiagnostics\nV[21:28:46.274] >>> {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/publishDiagnostics\",\n  \"params\": {\n    \"diagnostics\": [\n      {\n        \"code\": \"expected_semi_after_module_or_import\",\n        \"message\": \"Import directive must end with a ';' (fix available)\",\n        \"range\": {\n          \"end\": {\n            \"character\": 3,\n            \"line\": 1\n          },\n          \"start\": {\n            \"character\": 3,\n            \"line\": 1\n          }\n        },\n        \"severity\": 1,\n        \"source\": \"clang\"\n      },\n      {\n        \"code\": \"module_not_found\",\n        \"message\": \"Module 'A' not found\",\n        \"range\": {\n          \"end\": {\n            \"character\": 3,\n            \"line\": 1\n          },\n          \"start\": {\n            \"character\": 2,\n            \"line\": 1\n          }\n        },\n        \"severity\": 1,\n        \"source\": \"clang\"\n      }\n    ],\n    \"uri\": \"file:///clangd-test/continued-import.cpp\",\n    \"version\": 1\n  }\n}\n\nV[21:28:46.274] <<< {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/didOpen\",\n  \"params\": {\n    \"textDocument\": {\n      \"languageId\": \"cpp\",\n      \"text\": \"export module M // pending\\nint marker;\\n\",\n      \"uri\": \"test:///module.cpp\",\n      \"version\": 1\n    }\n  }\n}\n\nI[21:28:46.274] <-- textDocument/didOpen\nI[21:28:46.274] Failed to find compilation database for /clangd-test/module.cpp\nE[21:28:46.274] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.275] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name module.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/repo -fcoverage-compilation-dir=/repo -resource-dir /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/module.cpp\nI[21:28:46.275] ASTWorker building file /clangd-test/module.cpp version 1 with command clangd fallback\n[/clangd-test]\n/usr/bin/clang -std=c++20 -resource-dir=/out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /clangd-test/module.cpp\nV[21:28:46.275] Building first preamble for /clangd-test/module.cpp version 1\nE[21:28:46.275] VFS: failed to set CWD to /clangd-test: No such file or directory\nI[21:28:46.277] Built preamble of size 251848 for file /clangd-test/module.cpp version 1 in 0.00 seconds\nV[21:28:46.277] indexed preamble AST for /clangd-test/module.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nE[21:28:46.277] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.279] indexed file AST for /clangd-test/module.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:28:46.279] Build dynamic index for main-file symbols with estimated memory usage of 648 bytes\nI[21:28:46.279] --> textDocument/publishDiagnostics\nV[21:28:46.279] >>> {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/publishDiagnostics\",\n  \"params\": {\n    \"diagnostics\": [\n      {\n        \"code\": \"pp_unexpected_tok_after_module_name\",\n        \"message\": \"Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)\",\n        \"range\": {\n          \"end\": {\n            \"character\": 15,\n            \"line\": 0\n          },\n          \"start\": {\n            \"character\": 15,\n            \"line\": 0\n          }\n        },\n        \"severity\": 1,\n        \"source\": \"clang\"\n      }\n    ],\n    \"uri\": \"file:///clangd-test/module.cpp\",\n    \"version\": 1\n  }\n}\n\nV[21:28:46.279] <<< {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/didOpen\",\n  \"params\": {\n    \"textDocument\": {\n      \"languageId\": \"cpp\",\n      \"text\": \"export module \\\\\\n  M\\nint marker;\\n\",\n      \"uri\": \"test:///continued-module.cpp\",\n      \"version\": 1\n    }\n  }\n}\n\nI[21:28:46.279] <-- textDocument/didOpen\nI[21:28:46.279] Failed to find compilation database for /clangd-test/continued-module.cpp\nE[21:28:46.279] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.280] Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name continued-module.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/repo -fcoverage-compilation-dir=/repo -resource-dir /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9 -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/backward -internal-isystem /out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23/include -internal-isystem /usr/local/include -internal-isystem /usr/bin/../lib/gcc/x86_64-linux-gnu/9/../../../../x86_64-linux-gnu/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -std=c++20 -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fno-implicit-modules -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/continued-module.cpp\nI[21:28:46.280] ASTWorker building file /clangd-test/continued-module.cpp version 1 with command clangd fallback\n[/clangd-test]\n/usr/bin/clang -std=c++20 -resource-dir=/out/dist/clangd-23.1.0-mcppls.0-linux-x64/clangd/lib/clang/23 -- /clangd-test/continued-module.cpp\nV[21:28:46.280] Building first preamble for /clangd-test/continued-module.cpp version 1\nE[21:28:46.280] VFS: failed to set CWD to /clangd-test: No such file or directory\nI[21:28:46.282] Built preamble of size 251880 for file /clangd-test/continued-module.cpp version 1 in 0.00 seconds\nV[21:28:46.282] indexed preamble AST for /clangd-test/continued-module.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nE[21:28:46.282] VFS: failed to set CWD to /clangd-test: No such file or directory\nV[21:28:46.284] indexed file AST for /clangd-test/continued-module.cpp version 1:\n  symbol slab: 0 symbols, 104 bytes\n  ref slab: 0 symbols, 0 refs, 112 bytes\n  relations slab: 0 relations, 24 bytes\nV[21:28:46.284] Build dynamic index for main-file symbols with estimated memory usage of 864 bytes\nI[21:28:46.284] --> textDocument/publishDiagnostics\nV[21:28:46.284] >>> {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"textDocument/publishDiagnostics\",\n  \"params\": {\n    \"diagnostics\": [\n      {\n        \"code\": \"pp_unexpected_tok_after_module_name\",\n        \"message\": \"Unexpected preprocessing token 'int' after module name, only ';' and '[' (start of attribute specifier sequence) are allowed (fix available)\",\n        \"range\": {\n          \"end\": {\n            \"character\": 3,\n            \"line\": 1\n          },\n          \"start\": {\n            \"character\": 3,\n            \"line\": 1\n          }\n        },\n        \"severity\": 1,\n        \"source\": \"clang\"\n      }\n    ],\n    \"uri\": \"file:///clangd-test/continued-module.cpp\",\n    \"version\": 1\n  }\n}\n\nV[21:28:46.284] <<< {\n  \"id\": 1,\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"shutdown\",\n  \"params\": null\n}\n\nI[21:28:46.284] <-- shutdown(1)\nI[21:28:46.284] --> reply:shutdown(1) 0 ms\nV[21:28:46.284] >>> {\n  \"id\": 1,\n  \"jsonrpc\": \"2.0\",\n  \"result\": null\n}\n\nV[21:28:46.284] <<< {\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"exit\"\n}\n\nI[21:28:46.284] <-- exit\nI[21:28:46.284] LSP finished, exiting with status 0\n"
+}
