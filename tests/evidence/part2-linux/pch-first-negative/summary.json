@@ -1,0 +1,86 @@
+{
+  "scope": "First private integrated candidate; negative, not production/exported and not release performance proof",
+  "baseline_source": "66ed2d104d8affc9e75c82a5b015f9e6869a6b00",
+  "affected_consumers": "141 rebuilt before candidate execution",
+  "correctness": "Four actual typed Sema replies and selected GCC insertions passed; targeted safety controls do not prove full correctness",
+  "timings_ms": {
+    "cold_open": 7307.227893004892,
+    "warm": [
+      434.26728098711465,
+      309.317605002434
+    ],
+    "edited": 1325.1727320021018
+  },
+  "root_causes": [
+    "Successful paths replay canonical prefix + compiler manifest four times and full manifest about five times; per-revalidation cost about33\u201376ms.",
+    "Edited fresh scan rejects macro vector equality before PCH loading. Scanner canonicalizes simple defines/order and final define/undef via LLVM canonicalizeDefines; the owned invocation still has original macro order. Actual Qt vectors have the same macro/value pairs but different ordering.",
+    "The candidate rejects PCH after assistance refusal, so edited semantic execution grows to1188.992ms. Metadata admission was not reached; no evidence of a budget failure."
+  ],
+  "next_design": "Compare a temporary owned PP copy using the same scanner canonicalizeDefines, leave actual macros and normal PCH validation unchanged. Measure one validation-and-consumption transaction before eliminating redundant replays.",
+  "source_locations": [
+    "clang/lib/DependencyScanning/DependencyScannerImpl.cpp:275",
+    "clang/lib/DependencyScanning/DependencyScannerImpl.cpp:706"
+  ],
+  "archives": [
+    {
+      "archive": "negative-qt-first-compile-args.json.gz",
+      "uncompressed_sha256": "2750e93d4fc1a9996082ece6253afdd7e798b3b6efc454df30ba60d6bc7eb1c9",
+      "bytes": 408309
+    },
+    {
+      "archive": "negative-qt-first-identity.json.gz",
+      "uncompressed_sha256": "20fdd89f0aec1568bb05f032d94cd87be1772fbae5cfdc1615342cf576e3654a",
+      "bytes": 556
+    },
+    {
+      "archive": "negative-qt-first-qt-std.case.json.gz",
+      "uncompressed_sha256": "1c983597dd8c57a9bbd84d5daefef5e51ace05be3e8a1cb9c84c34435be8682c",
+      "bytes": 9205
+    },
+    {
+      "archive": "negative-qt-first-qt-std.json.gz",
+      "uncompressed_sha256": "88cf2c241a49b39f0de81c5f125ca9c5da790ec5ced22b5978200789b51dc788",
+      "bytes": 599741
+    },
+    {
+      "archive": "negative-qt-first-qt-std.log.gz",
+      "uncompressed_sha256": "d58af6a6725a7921e0f7ba5a3528f777d1b59ccc0e06dc39c955d0ee17baaea2",
+      "bytes": 509
+    },
+    {
+      "archive": "negative-qt-first-qt-std.trace.json.gz",
+      "uncompressed_sha256": "92790c04b457b0f3d19a1ba81b8000cf9393f91cf0352f03f861269525fc247b",
+      "bytes": 256077
+    },
+    {
+      "archive": "negative-qt-first-source.patch.gz",
+      "uncompressed_sha256": "28373bf721e8608f2a79f5abc3ba4bb642254cf81bf433d0b16bd8b884537a1c",
+      "bytes": 62943
+    },
+    {
+      "archive": "negative-qt-rejection-identity.json.gz",
+      "uncompressed_sha256": "951d04bcc799503e7589dbe4552009e2b85d2f332be4c61ba5018c95eb0b0512",
+      "bytes": 413
+    },
+    {
+      "archive": "negative-qt-rejection-qt-rejection.json.gz",
+      "uncompressed_sha256": "21b6ddbc634ff8b4595f87adbb674b6605898e4b270c435d4fe287e114aea87d",
+      "bytes": 586874
+    },
+    {
+      "archive": "negative-qt-rejection-qt-rejection.log.gz",
+      "uncompressed_sha256": "20ef4fb9151dba3ed3053e6afbdc5829361a57ef6fda69c1450661a836613ced",
+      "bytes": 514
+    },
+    {
+      "archive": "negative-qt-rejection-qt-rejection.trace.json.gz",
+      "uncompressed_sha256": "a2f3e2417e1b88660a54d08995e578b345d283998698c9306f86964276a9bacd",
+      "bytes": 254927
+    },
+    {
+      "archive": "negative-qt-rejection-source.patch.gz",
+      "uncompressed_sha256": "ce3c0d5e4aea61909323a39c9ecebdb85c80f264e167588cfea1d1fbf0ce8ba1",
+      "bytes": 64102
+    }
+  ]
+}

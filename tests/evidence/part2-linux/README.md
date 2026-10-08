@@ -68,3 +68,13 @@ typed Sema answers; the header import collapses it to 251,880 bytes. ARM
 macOS takes the conservative collapse path (12,715,024 to 837,988 bytes).
 All three scenarios pass on both platforms. Windows was still running;
 these are formal67 canary controls, not private-assisted latency proof.
+
+`pch-first-negative/` preserves the first fully rebuilt private PCH candidate
+and a trace-only refusal investigation. Four typed Sema replies and selected
+GCC insertions pass, but warm309–434ms and edited1325ms regress. Successful
+paths repeat full prefix/compiler/current manifest checks; edited fresh
+scanning rejects macro vector order before loading the PCH, then drops the
+PCH and reparses headers. LLVM itself canonicalizes simple macro order and
+final define/undef before the hook. Matching the temporary owned comparison
+to this existing behavior and combining validation/consumption are pending
+implementation, not proven repairs. No budget admission failure was reached.
