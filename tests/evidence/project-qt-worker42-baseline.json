@@ -1,0 +1,204 @@
+{
+  "schema": 1,
+  "source_commit": "777503b85",
+  "platform": "Linux x86_64",
+  "project": "existing qt-demo main.cpp, Qt and std/nlohmann imports",
+  "source_anchor": "    cli.addHelpOption();",
+  "expected_symbols": [
+    "vector"
+  ],
+  "original_cdb_sha256": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+  "runs": [
+    {
+      "engine_sha256": "cfa2a39a56c2fb9b1678f5c4f006bcf6e64d22d851f8cb4d5d6fc07c4b403307",
+      "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "position": {
+        "line": 23,
+        "character": 11
+      },
+      "expression": "    std::ve",
+      "starts": 1,
+      "rounds": 3,
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            3164.745538997522
+          ],
+          "p50_ms": 3164.745538997522,
+          "p95_ms": 3164.745538997522
+        },
+        "settled-warm": {
+          "requested": 4,
+          "answered": 4,
+          "missing": 0,
+          "samples_ms": [
+            729.6967580041382,
+            725.4069549962878,
+            725.087070997688,
+            726.8819620003342
+          ],
+          "p50_ms": 725.4069549962878,
+          "p95_ms": 729.6967580041382
+        },
+        "edited": {
+          "requested": 3,
+          "answered": 3,
+          "missing": 0,
+          "samples_ms": [
+            1304.7301449987572,
+            1302.2799379978096,
+            1314.4206069991924
+          ],
+          "p50_ms": 1304.7301449987572,
+          "p95_ms": 1314.4206069991924
+        }
+      },
+      "all_semantic_requests_passed": true,
+      "limits": [
+        "Single context exploratory probe; no release performance gate claim.",
+        "Cold-open includes fallback responses: missing symbols fail, not excluded.",
+        "No insertion compilation or baseline speedup proof.",
+        "Settled-warm is AST-ready, not proof of a particular cache hit."
+      ],
+      "engine_flags": [
+        "--experimental-modules-support",
+        "--background-index=false",
+        "--header-insertion=never",
+        "-j=4"
+      ],
+      "raw_report_sha256": "e1a78fac032b1c17aa2460ea56e59126ac7bc2acd01c86892a35c4468f6561fc",
+      "raw_log_sha256": "921dbeda40cd8af546f4f30c87b261ca8d8790640f456530ab9a903e07db31d4",
+      "role": "unaltered-project-CDB"
+    },
+    {
+      "engine_sha256": "cfa2a39a56c2fb9b1678f5c4f006bcf6e64d22d851f8cb4d5d6fc07c4b403307",
+      "source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "position": {
+        "line": 23,
+        "character": 11
+      },
+      "expression": "    std::ve",
+      "starts": 1,
+      "rounds": 1,
+      "phases": {
+        "cold-open": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            4159.011969000858
+          ],
+          "p50_ms": 4159.011969000858,
+          "p95_ms": 4159.011969000858
+        },
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            1241.3863990004756,
+            1203.0992130021332
+          ],
+          "p50_ms": 1203.0992130021332,
+          "p95_ms": 1241.3863990004756
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            1401.9844020003802
+          ],
+          "p50_ms": 1401.9844020003802,
+          "p95_ms": 1401.9844020003802
+        }
+      },
+      "all_semantic_requests_passed": true,
+      "limits": [
+        "Single context exploratory probe; no release performance gate claim.",
+        "Cold-open includes fallback responses: missing symbols fail, not excluded.",
+        "No insertion compilation or baseline speedup proof.",
+        "Settled-warm is AST-ready, not proof of a particular cache hit."
+      ],
+      "engine_flags": [
+        "--experimental-modules-support",
+        "--background-index=false",
+        "--header-insertion=never",
+        "-j=4",
+        "--compile-commands-dir=/tmp/mcppls-qt-no-header-modules"
+      ],
+      "raw_report_sha256": "f90fcc005007e0b2b7ed5182e46c15b032866d67760f5f72f91b1c45378b6d62",
+      "raw_log_sha256": "1716a8817c8884fa767c5b9d459f88b9a5e1a7844a2626f163f03abdb12f4e78",
+      "role": "controlled-counterexample-remove-only-fmodules"
+    }
+  ],
+  "baseline_trace_sha256": "5891543e9c6e49396f41dd7fdc675d645698d7446b232c6957d59cccf85cb55a",
+  "trace_stage_samples_ms": {
+    "Completion module validation": [
+      106.3879750000001,
+      104.81281499999994,
+      105.37147500000056,
+      104.13060099999979,
+      105.57704099999927,
+      104.17052500000037,
+      104.9718569999989,
+      104.70572199999914,
+      106.3879750000001,
+      104.81281499999994,
+      105.37147500000056,
+      104.13060099999979,
+      105.57704099999927,
+      104.17052500000037,
+      104.9718569999989,
+      104.70572199999914
+    ],
+    "Completion semantic execution": [
+      43.69919800000032,
+      41.40809400000004,
+      41.39228199999966,
+      41.55498300000001,
+      41.90437799999956,
+      41.27564099999983,
+      42.45402400000021,
+      41.10708399999887
+    ],
+    "CodeCompleteFlow": [
+      153.97264400000032,
+      149.62160799999955,
+      150.21705299999937,
+      149.16523200000077,
+      150.9253440000005,
+      148.8965139999995,
+      151.10420999999903,
+      149.2339389999993
+    ],
+    "CodeComplete": [
+      757.2953030000003,
+      729.2081919999998,
+      729.4938179999999,
+      724.9231179999998,
+      727.6713940000003,
+      724.5981459999997,
+      738.0528370000012,
+      726.2968889999986
+    ],
+    "textDocument/didChange": [
+      574.7103669999996,
+      574.1048990000002,
+      575.7284590000007
+    ]
+  },
+  "findings": [
+    "Warm unaltered-CDB completion remains about725ms and edited about1305ms; no release performance acceptance.",
+    "Repeated failed GCC std.cc scans spend about575ms in synchronous request setup; Sema is about150ms.",
+    "Removing GCC -fmodules permits std and nlohmann worker builds but worsens warm latency to1203-1241ms; this is a counterexample, not a proposed fix."
+  ],
+  "scope": [
+    "One process per variant, small samples, no statistical acceptance.",
+    "Physical source and project configuration unchanged; counterexample uses separate temporary CDB only.",
+    "vector is asserted in all replies; no full context matrix, insertion compilation, speedup or final-package claim."
+  ]
+}

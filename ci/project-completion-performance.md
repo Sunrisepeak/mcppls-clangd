@@ -1,5 +1,26 @@
 # Real project completion measurement
 
+2026-10-08 current baseline: source 777503b85 (patches 1–42), development
+binary SHA cfa2a39a56c2fb9b1678f5c4f006bcf6e64d22d851f8cb4d5d6fc07c4b403307,
+unaltered current Qt project CDB. All eight `std::ve` requests contain `vector`,
+but cold completion is 3165 ms, four settled warm samples are 725–730 ms and
+three edited samples are 1302–1314 ms. This supersedes the historical latency
+observations below for the current source/project combination. It fails the
+intended warm performance target; the small sample is not statistical acceptance.
+
+The trace separates roughly 150 ms of Sema completion (104–106 ms module
+validation and 41–44 ms semantic execution) from repeated failed GCC `std.cc`
+scanning in synchronous request setup. Each didChange takes 574–576 ms. A
+controlled separate CDB removing only GCC `-fmodules` permits real std and
+nlohmann worker builds but worsens warm completion to 1203–1241 ms. That
+counterexample is not a proposed compiler flag change. Strict failed-scan reuse
+is under investigation; no optimization or release gate is claimed yet.
+
+Compact measured evidence, phase samples, trace spans and hashes of raw local
+reports/logs: `tests/evidence/project-qt-worker42-baseline.json`. The probe accepts
+repeatable `--engine-flag=...` arguments and retains effective arguments in both
+its replay case and report, so controlled configurations remain distinguishable.
+
 `tests/probes/project_completion.py` inserts a completion expression in an
 unsaved draft of an existing project, derives its UTF-16 cursor from the exact
 unique source anchor, and validates required semantic candidates on every

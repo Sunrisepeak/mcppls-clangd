@@ -94,6 +94,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--phases', action='store_true', help='Separate cold open, settled warm and edited requests; cold failures remain failures')
     parser.add_argument('--resources', action='store_true', help='Sample engine CPU/RSS using Linux /proc')
+    parser.add_argument('--engine-flag', action='append', default=[],
+                        help='Additional engine argument retained in the replay manifest')
     parser.add_argument('--trace', type=Path, help='clangd trace path (one process only)')
     args = parser.parse_args()
     if args.trace and args.starts != 1:
@@ -112,6 +114,8 @@ def main():
     text = prefix + ';\n' + base[offset:]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     manifest = args.output.with_suffix('.case.json')
+    engine_flags = ['--experimental-modules-support', '--background-index=false',
+                    '--header-insertion=never', '-j=4', *args.engine_flag]
     results = []
     try:
         for start in range(args.starts):
@@ -146,8 +150,7 @@ def main():
             manifest.write_text(json.dumps({'id': 'project-completion', 'project': str(project),
                 'platform': replay.platform_name(), 'baseline': 'pass',
                 'timeout_seconds': max(120, args.rounds * 10),
-                'flags': ['--experimental-modules-support', '--background-index=false',
-                          '--header-insertion=never', '-j=4'], 'sequence': sequence}))
+                'flags': engine_flags, 'sequence': sequence}))
             previous_trace = os.environ.get('CLANGD_TRACE')
             try:
                 if args.trace:
@@ -174,7 +177,7 @@ def main():
                 phase_requests[phase] = phase_requests.get(phase, 0) + 1
             for phase, response in zip(result['requested_phases'], result['responses']):
                 phase_samples.setdefault(phase, []).append(response['elapsed_ms'])
-        report = {'schema': 2, 'engine_sha256': digest(engine),
+        report = {'schema': 2, 'engine_sha256': digest(engine), 'engine_flags': engine_flags,
                   'source_sha256': hashlib.sha256(original).hexdigest(), 'position': position,
                   'expression': args.expression, 'starts': args.starts, 'rounds': args.rounds,
                   'phases': {phase: statistics(phase_samples.get(phase, []), count)
