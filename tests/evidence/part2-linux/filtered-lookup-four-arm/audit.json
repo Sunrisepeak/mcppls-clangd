@@ -1,0 +1,92 @@
+{
+  "scope": "Matched headers/modules x baseline/candidate, each3starts x30rounds, original URI/CDB, no added trace instrumentation. GCC first,last,slowest per phase/start compiled after all four arms; not every reply compiled. Header macros/declaration exposure differs from module exports.",
+  "arms": {
+    "baseline-headers": {
+      "replies": 186,
+      "selected_gcc_insertions": 21,
+      "max_edited_ms": 191.71755900606513,
+      "edited_above200_count": 0
+    },
+    "candidate-modules": {
+      "replies": 186,
+      "selected_gcc_insertions": 20,
+      "max_edited_ms": 196.04550600342918,
+      "edited_above200_count": 0
+    },
+    "baseline-modules": {
+      "replies": 186,
+      "selected_gcc_insertions": 21,
+      "max_edited_ms": 258.4700339939445,
+      "edited_above200_count": 90
+    },
+    "candidate-headers": {
+      "replies": 186,
+      "selected_gcc_insertions": 19,
+      "max_edited_ms": 163.32270500424784,
+      "edited_above200_count": 0
+    }
+  },
+  "artifact_sha256": {
+    "baseline-headers/report.json": "2777053183733b8c8b54b2979dd711c3ed4cf83b8e7c20813ed61a1a20d8a4c3",
+    "baseline-headers/report.case.json": "312069479b69ca18e81747bcfb45aab5ba082c4a144144b53e33b9b4a7993360",
+    "baseline-headers/command.json": "e32249c84632690929e5dbef14942b4e9f119c26d9a3b2e1fe6975aabff36d00",
+    "baseline-headers/run.log": "f66be8eb76fdfdd2547dd831d6fde6d1879dc318ce474a9050ec7181b9928910",
+    "baseline-headers/selected-insertions.json": "8cd74186d8902957cf114fc34234ce9fe32392bad6d994d0989e862666a9746e",
+    "baseline-headers/cdb--compile_commands.json": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+    "candidate-modules/report.json": "78a8e9b5389cde4d38652d549dd6af2026196141a520628d08b5da3303adbf4d",
+    "candidate-modules/report.case.json": "bc2b608c44aae381da9d9adf496ff1e8951c1d0b763a0d85ae31389a7e34f0e0",
+    "candidate-modules/command.json": "9d9d71750a9c5160e3fdcfa8b7a51496442f07cb76b5ca2dfea232260c8d40ba",
+    "candidate-modules/run.log": "de92eb57e0191c569da89654b31193395769839c0af10c7ade03525d70f37e38",
+    "candidate-modules/selected-insertions.json": "f8edc0ec0b979edc4e01500220375fe4048decab62da3f8c7fe3b9d56634f0d9",
+    "candidate-modules/cdb--compile_commands.json": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+    "baseline-modules/report.json": "a410ad09fd4fcb7eb2e1c4b7f400f3bc197c383cd502a310f97c9e09b13e5867",
+    "baseline-modules/report.case.json": "eebf3ad9e4a81932edf056ef51a69074d28453b672789f1bc535d1c78b877672",
+    "baseline-modules/command.json": "8bef928b6bb68441117f117b38276587366336cc89cc08274efd4796cca4a3e6",
+    "baseline-modules/run.log": "c936c5bc1b02f39daa11fba64bbfcd114ac2f7b4e4f7dcd51e992f0b2fe42fcb",
+    "baseline-modules/selected-insertions.json": "dc4671e711c55c3f9ecae9cca29edfeed674b182ad78c77455ce10e81261ac30",
+    "baseline-modules/cdb--compile_commands.json": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291",
+    "candidate-headers/report.json": "897f14a66f193d10f4d2104c0d328a9bac60eafef7c477111a051f6823367a66",
+    "candidate-headers/report.case.json": "4c8488978cd9a3371e3fdc6ffb47c4f4e49983faa2ba44f72469bbf4ddd66a26",
+    "candidate-headers/command.json": "d00d3f9401336f4d62a2f5a8934672b7bb55469c5601f2a7a70fb1433ddc648e",
+    "candidate-headers/run.log": "69af1cc252587e518e0376f894a394ff7ff5b3ea55eec7a1855d8fa50eac67e3",
+    "candidate-headers/selected-insertions.json": "c16451743324fbba31d5e8be6fdac7ec05efcac619b6a695648cee8b9ba8275e",
+    "candidate-headers/cdb--compile_commands.json": "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291"
+  },
+  "returned_item_parity": {
+    "headers": {
+      "replies": 186,
+      "all_items_equal": true,
+      "item_count_ranges": [
+        23,
+        23,
+        23,
+        23
+      ],
+      "differences": []
+    },
+    "modules": {
+      "replies": 186,
+      "all_items_equal": true,
+      "item_count_ranges": [
+        65,
+        65,
+        65,
+        65
+      ],
+      "differences": []
+    }
+  },
+  "edited_p95_comparison": {
+    "ms": {
+      "baseline-headers": 184.52075400273316,
+      "candidate-modules": 188.613884994993,
+      "baseline-modules": 255.22250999347307,
+      "candidate-headers": 155.9045089961728
+    },
+    "baseline_modules_minus_headers_ms": 70.70175599073991,
+    "candidate_modules_minus_headers_ms": 32.70937599882018,
+    "modules_improvement_percent": 26.098256380357476,
+    "headers_improvement_percent": 15.508415387320863,
+    "candidate_modules_over_headers_percent": 20.980391272469955
+  }
+}

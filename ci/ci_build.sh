@@ -18,7 +18,7 @@ source ci/scripts/env.sh
 
 if [[ "${TEST:-0}" = "1" ]]; then
   # clangd + the clang driver (module lit tests compile with it) + lit helpers
-  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format ClangdTests clangd-validation-overlay-probe FileCheck not count split-file llvm-config -j "${JOBS:-4}"
+  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format ClangdTests AllClangUnitTests c-index-test clang-repl clangd-validation-overlay-probe FileCheck not count split-file llvm-config -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
@@ -54,7 +54,10 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
     tools/clang/test/Modules/missing-module-semicolon-location.cpp
   CLANGD_TESTS=./tools/clang/tools/extra/clangd/unittests/ClangdTests
   [[ -x "$CLANGD_TESTS" ]] || CLANGD_TESTS+=.exe
-  "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.*:GlobalCompilationDatabaseTest.*:DirectoryBasedGlobalCompilationDatabaseCacheTest.*:OverlayCDBTest.ExpandedResponseFiles:DiagnosticsTest.*-PrerequisiteModulesTests.PositiveScanMemo*'
+  "$CLANGD_TESTS" --gtest_filter='CompletionTest.*:PrerequisiteModulesTests.*:GlobalCompilationDatabaseTest.*:DirectoryBasedGlobalCompilationDatabaseCacheTest.*:OverlayCDBTest.ExpandedResponseFiles:DiagnosticsTest.*-PrerequisiteModulesTests.PositiveScanMemo*'
+  CLANG_TESTS=./tools/clang/unittests/AllClangUnitTests
+  [[ -x "$CLANG_TESTS" ]] || CLANG_TESTS+=.exe
+  "$CLANG_TESTS" --gtest_filter='NamespaceLookupTest.*'
   if [[ "$PLATFORM" == "linux-x64" ]]; then
     "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.PositiveScanMemo*'
   fi
