@@ -1,0 +1,133 @@
+{
+  "source_commit": "461b21a3bd3c7a8866f7d9bf3a194739c0b49506",
+  "source_tree": "766053a3413433774530e3836b8701c9417b782d",
+  "sha256": {
+    "0049-owned-module-payload-admission.patch": "78c5bf5fe7136ab6fcf5fe34544c652bb7553108d698a31be964caeca5a07976",
+    "clangd49": "d8fa16318d0554d3bac77f3b11276cb0edb4ae715cd3c899264d2adb23da6ad9",
+    "owner-proof-before.json": "5bb9a36e7208f399d9267ce297ea239f2489dcb623d6af4dc65f528679d3b0e4",
+    "owner-proof.json": "4d690cf32c7a305f1a000eb0557155e5420f25f7d6c37c2d2154ebf7274c6a0e",
+    "owner-proof-prerequisite.json": "1aafb71342b936195cdb3159099fa5c84fc996c1364b991da7a494957ce84836",
+    "prereq-final.log": "9ee78c49ee4399dc93e30067be49190b1be0547925964dbaecd08e271535c166",
+    "default-mmd-final/result.json": "20aca8f737c8c4e011fd70ed6081dd9bd0444f9eb06fe943115ffa3432395692",
+    "default-md-final/result.json": "12f75be834a408375f4974fc8c09fa695a5120dde27ec03e12dc7782e4ac6d3b",
+    "low-admission-verified/result.json": "a4cac34aab936db445ad9a8d6d95e2718b0e6b5e01699d537421f33cbd68c030",
+    "launched-failure-final/result.json": "4d13af44f6a3b3f4b456f779899f039525296726cc684b8925e92a419b919bb8",
+    "old-worker-v2-final/result.json": "dfa81fef0587247414d5868a273923a68eb46133b4e6b0790ed0d26a0cb471f6"
+  },
+  "boundary": {
+    "default_linux_payload_mib_per_namespace": 1024,
+    "default_slots": 4096,
+    "worker_output_mib": 256,
+    "capture_mib": 64,
+    "physical_allocation_bound": false,
+    "filesystem_metadata_bound": false,
+    "global_all_namespaces_bound": false,
+    "rss_bound": false
+  },
+  "private_units": {
+    "count": 54,
+    "elapsed_ms": 624
+  },
+  "root_joint_units": {
+    "count": 69,
+    "elapsed_ms": 919,
+    "source": "24a173b90",
+    "partial_object_link": true
+  },
+  "ordered_proof": {
+    "ordered_fixture": "/tmp/mcppls-series49-60-ordered",
+    "fixture_head": "dd6757902e0a2bd027ae063ce4ce970f6fe1a697",
+    "combined_head": "a0e69de939ae592eb7f41fb01a4a85d7f44f55be",
+    "equal_paths": [
+      "clang-tools-extra/clangd/CMakeLists.txt",
+      "clang-tools-extra/clangd/ClangdServer.cpp",
+      "clang-tools-extra/clangd/ClangdServer.h",
+      "clang-tools-extra/clangd/Compiler.cpp",
+      "clang-tools-extra/clangd/Compiler.h",
+      "clang-tools-extra/clangd/GlobalCompilationDatabase.cpp",
+      "clang-tools-extra/clangd/ModuleBuildCache.cpp",
+      "clang-tools-extra/clangd/ModuleBuildCache.h",
+      "clang-tools-extra/clangd/ModuleBuildWorker.cpp",
+      "clang-tools-extra/clangd/ModuleBuildWorker.h",
+      "clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp",
+      "clang-tools-extra/clangd/ModuleBuildWorkerOutput.h",
+      "clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp",
+      "clang-tools-extra/clangd/ModuleDependencyScanCache.h",
+      "clang-tools-extra/clangd/ModulesBuilder.cpp",
+      "clang-tools-extra/clangd/Preamble.cpp",
+      "clang-tools-extra/clangd/Preamble.h",
+      "clang-tools-extra/clangd/ProjectModules.cpp",
+      "clang-tools-extra/clangd/ProjectModules.h",
+      "clang-tools-extra/clangd/TUScheduler.cpp",
+      "clang-tools-extra/clangd/unittests/ClangdTests.cpp",
+      "clang-tools-extra/clangd/unittests/GlobalCompilationDatabaseTests.cpp",
+      "clang-tools-extra/clangd/unittests/PreambleTests.cpp",
+      "clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp",
+      "clang/include/clang/Serialization/GlobalModuleIndex.h",
+      "clang/lib/Frontend/CompilerInstance.cpp",
+      "clang/lib/Frontend/FrontendAction.cpp",
+      "clang/lib/Serialization/GlobalModuleIndex.cpp"
+    ],
+    "pending_patch": 59
+  },
+  "root_default_worker": {
+    "id": "default-module-worker",
+    "outcome": "pass",
+    "responses": [
+      {
+        "method": "textDocument/completion",
+        "symbols": [
+          "fn_m"
+        ],
+        "elapsed_ms": 400.6359320046613,
+        "completion_items": {
+          "fn_m": [
+            {
+              "detail": "int",
+              "filterText": "fn_m",
+              "insertText": "fn_m",
+              "insertTextFormat": 1,
+              "kind": 3,
+              "label": " fn_m()",
+              "score": 0.8084393739700317,
+              "sortText": "40b10a1efn_m",
+              "textEdit": {
+                "newText": "fn_m",
+                "range": {
+                  "end": {
+                    "character": 17,
+                    "line": 1
+                  },
+                  "start": {
+                    "character": 15,
+                    "line": 1
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "readers_stopped": true,
+    "exit_code": 0,
+    "engine_sha256": "875176573622c57d3d1225d9bef547ba64384a7b63dfc9225b0633e31acf720b",
+    "observed_workers": {
+      "1381639": {
+        "command": [
+          "/tmp/mcppls-joint53-build/clangd",
+          "--module-build-worker",
+          "/tmp/mcppls-joint49-58-default/default-worker-io1714ag/.cache/clangd/modules/.owned-payload-v1/generation-0-1/workers/unit-e7ed9d/request.json",
+          "10"
+        ],
+        "address_space": [
+          "2147483648",
+          "2147483648"
+        ],
+        "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/vte-spawn-84ab2851-08a5-4abd-9592-c922dd2a9e84.scope\n"
+      }
+    },
+    "disk_unchanged": true
+  },
+  "remaining": "59 implicit bundle needed for actual Qt JSON; physical metadata/allnamespace/RSS/native/fullrelease gates open"
+}
