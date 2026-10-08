@@ -103,3 +103,5 @@ they live here and in patch *filenames* only.
 | 0053-UP-03-bounded-scan-publication-coordination.patch | UP-03 | stabilizing | ci/module-scan-publication.md; tests/evidence/module-scan-publication.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream identical scan publications use bounded notification coordination and each follower validates the result against its own current VFS |
 
 | 0047-UP-03-bounded-worker-output-and-captured-inputs.patch | UP-03 | stabilizing | ci/module-worker-payloads.md; tests/evidence/module-worker-payloads.json; tests/e2e/module_worker_default.py; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream bounded worker output covers reduced/implicit/index writers, capture preflight precedes writes, and older workers reject bounded protocol requests |
+
+| 0054-UP-03-indexed-exact-scan-observations.patch | UP-03 | stabilizing | ci/module-scan-recording.md; tests/evidence/module-scan-recording.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream exact scan recording avoids quadratic accounting/search and includes bounded index/growth metadata while preserving every observation and fresh replay |

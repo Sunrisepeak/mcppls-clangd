@@ -1,0 +1,286 @@
+From cf62a35f9472f24f5196697aaccd2a80745293db Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 11:43:58 +0900
+Subject: [PATCH] [clangd] Bound and index exact dependency scan observations
+
+---
+ .../clangd/ModuleDependencyScanCache.h        | 88 ++++++++++++++++---
+ clang-tools-extra/clangd/ProjectModules.cpp   |  6 +-
+ .../unittests/PrerequisiteModulesTest.cpp     | 73 +++++++++++----
+ 3 files changed, 131 insertions(+), 36 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index d6fc221b9..2ed233094 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -11,6 +11,7 @@
+ #include "support/Logger.h"
+ #include "support/ThreadsafeFS.h"
+ #include "clang/Tooling/CompilationDatabase.h"
++#include "llvm/ADT/Hashing.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/Config/llvm-config.h"
+ #include "llvm/Support/MemoryBuffer.h"
+@@ -163,38 +164,78 @@ public:
+     }
+   };
+   std::string WorkingDirectory;
+-  std::vector<Observation> Observations;
+   bool Complete = true;
+   uint64_t NextDirectory = 0;
+   size_t RepeatedFacts = 0;
+ 
++  llvm::ArrayRef<Observation> observations() const { return Observations; }
++
+   void add(Observation O) {
+     if (!Complete)
+       return;
+-    // Collapse only identical complete idempotent observations. Different
+-    // outcomes remain separate, including all bytes, status identity, aliases
+-    // and errors. Every directory cursor operation retains its order.
+-    // A bounded linear search owns no additional index metadata.
+-    if (O.Operation != DirectoryBegin && O.Operation != DirectoryNext &&
+-        std::any_of(Observations.begin(), Observations.end(),
+-                    [&](const Observation &Earlier) { return Earlier == O; })) {
+-      ++RepeatedFacts;
+-      return;
++    const bool Indexed =
++        O.Operation != DirectoryBegin && O.Operation != DirectoryNext;
++    // Hash only selects candidates. Equality still compares EVERY recorded
++    // field, so collisions and different outcomes never discard an input.
++    if (Indexed && !FactIndex.empty()) {
++      auto Slot = findSlot(FactIndex, O);
++      if (FactIndex[Slot]) {
++        ++RepeatedFacts;
++        return;
++      }
+     }
+-    if (Observations.size() >= ProbeLimit ||
+-        O.Path.size() + O.Name.size() > ByteLimit ||
+-        ownedBytes() + O.Path.size() + O.Name.size() + sizeof(O) > ByteLimit) {
++    const size_t IndexCapacity = !Indexed            ? FactIndex.size()
++                                 : FactIndex.empty() ? 32
++                                 : (IndexedFacts + 1) * 2 > FactIndex.size()
++                                     ? FactIndex.size() * 2
++                                     : FactIndex.size();
++    const size_t FactCapacity =
++        Observations.size() < Observations.capacity()
++            ? Observations.capacity()
++            : std::min(ProbeLimit,
++                       std::max(size_t(32), Observations.capacity() * 2));
++    const size_t Strings = stringBytes(O);
++    size_t Projected = sizeof(*this) + WorkingDirectory.capacity() + 32 +
++                       RecordedStringBytes + Strings +
++                       FactCapacity * sizeof(Observation) +
++                       IndexCapacity * sizeof(uint32_t);
++    // Reserve/rebuild may temporarily hold old and new allocations. Include
++    // that peak too; the retained index itself is at most 16384 four-byte
++    // slots.
++    if (IndexCapacity != FactIndex.size())
++      Projected += FactIndex.capacity() * sizeof(uint32_t);
++    if (FactCapacity != Observations.capacity())
++      Projected += Observations.capacity() * sizeof(Observation);
++    if (Observations.size() >= ProbeLimit || Strings > ByteLimit ||
++        Projected > ByteLimit) {
+       vlog("Module dependency scan manifest probe boundary: probes={0}, "
+            "repeatedFacts={1}", Observations.size(), RepeatedFacts);
+       Complete = false;
+       return;
+     }
++    Observations.reserve(FactCapacity);
++    if (IndexCapacity != FactIndex.size()) {
++      std::vector<uint32_t> Grown(IndexCapacity, 0);
++      for (size_t I = 0; I < Observations.size(); ++I) {
++        const auto &Earlier = Observations[I];
++        if (Earlier.Operation != DirectoryBegin &&
++            Earlier.Operation != DirectoryNext)
++          Grown[findSlot(Grown, Earlier)] = I + 1;
++      }
++      FactIndex = std::move(Grown);
++    }
++    RecordedStringBytes += Strings;
+     Observations.push_back(std::move(O));
++    if (Indexed) {
++      FactIndex[findSlot(FactIndex, Observations.back())] = Observations.size();
++      ++IndexedFacts;
++    }
+   }
+ 
+   size_t ownedBytes() const {
+     size_t Size = sizeof(*this) + WorkingDirectory.capacity() + 32 +
+-                  Observations.capacity() * sizeof(Observation);
++                  Observations.capacity() * sizeof(Observation) +
++                  FactIndex.capacity() * sizeof(uint32_t);
+     for (const auto &O : Observations)
+       Size += O.Path.capacity() + O.Name.capacity() + 64 +
+               (O.Info ? O.Info->Name.capacity() + 32 : 0);
+@@ -296,6 +337,25 @@ public:
+     }
+     return !isCancelled();
+   }
++
++private:
++  static size_t stringBytes(const Observation &O) {
++    return O.Path.capacity() + O.Name.capacity() + 64 +
++           (O.Info ? O.Info->Name.capacity() + 32 : 0);
++  }
++  size_t findSlot(llvm::ArrayRef<uint32_t> Table, const Observation &O) const {
++    size_t Slot =
++        size_t(llvm::hash_combine(O.Operation, O.Path)) & (Table.size() - 1);
++    while (Table[Slot] && !(Observations[Table[Slot] - 1] == O))
++      Slot = (Slot + 1) & (Table.size() - 1);
++    return Slot;
++  }
++  // Only add() mutates observations, preserving the accounting/index invariant.
++  // Public ownedBytes() still recomputes actual capacities after manifest
++  // copies.
++  std::vector<Observation> Observations;
++  std::vector<uint32_t> FactIndex;
++  size_t RecordedStringBytes = 0, IndexedFacts = 0;
+ };
+ 
+ class ModuleScanRecordingFS : public llvm::vfs::ProxyFileSystem {
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 09ca2378f..4c3f2af13 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -471,9 +471,9 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+     Result.emplace();
+     if (!ScanningResult) {
+       vlog("Module dependency scan failure admission: {0} (observable={1}, "
+-           "errors={2}, complete={3}, probes={4})", FilePath, Cacheable,
+-           HadError, Manifest && Manifest->Complete,
+-           Manifest ? Manifest->Observations.size() : 0);
++           "errors={2}, complete={3}, probes={4})",
++           FilePath, Cacheable, HadError, Manifest && Manifest->Complete,
++           Manifest ? Manifest->observations().size() : 0);
+       Result->FailureDiagnostic = std::move(S);
+       // Non-semantic/tool failures and canceled work have no reusable verdict.
+       Cacheable &= HadError && !isCancelled();
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 207448be1..c176faa63 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1019,14 +1019,12 @@ TEST_F(PrerequisiteModulesTests, FailedScanMemoRejectsOversizedAndCanceledEntrie
+   {
+     // Cancel during the last filesystem observation, after store's initial
+     // cancellation check. Neither replay nor publication may succeed.
+-    ModuleScanManifest LastRead = *Inputs;
+-    LastRead.Observations.erase(
+-        std::remove_if(LastRead.Observations.begin(), LastRead.Observations.end(),
+-                       [](const ModuleScanManifest::Observation &O) {
+-                         return O.Operation != ModuleScanManifest::Read;
+-                       }),
+-        LastRead.Observations.end());
+-    ASSERT_EQ(LastRead.Observations.size(), 1u);
++    ModuleScanManifest LastRead;
++    LastRead.WorkingDirectory = Inputs->WorkingDirectory;
++    for (const auto &O : Inputs->observations())
++      if (O.Operation == ModuleScanManifest::Read)
++        LastRead.add(O);
++    ASSERT_EQ(LastRead.observations().size(), 1u);
+     auto ReplayTask = cancelableTask();
+     CancelOnReadFS CancelDuringReplay(FS, Use, ReplayTask.second);
+     auto ReplayView = CancelDuringReplay.view(Command.Directory);
+@@ -1133,26 +1131,26 @@ TEST_F(PrerequisiteModulesTests, ScanMemoCompactsIdenticalIdempotentFacts) {
+   auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(View, Inputs);
+   llvm::SmallString<256> Path("same.h");
+   ASSERT_FALSE(Recording->makeAbsolute(Path));
+-  ASSERT_EQ(Inputs->Observations.size(), 1u);
+-  const auto Original = Inputs->Observations.front();
++  ASSERT_EQ(Inputs->observations().size(), 1u);
++  const auto Original = Inputs->observations().front();
+   for (size_t I = 0; I < ModuleScanManifest::ProbeLimit * 2; ++I)
+     Inputs->add(Original);
+   EXPECT_TRUE(Inputs->Complete);
+-  EXPECT_EQ(Inputs->Observations.size(), 1u);
++  EXPECT_EQ(Inputs->observations().size(), 1u);
+   EXPECT_TRUE(Inputs->matches(*View));
+   auto Changed = Original;
+   Changed.Name += "/different";
+   Inputs->add(Changed);
+-  EXPECT_EQ(Inputs->Observations.size(), 2u);
++  EXPECT_EQ(Inputs->observations().size(), 2u);
+   EXPECT_FALSE(Inputs->matches(*View));
+   Changed = Original;
+   Changed.Binary = true;
+   Inputs->add(Changed);
+-  EXPECT_EQ(Inputs->Observations.size(), 3u);
++  EXPECT_EQ(Inputs->observations().size(), 3u);
+   Changed = Original;
+   Changed.Bytes.front() = 1;
+   Inputs->add(Changed);
+-  EXPECT_EQ(Inputs->Observations.size(), 4u);
++  EXPECT_EQ(Inputs->observations().size(), 4u);
+   // All status fields participate, including alias identity.
+   auto Status = View->status(TestDir);
+   ASSERT_TRUE(Status);
+@@ -1161,23 +1159,60 @@ TEST_F(PrerequisiteModulesTests, ScanMemoCompactsIdenticalIdempotentFacts) {
+   Stat.Info.emplace(*Status);
+   Inputs->add(Stat);
+   Inputs->add(Stat);
+-  EXPECT_EQ(Inputs->Observations.size(), 5u);
++  EXPECT_EQ(Inputs->observations().size(), 5u);
+   Stat.Info->ID = llvm::sys::fs::UniqueID(100, 200);
+   Inputs->add(Stat);
+-  EXPECT_EQ(Inputs->Observations.size(), 6u);
++  EXPECT_EQ(Inputs->observations().size(), 6u);
+   Changed.Operation = ModuleScanManifest::DirectoryBegin;
+   Inputs->add(Changed);
+   Inputs->add(Changed);
+-  EXPECT_EQ(Inputs->Observations.size(), 8u);
++  EXPECT_EQ(Inputs->observations().size(), 8u);
+   ModuleScanManifest Bounded;
+   for (size_t I = 0; I < ModuleScanManifest::ProbeLimit; ++I)
+     Bounded.add(Changed); // Ordered directory events cannot be compacted.
+   EXPECT_TRUE(Bounded.Complete);
+-  EXPECT_EQ(Bounded.Observations.size(), ModuleScanManifest::ProbeLimit);
++  EXPECT_EQ(Bounded.observations().size(), ModuleScanManifest::ProbeLimit);
+   Bounded.add(Changed);
+   EXPECT_FALSE(Bounded.Complete);
+-  EXPECT_EQ(Bounded.Observations.size(), ModuleScanManifest::ProbeLimit);
++  EXPECT_EQ(Bounded.observations().size(), ModuleScanManifest::ProbeLimit);
++}
+ 
++TEST_F(PrerequisiteModulesTests, ScanMemoIndexRetainsCollidingFactDifferences) {
++  ModuleScanManifest Inputs;
++  ModuleScanManifest::Observation Original{ModuleScanManifest::Read, "same.h"};
++  Inputs.add(Original);
++  // Same operation/path hash deliberately collides. Every differing outcome
++  // must survive, through multiple table growths and manifest copies.
++  for (size_t I = 1; I < 512; ++I) {
++    auto Different = Original;
++    Different.RequestedSize = I;
++    Inputs.add(Different);
++    Inputs.add(Different);
++  }
++  ASSERT_TRUE(Inputs.Complete);
++  ASSERT_EQ(Inputs.observations().size(), 512u);
++  EXPECT_EQ(Inputs.RepeatedFacts, 511u);
++  auto Copy = Inputs;
++  for (const auto &O : Inputs.observations())
++    Copy.add(O);
++  EXPECT_EQ(Copy.observations().size(), Inputs.observations().size());
++  EXPECT_EQ(Copy.RepeatedFacts, 1023u);
++  // The index is owned metadata and must be accounted beyond the facts.
++  size_t FactsOnly = sizeof(Inputs) + Inputs.WorkingDirectory.capacity() + 32;
++  for (const auto &O : Inputs.observations())
++    FactsOnly += sizeof(O) + O.Path.capacity() + O.Name.capacity() + 64;
++  EXPECT_GT(Inputs.ownedBytes(), FactsOnly);
++  // A large status name is metadata even when Path/Name are small.
++  auto View = FS.view(TestDir);
++  auto Status = View->status(TestDir);
++  ASSERT_TRUE(Status);
++  ModuleScanManifest Large;
++  auto Huge = Original;
++  Huge.Info.emplace(*Status);
++  Huge.Info->Name.assign(ModuleScanManifest::ByteLimit, 'x');
++  Large.add(std::move(Huge));
++  EXPECT_FALSE(Large.Complete);
++  EXPECT_TRUE(Large.observations().empty());
+ }
+ 
+ TEST_F(PrerequisiteModulesTests, FailedScanResponseInputsRemainFresh) {
+-- 
+2.53.0
+
