@@ -89,3 +89,5 @@ they live here and in patch *filenames* only.
 | 0044-UP-03-reuse-verified-module-scan-failures.patch | UP-03 | stabilizing | ci/module-scan-memo.md; tests/evidence/project-qt-worker46.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream scan reuse preserves semantic failure diagnostics and verifies complete bounded request manifests, cancellation and real-path observations |
 
 | 0045-UP-03-bounded-linux-worker-diagnostics.patch | UP-03 | stabilizing | tests/e2e/module_worker_diagnostics.py; tests/evidence/module-worker-diagnostics.json; ci/module-worker-isolation.md | Upstream Linux supervised workers bound queued diagnostics and retained prefixes without unbounded stderr files or truncating PCM output |
+
+| 0046-UP-24-bounded-read-copy-maintenance.patch | UP-24 | stabilizing | tests/evidence/module-read-copy-maintenance.json; ci/module-read-copy-maintenance.md; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream copy-on-read orphan maintenance uses bounded resumable traversal outside requests and preserves active physical leases across aliases |

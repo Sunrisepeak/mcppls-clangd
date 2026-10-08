@@ -1,0 +1,525 @@
+From f2d87406a11aff03bdf5ce892ef0233a519d0d4f Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:24:01 +0900
+Subject: [PATCH] Bound BMI read-copy maintenance outside module build requests
+
+Consolidated46 preserves original b8b482fe8 and follow-up ac0bfe3b5e0387bba4495a32b868a2adbf315930. Pending creation guard ends after active lease registration; large copies no longer defer unrelated collectors.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 336 ++++++++++++------
+ .../unittests/PrerequisiteModulesTest.cpp     |   7 +
+ 2 files changed, 241 insertions(+), 102 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index c2f48471e..edfd5a6d8 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -22,11 +22,13 @@
+ #include "clang/Serialization/ModuleCache.h"
+ #include <atomic>
+ 
++#include "llvm/ADT/DenseSet.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/ADT/StringSet.h"
+ #include "llvm/Support/CommandLine.h"
++#include "llvm/Support/ConvertUTF.h"
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/LockFileManager.h"
+ #include "llvm/Support/MemoryBuffer.h"
+@@ -35,7 +37,12 @@
+ #include "llvm/Support/ThreadPool.h"
+ 
+ #ifdef _WIN32
++#include <fcntl.h>
++#include <io.h>
+ #include <windows.h>
++#else
++#include <fcntl.h>
++#include <unistd.h>
+ #endif
+ 
+ #include <chrono>
+@@ -640,17 +647,22 @@ public:
+ // skip our live paths before opening them. Other processes are excluded by
+ // the kernel lease; PID reuse and wall-clock age do not establish ownership.
+ std::mutex ModuleReadLeasesMutex;
+-llvm::StringSet<> ActiveModuleReadLeases;
++llvm::StringMap<unsigned> ActiveModuleReadLeases;
++llvm::DenseMap<llvm::sys::fs::UniqueID, unsigned> ActiveModuleReadLeaseIDs;
++llvm::DenseSet<llvm::sys::fs::UniqueID> CollectingModuleReadLeaseIDs;
++unsigned PendingModuleReadLeaseCreators = 0;
+ 
+ class ModuleReadLease {
+   int FD;
+   std::string Path;
++  llvm::sys::fs::UniqueID ID;
+ 
+ public:
+-  ModuleReadLease(int FD, PathRef Path) : FD(FD), Path(Path) {}
++  ModuleReadLease(int FD, PathRef Path, llvm::sys::fs::UniqueID ID)
++      : FD(FD), Path(Path), ID(ID) {}
+   ~ModuleReadLease() {
+-    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
+-    ActiveModuleReadLeases.erase(Path);
++    // Keep both registry entries until closing finishes: another descriptor
++    // in this process must not release the collector's POSIX record lock.
+     llvm::sys::fs::unlockFile(FD);
+     llvm::sys::Process::SafelyCloseFileDescriptor(FD);
+     // If Windows could not remove a still-mapped copy, leave its lease
+@@ -658,6 +670,15 @@ public:
+     StringRef Copy = StringRef(Path).drop_back(StringRef(".lease").size());
+     if (!llvm::sys::fs::exists(Copy))
+       llvm::sys::fs::remove(Path);
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    // A closed/unlinked inode or name can be reused before this short registry
++    // update. Reference counts must not erase a newly registered owner's guard.
++    auto PathIt = ActiveModuleReadLeases.find(Path);
++    if (--PathIt->second == 0)
++      ActiveModuleReadLeases.erase(PathIt);
++    auto IDIt = ActiveModuleReadLeaseIDs.find(ID);
++    if (--IDIt->second == 0)
++      ActiveModuleReadLeaseIDs.erase(IDIt);
+   }
+ };
+ 
+@@ -1067,17 +1088,39 @@ copyModuleFileForRead(llvm::StringRef ModuleName,
+   std::unique_ptr<ModuleReadLease> Lease;
+   {
+     std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
+-    auto Model = getCopyOnReadModuleFilePath(PublishedModuleFilePath);
+-    llvm::sys::path::replace_extension(Model, "-%%%%%%.pcm.lease");
+-    if (auto EC = llvm::sys::fs::createUniqueFile(Model, LeaseFD, LeasePath))
+-      return llvm::createStringError(EC, "Failed to create BMI read lease");
+-    if (auto EC = llvm::sys::fs::tryLockFile(LeaseFD)) {
+-      llvm::sys::Process::SafelyCloseFileDescriptor(LeaseFD);
+-      llvm::sys::fs::remove(LeasePath);
+-      return llvm::createStringError(EC, "Failed to lock BMI read lease");
+-    }
+-    ActiveModuleReadLeases.insert(LeasePath);
+-    Lease = std::make_unique<ModuleReadLease>(LeaseFD, LeasePath);
++    ++PendingModuleReadLeaseCreators;
++  }
++  auto Created = llvm::scope_exit([&] {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    --PendingModuleReadLeaseCreators;
++  });
++  auto Model = getCopyOnReadModuleFilePath(PublishedModuleFilePath);
++  llvm::sys::path::replace_extension(Model, "-%%%%%%.pcm.lease");
++  if (auto EC = llvm::sys::fs::createUniqueFile(Model, LeaseFD, LeasePath))
++    return llvm::createStringError(EC, "Failed to create BMI read lease");
++  auto CleanupLease = llvm::scope_exit([&] {
++    llvm::sys::Process::SafelyCloseFileDescriptor(LeaseFD);
++    llvm::sys::fs::remove(LeasePath);
++  });
++  llvm::sys::fs::file_status LeaseStatus;
++  if (auto EC = llvm::sys::fs::status(LeaseFD, LeaseStatus))
++    return llvm::createStringError(EC, "Failed to identify BMI read lease");
++  if (auto EC = llvm::sys::fs::tryLockFile(LeaseFD))
++    return llvm::createStringError(EC, "Failed to lock BMI read lease");
++  {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    ++ActiveModuleReadLeases[LeasePath];
++    ++ActiveModuleReadLeaseIDs[LeaseStatus.getUniqueID()];
++  }
++  Lease = std::make_unique<ModuleReadLease>(LeaseFD, LeasePath,
++                                          LeaseStatus.getUniqueID());
++  CleanupLease.release();
++  // The registered lease now protects this copy independently. Do not make
++  // unrelated collectors skip while a potentially large copy is in progress.
++  Created.release();
++  {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    --PendingModuleReadLeaseCreators;
+   }
+   llvm::SmallString<256> VersionedModuleFilePath(
+       StringRef(LeasePath).drop_back(StringRef(".lease").size()));
+@@ -1409,55 +1452,164 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+   return Plan;
+ }
+ 
+-/// Collects cache roots to scan during constructor-time GC.
+-/// Scans one cache root and returns all `.pcm` files under it.
+-std::vector<std::string> collectModuleFiles(PathRef CacheRoot) {
+-  std::vector<std::string> Result;
+-  std::error_code EC;
+-  for (llvm::sys::fs::recursive_directory_iterator It(CacheRoot, EC), End;
+-       It != End && !EC; It.increment(EC)) {
+-    if (llvm::sys::path::extension(It->path()) != ".pcm")
+-      continue;
+-    Result.push_back(It->path());
++// Open the sidecar itself, never a symlink/reparse target. Unknown platform
++// states are retained. Physical identity checks also protect lexical aliases.
++llvm::Expected<int> openModuleReadLeaseNoFollow(PathRef Path) {
++#ifdef _WIN32
++  std::wstring Wide;
++  if (!llvm::ConvertUTF8toWide(Path, Wide))
++    return llvm::createStringError("Invalid BMI lease path encoding");
++  HANDLE H = CreateFileW(Wide.c_str(), GENERIC_READ | GENERIC_WRITE,
++                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
++                         nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT,
++                         nullptr);
++  if (H == INVALID_HANDLE_VALUE)
++    return llvm::createStringError("Cannot open BMI lease");
++  FILE_ATTRIBUTE_TAG_INFO Attributes;
++  if (!GetFileInformationByHandleEx(H, FileAttributeTagInfo, &Attributes,
++                                    sizeof(Attributes)) ||
++      (Attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
++    CloseHandle(H);
++    return llvm::createStringError("Unknown or reparse BMI lease");
++  }
++  int FD = _open_osfhandle(reinterpret_cast<intptr_t>(H),
++                           _O_RDWR | _O_BINARY | _O_NOINHERIT);
++  if (FD < 0) {
++    CloseHandle(H);
++    return llvm::createStringError("Cannot create BMI lease descriptor");
+   }
+-  if (EC)
+-    log("Failed to scan module cache directory {0}: {1}", CacheRoot,
+-        EC.message());
+-  return Result;
++#else
++  int FD = open(Path.str().c_str(), O_RDWR | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return llvm::createStringError(
++        std::error_code(errno, std::generic_category()),
++        "Cannot open BMI lease");
++#endif
++  return FD;
+ }
+ 
+-/// Performs one GC pass over a persistent module cache root.
+-void garbageCollectModuleCache(PathRef CacheRoot) {
+-  for (const auto &ModuleFilePath : collectModuleFiles(CacheRoot)) {
+-    const std::string LeasePath = ModuleFilePath + ".lease";
+-    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
+-    if (ActiveModuleReadLeases.contains(LeasePath))
+-      continue;
+-    // Published BMIs and legacy copies have no verifiable owner lease.
+-    // Leave them untouched; atime alone never proves that a reader is dead.
+-    int FD = -1;
+-    if (llvm::sys::fs::openFileForReadWrite(
+-            LeasePath, FD, llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None))
+-      continue;
++// Maintenance-only. A cursor replaces recursive all-file materialization;
++// fixed layout depth and no-follow traversal bound its open-directory state.
++// Legacy, stable, foreign, and prebuilt files without a verified copy lease
++// are retained. Stable-cache admission/eviction is a separate policy.
++class ModuleReadCopyCollector {
++public:
++  struct Result {
++    unsigned Examined = 0, Removed = 0;
++    bool More = false;
++  };
++  explicit ModuleReadCopyCollector(PathRef Root) : Root(Root) {}
++
++  Result collect(unsigned MaxEntries = 32) {
++    Result R;
++    auto Now = std::chrono::steady_clock::now();
++    std::error_code EC;
++    if (!Walking) {
++      if (Now < NextSweep)
++        return R;
++      NextSweep = Now + std::chrono::seconds(30);
++      llvm::sys::fs::file_status RootStatus;
++      if (llvm::sys::fs::status(Root, RootStatus, false) ||
++          !llvm::sys::fs::is_directory(RootStatus))
++        return R;
++      Cursor = llvm::sys::fs::recursive_directory_iterator(Root, EC, false);
++      Walking = !EC && Cursor != End;
++    }
++    unsigned Limit = (std::min)(MaxEntries, 128u);
++    while (Walking && R.Examined < Limit) {
++      ++R.Examined;
++      const std::string Path = Cursor->path();
++      llvm::sys::fs::file_status Status;
++      if (llvm::sys::fs::status(Path, Status, false)) {
++        Cursor.no_push(); // Unknown filesystem states are never candidates.
++      } else if (llvm::sys::fs::is_directory(Status)) {
++        auto Name = llvm::sys::path::filename(Path);
++        // The BMI layout is source-hash / command-hash / file. Never inspect
++        // worker units, lock namespaces, foreign directories, or deeper trees.
++        auto Hash = Cursor.level() == 0 ? Name.rsplit('-').second : Name;
++        bool CacheDirectory =
++            Hash.size() == FileDigest{}.size() * 2 &&
++            llvm::all_of(Hash, [](char C) { return llvm::isHexDigit(C); });
++        if (Cursor.level() >= 2 || !CacheDirectory)
++          Cursor.no_push();
++      } else if (llvm::sys::fs::is_regular_file(Status) &&
++                 Cursor.level() == 2 &&
++                 llvm::sys::path::extension(Path) == ".pcm") {
++        R.Removed += reclaim(Path, Status);
++      }
++      Cursor.increment(EC);
++      if (EC || Cursor == End) {
++        if (EC)
++          vlog("Stopped bounded BMI copy scan {0}: {1}", Root, EC.message());
++        Cursor = End;
++        Walking = false;
++      }
++    }
++    R.More = Walking;
++    vlog("BMI copy maintenance {0}: examined={1} removed={2} more={3}", Root,
++         R.Examined, R.Removed, R.More);
++    return R;
++  }
++
++private:
++  bool reclaim(PathRef PCM, const llvm::sys::fs::file_status &PCMStatus) {
++    const std::string LeasePath = (PCM + ".lease").str();
++    llvm::sys::fs::file_status Before;
++    if (llvm::sys::fs::status(LeasePath, Before, false) ||
++        !llvm::sys::fs::is_regular_file(Before) || Before.getSize() != 0 ||
++        Before.getLinkCount() != 1)
++      return false;
++    auto ID = Before.getUniqueID();
++    {
++      std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++      if (PendingModuleReadLeaseCreators ||
++          ActiveModuleReadLeaseIDs.contains(ID) ||
++          ActiveModuleReadLeases.contains(LeasePath) ||
++          !CollectingModuleReadLeaseIDs.insert(ID).second)
++        return false;
++    }
++    auto Reserved = llvm::scope_exit([&] {
++      std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++      CollectingModuleReadLeaseIDs.erase(ID);
++    });
++    auto Descriptor = openModuleReadLeaseNoFollow(LeasePath);
++    if (!Descriptor) {
++      llvm::consumeError(Descriptor.takeError());
++      return false;
++    }
++    int FD = *Descriptor;
+     auto Close = llvm::scope_exit([&] {
+       llvm::sys::fs::unlockFile(FD);
+       llvm::sys::Process::SafelyCloseFileDescriptor(FD);
+     });
+-    if (llvm::sys::fs::tryLockFile(FD))
+-      continue;
+-    if (auto EC = llvm::sys::fs::remove(ModuleFilePath)) {
+-      vlog("Failed to reclaim unowned BMI copy {0}: {1}", ModuleFilePath,
+-           EC.message());
+-      continue;
+-    }
+-    // Closing happens first on Windows, where open sidecars cannot be removed.
++    llvm::sys::fs::file_status Opened, CurrentLease, CurrentPCM;
++    if (llvm::sys::fs::status(FD, Opened) || Opened.getUniqueID() != ID ||
++        !llvm::sys::fs::is_regular_file(Opened) || Opened.getSize() != 0 ||
++        llvm::sys::fs::tryLockFile(FD) ||
++        llvm::sys::fs::status(LeasePath, CurrentLease, false) ||
++        CurrentLease.getUniqueID() != ID ||
++        llvm::sys::fs::status(PCM, CurrentPCM, false) ||
++        !llvm::sys::fs::is_regular_file(CurrentPCM) ||
++        CurrentPCM.getUniqueID() != PCMStatus.getUniqueID())
++      return false;
++    if (llvm::sys::fs::remove(PCM))
++      return false;
++    // Reservation survives close: closing a second local descriptor must not
++    // unlock another collector's fcntl lease. Windows needs close before
++    // remove.
+     Close.release();
+     llvm::sys::fs::unlockFile(FD);
+     llvm::sys::Process::SafelyCloseFileDescriptor(FD);
+-    llvm::sys::fs::remove(LeasePath);
+-    log("Removed unowned copy-on-read module file {0}", ModuleFilePath);
++    if (!llvm::sys::fs::status(LeasePath, CurrentLease, false) &&
++        CurrentLease.getUniqueID() == ID)
++      llvm::sys::fs::remove(LeasePath);
++    return true;
+   }
+-}
++  const std::string Root;
++  llvm::sys::fs::recursive_directory_iterator Cursor, End;
++  bool Walking = false;
++  std::chrono::steady_clock::time_point NextSweep{};
++};
+ 
+ } // namespace
+ 
+@@ -1533,6 +1685,11 @@ public:
+                         ReusablePrerequisiteModules &BuiltModuleFiles);
+ 
+ private:
++  struct CacheCollectors {
++    std::string Root, WorkerRoot;
++    std::shared_ptr<ModuleBuildWorkerCollector> Workers;
++    std::shared_ptr<ModuleReadCopyCollector> Copies;
++  };
+   void configureWorkers() {
+     WorkerConfiguration.Isolation = ModuleWorkerPolicy;
+     WorkerConfiguration.Timeout =
+@@ -1567,13 +1724,17 @@ private:
+       elog("Module worker configuration failed: {0}", WorkerConfigurationError);
+   }
+ 
+-  void registerWorkerRoot(PathRef Root) {
++  void registerModuleCacheRoot(PathRef Root) {
+     {
+       std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
+       if (!WorkerRoots.insert(Root).second)
+         return;
+-      WorkerCollectors.emplace_back(
+-          Root.str(), std::make_shared<ModuleBuildWorkerCollector>(Root));
++      llvm::SmallString<256> WorkerRoot(Root);
++      llvm::sys::path::append(WorkerRoot, ".workers-v1");
++      WorkerCollectors.push_back(
++          {Root.str(), WorkerRoot.str().str(),
++           std::make_shared<ModuleBuildWorkerCollector>(WorkerRoot),
++           std::make_shared<ModuleReadCopyCollector>(Root)});
+       ++WorkerRootsGeneration;
+     }
+     WorkerMaintenanceCV.notify_one();
+@@ -1582,15 +1743,19 @@ private:
+   void maintainWorkerUnits() {
+     uint64_t SeenGeneration = 0;
+     size_t Cursor = 0;
++    bool MoreCopies = false;
+     for (;;) {
+-      std::vector<std::pair<std::string,
+-                            std::shared_ptr<ModuleBuildWorkerCollector>>> Batch;
++      std::vector<CacheCollectors> Batch;
+       {
+         std::unique_lock<std::mutex> Lock(WorkerMaintenanceMutex);
+-        WorkerMaintenanceCV.wait_for(Lock, std::chrono::seconds(5), [&] {
+-          return StopWorkerMaintenance ||
+-                 WorkerRootsGeneration != SeenGeneration;
+-        });
++        WorkerMaintenanceCV.wait_for(
++            Lock,
++            MoreCopies ? std::chrono::milliseconds(100)
++                       : std::chrono::milliseconds(5000),
++            [&] {
++              return StopWorkerMaintenance ||
++                     WorkerRootsGeneration != SeenGeneration;
++            });
+         if (StopWorkerMaintenance)
+           return;
+         SeenGeneration = WorkerRootsGeneration;
+@@ -1602,18 +1767,20 @@ private:
+         }
+       }
+       // No filesystem I/O under the registry mutex or on request threads.
++      MoreCopies = false;
+       for (const auto &Entry : Batch) {
+-        llvm::SmallString<256> Marker(Entry.first);
++        MoreCopies |= Entry.Copies->collect(32).More;
++        llvm::SmallString<256> Marker(Entry.WorkerRoot);
+         llvm::sys::path::append(Marker, "owned.root");
+         if (!llvm::sys::fs::exists(Marker))
+           continue; // A registered cache may not have launched a worker yet.
+-        auto Sweep = Entry.second->collect(32);
++        auto Sweep = Entry.Workers->collect(32);
+         if (!Sweep)
+           vlog("Module worker collection failed: {0}",
+                llvm::toString(Sweep.takeError()));
+         else if (Sweep->Removed)
+           vlog("Collected {0} orphaned module worker units in {1}",
+-               Sweep->Removed, Entry.first);
++               Sweep->Removed, Entry.WorkerRoot);
+       }
+     }
+   }
+@@ -1628,13 +1795,8 @@ private:
+                              const ThreadsafeFS &TFS,
+                              ReusablePrerequisiteModules &BuiltModuleFiles);
+ 
+-  /// Runs GC once for the cache root owning a project root.
+-  void garbageCollectModuleCacheForProjectRoot(PathRef ProjectRoot);
+-
+   ModuleFileCache Cache;
+   ModuleNameToSourceCache ProjectModulesCache;
+-  std::mutex GarbageCollectedProjectRootsMutex;
+-  llvm::StringSet<> GarbageCollectedProjectRoots;
+   std::atomic<uint64_t> CommandGeneration{1};
+   GlobalCompilationDatabase::CommandChanged::Subscription CommandWatcher;
+   // Shared by all document builds. Per-document pools would multiply memory
+@@ -1647,37 +1809,11 @@ private:
+   bool StopWorkerMaintenance = false;
+   uint64_t WorkerRootsGeneration = 0;
+   llvm::StringSet<> WorkerRoots;
+-  std::vector<std::pair<std::string,
+-                        std::shared_ptr<ModuleBuildWorkerCollector>>>
+-      WorkerCollectors;
++  std::vector<CacheCollectors> WorkerCollectors;
+   std::thread WorkerMaintenance;
+   llvm::DefaultThreadPool BuildPool;
+ };
+ 
+-void ModulesBuilder::ModulesBuilderImpl::
+-    garbageCollectModuleCacheForProjectRoot(PathRef ProjectRoot) {
+-  if (ProjectRoot.empty())
+-    return;
+-  std::string NormalizedProjectRoot = normalizePathForCache(ProjectRoot);
+-  {
+-    // If the project root lives in GarbageCollectedProjectRoots, it implies
+-    // we've already started GC on the cache root.
+-    std::lock_guard<std::mutex> Lock(GarbageCollectedProjectRootsMutex);
+-    if (!GarbageCollectedProjectRoots.insert(NormalizedProjectRoot).second)
+-      return;
+-  }
+-
+-  llvm::SmallString<256> CacheRoot(ProjectRoot);
+-  llvm::sys::path::append(CacheRoot, ".cache", "clangd", "modules");
+-  log("Running GC pass for clangd built module files under {0} with age "
+-      "threshold {1} seconds (adjust with --modules-builder-versioned-gc-"
+-      "threshold-seconds)",
+-      CacheRoot, VersionedModuleFileGCThresholdSeconds);
+-  garbageCollectModuleCache(CacheRoot);
+-  log("Done running GC pass for clangd built module files under {0}",
+-      CacheRoot);
+-}
+-
+ void ModulesBuilder::ModulesBuilderImpl::getPrebuiltModuleFile(
+     StringRef ModuleName, PathRef ModuleUnitFileName, const ThreadsafeFS &TFS,
+     ReusablePrerequisiteModules &BuiltModuleFiles) {
+@@ -1732,10 +1868,9 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     return llvm::createStringError(WorkerConfigurationError);
+   auto WorkerOptions = WorkerConfiguration;
+   auto WorkerRoot = getModuleCacheRoot(ModuleSource, getCDB());
++  registerModuleCacheRoot(WorkerRoot);
+   llvm::sys::path::append(WorkerRoot, ".workers-v1");
+   WorkerOptions.UnitRoot = WorkerRoot.str().str();
+-  if (WorkerOptions.Isolation != WorkerPolicy::InProcess)
+-    registerWorkerRoot(WorkerOptions.UnitRoot);
+   unsigned Active = ++ActiveBuildTasks;
+   vlog("Module build task {0} started (active={1}, limit={2})", ModuleName,
+        Active, BuildPool.getMaxConcurrency());
+@@ -1871,9 +2006,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+               llvm::formatv("No compile command for {0}", Node.Source));
+           break;
+         }
+-        if (auto PI = getCDB().getProjectInfo(Node.Source);
+-            PI && !PI->SourceRoot.empty())
+-          garbageCollectModuleCacheForProjectRoot(PI->SourceRoot);
+         // ThreadPool's returned future is deferred: waiting on it may run
+         // the compilation on this caller, bypassing the pool's global limit.
+         // Wait instead on a separate promise set only by the pool worker.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index a9fdd3f24..9bc86c112 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -38,6 +38,7 @@
+ #include "llvm/TargetParser/Host.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
++#include <thread>
+ 
+ namespace clang::clangd {
+ namespace {
+@@ -1953,6 +1954,12 @@ TEST_F(PrerequisiteModulesTests,
+   auto NewInfo =
+       SecondBuilder.buildPrerequisiteModulesFor(getFullPath("A.cppm"), FS);
+   ASSERT_TRUE(NewInfo);
++  // Collection now runs independently of build requests. Wait for this exact
++  // closed-owner copy; every live/stable ownership assertion below is intact.
++  const auto Deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
++  while (llvm::sys::fs::exists(OrphanPCM) &&
++         std::chrono::steady_clock::now() < Deadline)
++    std::this_thread::yield();
+   EXPECT_FALSE(llvm::sys::fs::exists(OrphanPCM));
+   EXPECT_FALSE(llvm::sys::fs::exists(OrphanLease));
+   EXPECT_TRUE(llvm::sys::fs::exists(PublishedPCM));
+-- 
+2.53.0
+

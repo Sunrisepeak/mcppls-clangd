@@ -1,3 +1,18 @@
+# Current combined 1–46 Qt measurement
+
+Actual source 1c4fa5ed2, ordered-series identity fc75a976, executable SHA
+2f91a4aa31c07c7f49b3ddbf6dfa04e1629f4d5668aa7339d8d8ab1f56f71011,
+keeps the Qt CDB and compiler flags unchanged. All four semantic requests pass:
+cold 2556 ms, settled warm 344/348 ms, edited 742 ms. Warm is about 52% lower
+than the historical 42 baseline below, but remains above 200 ms. Positive and
+negative scan manifest reuse both contribute. This one-process small sample
+is not statistical release acceptance or insertion/context matrix qualification.
+
+[Compact combined evidence](../tests/evidence/project-qt-worker46.json) retains
+phase samples, exact arguments and raw report/log/trace hashes. Remaining
+repeated policy inventory and validation costs are under investigation; no
+compiler flag change or skipped freshness check is proposed.
+
 # Real project completion measurement
 
 2026-10-08 historical 42 baseline: source 777503b85 (patches 1–42), development
