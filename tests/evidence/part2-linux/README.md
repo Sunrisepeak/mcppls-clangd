@@ -58,3 +58,13 @@ unit tests and an earlier four actual GCC insertions passed. A short
 medians were 239.51/241.32 versus 239.57 ms. This neither closes the edited
 gate nor proves a matched p95 benefit. The change is not exported; canonical
 scan and repeated proof costs remain the implementation priority.
+
+The `third-party-contract/native-checkpoint.json` captures actual native
+Linux and ARM macOS artifacts for run 37797560280, built merge checkout
+771501f43131a716419f07068b33a16fded8d49b (PR head d214029 is separate).
+Linux legitimately retains the same 12,187,172-byte body PCH implicated by
+the earlier failure, with all required audit trace facts and five actual
+typed Sema answers; the header import collapses it to 251,880 bytes. ARM
+macOS takes the conservative collapse path (12,715,024 to 837,988 bytes).
+All three scenarios pass on both platforms. Windows was still running;
+these are formal67 canary controls, not private-assisted latency proof.
