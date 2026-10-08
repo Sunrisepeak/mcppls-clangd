@@ -1,0 +1,65 @@
+{
+  "base": "66ed2d104d8affc9e75c82a5b015f9e6869a6b00",
+  "scope": "Private trace-only builds. Namespace rows include ASTWorker and completion lookups; no one-to-one request claim. Per-ID chrono adds overhead, not final performance evidence. No production optimization/export.",
+  "artifacts": {
+    "trace-only.patch": "780e1cd291356bb8b1fee5ba7dda71138e78e5085a47e20647a465c27065c782",
+    "compile-args.json": "21423ff7151d0c9413caff5c084a445c022ff27b665a5a3eb844cd9992c99c72",
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "link-args.json": "d6892e55ef2b6846b75ce0e592d99e44edbf37051573ea3aef9579634ab31b0a",
+    "link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ast-compile-args.json": "d4bbcac7f9d84c1cf474e09caad639615b3da4f98790fdc9da606450d2214464",
+    "ast-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ast-link-args.json": "34e4d335cb9b1c80a079f0a3f2b4a090c25920c480ca3a3ddbd2e88f1957e0d9",
+    "ast-link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "modules.json": "10699425d12dfe15926495f436885d12479f5a42118d3ef5594abbaa87a9c924",
+    "modules.case.json": "1c983597dd8c57a9bbd84d5daefef5e51ace05be3e8a1cb9c84c34435be8682c",
+    "headers.json": "ca0bf196750d7e975acd5ffe72f71bf3515e99e5eaa20f8e658c0d097ccea2bb",
+    "headers.case.json": "95fed752bab4d0a9cd15fe3ef146a0825e3cacddc5227be5c76f54f6d4848623",
+    "modules-ast.json": "caa4481ea6ae4eeffc1ef598e3ef7270fc4c70613658397eef18f42284acb146",
+    "modules-ast.case.json": "1c983597dd8c57a9bbd84d5daefef5e51ace05be3e8a1cb9c84c34435be8682c"
+  },
+  "reports": {
+    "modules": {
+      "engine_sha256": "735465f46b4b51756aa3744ae0b7d4a96d105d302d80dbd3ee6596dec134e276",
+      "semantic_pass": true,
+      "profile_rows": [
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=1.116212e+02 consume_ms=1.230544e+00",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=1.110897e+02 consume_ms=1.239046e+01",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=9.142023e+01 consume_ms=1.091891e+01",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=9.490666e+01 consume_ms=1.224357e+01",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=9.258493e+01 consume_ms=1.231559e+00",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=9.410833e+01 consume_ms=1.180796e+01"
+      ]
+    },
+    "headers": {
+      "engine_sha256": "735465f46b4b51756aa3744ae0b7d4a96d105d302d80dbd3ee6596dec134e276",
+      "semantic_pass": true,
+      "profile_rows": [
+        "PART2_VISIBLE namespace=std load=1 decls=5823 enumerate_ms=3.912270e+01 consume_ms=2.819430e-01",
+        "PART2_VISIBLE namespace=std load=1 decls=5823 enumerate_ms=4.161977e+01 consume_ms=6.389336e+00",
+        "PART2_VISIBLE namespace=std load=1 decls=5823 enumerate_ms=3.672572e+01 consume_ms=6.569020e+00",
+        "PART2_VISIBLE namespace=std load=1 decls=5823 enumerate_ms=3.734564e+01 consume_ms=6.741873e+00",
+        "PART2_VISIBLE namespace=std load=1 decls=5823 enumerate_ms=3.622230e+01 consume_ms=2.661390e-01",
+        "PART2_VISIBLE namespace=std load=1 decls=5823 enumerate_ms=3.448786e+01 consume_ms=6.036419e+00"
+      ]
+    },
+    "modules-ast": {
+      "engine_sha256": "18c4e4b81c982663920dc3d6424b642af9e901a9cd67c3154ae92e31191fccc3",
+      "semantic_pass": true,
+      "profile_rows": [
+        "PART2_AST namespace=std ids=17192 names=2889 getdecl_ms=1.010467e+02 total_ms=1.052812e+02",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=1.056054e+02 consume_ms=1.327676e+00",
+        "PART2_AST namespace=std ids=17192 names=2889 getdecl_ms=1.081476e+02 total_ms=1.133627e+02",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=1.136246e+02 consume_ms=1.193240e+01",
+        "PART2_AST namespace=std ids=17192 names=2889 getdecl_ms=9.515486e+01 total_ms=9.880740e+01",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=9.901282e+01 consume_ms=1.154200e+01",
+        "PART2_AST namespace=std ids=17192 names=2889 getdecl_ms=1.005162e+02 total_ms=1.044365e+02",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=1.046991e+02 consume_ms=1.297896e+01",
+        "PART2_AST namespace=std ids=17192 names=2889 getdecl_ms=9.342304e+01 total_ms=9.735870e+01",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=9.755459e+01 consume_ms=1.742505e+00",
+        "PART2_AST namespace=std ids=17192 names=2889 getdecl_ms=1.063383e+02 total_ms=1.105915e+02",
+        "PART2_VISIBLE namespace=std load=1 decls=17144 enumerate_ms=1.107821e+02 consume_ms=1.145038e+01"
+      ]
+    }
+  }
+}
