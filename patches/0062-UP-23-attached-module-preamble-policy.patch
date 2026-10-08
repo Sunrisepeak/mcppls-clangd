@@ -1,0 +1,136 @@
+From da2d023318f9cd66514aad9f4b8aa0f45f8399a7 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 18:54:35 +0900
+Subject: [PATCH] fix(clangd): preamble mode follows attached module
+ prerequisites
+
+---
+ clang-tools-extra/clangd/Preamble.cpp         | 41 +++++++++++++------
+ .../unittests/PrerequisiteModulesTest.cpp     | 40 ++++++++++++++++++
+ 2 files changed, 68 insertions(+), 13 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index f9d45ca1c..f43471e69 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -635,6 +635,30 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+   auto StatCacheFS = StatCache->getProducingFS(VFS);
+   llvm::IntrusiveRefCntPtr<TimerFS> TimedFS(new TimerFS(StatCacheFS));
+ 
++  // Resolve and lease prerequisites before parsing. The earlier update policy
++  // may have observed a header before an import became visible. Named imports
++  // must remain textual: attaching successful modules after PCH creation can
++  // make a PCH with a failed import appear reusable on subsequent completions.
++  std::unique_ptr<PrerequisiteModules> RequiredModules;
++  bool SkipPreambleBuild = Inputs.Opts.SkipPreambleBuild;
++  if (Inputs.ModulesManager) {
++    WallTimer PrerequisiteModuleTimer;
++    PrerequisiteModuleTimer.startTimer();
++    RequiredModules = Inputs.ModulesManager->buildPrerequisiteModulesFor(
++        FileName, *Inputs.TFS, Inputs.Contents);
++    PrerequisiteModuleTimer.stopTimer();
++    log("Built prerequisite modules for file {0} in {1} seconds", FileName,
++        PrerequisiteModuleTimer.getTime());
++    if (RequiredModules) {
++      HeaderSearchOptions ModuleOptions;
++      RequiredModules->adjustHeaderSearchOptions(ModuleOptions);
++      SkipPreambleBuild |= !ModuleOptions.PrebuiltModuleFiles.empty();
++      RequiredModules->adjustHeaderSearchOptions(CI.getHeaderSearchOpts());
++    }
++  }
++  Bounds = computePreambleBounds(CI.getLangOpts(), *ContentsBuffer,
++                                 SkipPreambleBuild);
++
+   WallTimer PreambleTimer;
+   PreambleTimer.startTimer();
+   auto BuiltPreamble = PrecompiledPreamble::Build(
+@@ -669,23 +693,13 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+     auto Result = std::make_shared<PreambleData>(std::move(*BuiltPreamble));
+     Result->Version = Inputs.Version;
+     Result->CompileCommand = Inputs.CompileCommand;
+-    Result->SkipPreambleBuild = Inputs.Opts.SkipPreambleBuild;
++    Result->SkipPreambleBuild = SkipPreambleBuild;
+     Result->Diags = std::move(Diags);
+     Result->Includes = CapturedInfo.takeIncludes();
+     Result->Pragmas = std::make_shared<const include_cleaner::PragmaIncludes>(
+         CapturedInfo.takePragmaIncludes());
+ 
+-    if (Inputs.ModulesManager) {
+-      WallTimer PrerequisiteModuleTimer;
+-      PrerequisiteModuleTimer.startTimer();
+-      Result->RequiredModules =
+-          Inputs.ModulesManager->buildPrerequisiteModulesFor(
+-              FileName, *Inputs.TFS, Inputs.Contents);
+-      PrerequisiteModuleTimer.stopTimer();
+-
+-      log("Built prerequisite modules for file {0} in {1} seconds", FileName,
+-          PrerequisiteModuleTimer.getTime());
+-    }
++    Result->RequiredModules = std::move(RequiredModules);
+ 
+     Result->Macros = CapturedInfo.takeMacros();
+     Result->Marks = CapturedInfo.takeMarks();
+@@ -728,7 +742,8 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+   auto ContentsBuffer =
+       llvm::MemoryBuffer::getMemBuffer(Inputs.Contents, FileName);
+   auto Bounds = computePreambleBounds(CI.getLangOpts(), *ContentsBuffer,
+-                                      Inputs.Opts.SkipPreambleBuild);
++                                      Inputs.Opts.SkipPreambleBuild ||
++                                          Preamble.SkipPreambleBuild);
+   auto VFS = Inputs.TFS->view(Inputs.CompileCommand.Directory);
+ 
+   // Check that the set of required modules hasn't changed.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 78635f71b..a1026fc16 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -3353,6 +3353,46 @@ export int BValue = MValue;
+   EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  Annotations UseCpp("#include \"Header.hpp\"\nvoid use() { fn_^; }\n");
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m() { return 1; }\n");
++  CDB.addFile("Header.hpp", "import M;\n");
++  CDB.addFile("Use.cpp", UseCpp.code());
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  Inputs.Opts.SkipPreambleBuild = false;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++
++  // Simulate a preliminary update policy that ran before the header import
++  // became visible. Actual attached prerequisites must keep the import textual.
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs,
++                                /*StoreInMemory=*/true, nullptr);
++  ASSERT_TRUE(Preamble);
++  EXPECT_TRUE(Preamble->SkipPreambleBuild);
++  EXPECT_EQ(Preamble->Preamble.getBounds().Size, 0u);
++  EXPECT_TRUE(Preamble->Diags.empty());
++  EXPECT_TRUE(isPreambleCompatible(*Preamble, Inputs, getFullPath("Use.cpp"), *CI));
++  ASSERT_TRUE(Preamble->RequiredModules);
++  HeaderSearchOptions ModuleOptions;
++  Preamble->RequiredModules->adjustHeaderSearchOptions(ModuleOptions);
++  ASSERT_EQ(ModuleOptions.PrebuiltModuleFiles.count("M"), 1u);
++  const auto ReadCopy = ModuleOptions.PrebuiltModuleFiles.at("M");
++  EXPECT_TRUE(llvm::sys::fs::exists(ReadCopy));
++  // ClangdServer carries the actual published preamble mode into completion.
++  Inputs.Opts.SkipPreambleBuild = Preamble->SkipPreambleBuild;
++  for (unsigned Request = 0; Request != 2; ++Request) {
++    auto Result = codeComplete(getFullPath("Use.cpp"), UseCpp.point(),
++                               Preamble.get(), Inputs, {});
++    EXPECT_THAT(Result.Completions, testing::Contains(named("fn_m")));
++    EXPECT_TRUE(llvm::sys::fs::exists(ReadCopy));
++  }
++  Preamble.reset();
++  EXPECT_FALSE(llvm::sys::fs::exists(ReadCopy));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleImportThroughInclude) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

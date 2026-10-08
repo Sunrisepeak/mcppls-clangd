@@ -119,3 +119,9 @@ they live here and in patch *filenames* only.
 | 0059-UP-03-owned-implicit-module-bundles.patch | UP-03 | stabilizing | ci/owned-implicit-module-bundles.md; tests/evidence/owned-implicit-module-bundles.json; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_worker_default.py | Upstream implicit producer paths retain full bounded durable bundle charge and independent main-copy/companion leases through publication, reuse and verified retirement |
 
 | 0060-UP-03-native-full-content-scan-controls.patch | UP-03 | stabilizing | ci/native-full-content-scan-controls.md; tests/evidence/native-full-content-scan-controls.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream full-byte semantic controls preserve size and mtime while asserting only the actual native cache admission policy |
+
+| 0061-UP-03-preserve-GCC-module-mapper-dialect.patch | UP-03 | stabilizing | ci/gcc-module-mapper-dialect.md; tests/evidence/gcc-module-mapper-dialect.json; clangd/unittests/CompileCommandsTests.cpp; tests/probes/project_completion.py | Upstream command adjustment preserves the proven GCC mapper dialect and unchanged-Clang/explicit-map plus real JSON insertion controls pass |
+
+| 0062-UP-23-attached-module-preamble-policy.patch | UP-23 | stabilizing | ci/attached-module-preamble-policy.md; tests/evidence/attached-module-preamble-policy.json; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py | Upstream preamble construction derives textual module policy from actual attached leased BMIs, preserving ordinary PCH and repeated semantic/lifetime controls |
+
+| 0064-UP-03-owned-module-build-publication-events.patch | UP-03 | stabilizing | ci/owned-module-build-events.md; tests/evidence/owned-module-build-events.json; tests/e2e/module_cycle.py | Upstream fresh owned publication preserves the established build event and actual cyclic recovery plus diamond imported semantic completion pass |

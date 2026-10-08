@@ -56,8 +56,8 @@ def main():
         'A.cppm': 'export module A;\nexport import B;\nexport import C;\n',
         'B.cppm': 'export module B;\nexport import D;\nexport int b;\n',
         'C.cppm': 'export module C;\nexport import D;\nexport int c;\n',
-        'D.cppm': 'export module D;\nexport int d;\n',
-        'Use.cpp': 'import A;\nint marker = b + c + d;\n',
+        'D.cppm': 'export module D;\nexport int d;\nexport int diamond_value;\n',
+        'Use.cpp': 'import A;\nint marker = b + c + d;\nvoid probe() { diamond_; }\n',
     }
     for name, contents in diamond_sources.items():
         (root / name).write_text(contents)
@@ -72,6 +72,9 @@ def main():
     diamond[3] = {'method': 'textDocument/documentSymbol', 'params': document,
                   'expect': {'/result/0/name': 'marker'}}
     diamond.append({'action': 'await-log', 'contains': 'Built module A to '})
+    diamond.append({'method': 'textDocument/completion', 'params': {
+        **document, 'position': {'line': 2, 'character': len('void probe() { diamond_')}},
+        'expected_symbols': ['diamond_value']})
     case = json.loads(manifest.read_text())
     case.update(id='diamond-module-recovery', sequence=diamond)
     manifest.write_text(json.dumps(case))
@@ -82,7 +85,8 @@ def main():
     report = {'schema': 1, 'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(),
               'result': result, 'diamond': shared, 'limits': ['No parallel DAG scheduling claim.']}
     (root / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(result['outcome'], result.get('detail', ''))
+    print('cycle', result['outcome'], result.get('detail', ''))
+    print('diamond', shared['outcome'], shared.get('detail', ''))
     return 0 if result['outcome'] == 'pass' and shared['outcome'] == 'pass' else 1
 
 

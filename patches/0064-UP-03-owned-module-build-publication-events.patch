@@ -1,0 +1,24 @@
+From eb46056930984aa57ca7c15857d13a0bbc652f21 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 19:06:04 +0900
+Subject: [PATCH] [clangd] Report freshly published owned module builds
+
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index eb75af3a7..47d853c62 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -2080,6 +2080,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+         return llvm::make_error<CancelledError>(Reason);
+       if (auto Error = (*Reservation)->publish()) return std::move(Error);
+       *Stable = std::move(*Reservation);
++      log("Built module {0} to {1}", ModuleName, (*Stable)->payload());
+     }
+     auto Copy = (*Owned)->copy(*Stable);
+     if (!Copy) return Copy.takeError();
+-- 
+2.53.0
+

@@ -1,0 +1,208 @@
+From 2747e3a2ff3d56e5c11e5cc4b57bffc5bd846999 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 19:02:06 +0900
+Subject: [PATCH] clangd: preserve GCC module mapper dialect in command
+ adjustment
+
+---
+ clang-tools-extra/clangd/CompileCommands.cpp  | 70 ++++++++++++++++++
+ .../clangd/unittests/CompileCommandsTests.cpp | 72 +++++++++++++++++++
+ 2 files changed, 142 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/CompileCommands.cpp b/clang-tools-extra/clangd/CompileCommands.cpp
+index b5965d163..5c7f3b48c 100644
+--- a/clang-tools-extra/clangd/CompileCommands.cpp
++++ b/clang-tools-extra/clangd/CompileCommands.cpp
+@@ -18,6 +18,7 @@
+ #include "llvm/ADT/ArrayRef.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
+ #include "llvm/ADT/StringRef.h"
+ #include "llvm/Option/ArgList.h"
+ #include "llvm/Option/Option.h"
+@@ -205,6 +206,52 @@ static std::string resolveDriver(llvm::StringRef Driver, bool FollowSymlink,
+   return Driver.str();
+ }
+ 
++// A GCC-specific mapper plus a GCC driver spelling identifies the supported
++// dialect. This is not compiler identity authentication and must not cause us
++// to execute an arbitrary compilation database driver.
++bool isGCCDriverSpelling(StringRef Driver, StringRef WorkingDirectory) {
++  llvm::SmallString<256> Input(Driver);
++  if (!llvm::sys::path::is_absolute(Input)) {
++    if (Driver.contains('/') || Driver.contains('\\'))
++      llvm::sys::path::make_absolute(WorkingDirectory, Input);
++    else if (auto Found = llvm::sys::findProgramByName(Driver))
++      Input = *Found;
++  }
++  Driver = Input;
++  llvm::SmallString<256> Canonical;
++  if (!llvm::sys::fs::real_path(Driver, Canonical))
++    Driver = Canonical;
++  StringRef Name = llvm::sys::path::filename(Driver);
++  Name.consume_back(".exe");
++  // Accept native/versioned and target-prefixed GCC names, but not generic
++  // cc/c++ aliases or Clang's GCC-compatible driver mode.
++  for (StringRef Stem : {StringRef("gcc"), StringRef("g++")}) {
++    size_t Pos = Name.rfind(Stem);
++    if (Pos == StringRef::npos || (Pos && Name[Pos - 1] != '-'))
++      continue;
++    StringRef Suffix = Name.drop_front(Pos + Stem.size());
++    if (Suffix.empty())
++      return true;
++    if (Suffix.consume_front("-") && !Suffix.empty() &&
++        llvm::isDigit(Suffix.front()) && llvm::all_of(Suffix, [](char C) {
++          return llvm::isDigit(C) || C == '.';
++        }))
++      return true;
++  }
++  return false;
++}
++
++bool hasExplicitClangModuleInputs(ArrayRef<std::string> Args) {
++  return llvm::any_of(Args, [](StringRef Arg) {
++    return Arg == "-fimplicit-module-maps" ||
++           Arg == "-fno-implicit-module-maps" ||
++           Arg == "-fbuiltin-module-map" ||
++           Arg.starts_with("-fmodule-map-file") ||
++           Arg.starts_with("-fmodule-file") ||
++           Arg.starts_with("-fprebuilt-module-path");
++  });
++}
++
+ } // namespace
+ 
+ CommandMangler CommandMangler::detect() {
+@@ -297,8 +344,13 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
+   }
+ 
+   llvm::SmallVector<const char *, 16> UnknownArgs;
++  bool HasGCCModuleMapper = false;
+ 
+   for (auto *UnknownArg : ArgList.filtered(options::OPT_UNKNOWN)) {
++    StringRef Unknown = UnknownArg->getValue();
++    if (Unknown.starts_with("-fmodule-mapper=") &&
++        Unknown.size() > StringRef("-fmodule-mapper=").size())
++      HasGCCModuleMapper = true;
+     UnknownArgs.push_back(UnknownArg->getValue());
+     IndicesToDrop.push_back(UnknownArg->getIndex());
+   }
+@@ -345,6 +397,11 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
+     SystemIncludeExtractor(Command, File);
+   }
+ 
++  // Classify before resolveDriver preserves an alias basename while moving it
++  // beside the resolved binary (which can hide a g++ -> clang++ symlink).
++  const bool GCCDriver = HasGCCModuleMapper &&
++                         llvm::is_contained(Cmd, "-fmodules") &&
++                         isGCCDriverSpelling(Cmd.front(), Command.Directory);
+   tooling::addTargetAndModeForProgramName(Cmd, Cmd.front());
+ 
+   // Check whether the flag exists in the command.
+@@ -387,6 +444,19 @@ void CommandMangler::operator()(tooling::CompileCommand &Command,
+               return resolveDriver(Cmd.front(), FollowSymlink, ClangPath);
+             });
+   }
++
++  // GCC's -fmodules enables standard C++ modules/header units described by
++  // its mapper. Clang's same spelling additionally discovers module maps and
++  // implicitly builds header modules, which are not present in that GCC
++  // command. Preserve the original flag and suppress only this extra implicit
++  // discovery for the proven GCC dialect, unless explicitly requested by the
++  // command/config. This runs after config edits and driver resolution.
++  if (!IsCLMode && HasGCCModuleMapper && HasExact("-fmodules") &&
++      !HasExact("-fno-modules") && GCCDriver &&
++      !hasExplicitClangModuleInputs(Cmd)) {
++    Cmd.insert(llvm::find(Cmd, "--"), "-fno-implicit-module-maps");
++    vlog("GCC module mapper dialect: disabling implicit Clang module maps");
++  }
+ }
+ 
+ // ArgStripper implementation
+diff --git a/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp b/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp
+index 228a4da69..7b0b49c8f 100644
+--- a/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp
++++ b/clang-tools-extra/clangd/unittests/CompileCommandsTests.cpp
+@@ -61,6 +61,78 @@ TEST(CommandMangler, Everything) {
+                           "foo.cc"));
+ }
+ 
++TEST(CommandMangler, GCCModuleMapperDialectPreservesExplicitClangInputs) {
++  auto Mangler = CommandMangler::forTests();
++  struct Case {
++    const char *Driver;
++    std::vector<std::string> Flags;
++    bool Translate;
++  };
++  const Case Cases[] = {
++      {"g++", {"-fmodules", "-fmodule-mapper=mapper.map"}, true},
++      {"x86_64-linux-gnu-g++-16",
++       {"-fmodules", "-fmodule-mapper=mapper.map"},
++       true},
++      {"clang++", {"-fmodules", "-fmodule-mapper=mapper.map"}, false},
++      {"g++", {"-fmodules"}, false},
++      {"c++", {"-fmodules", "-fmodule-mapper=mapper.map"}, false},
++      {"g++",
++       {"-fmodules", "-fmodule-mapper=mapper.map",
++        "-fmodule-map-file=explicit.modulemap"},
++       false},
++      {"g++",
++       {"-fmodules", "-fmodule-mapper=mapper.map", "-fimplicit-module-maps"},
++       false},
++      {"g++",
++       {"-fmodules", "-fmodule-mapper=mapper.map",
++        "-fmodule-file=M=explicit.pcm"},
++       false},
++      {"g++", {"-fno-modules", "-fmodule-mapper=mapper.map"}, false},
++  };
++  for (const auto &Case : Cases) {
++    SCOPED_TRACE(Case.Driver);
++    SCOPED_TRACE(llvm::join(Case.Flags, " "));
++    tooling::CompileCommand Cmd;
++    // Nonexistent absolute names keep this test independent of PATH/symlinks.
++    Cmd.CommandLine = {testPath(std::string("gcc-dialect/") + Case.Driver)};
++    Cmd.CommandLine.insert(Cmd.CommandLine.end(), Case.Flags.begin(),
++                           Case.Flags.end());
++    Cmd.CommandLine.push_back("foo.cc");
++    Mangler(Cmd, "foo.cc");
++    EXPECT_EQ(llvm::is_contained(Cmd.CommandLine, "-fno-implicit-module-maps"),
++              Case.Translate);
++    for (StringRef Flag : Case.Flags) {
++      if (!Flag.starts_with("-fmodule-mapper=")) {
++        EXPECT_THAT(Cmd.CommandLine, Contains(Flag.str()));
++      }
++    }
++  }
++}
++
++#if LLVM_ON_UNIX
++TEST(CommandMangler, GCCMapperDoesNotTranslateClangSymlink) {
++  llvm::SmallString<256> TempDir;
++  ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("GCCMapperAlias", TempDir));
++  auto Cleanup =
++      llvm::scope_exit([&] { llvm::sys::fs::remove_directories(TempDir); });
++  ASSERT_FALSE(llvm::sys::fs::create_directory(TempDir + "/bin"));
++  ASSERT_FALSE(llvm::sys::fs::create_directory(TempDir + "/real"));
++  int FD;
++  ASSERT_FALSE(llvm::sys::fs::openFileForWrite(TempDir + "/real/clang++", FD));
++  ASSERT_FALSE(llvm::sys::Process::SafelyCloseFileDescriptor(FD));
++  ASSERT_FALSE(
++      llvm::sys::fs::create_link(TempDir + "/real/clang++", TempDir + "/bin/g++"));
++  auto Mangler = CommandMangler::forTests();
++  tooling::CompileCommand Cmd;
++  Cmd.CommandLine = {(TempDir + "/bin/g++").str(), "-fmodules",
++                     "-fmodule-mapper=mapper.map", "foo.cc"};
++  Mangler(Cmd, "foo.cc");
++  EXPECT_THAT(Cmd.CommandLine, Contains("-fmodules"));
++  EXPECT_FALSE(
++      llvm::is_contained(Cmd.CommandLine, "-fno-implicit-module-maps"));
++}
++#endif
++
+ TEST(CommandMangler, FilenameMismatch) {
+   auto Mangler = CommandMangler::forTests();
+   Mangler.ClangPath = testPath("clang");
+-- 
+2.53.0
+

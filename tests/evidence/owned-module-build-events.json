@@ -1,0 +1,69 @@
+{
+  "native_failure_run": "https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/37758981234",
+  "job": 113250471032,
+  "before": {
+    "result": {
+      "outcome": "pass",
+      "detail": null,
+      "exit_code": 0
+    },
+    "diamond": {
+      "outcome": "timeout",
+      "detail": null,
+      "exit_code": -9
+    }
+  },
+  "after": {
+    "result": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "responses": []
+    },
+    "diamond": {
+      "outcome": "pass",
+      "exit_code": 0,
+      "readers_stopped": true,
+      "responses": [
+        {
+          "method": "textDocument/completion",
+          "symbols": [
+            "diamond_value"
+          ],
+          "elapsed_ms": 5.698381006368436,
+          "completion_items": {
+            "diamond_value": [
+              {
+                "detail": "int",
+                "filterText": "diamond_value",
+                "insertText": "diamond_value",
+                "insertTextFormat": 1,
+                "kind": 6,
+                "label": " diamond_value",
+                "score": 0.7880699634552002,
+                "sortText": "40b6410cdiamond_value",
+                "textEdit": {
+                  "newText": "diamond_value",
+                  "range": {
+                    "end": {
+                      "character": 23,
+                      "line": 2
+                    },
+                    "start": {
+                      "character": 15,
+                      "line": 2
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "engine_sha256": "06618ba735d457d29e3b9d20bf548c8918478f0b501ae851e85dca62e575d776",
+  "production_change": "one fresh-publication log event",
+  "forced_failure_cleanup_is_not_natural_crash": true,
+  "native_corrected_verdict": "pending"
+}

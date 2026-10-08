@@ -11,9 +11,11 @@ import json
 import math
 import os
 import platform
+import re
 import threading
 import time
 from pathlib import Path
+from completion_insertion import apply, compile_insertion
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('replay', ROOT / 'tests/crash/replay.py')
@@ -86,9 +88,11 @@ def main():
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--project', type=Path, required=True)
-    parser.add_argument('--before', required=True, help='unique source anchor before the probe')
-    parser.add_argument('--expression', required=True)
-    parser.add_argument('--expected', action='append', required=True)
+    parser.add_argument('--before', help='unique source anchor before the probe')
+    parser.add_argument('--expression')
+    parser.add_argument('--expected', action='append')
+    parser.add_argument('--context-file', type=Path, help='Legal draft context JSON; enables non-aborting semantic accounting')
+    parser.add_argument('--compile-insertions', action='store_true', help='Compile every actual selected insertion after timing completes')
     parser.add_argument('--rounds', type=int, default=3)
     parser.add_argument('--starts', type=int, default=1)
     parser.add_argument('--output', type=Path, required=True)
@@ -105,13 +109,20 @@ def main():
     engine, source, project = replay.executable(args.engine), args.source.resolve(), args.project.resolve()
     original = source.read_bytes()
     base = original.decode()
+    context = json.loads(args.context_file.read_text()) if args.context_file else None
+    if context:
+        args.before = context['before']
+        args.expression = context['prefix']
+        args.expected = context.get('expected', [])
+    elif not args.before or args.expression is None or not args.expected:
+        parser.error('provide context-file or before/expression/expected')
     if base.count(args.before) != 1:
         parser.error('source anchor must appear exactly once')
     offset = base.index(args.before)
     prefix = base[:offset] + args.expression
     position = {'line': prefix.count('\n'),
                 'character': len(prefix.rsplit('\n', 1)[-1].encode('utf-16-le')) // 2}
-    text = prefix + ';\n' + base[offset:]
+    text = prefix + (context['suffix'] if context else ';\n') + base[offset + (len(args.before) if context and context.get('replace_anchor') else 0):]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     manifest = args.output.with_suffix('.case.json')
     engine_flags = ['--experimental-modules-support', '--background-index=false',
@@ -120,7 +131,8 @@ def main():
     try:
         for start in range(args.starts):
             sequence = [
-                {'method': 'initialize', 'params': {'rootUri': project.as_uri(), 'capabilities': {}}},
+                {'method': 'initialize', 'params': {'rootUri': project.as_uri(), 'capabilities': {
+                    'textDocument': {'completion': {'completionItem': {'snippetSupport': True}}}} if context else {}}},
                 {'method': 'initialized', 'notify': True, 'params': {}},
                 {'method': 'textDocument/didOpen', 'notify': True, 'params': {'textDocument': {
                     'uri': source.as_uri(), 'languageId': 'cpp', 'version': 1, 'text': text}}},
@@ -130,17 +142,24 @@ def main():
             phases = []
             completion = {'method': 'textDocument/completion', 'expected_symbols': args.expected,
                           'params': {'textDocument': {'uri': source.as_uri()}, 'position': position}}
+            if context:
+                completion.pop('expected_symbols')
+                completion['expect'] = {'/jsonrpc': '2.0'}
             if args.phases:
                 sequence.insert(3, completion)
                 sequence.append(completion)
                 phases += ['cold-open', 'settled-warm']
             for round_index in range(args.rounds):
+                # Independent starts use the same thirty distinct edit inputs.
+                # Every round still changes bytes. This permits exact-byte
+                # insertion proofs to be shared across starts, without any
+                # token/comment normalization of the server's actual drafts.
+                edit_label = str(round_index) if context else f'{start} {round_index}'
                 sequence += [
                     {'method': 'textDocument/didChange', 'notify': True, 'params': {
                         'textDocument': {'uri': source.as_uri(), 'version': round_index + 2},
-                        'contentChanges': [{'text': text + f'\n// probe {start} {round_index}\n'}]}},
-                    {'method': 'textDocument/completion', 'expected_symbols': args.expected,
-                     'params': {'textDocument': {'uri': source.as_uri()}, 'position': position}},
+                        'contentChanges': [{'text': text + f'\n// probe {edit_label}\n'}]}},
+                    completion,
                 ]
                 phases.append('edited')
                 if args.phases:
@@ -161,6 +180,23 @@ def main():
                 finally:
                     resource_result = sampler.finish() if sampler else None
                 result['requested_phases'] = phases
+                if context:
+                    answers = [r for r in result['raw_responses'] if r['method'] == 'textDocument/completion']
+                    result['context_answers'] = []
+                    for index, (phase, answer) in enumerate(zip(phases, answers)):
+                        payload = answer['reply'].get('result')
+                        items = payload.get('items', []) if isinstance(payload, dict) else payload or []
+                        names = {re.split(r'[(<]', item.get('filterText', item.get('label', '')))[0].strip() for item in items}
+                        missing = sorted(set(args.expected) - names)
+                        polluted = sorted(set(context.get('forbidden', [])) & names)
+                        empty_failure = bool(context.get('expect_empty') and items)
+                        draft_round = (index - 2) // 2 if args.phases else index
+                        draft = text if index < 2 and args.phases else text + f'\n// probe {draft_round}\n'
+                        result['context_answers'].append({'phase': phase, 'elapsed_ms': answer['elapsed_ms'],
+                            'missing': missing, 'polluted': polluted, 'unexpected_nonempty': empty_failure,
+                            'semantic_pass': not (missing or polluted or empty_failure or 'error' in answer['reply']),
+                            'isIncomplete': payload.get('isIncomplete') if isinstance(payload, dict) else None,
+                            'items': items, 'draft': draft})
                 if resource_result is not None:
                     result['resources'] = resource_result
                 results.append(result)
@@ -175,22 +211,54 @@ def main():
         for result in results:
             for phase in result['requested_phases']:
                 phase_requests[phase] = phase_requests.get(phase, 0) + 1
-            for phase, response in zip(result['requested_phases'], result['responses']):
+            for phase, response in zip(result['requested_phases'], result.get('context_answers', result['responses'])):
                 phase_samples.setdefault(phase, []).append(response['elapsed_ms'])
-        report = {'schema': 2, 'engine_sha256': digest(engine), 'engine_flags': engine_flags,
+        semantic_counts = {}
+        for result in results:
+            for answer in result.get('context_answers', []):
+                counts = semantic_counts.setdefault(answer['phase'], {'answered': 0, 'passed': 0, 'failed': 0})
+                counts['answered'] += 1
+                counts['passed' if answer['semantic_pass'] else 'failed'] += 1
+        insertions = []
+        if args.compile_insertions:
+            if not context:
+                parser.error('compile-insertions requires legal context-file')
+            # No compiler subprocess runs during engine latency collection.
+            for start, result in enumerate(results):
+                for index, answer in enumerate(result.get('context_answers', [])):
+                    for name in args.expected:
+                        candidates = [item for item in answer['items'] if re.split(r'[(<]', item.get('filterText', item.get('label', '')))[0].strip() == name]
+                        preferred = context.get('kind', {}).get(name)
+                        if preferred is not None:
+                            candidates = [item for item in candidates if item.get('kind') == preferred]
+                        proof = {'start': start, 'answer': index, 'phase': answer['phase'], 'symbol': name}
+                        try:
+                            if not candidates:
+                                raise ValueError('no candidate of required symbol/kind')
+                            item = candidates[0]
+                            proof['item'] = item
+                            applied = apply(answer['draft'], position, item, context.get('bindings', {}).get(name, {}))
+                            proof.update(compile_insertion(project, source, applied))
+                        except (ValueError, OSError) as error:
+                            proof['error'] = str(error)
+                        insertions.append(proof)
+        report = {'schema': 3 if context else 2, 'engine_sha256': digest(engine), 'engine_flags': engine_flags,
                   'source_sha256': hashlib.sha256(original).hexdigest(), 'position': position,
                   'expression': args.expression, 'starts': args.starts, 'rounds': args.rounds,
                   'phases': {phase: statistics(phase_samples.get(phase, []), count)
                              for phase, count in phase_requests.items()},
-                  'all_semantic_requests_passed': all(r['outcome'] == 'pass' for r in results),
+                  'all_semantic_requests_passed': all(r['outcome'] == 'pass' and all(a['semantic_pass'] for a in r.get('context_answers', [])) for r in results),
+                  'context': context, 'insertions': insertions,
+                  'semantic_counts': semantic_counts,
+                  'all_insertions_compiled': bool(insertions) and all(p.get('exit_code') == 0 for p in insertions),
                   'raw_results': results,
-                  'limits': ['Single context exploratory probe; no release performance gate claim.',
+                  'limits': ['Single context probe; aggregate context/baseline gate requires separate matrix evidence.',
                              'Cold-open includes fallback responses: missing symbols fail, not excluded.',
-                             'No insertion compilation or baseline speedup proof.',
+                             'Insertion compilation is opt-in; no baseline speedup proof in this individual report.',
                              'Settled-warm is AST-ready, not proof of a particular cache hit.']}
         args.output.write_text(json.dumps(report, indent=2) + '\n')
         print('phases:', report['phases'], 'outcomes:', [r['outcome'] for r in results])
-        return 0 if all(r['outcome'] == 'pass' for r in results) else 1
+        return 0 if report['all_semantic_requests_passed'] and (not args.compile_insertions or report['all_insertions_compiled']) else 1
     finally:
         if source.read_bytes() != original:
             raise RuntimeError('project source changed during the probe')

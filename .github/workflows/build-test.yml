@@ -402,11 +402,13 @@ jobs:
             ccache-floor-clang12-${{ hashFiles('UPSTREAM', 'ci/linux-floor-rootfs.json') }}-
       - uses: ./.github/actions/linux-floor
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: clangd-linux-x64-portable
           path: |
             dist/clangd-*-linux-x64/**
             dist/portability-linux-x64.json
             build-linux-x64-ubuntu20/portable-module-quality/quality-results.json
-          if-no-files-found: error
+            build-linux-x64-ubuntu20/portable-module-*/result*.json
+          if-no-files-found: warn
           retention-days: 7

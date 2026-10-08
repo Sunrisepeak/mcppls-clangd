@@ -1,0 +1,21 @@
+{
+  "name": "member-prefix",
+  "before": "    cli.addHelpOption();",
+  "prefix": "    QCommandLineOption option{\"probe\", \"Probe\"};\n    cli.ad",
+  "suffix": ";\n",
+  "expected": [
+    "addHelpOption",
+    "addOption"
+  ],
+  "bindings": {
+    "addOption": {
+      "1": "option"
+    }
+  },
+  "limit_ms": 300,
+  "forbidden": [
+    "qVersion",
+    "Counter",
+    "AdlTester"
+  ]
+}
