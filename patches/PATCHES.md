@@ -99,3 +99,5 @@ they live here and in patch *filenames* only.
 | 0051-UP-26-owned-preamble-trace-filenames.patch | UP-26 | stabilizing | ci/preamble-trace-lifetime.md; tests/evidence/preamble-trace-lifetime.json; clangd/unittests/PreambleTests.cpp | Upstream preamble trace attachments own filenames through retained asynchronous contexts and the delayed-context canary passes |
 
 | 0052-UP-23-portable-response-generation-fixtures.patch | UP-23 | stabilizing | ci/response-generation-portability.md; clangd/unittests/GlobalCompilationDatabaseTests.cpp | Upstream response-generation fixtures serialize platform paths as JSON and retain all immutable-publication assertions on Windows |
+
+| 0053-UP-03-bounded-scan-publication-coordination.patch | UP-03 | stabilizing | ci/module-scan-publication.md; tests/evidence/module-scan-publication.json; clangd/unittests/PrerequisiteModulesTest.cpp | Upstream identical scan publications use bounded notification coordination and each follower validates the result against its own current VFS |

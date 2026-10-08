@@ -1,0 +1,456 @@
+From 9bc61ed85c43e25673622abe5dc4dee543fb789e Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 11:26:35 +0900
+Subject: [PATCH] [clangd] Bound coordination of identical scan cache
+ publications
+
+---
+ .../clangd/ModuleDependencyScanCache.h        | 173 +++++++++++++++
+ clang-tools-extra/clangd/ProjectModules.cpp   |  15 ++
+ .../unittests/PrerequisiteModulesTest.cpp     | 205 ++++++++++++++++++
+ 3 files changed, 393 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index 0123b3d64..d6fc221b9 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -29,6 +29,10 @@ extern char **environ;
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include <algorithm>
+ #include <atomic>
++#include <chrono>
++#include <condition_variable>
++#include <thread>
++#include <utility>
+ #include <list>
+ #include <map>
+ #include <mutex>
+@@ -569,7 +573,175 @@ class ModuleDependencyScanCache {
+     }
+   };
+ 
++  // Flights coordinate publication only. Their independently bounded metadata
++  // does not consume the retained manifest budget or own scanner results/VFSs.
++  struct FlightBudget {
++    std::atomic<size_t> Bytes{0};
++  };
++  struct Flight {
++    std::weak_ptr<const tooling::CompilationDatabase> CDB;
++    std::string File;
++    tooling::CompileCommand Command;
++    ModuleScanManifest::Digest MainBytes, Environment;
++    std::thread::id Thread;
++    std::mutex Mu;
++    std::condition_variable Published;
++    bool Done = false;
++    std::shared_ptr<FlightBudget> Budget;
++    size_t Bytes = 0;
++    ~Flight() {
++      if (Budget)
++        Budget->Bytes.fetch_sub(Bytes);
++    }
++  };
++  struct Flights {
++    std::mutex Mu;
++    std::atomic<uint64_t> Followers{0};
++    std::vector<std::shared_ptr<Flight>> Active;
++    std::shared_ptr<FlightBudget> Budget = std::make_shared<FlightBudget>();
++    Flights() { Active.reserve(64); }
++  };
++
+ public:
++  class PublicationFlight {
++  public:
++    PublicationFlight() = default;
++    PublicationFlight(PublicationFlight &&Other) noexcept
++        : Registry(std::move(Other.Registry)), Item(std::move(Other.Item)),
++          Leader(std::exchange(Other.Leader, false)) {}
++    PublicationFlight &operator=(PublicationFlight &&Other) noexcept {
++      finish();
++      Registry = std::move(Other.Registry);
++      Item = std::move(Other.Item);
++      Leader = std::exchange(Other.Leader, false);
++      return *this;
++    }
++    ~PublicationFlight() { finish(); }
++    bool follower() const { return Item && !Leader; }
++    // A notification grants no result: callers must perform ordinary lookup,
++    // including complete manifest replay against their own current VFS.
++    void wait() {
++      if (!follower())
++        return;
++      auto Deadline =
++          std::chrono::steady_clock::now() + std::chrono::milliseconds(150);
++      std::unique_lock<std::mutex> Lock(Item->Mu);
++      while (!Item->Done && !isCancelled()) {
++        auto Now = std::chrono::steady_clock::now();
++        if (Now >= Deadline)
++          break;
++        Item->Published.wait_until(
++            Lock, std::min(Deadline, Now + std::chrono::milliseconds(5)));
++      }
++    }
++
++  private:
++    friend class ModuleDependencyScanCache;
++    PublicationFlight(std::shared_ptr<Flights> Registry,
++                      std::shared_ptr<Flight> Item, bool Leader)
++        : Registry(std::move(Registry)), Item(std::move(Item)), Leader(Leader) {
++    }
++    void finish() {
++      if (!Leader || !Item)
++        return;
++      // Remove before notifying. A subsequent owner rechecks the cache after
++      // acquiring its flight, closing the publication/acquisition race.
++      {
++        std::lock_guard<std::mutex> Lock(Registry->Mu);
++        auto &Active = Registry->Active;
++        Active.erase(std::remove(Active.begin(), Active.end(), Item),
++                     Active.end());
++      }
++      {
++        std::lock_guard<std::mutex> Lock(Item->Mu);
++        Item->Done = true;
++      }
++      Item->Published.notify_all();
++      Leader = false;
++    }
++    std::shared_ptr<Flights> Registry;
++    std::shared_ptr<Flight> Item;
++    bool Leader = false;
++  };
++
++  PublicationFlight beginPublication(
++      const std::shared_ptr<const tooling::CompilationDatabase> &CDB,
++      llvm::StringRef File, const tooling::CompileCommand &Command,
++      ModuleScanManifest::Digest MainBytes,
++      ModuleScanManifest::Digest Environment) {
++    constexpr size_t KeyLimit = 64 * 1024;
++    constexpr size_t TotalLimit = 4 * 1024 * 1024;
++    // Bound allocation before copying any request-owned strings or argv.
++    size_t Estimate = sizeof(Flight) + 64;
++    auto Add = [&](size_t Size) {
++      if (Size > (KeyLimit - Estimate) / 2)
++        return false;
++      Estimate += Size * 2;
++      return true;
++    };
++    if (!Add(File.size() + 32) || !Add(Command.Directory.size() + 32) ||
++        !Add(Command.Filename.size() + 32) ||
++        !Add(Command.Output.size() + 32) ||
++        !Add(Command.Heuristic.size() + 32) ||
++        Command.CommandLine.size() > KeyLimit / (2 * sizeof(std::string)) ||
++        !Add(Command.CommandLine.size() * sizeof(std::string)))
++      return {};
++    for (const auto &Arg : Command.CommandLine)
++      if (!Add(Arg.size() + 32))
++        return {};
++    if (!CDB || isCancelled())
++      return {};
++    std::lock_guard<std::mutex> Lock(FlightRegistry->Mu);
++    for (const auto &Existing : FlightRegistry->Active)
++      if (Existing->CDB.lock() == CDB && Existing->File == File &&
++          Existing->Command == Command && Existing->MainBytes == MainBytes &&
++          Existing->Environment == Environment) {
++        // Recursive scans must never wait for themselves.
++        if (Existing->Thread == std::this_thread::get_id())
++          return {};
++        ++FlightRegistry->Followers;
++        return {FlightRegistry, Existing, false};
++      }
++    // Include the fixed registry index in the independent 4 MiB allowance.
++    const size_t RegistryBytes =
++        sizeof(Flights) + sizeof(FlightBudget) + 64 +
++        FlightRegistry->Active.capacity() * sizeof(std::shared_ptr<Flight>);
++    if (FlightRegistry->Active.size() >= 64 ||
++        Estimate >
++            TotalLimit - RegistryBytes - FlightRegistry->Budget->Bytes.load())
++      return {};
++    auto Item = std::make_shared<Flight>();
++    Item->CDB = CDB;
++    Item->File = File.str();
++    Item->Command = Command;
++    Item->MainBytes = MainBytes;
++    Item->Environment = Environment;
++    Item->Thread = std::this_thread::get_id();
++    size_t Bytes = sizeof(Flight) + 64 + Item->File.capacity() + 32 +
++                   Item->Command.Directory.capacity() + 32 +
++                   Item->Command.Filename.capacity() + 32 +
++                   Item->Command.Output.capacity() + 32 +
++                   Item->Command.Heuristic.capacity() + 32 +
++                   Item->Command.CommandLine.capacity() * sizeof(std::string);
++    for (const auto &Arg : Item->Command.CommandLine)
++      Bytes += Arg.capacity() + 32;
++    if (Bytes > KeyLimit || Bytes > TotalLimit - RegistryBytes -
++                                        FlightRegistry->Budget->Bytes.load())
++      return {};
++    Item->Bytes = Bytes;
++    Item->Budget = FlightRegistry->Budget;
++    Item->Budget->Bytes.fetch_add(Bytes);
++    FlightRegistry->Active.push_back(Item);
++    return {FlightRegistry, std::move(Item), true};
++  }
++  uint64_t publicationFollowers() const {
++    return FlightRegistry->Followers.load();
++  }
++  std::pair<size_t, size_t> publicationBounds() const {
++    std::lock_guard<std::mutex> Lock(FlightRegistry->Mu);
++    return {FlightRegistry->Active.size(),
++            FlightRegistry->Budget->Bytes.load()};
++  }
+   struct Stats {
+     uint64_t Hits, Misses, Invalidations, Stores, Declines, Evictions;
+     size_t Entries, Bytes;
+@@ -699,6 +871,7 @@ public:
+   }
+ 
+ private:
++  std::shared_ptr<Flights> FlightRegistry = std::make_shared<Flights>();
+   std::mutex Mu;
+   std::list<std::shared_ptr<Entry>> Entries;
+   std::shared_ptr<Budget> Owner = std::make_shared<Budget>();
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index ccdf61747..09ca2378f 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -416,6 +416,21 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+   if (Cacheable)
+     Result = getModuleDependencyScanCache().lookup(CDB, FilePath, *Cmd,
+                                                    MainBytes, *RequestFS);
++  ModuleDependencyScanCache::PublicationFlight Publication;
++  if (!Result && Cacheable) {
++    auto &Cache = getModuleDependencyScanCache();
++    Publication =
++        Cache.beginPublication(CDB, FilePath, *Cmd, MainBytes, *Environment);
++    if (Publication.follower()) {
++      vlog("Module dependency scan publication wait: {0}", FilePath);
++      Publication.wait();
++    }
++    if (isCancelled())
++      return std::nullopt;
++    // Also recheck for a new leader: an earlier owner may have published
++    // between the initial miss and our acquisition. Never share its scan/VFS.
++    Result = Cache.lookup(CDB, FilePath, *Cmd, MainBytes, *RequestFS);
++  }
+   if (!Result) {
+     vlog("Module dependency scan memo miss: {0}", FilePath);
+     std::shared_ptr<ModuleScanManifest> Manifest;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index d474b6407..207448be1 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -383,6 +383,211 @@ private:
+   const Canceler Cancel;
+ };
+ 
++// Block one real scanner header read, after its publication flight is owned.
++class BlockScanReadFS : public ThreadsafeFS {
++public:
++  BlockScanReadFS(const ThreadsafeFS &Base, std::string Target)
++      : Base(Base), Target(std::move(Target)) {}
++  bool waitForRead() const {
++    std::unique_lock<std::mutex> Lock(Mu);
++    return Changed.wait_for(Lock, std::chrono::seconds(2),
++                            [&] { return Read; });
++  }
++  void release() const {
++    std::lock_guard<std::mutex> Lock(Mu);
++    Released = true;
++    Changed.notify_all();
++  }
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    class View : public llvm::vfs::ProxyFileSystem {
++    public:
++      View(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
++           const BlockScanReadFS &Owner)
++          : ProxyFileSystem(std::move(FS)), Owner(Owner) {}
++      llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
++      openFileForRead(const llvm::Twine &Path) override {
++        auto File = ProxyFileSystem::openFileForRead(Path);
++        if (File && Path.str() == Owner.Target) {
++          std::unique_lock<std::mutex> Lock(Owner.Mu);
++          if (!Owner.Read) {
++            Owner.Read = true;
++            Owner.Changed.notify_all();
++            Owner.Changed.wait(Lock, [&] { return Owner.Released; });
++          }
++        }
++        return File;
++      }
++
++    private:
++      const BlockScanReadFS &Owner;
++    };
++    return llvm::makeIntrusiveRefCnt<View>(Base.view(std::nullopt), *this);
++  }
++  const ThreadsafeFS &Base;
++  const std::string Target;
++  mutable std::mutex Mu;
++  mutable std::condition_variable Changed;
++  mutable bool Read = false, Released = false;
++};
++
++TEST_F(PrerequisiteModulesTests, ScanPublicationReplaysEachRequestView) {
++  // Same main bytes and CDB can still have different unsaved header contents.
++  for (unsigned Case = 0; Case < 3; ++Case) {
++    const bool DifferentHeader = Case == 1;
++    const bool CancelOwner = Case == 2;
++    SCOPED_TRACE(Case);
++    PerFileModulesCompilationDatabase CDB(TestDir, FS);
++    CDB.addFile("Use.cpp", "#include \"flight.h\"\n");
++    CDB.addFile("flight.h", "import M;\n");
++    auto Generation = CDB.toolingCDB();
++    auto Commands = createProjectModulesCommandCache(Generation, true);
++    const auto Use = getFullPath("Use.cpp");
++    const auto Header = getFullPath("flight.h");
++    MockFS First, Second;
++    First.OverlayRealFileSystemForModules = true;
++    Second.OverlayRealFileSystemForModules = true;
++    First.Files[Header] = "import M;\n";
++    Second.Files[Header] = DifferentHeader ? "import N;\n" : "import M;\n";
++    First.Timestamps[Header] = Second.Timestamps[Header] = 123456789;
++    BlockScanReadFS Blocked(First, Header);
++    auto Scan = [&](const ThreadsafeFS &Request) {
++      auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++      Modules->setFileSystem(Request);
++      return Modules->getRequiredModules(Use);
++    };
++    auto &Cache = getModuleDependencyScanCache();
++    const auto Before = Cache.stats();
++    const auto Joined = Cache.publicationFollowers();
++    std::vector<std::string> OwnerResult, FollowerResult;
++    auto OwnerTask = cancelableTask();
++    std::thread Owner([&, Context = std::move(OwnerTask.first)]() mutable {
++      WithContext Scope(std::move(Context));
++      OwnerResult = Scan(Blocked);
++    });
++    const bool OwnerBlocked = Blocked.waitForRead();
++    EXPECT_TRUE(OwnerBlocked);
++    std::thread Follower([&] { FollowerResult = Scan(Second); });
++    const auto Deadline =
++        std::chrono::steady_clock::now() + std::chrono::seconds(2);
++    while (Cache.publicationFollowers() == Joined &&
++           std::chrono::steady_clock::now() < Deadline)
++      std::this_thread::sleep_for(std::chrono::milliseconds(1));
++    EXPECT_GT(Cache.publicationFollowers(), Joined);
++    if (CancelOwner)
++      OwnerTask.second();
++    Blocked.release();
++    Owner.join();
++    Follower.join();
++    EXPECT_THAT(OwnerResult, testing::ElementsAre("M"));
++    EXPECT_THAT(FollowerResult,
++                testing::ElementsAre(DifferentHeader ? "N" : "M"));
++    EXPECT_EQ(Cache.stats().Stores - Before.Stores, DifferentHeader ? 2u : 1u);
++    if (!DifferentHeader && !CancelOwner)
++      EXPECT_GT(Cache.stats().Hits, Before.Hits);
++    if (DifferentHeader)
++      EXPECT_GT(Cache.stats().Invalidations, Before.Invalidations);
++    if (CancelOwner)
++      EXPECT_GT(Cache.stats().Declines, Before.Declines);
++    EXPECT_EQ(Cache.publicationBounds().first, 0u);
++  }
++}
++
++TEST_F(PrerequisiteModulesTests, ScanPublicationBoundsAndRecursiveBypass) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "int probe;\n");
++  auto Generation = CDB.toolingCDB();
++  const auto Use = getFullPath("Use.cpp");
++  auto Command = Generation->getCompileCommands(Use).front();
++  ModuleDependencyScanCache Cache;
++  ModuleScanManifest::Digest Bytes = {};
++  auto Environment = ModuleScanManifest::environment(Command);
++  ASSERT_TRUE(Environment);
++  {
++    std::vector<ModuleDependencyScanCache::PublicationFlight> Owners;
++    for (unsigned I = 0; I < 64; ++I)
++      Owners.push_back(Cache.beginPublication(
++          Generation, Use + std::to_string(I), Command, Bytes, *Environment));
++    EXPECT_EQ(Cache.publicationBounds().first, 64u);
++    auto Full = Cache.beginPublication(Generation, "extra", Command, Bytes,
++                                       *Environment);
++    EXPECT_EQ(Cache.publicationBounds().first, 64u);
++    auto Recursive = Cache.beginPublication(Generation, Use + "0", Command,
++                                            Bytes, *Environment);
++    EXPECT_FALSE(Recursive.follower());
++    EXPECT_EQ(Cache.publicationFollowers(), 0u);
++    EXPECT_LE(Cache.publicationBounds().second, 4u * 1024u * 1024u);
++  }
++  EXPECT_EQ(Cache.publicationBounds(), std::make_pair(size_t(0), size_t(0)));
++  Command.CommandLine.push_back(std::string(64 * 1024, 'x'));
++  auto Oversized =
++      Cache.beginPublication(Generation, Use, Command, Bytes, *Environment);
++  EXPECT_EQ(Cache.publicationBounds().first, 0u);
++}
++
++TEST_F(PrerequisiteModulesTests, ScanPublicationCancellationAndNonAdmission) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "int probe;\n");
++  auto Generation = CDB.toolingCDB();
++  const auto Use = getFullPath("Use.cpp");
++  auto Command = Generation->getCompileCommands(Use).front();
++  auto Environment = ModuleScanManifest::environment(Command);
++  ASSERT_TRUE(Environment);
++  ModuleScanManifest::Digest Bytes = {};
++  ModuleDependencyScanCache Cache;
++  for (bool CancelFollower : {false, true}) {
++    auto Owner =
++        Cache.beginPublication(Generation, Use, Command, Bytes, *Environment);
++    auto Task = cancelableTask();
++    bool Followed = false, Cancelled = false;
++    std::thread Follower([&, Context = std::move(Task.first)]() mutable {
++      WithContext Scope(std::move(Context));
++      auto Flight =
++          Cache.beginPublication(Generation, Use, Command, Bytes, *Environment);
++      Followed = Flight.follower();
++      Flight.wait();
++      Cancelled = isCancelled();
++      // Owner may decline admission or be canceled: no verdict is shared.
++      EXPECT_FALSE(
++          Cache.lookup(Generation, Use, Command, Bytes, *FS.view(TestDir)));
++    });
++    const auto Expected = CancelFollower ? 2u : 1u;
++    const auto Deadline =
++        std::chrono::steady_clock::now() + std::chrono::seconds(2);
++    while (Cache.publicationFollowers() < Expected &&
++           std::chrono::steady_clock::now() < Deadline)
++      std::this_thread::sleep_for(std::chrono::milliseconds(1));
++    EXPECT_EQ(Cache.publicationFollowers(), Expected);
++    if (CancelFollower)
++      Task.second();
++    else
++      Owner = {}; // RAII releases even without cache admission/publication.
++    Follower.join();
++    EXPECT_TRUE(Followed);
++    EXPECT_EQ(Cancelled, CancelFollower);
++  }
++  EXPECT_EQ(Cache.publicationBounds(), std::make_pair(size_t(0), size_t(0)));
++  // A hung or slow owner cannot turn publication coordination into an
++  // unbounded wait. Timeout grants no result and leaves the owner intact.
++  auto Owner =
++      Cache.beginPublication(Generation, Use, Command, Bytes, *Environment);
++  bool TimedOutWithoutResult = false;
++  std::thread TimedOut([&] {
++    auto Flight =
++        Cache.beginPublication(Generation, Use, Command, Bytes, *Environment);
++    auto Started = std::chrono::steady_clock::now();
++    Flight.wait();
++    TimedOutWithoutResult =
++        std::chrono::steady_clock::now() - Started >=
++            std::chrono::milliseconds(150) &&
++        !Cache.lookup(Generation, Use, Command, Bytes, *FS.view(TestDir));
++  });
++  TimedOut.join();
++  EXPECT_TRUE(TimedOutWithoutResult);
++  EXPECT_EQ(Cache.publicationBounds().first, 1u);
++}
++
+ TEST_F(PrerequisiteModulesTests, CancellationAtCompilerBoundaries) {
+   CancellationModulesCDB CDB(TestDir, FS);
+   CDB.addFile("cancel.h", "inline int value() { return 42; }");
+-- 
+2.53.0
+
