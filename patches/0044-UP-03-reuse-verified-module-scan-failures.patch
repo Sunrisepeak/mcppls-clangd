@@ -1,0 +1,611 @@
+From 18de83e3cd373d75c892ce0bcf37a4fac49040fd Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 10:24:25 +0900
+Subject: [PATCH] [clangd] Reuse fully observed semantic module scan failures
+
+Preserve diagnostics without publishing failed providers; revalidate exact request inputs and cancellation. Observe real paths and compact only identical idempotent facts while retaining ordered directory operations. Bound complete manifests to 8192 facts under the existing shared 32 MiB metadata budget.
+
+Consolidates preserved commits 0aa9f31a5 and its cancellation follow-up.
+---
+ .../clangd/ModuleDependencyScanCache.h        |  93 +++++-
+ clang-tools-extra/clangd/ProjectModules.cpp   |  35 ++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 284 ++++++++++++++++++
+ 3 files changed, 393 insertions(+), 19 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index 1d7209526..0123b3d64 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -7,6 +7,7 @@
+ #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEDEPENDENCYSCANCACHE_H
+ #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEDEPENDENCYSCANCACHE_H
+ 
++#include "support/Cancellation.h"
+ #include "support/Logger.h"
+ #include "support/ThreadsafeFS.h"
+ #include "clang/Tooling/CompilationDatabase.h"
+@@ -26,6 +27,7 @@ extern char **environ;
+ #endif
+ #include "llvm/Support/SHA256.h"
+ #include "llvm/Support/VirtualFileSystem.h"
++#include <algorithm>
+ #include <atomic>
+ #include <list>
+ #include <map>
+@@ -39,6 +41,9 @@ namespace clang::clangd {
+ struct ModuleScanResult {
+   std::optional<std::string> ModuleName;
+   std::vector<std::string> RequiredModules;
++  // An observed semantic failure is reusable, but is never a provider result.
++  std::optional<std::string> FailureDiagnostic;
++  static constexpr size_t FailureDiagnosticByteLimit = 64 * 1024;
+ };
+ 
+ // A manifest records operations, not just files successfully included. Missing
+@@ -46,7 +51,9 @@ struct ModuleScanResult {
+ // The recorder must sit below a FRESH dependency-scanning service per miss.
+ class ModuleScanManifest {
+ public:
+-  static constexpr size_t ProbeLimit = 2048;
++  // Complete real project scans can require over 5700 distinct facts.
++  // This bounds replay work; owned metadata still shares the 32 MiB budget.
++  static constexpr size_t ProbeLimit = 8192;
+   static constexpr size_t ByteLimit = 32 * 1024 * 1024;
+   using Digest = std::array<uint8_t, 32>;
+   static Digest fingerprint(llvm::StringRef Bytes) {
+@@ -110,6 +117,12 @@ public:
+              Permissions == S.getPermissions() &&
+              External == S.ExposesExternalVFSPath;
+     }
++    bool operator==(const Status &Other) const {
++      return Name == Other.Name && ID == Other.ID && MTime == Other.MTime &&
++             Size == Other.Size && User == Other.User && Group == Other.Group &&
++             Type == Other.Type && Permissions == Other.Permissions &&
++             External == Other.External;
++    }
+   };
+   enum Kind {
+     Stat,
+@@ -120,7 +133,8 @@ public:
+     Exists,
+     Absolute,
+     DirectoryBegin,
+-    DirectoryNext
++    DirectoryNext,
++    RealPath
+   };
+   struct Observation {
+     Kind Operation;
+@@ -135,18 +149,39 @@ public:
+     bool Found = false;
+     bool Binary = false;
+     llvm::sys::fs::file_type EntryType = llvm::sys::fs::file_type::type_unknown;
++    bool operator==(const Observation &Other) const {
++      return Operation == Other.Operation && Path == Other.Path &&
++             Error == Other.Error && Info == Other.Info && Name == Other.Name &&
++             Bytes == Other.Bytes && Size == Other.Size &&
++             RequestedSize == Other.RequestedSize &&
++             NullTerminated == Other.NullTerminated && Found == Other.Found &&
++             Binary == Other.Binary && EntryType == Other.EntryType;
++    }
+   };
+   std::string WorkingDirectory;
+   std::vector<Observation> Observations;
+   bool Complete = true;
+   uint64_t NextDirectory = 0;
++  size_t RepeatedFacts = 0;
+ 
+   void add(Observation O) {
+     if (!Complete)
+       return;
++    // Collapse only identical complete idempotent observations. Different
++    // outcomes remain separate, including all bytes, status identity, aliases
++    // and errors. Every directory cursor operation retains its order.
++    // A bounded linear search owns no additional index metadata.
++    if (O.Operation != DirectoryBegin && O.Operation != DirectoryNext &&
++        std::any_of(Observations.begin(), Observations.end(),
++                    [&](const Observation &Earlier) { return Earlier == O; })) {
++      ++RepeatedFacts;
++      return;
++    }
+     if (Observations.size() >= ProbeLimit ||
+         O.Path.size() + O.Name.size() > ByteLimit ||
+         ownedBytes() + O.Path.size() + O.Name.size() + sizeof(O) > ByteLimit) {
++      vlog("Module dependency scan manifest probe boundary: probes={0}, "
++           "repeatedFacts={1}", Observations.size(), RepeatedFacts);
+       Complete = false;
+       return;
+     }
+@@ -188,6 +223,8 @@ public:
+       return A.first->second == New && B.first->second == Old;
+     };
+     for (const auto &O : Observations) {
++      if (isCancelled())
++        return false;
+       if (O.Operation == Stat) {
+         if (!SameStatus(O, FS.status(O.Path)))
+           return false;
+@@ -220,6 +257,13 @@ public:
+           return false;
+         continue;
+       }
++      if (O.Operation == RealPath) {
++        llvm::SmallString<256> Resolved;
++        if (FS.getRealPath(O.Path, Resolved) != O.Error ||
++            Resolved.str() != O.Name)
++          return false;
++        continue;
++      }
+       auto File = O.Binary ? FS.openFileForReadBinary(O.Path)
+                            : FS.openFileForRead(O.Path);
+       if (!File) {
+@@ -246,7 +290,7 @@ public:
+       if ((*File)->close() || !Match)
+         return false;
+     }
+-    return true;
++    return !isCancelled();
+   }
+ };
+ 
+@@ -304,14 +348,27 @@ public:
+   }
+   std::error_code getRealPath(const llvm::Twine &Path,
+                               llvm::SmallVectorImpl<char> &Out) override {
+-    Manifest->Complete = false;
+-    return getUnderlyingFS().getRealPath(Path, Out);
++    // Preserve the original input spelling and CWD. Do not replace lookup
++    // paths with canonical paths: symlink changes must invalidate replay.
++    // An initially populated output is outside this observation contract.
++    if (!Out.empty())
++      Manifest->Complete = false;
++    auto EC = getUnderlyingFS().getRealPath(Path, Out);
++    ModuleScanManifest::Observation O{ModuleScanManifest::RealPath, Path.str()};
++    O.Error = EC;
++    O.Name.assign(Out.begin(), Out.end());
++    Manifest->add(std::move(O));
++    return EC;
+   }
+   void visitChildFileSystems(VisitCallbackTy Callback) override {
++    if (Manifest->Complete)
++      vlog("Module dependency scan manifest unsupported child filesystem visit");
+     Manifest->Complete = false;
+     getUnderlyingFS().visitChildFileSystems(Callback);
+   }
+   std::error_code isLocal(const llvm::Twine &Path, bool &Result) override {
++    if (Manifest->Complete)
++      vlog("Module dependency scan manifest unsupported locality: {0}", Path);
+     Manifest->Complete = false;
+     return getUnderlyingFS().isLocal(Path, Result);
+   }
+@@ -555,6 +612,8 @@ public:
+       return std::nullopt;
+     }
+     if (!Candidate->Inputs.matches(FS)) {
++      if (isCancelled())
++        return std::nullopt;
+       std::lock_guard<std::mutex> Lock(Mu);
+       Entries.remove(Candidate);
+       ++Misses;
+@@ -562,6 +621,8 @@ public:
+       vlog("Module dependency scan memo invalidated: {0}", File);
+       return std::nullopt;
+     }
++    if (isCancelled())
++      return std::nullopt;
+     ++Hits;
+     vlog("Module dependency scan memo hit: {0}", File);
+     return Candidate->Result;
+@@ -572,8 +633,12 @@ public:
+              ModuleScanManifest::Digest MainBytes,
+              ModuleScanManifest::Digest Environment, ModuleScanManifest Inputs,
+              ModuleScanResult Result, llvm::vfs::FileSystem &FS) {
+-    if (Environment != ModuleScanManifest::environment(Command) ||
+-        !Inputs.matches(FS)) {
++    if (isCancelled() ||
++        (Result.FailureDiagnostic &&
++         Result.FailureDiagnostic->capacity() >
++             ModuleScanResult::FailureDiagnosticByteLimit) ||
++        Environment != ModuleScanManifest::environment(Command) ||
++        !Inputs.matches(FS) || isCancelled()) {
+       ++Declines;
+       vlog("Module dependency scan memo declined: {0}", File);
+       return;
+@@ -589,12 +654,22 @@ public:
+       Bytes += Name.capacity() + 32;
+     if (Result.ModuleName)
+       Bytes += Result.ModuleName->capacity() + 32;
++    if (Result.FailureDiagnostic)
++      Bytes += Result.FailureDiagnostic->capacity() + 32;
+     if (Bytes > ModuleScanManifest::ByteLimit) {
+       ++Declines;
+       return;
+     }
+     std::lock_guard<std::mutex> Lock(Mu);
++    if (isCancelled()) {
++      ++Declines;
++      return;
++    }
+     while (!Owner->reserve(Bytes)) {
++      if (isCancelled()) {
++        ++Declines;
++        return;
++      }
+       if (Entries.empty()) {
+         ++Declines;
+         vlog("Module dependency scan memo budget decline: {0}", File);
+@@ -613,6 +688,10 @@ public:
+     Added->Result = std::move(Result);
+     Added->Owner = Owner;
+     Added->Bytes = Bytes;
++    if (isCancelled()) {
++      ++Declines;
++      return;
++    }
+     Entries.push_front(std::move(Added));
+     ++Stores;
+     vlog("Module dependency scan memo stored: {0} (entries={1}, bytes={2})",
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index b34d02155..ccdf61747 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -426,6 +426,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+           std::move(RequestFS), Manifest);
+     }
+     std::string S;
++    bool HadError = false;
+     std::optional<P1689Rule> ScanningResult;
+     {
+       dependencies::DependencyScanningServiceOptions Options;
+@@ -447,24 +448,25 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+       ModuleScanController Controller(Manifest);
+       ScanningResult = ScanningTool.getP1689ModuleDependencyFile(
+           *Cmd, Cmd->Directory, DiagConsumer, Controller);
++      HadError = DiagConsumer.getNumErrors() != 0;
+     }
+     // Destroy the worker/service before finalizing the manifest: file closes
+     // and any deferred filesystem observations must precede publication.
+ 
+-    if (!ScanningResult) {
+-      elog("Scanning modules dependencies for {0} failed: {1}", FilePath, S);
+-      std::string Cmdline;
+-      for (auto &Arg : Cmd->CommandLine)
+-        Cmdline += Arg + " ";
+-      elog("The command line the scanning tool use is: {0}", Cmdline);
+-      return std::nullopt;
+-    }
+-
+     Result.emplace();
+-    if (ScanningResult->Provides)
++    if (!ScanningResult) {
++      vlog("Module dependency scan failure admission: {0} (observable={1}, "
++           "errors={2}, complete={3}, probes={4})", FilePath, Cacheable,
++           HadError, Manifest && Manifest->Complete,
++           Manifest ? Manifest->Observations.size() : 0);
++      Result->FailureDiagnostic = std::move(S);
++      // Non-semantic/tool failures and canceled work have no reusable verdict.
++      Cacheable &= HadError && !isCancelled();
++    } else if (ScanningResult->Provides)
+       Result->ModuleName = ScanningResult->Provides->ModuleName;
+-    for (auto &Required : ScanningResult->Requires)
+-      Result->RequiredModules.push_back(Required.ModuleName);
++    if (ScanningResult)
++      for (auto &Required : ScanningResult->Requires)
++        Result->RequiredModules.push_back(Required.ModuleName);
+     if (Cacheable) {
+       auto Current = TFS.view(Cmd->Directory);
+       getModuleDependencyScanCache().store(CDB, FilePath, *Cmd, MainBytes,
+@@ -472,6 +474,15 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+                                            *Result, *Current);
+     }
+   }
++  if (Result->FailureDiagnostic) {
++    elog("Scanning modules dependencies for {0} failed: {1}", FilePath,
++         *Result->FailureDiagnostic);
++    std::string Cmdline;
++    for (auto &Arg : Cmd->CommandLine)
++      Cmdline += Arg + " ";
++    elog("The command line the scanning tool use is: {0}", Cmdline);
++    return std::nullopt;
++  }
+   // A cached successful scan must populate THIS facade's provider map, just
+   // like a fresh scan. Unresolved provider outcomes themselves are not cached.
+   if (Result->ModuleName) {
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index a9fdd3f24..40c05a380 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -721,6 +721,290 @@ TEST_F(PrerequisiteModulesTests,
+   EXPECT_LE(getModuleDependencyScanCache().stats().Bytes, 32u * 1024u * 1024u);
+ }
+ 
++TEST_F(PrerequisiteModulesTests, FailedScanMemoRevalidatesHeadersAndDrafts) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission currently covers Linux drivers";
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Broken.cppm", "export module Broken;\n#include \"repair.h\"\n"
++                            "import M;\n");
++  auto Generation = CDB.toolingCDB();
++  auto Cache = createProjectModulesCommandCache(Generation, true);
++  const auto Broken = getFullPath("Broken.cppm");
++  auto Scan = [&](const ThreadsafeFS &RequestFS) {
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Cache);
++    Modules->setFileSystem(RequestFS);
++    return Modules->getRequiredModules(Broken);
++  };
++  EXPECT_TRUE(Scan(FS).empty());
++  auto Before = getModuleDependencyScanCache().stats();
++  EXPECT_TRUE(Scan(FS).empty());
++  EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++  // Failure cannot publish the partially scanned provider.
++  auto Modules = clang::clangd::getProjectModules(Generation, FS, Cache);
++  EXPECT_TRUE(Modules->getModuleNameForSource(Broken).empty());
++
++  auto Header = (TestDir + "/repair.h").str();
++  auto Write = [&](llvm::StringRef Text) {
++    std::error_code EC;
++    llvm::raw_fd_ostream Stream(Header, EC);
++    ASSERT_FALSE(EC);
++    Stream << Text;
++  };
++  // A formerly absent input becomes present but still fails semantically.
++  Write("#error bad\n");
++  Before = getModuleDependencyScanCache().stats();
++  EXPECT_TRUE(Scan(FS).empty());
++  EXPECT_GT(getModuleDependencyScanCache().stats().Invalidations,
++            Before.Invalidations);
++  Before = getModuleDependencyScanCache().stats();
++  EXPECT_TRUE(Scan(FS).empty());
++  EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++  llvm::sys::fs::file_status Original;
++  ASSERT_FALSE(llvm::sys::fs::status(Header, Original));
++  Write("// goodxxx\n");
++  ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++      Header, Original.getLastAccessedTime(), Original.getLastModificationTime()));
++  EXPECT_THAT(Scan(FS), testing::ElementsAre("M"));
++  Modules = clang::clangd::getProjectModules(Generation, FS, Cache);
++  EXPECT_EQ(Modules->getModuleNameForSource(Broken), "Broken");
++
++  MockFS Draft;
++  Draft.OverlayRealFileSystemForModules = true;
++  Draft.Files[Header] = "#error bad\n";
++  Draft.Timestamps[Header] = 123456789;
++  EXPECT_TRUE(Scan(Draft).empty());
++  Before = getModuleDependencyScanCache().stats();
++  EXPECT_TRUE(Scan(Draft).empty());
++  EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++  Draft.Files[Header] = "// goodxxx\n";
++  EXPECT_THAT(Scan(Draft), testing::ElementsAre("M"));
++}
++
++TEST_F(PrerequisiteModulesTests, FailedScanMemoRejectsOversizedAndCanceledEntries) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "int probe;\n");
++  auto Generation = CDB.toolingCDB();
++  const auto Use = getFullPath("Use.cpp");
++  auto Command = Generation->getCompileCommands(Use).front();
++  auto View = FS.view(TestDir);
++  auto Inputs = std::make_shared<ModuleScanManifest>();
++  auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(View, Inputs);
++  auto Main = Recording->getBufferForFile(Use);
++  ASSERT_TRUE(Main);
++  const auto MainBytes = ModuleScanManifest::fingerprint((*Main)->getBuffer());
++  const auto Environment = ModuleScanManifest::environment(Command);
++  ASSERT_TRUE(Environment);
++  ASSERT_TRUE(Inputs->matches(*View));
++  ModuleDependencyScanCache Cache;
++  ModuleScanResult Failure;
++  Failure.FailureDiagnostic = "observed semantic error";
++  Cache.store(Generation, Use, Command, MainBytes, *Environment, *Inputs,
++              Failure, *View);
++  auto Hit = Cache.lookup(Generation, Use, Command, MainBytes, *View);
++  ASSERT_TRUE(Hit);
++  EXPECT_EQ(Hit->FailureDiagnostic, Failure.FailureDiagnostic);
++  EXPECT_GT(Cache.stats().Bytes, Failure.FailureDiagnostic->capacity());
++  const auto Before = Cache.stats();
++  Failure.FailureDiagnostic->resize(ModuleScanResult::FailureDiagnosticByteLimit + 1);
++  Cache.store(Generation, Use, Command, MainBytes, *Environment, *Inputs,
++              Failure, *View);
++  EXPECT_EQ(Cache.stats().Stores, Before.Stores);
++  EXPECT_GT(Cache.stats().Declines, Before.Declines);
++  {
++    // Cancel during the last filesystem observation, after store's initial
++    // cancellation check. Neither replay nor publication may succeed.
++    ModuleScanManifest LastRead = *Inputs;
++    LastRead.Observations.erase(
++        std::remove_if(LastRead.Observations.begin(), LastRead.Observations.end(),
++                       [](const ModuleScanManifest::Observation &O) {
++                         return O.Operation != ModuleScanManifest::Read;
++                       }),
++        LastRead.Observations.end());
++    ASSERT_EQ(LastRead.Observations.size(), 1u);
++    auto ReplayTask = cancelableTask();
++    CancelOnReadFS CancelDuringReplay(FS, Use, ReplayTask.second);
++    auto ReplayView = CancelDuringReplay.view(Command.Directory);
++    WithContext Context(std::move(ReplayTask.first));
++    ModuleDependencyScanCache CanceledCache;
++    ModuleScanResult SmallFailure;
++    SmallFailure.FailureDiagnostic = "observed semantic error";
++    CanceledCache.store(Generation, Use, Command, MainBytes, *Environment,
++                        LastRead, SmallFailure, *ReplayView);
++    EXPECT_EQ(CancelDuringReplay.Triggered, 1u);
++    EXPECT_TRUE(isCancelled());
++    EXPECT_EQ(CanceledCache.stats().Stores, 0u);
++    EXPECT_EQ(CanceledCache.stats().Entries, 0u);
++    EXPECT_EQ(CanceledCache.stats().Bytes, 0u);
++  }
++  auto Task = cancelableTask();
++  Task.second();
++  WithContext Context(std::move(Task.first));
++  Failure.FailureDiagnostic = "observed semantic error";
++  Cache.store(Generation, Use, Command, MainBytes, *Environment, *Inputs,
++              Failure, *View);
++  EXPECT_EQ(Cache.stats().Stores, Before.Stores);
++  EXPECT_FALSE(Cache.lookup(Generation, Use, Command, MainBytes, *View));
++}
++
++TEST_F(PrerequisiteModulesTests, FailedScanMemoCommandAndGenerationChanges) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission currently covers Linux drivers";
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  const char *Source = "#ifndef FIX\n#error blocked\n#endif\n"
++                       "export module Broken;\nimport M;\n";
++  CDB.addFile("Broken.cppm", Source);
++  auto Generation = CDB.toolingCDB();
++  auto Cache = createProjectModulesCommandCache(Generation, true);
++  const auto Broken = getFullPath("Broken.cppm");
++  auto Scan = [&](bool Fixed) {
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Cache);
++    Modules->setCommandMangler([Fixed](tooling::CompileCommand &Command, PathRef) {
++      if (Fixed)
++        Command.CommandLine.insert(Command.CommandLine.end() - 1, "-DFIX");
++    });
++    return Modules->getRequiredModules(Broken);
++  };
++  EXPECT_TRUE(Scan(false).empty());
++  auto Before = getModuleDependencyScanCache().stats();
++  EXPECT_TRUE(Scan(false).empty());
++  EXPECT_GT(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++  EXPECT_THAT(Scan(true), testing::ElementsAre("M"));
++  EXPECT_TRUE(Scan(false).empty());
++
++  PerFileModulesCompilationDatabase OtherCDB(TestDir, FS);
++  OtherCDB.addFile("Broken.cppm", Source);
++  auto OtherGeneration = OtherCDB.toolingCDB();
++  Before = getModuleDependencyScanCache().stats();
++  auto Modules = clang::clangd::getProjectModules(
++      OtherGeneration, FS, createProjectModulesCommandCache(OtherGeneration, true));
++  EXPECT_TRUE(Modules->getRequiredModules(Broken).empty());
++  EXPECT_EQ(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++}
++
++TEST_F(PrerequisiteModulesTests, ScanMemoRealPathRetargetsAndMissingInputs) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "requires a local symlink and hardlink";
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("A.h", "same bytes\n");
++  auto A = getFullPath("A.h");
++  auto B = (TestDir + "/B.h").str();
++  auto Link = (TestDir + "/alias.h").str();
++  ASSERT_FALSE(llvm::sys::fs::create_hard_link(A, B));
++  ASSERT_FALSE(llvm::sys::fs::create_symlink(A, Link));
++  llvm::sys::fs::file_status SA, SB;
++  ASSERT_FALSE(llvm::sys::fs::status(A, SA));
++  ASSERT_FALSE(llvm::sys::fs::status(B, SB));
++  ASSERT_EQ(SA.getUniqueID(), SB.getUniqueID());
++  ASSERT_EQ(SA.getSize(), SB.getSize());
++  ASSERT_EQ(SA.getLastModificationTime(), SB.getLastModificationTime());
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> View(
++      llvm::vfs::createPhysicalFileSystem().release());
++  ASSERT_FALSE(View->setCurrentWorkingDirectory(TestDir));
++  auto Inputs = std::make_shared<ModuleScanManifest>();
++  auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(View, Inputs);
++  llvm::SmallString<256> Resolved;
++  ASSERT_FALSE(Recording->getRealPath(Link, Resolved));
++  EXPECT_TRUE(Inputs->matches(*View));
++  ASSERT_FALSE(llvm::sys::fs::remove(Link));
++  ASSERT_FALSE(llvm::sys::fs::create_symlink(B, Link));
++  // Bytes, inode alias and timestamp remain identical. Canonical spelling
++  // changes, so replay must still fail.
++  EXPECT_FALSE(Inputs->matches(*View));
++
++  auto Missing = (TestDir + "/missing.h").str();
++  Inputs = std::make_shared<ModuleScanManifest>();
++  Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(View, Inputs);
++  Resolved.clear();
++  ASSERT_TRUE(Recording->getRealPath(Missing, Resolved));
++  EXPECT_TRUE(Inputs->matches(*View));
++  ASSERT_FALSE(llvm::sys::fs::create_symlink(A, Missing));
++  EXPECT_FALSE(Inputs->matches(*View));
++}
++
++TEST_F(PrerequisiteModulesTests, ScanMemoCompactsIdenticalIdempotentFacts) {
++  auto View = FS.view(TestDir);
++  auto Inputs = std::make_shared<ModuleScanManifest>();
++  auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(View, Inputs);
++  llvm::SmallString<256> Path("same.h");
++  ASSERT_FALSE(Recording->makeAbsolute(Path));
++  ASSERT_EQ(Inputs->Observations.size(), 1u);
++  const auto Original = Inputs->Observations.front();
++  for (size_t I = 0; I < ModuleScanManifest::ProbeLimit * 2; ++I)
++    Inputs->add(Original);
++  EXPECT_TRUE(Inputs->Complete);
++  EXPECT_EQ(Inputs->Observations.size(), 1u);
++  EXPECT_TRUE(Inputs->matches(*View));
++  auto Changed = Original;
++  Changed.Name += "/different";
++  Inputs->add(Changed);
++  EXPECT_EQ(Inputs->Observations.size(), 2u);
++  EXPECT_FALSE(Inputs->matches(*View));
++  Changed = Original;
++  Changed.Binary = true;
++  Inputs->add(Changed);
++  EXPECT_EQ(Inputs->Observations.size(), 3u);
++  Changed = Original;
++  Changed.Bytes.front() = 1;
++  Inputs->add(Changed);
++  EXPECT_EQ(Inputs->Observations.size(), 4u);
++  // All status fields participate, including alias identity.
++  auto Status = View->status(TestDir);
++  ASSERT_TRUE(Status);
++  ModuleScanManifest::Observation Stat{ModuleScanManifest::Stat,
++                                       TestDir.str().str()};
++  Stat.Info.emplace(*Status);
++  Inputs->add(Stat);
++  Inputs->add(Stat);
++  EXPECT_EQ(Inputs->Observations.size(), 5u);
++  Stat.Info->ID = llvm::sys::fs::UniqueID(100, 200);
++  Inputs->add(Stat);
++  EXPECT_EQ(Inputs->Observations.size(), 6u);
++  Changed.Operation = ModuleScanManifest::DirectoryBegin;
++  Inputs->add(Changed);
++  Inputs->add(Changed);
++  EXPECT_EQ(Inputs->Observations.size(), 8u);
++  ModuleScanManifest Bounded;
++  for (size_t I = 0; I < ModuleScanManifest::ProbeLimit; ++I)
++    Bounded.add(Changed); // Ordered directory events cannot be compacted.
++  EXPECT_TRUE(Bounded.Complete);
++  EXPECT_EQ(Bounded.Observations.size(), ModuleScanManifest::ProbeLimit);
++  Bounded.add(Changed);
++  EXPECT_FALSE(Bounded.Complete);
++  EXPECT_EQ(Bounded.Observations.size(), ModuleScanManifest::ProbeLimit);
++
++}
++
++TEST_F(PrerequisiteModulesTests, FailedScanResponseInputsRemainFresh) {
++  MockFS FS;
++  FS.OverlayRealFileSystemForModules = true;
++  const auto Broken = (TestDir + "/Broken.cppm").str();
++  const auto Response = (TestDir + "/mode.rsp").str();
++  FS.Files[Broken] = "#if BAD\n#error blocked\n#endif\n"
++                     "export module Broken;\nimport M;\n";
++  FS.Files[(TestDir + "/compile_commands.json").str()] =
++      "[{\"directory\":\"" + TestDir.str().str() +
++      "\",\"file\":\"" + Broken +
++      "\",\"arguments\":[\"clang\",\"-std=c++20\",\"@mode.rsp\",\"" +
++      Broken + "\"]}]";
++  FS.Files[Response] = "-DBAD=1";
++  FS.Timestamps[Response] = 123456789;
++  DirectoryBasedGlobalCompilationDatabase GDB(FS);
++  auto Scan = [&] {
++    auto Modules = GDB.getProjectModules(Broken);
++    EXPECT_TRUE(Modules);
++    return Modules ? Modules->getRequiredModules(Broken)
++                   : std::vector<std::string>{};
++  };
++  EXPECT_TRUE(Scan().empty());
++  auto Before = getModuleDependencyScanCache().stats();
++  EXPECT_TRUE(Scan().empty());
++  EXPECT_EQ(getModuleDependencyScanCache().stats().Hits, Before.Hits);
++  // Original response inputs still decline scan memo admission. Their
++  // expanded CDB generation must reload exact bytes despite equal size/mtime.
++  FS.Files[Response] = "-DBAD=0";
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++}
++
+ TEST_F(PrerequisiteModulesTests, PositiveScanMemoPreservesConfiguredProviders) {
+   PerFileModulesCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "export module Root;\n#ifdef NEXT\nimport N;\n"
+-- 
+2.53.0
+

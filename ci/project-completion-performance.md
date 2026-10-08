@@ -1,6 +1,6 @@
 # Real project completion measurement
 
-2026-10-08 current baseline: source 777503b85 (patches 1–42), development
+2026-10-08 historical 42 baseline: source 777503b85 (patches 1–42), development
 binary SHA cfa2a39a56c2fb9b1678f5c4f006bcf6e64d22d851f8cb4d5d6fc07c4b403307,
 unaltered current Qt project CDB. All eight `std::ve` requests contain `vector`,
 but cold completion is 3165 ms, four settled warm samples are 725–730 ms and

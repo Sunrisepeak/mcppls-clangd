@@ -1,3 +1,51 @@
+# Current scan memo contract (0044)
+
+Patch 0044 extends the historical successful-result memo below. Semantic scan
+failures may be reused only when the scanning tool actually emitted errors and
+the complete observed manifest, exact request bytes, adjusted command, immutable
+CDB generation and environment all revalidate. Hits retain the original failure
+and command diagnostics and return nullopt. They never invent a provider, module
+name or BMI. Failure diagnostics retain at most 64 KiB and count toward the
+unchanged 32 MiB/256-entry shared metadata budget.
+
+RealPath now records original spelling, CWD, exact error and canonical result,
+then replays against the current request VFS. Initially populated outputs and
+unknown operations decline. Exact duplicate idempotent facts compact only when
+all operation/status/error/name/UID/metadata/read digest/size/binary/null/found
+fields match. Different outcomes remain; directory events remain ordered.
+Recording uses bounded linear lookup (quadratic worst-case comparisons).
+
+The explicit observation cap rises from 2048 to 8192. Actual complete Qt manifests
+need 5731 facts for main, 4859 for moc, 3928 for failed GCC std.cc, 3226 for
+nlohmann and 183 for qrc; six entries charge 14,086,498 bytes. Worst-case replay
+work rises fourfold; this is neither an RSS cap nor permission to skip freshness.
+Oversized manifests/diagnostics, unsupported native discovery, actual time
+builtins, response-file commands, missing provenance and opaque inputs still
+reject admission. Every replay operation and the final operation poll
+cancellation. Store rechecks after replay, under the lock, during budget
+reservation and before publication; canceled candidates release reserved bytes
+and do not evict valid hit entries.
+
+Private initial 0aa9f31 plus cancellation follow-up dfac5eb are preserved; export
+18de83e has their final tree. Eight focused tests pass, covering failure repair
+including equal-size/equal-mtime bytes, newly created headers, drafts, CDB and
+response changes, oversized diagnostics, cancellation at the final read,
+real-path alias changes, exact compaction and retained ordered differences.
+Private links put changed objects before unchanged root archives; that scope is
+not a full clean release build. The combined root 1–46 verification rebuilds all
+four changed translation units and passes 100 related tests. Ordered application
+matches 74 affected paths and three overlays. See
+[combined evidence](../tests/evidence/project-qt-worker46.json).
+
+Matched-resource Qt measurement on actual combined source gives warm 344–348 ms
+versus 725–730 ms at 42, edited 742 ms versus 1302–1314 ms. Both positive manifest
+admission and failed std scan reuse contribute; this is not an isolated negative
+cache speedup. All four semantic requests pass. The 200 ms target, insertion
+compilation and statistical context matrix remain open. An earlier private run
+without the explicit resource directory changed the workload and is discarded.
+
+## Historical 0028 contract (superseded where specified above)
+
 # 0028: verified positive module-dependency scans (UP-03 / W2)
 
 The previous request-buffer fix makes scans correct but removed an unsafe disk-stat verdict cache. This change reuses successful P1689 scans only after replaying the filesystem inputs observed by a fresh scanner. It preserves module provider mapping on a hit and leaves source/provider/BMI validation in ModulesBuilder in place.
