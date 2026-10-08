@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "patch": "0065-UP-03-exact-module-scan-filesystem-queries.patch",
+  "source_commit": "ed882ae6c220047c0e846588779c22a76f22ca39",
+  "control": "PrerequisiteModulesTests.ScanManifestReplaysExactRelativeQueries",
+  "records": [
+    {
+      "label": "before",
+      "source_commit": "eb46056930984aa57ca7c15857d13a0bbc652f21",
+      "source_dirty": true,
+      "unit_source_sha256": "dcc7479614f33eb1abad129475fa645f3859ab5f83cfd98817c10ebd79c7b844",
+      "binary_sha256": "942e9fd93035873953163dd2ee29509c87bd3212fea0210434e7d28a6db2e08c",
+      "expected_exit": 1,
+      "raw_log": "module-scan-relative-queries/before-result.log",
+      "compile_manifest": "module-scan-relative-queries/before-compile.json",
+      "link_manifest": "module-scan-relative-queries/before-link-args.json"
+    },
+    {
+      "label": "after",
+      "source_commit": "ed882ae6c220047c0e846588779c22a76f22ca39",
+      "source_dirty": false,
+      "unit_source_sha256": "dcc7479614f33eb1abad129475fa645f3859ab5f83cfd98817c10ebd79c7b844",
+      "binary_sha256": "bd3a725a31bf63551c3657a2fea1a66b04cda6146c91a1bdab00feb656851cd6",
+      "expected_exit": 0,
+      "raw_log": "module-scan-relative-queries/after-result.log",
+      "compile_manifest": "module-scan-relative-queries/after-compile.json",
+      "link_manifest": "module-scan-relative-queries/after-link-args.json"
+    }
+  ],
+  "matched_test_source": true,
+  "cause": "Recording status/open/exists replaced original relative request spelling with an absolute path, while returned status/file names retained the relative spelling. Replay therefore disagreed on an unchanged real filesystem.",
+  "result": "Original matches assertion fails before; exact query replay passes after. Same-size, exact-mtime content replacement still invalidates after.",
+  "build_scope": "Only ProjectModules.cpp and PrerequisiteModulesTest.cpp include the changed internal header; both compiled for after. Before adds the identical test to its unchanged baseline header. All other source objects from stable joint eb460 plus read-only root46 archives; no shared archive modifications.",
+  "limitations": [
+    "Linux actual filesystem proof only; native CI remains required.",
+    "No PCH-policy or performance qualification in patch65."
+  ]
+}

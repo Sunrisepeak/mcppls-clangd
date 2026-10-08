@@ -1,0 +1,95 @@
+From ed882ae6c220047c0e846588779c22a76f22ca39 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 19:41:47 +0900
+Subject: [PATCH] fix(clangd): dependency manifests replay exact filesystem
+ query spellings
+
+---
+ .../clangd/ModuleDependencyScanCache.h        |  8 ++--
+ .../unittests/PrerequisiteModulesTest.cpp     | 37 +++++++++++++++++++
+ 2 files changed, 42 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index 48af55817..920db339b 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -376,7 +376,9 @@ public:
+ 
+   llvm::ErrorOr<llvm::vfs::Status> status(const llvm::Twine &Path) override {
+     auto Result = getUnderlyingFS().status(Path);
+-    ModuleScanManifest::Observation O{ModuleScanManifest::Stat, absolute(Path)};
++    // Returned names can expose the relative caller spelling. Replay the exact
++    // query; WorkingDirectory is separately frozen and checked.
++    ModuleScanManifest::Observation O{ModuleScanManifest::Stat, Path.str()};
+     if (Result)
+       O.Info.emplace(*Result);
+     else
+@@ -387,7 +389,7 @@ public:
+   bool exists(const llvm::Twine &Path) override {
+     bool Result = getUnderlyingFS().exists(Path);
+     ModuleScanManifest::Observation O{ModuleScanManifest::Exists,
+-                                      absolute(Path)};
++                                      Path.str()};
+     O.Found = Result;
+     Manifest->add(std::move(O));
+     return Result;
+@@ -519,7 +521,7 @@ private:
+                                                        bool Binary) {
+     auto Result = Binary ? getUnderlyingFS().openFileForReadBinary(Path)
+                          : getUnderlyingFS().openFileForRead(Path);
+-    std::string Name = absolute(Path);
++    std::string Name = Path.str();
+     ModuleScanManifest::Observation O{ModuleScanManifest::Open, Name};
+     O.Binary = Binary;
+     if (!Result)
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index a1026fc16..d7b06d675 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -3353,6 +3353,43 @@ export int BValue = MValue;
+   EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("relative.hpp", "int relative_value = 1;\n");
++  auto View = FS.view(TestDir);
++  auto Inputs = std::make_shared<ModuleScanManifest>();
++  auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(View, Inputs);
++  // These are real PCH/FileManager query spellings. Their returned names must
++  // be replayed with the same relative input, not with an invented absolute one.
++  ASSERT_TRUE(Recording->status("."));
++  ASSERT_TRUE(Recording->status("relative.hpp"));
++  EXPECT_FALSE(Recording->status("absent.hpp"));
++  auto File = Recording->openFileForRead("relative.hpp");
++  ASSERT_TRUE(File);
++  ASSERT_TRUE((*File)->status());
++  ASSERT_TRUE((*File)->getName());
++  ASSERT_TRUE((*File)->getBuffer("display-name.hpp", -1, true, true));
++  ASSERT_FALSE((*File)->close());
++  ASSERT_TRUE(Inputs->Complete);
++  EXPECT_TRUE(Inputs->matches(*FS.view(TestDir)));
++  auto Path = getFullPath("relative.hpp");
++  llvm::sys::fs::file_status Before;
++  ASSERT_FALSE(llvm::sys::fs::status(Path, Before));
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Path, EC);
++    ASSERT_FALSE(EC);
++    Out << "int relative_value = 2;\n";
++  }
++  ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++      Path, Before.getLastAccessedTime(), Before.getLastModificationTime()));
++  llvm::sys::fs::file_status After;
++  ASSERT_FALSE(llvm::sys::fs::status(Path, After));
++  ASSERT_EQ(Before.getSize(), After.getSize());
++  ASSERT_EQ(Before.getLastModificationTime(), After.getLastModificationTime());
++  EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
++}
++
+ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   Annotations UseCpp("#include \"Header.hpp\"\nvoid use() { fn_^; }\n");
+-- 
+2.53.0
+
