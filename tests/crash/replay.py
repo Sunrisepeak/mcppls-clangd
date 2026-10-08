@@ -120,7 +120,7 @@ def sample_darwin_timeout(proc, directory):
     return info
 
 
-def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
+def replay(engine, manifest, process_started=None, timeout_diagnostics=None, request_snapshot=None):
     case = json.loads(manifest.read_text())
     if case.get("platform") != platform_name():
         raise ValueError(f"{manifest}: wrong platform")
@@ -254,13 +254,17 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
                     time.sleep(0.01)
                 continue
             if step.get("action") == "await":
-                request_id, method, started, started_ns = aliases.pop(step["request"])
+                request_id, method, started, started_ns, resource_start = aliases.pop(step["request"])
                 response = wait_reply(request_id, step.get("allow_error", False))
                 completed_ns = time.monotonic_ns()
+                elapsed_ms = (completed_ns-started_ns)/1e6
                 result["raw_responses"].append({"method": method, "reply": response,
                                                 "started_monotonic_ns": started_ns,
                                                 "completed_monotonic_ns": completed_ns,
-                                                "elapsed_ms": (time.monotonic()-started)*1000})
+                                                "elapsed_ms": elapsed_ms})
+                if resource_start is not None:
+                    result["raw_responses"][-1]["resource_snapshots"] = {
+                        "start": resource_start, "end": request_snapshot(proc, method)}
                 for path, expected in step.get("expect", {}).items():
                     if pointer(response, path) != expand(expected):
                         raise ValueError(f"deferred response failed assertion {path}")
@@ -311,6 +315,7 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
                 continue
             if step["method"] in ("shutdown", "exit"):
                 raise ValueError("shutdown is managed by the replay harness")
+            resource_start = request_snapshot(proc, step["method"]) if request_snapshot and not step.get("notify") else None
             started = time.monotonic()
             started_ns = time.monotonic_ns()
             response = send(step["method"], expand(step.get("params")), step.get("notify", False),
@@ -318,21 +323,25 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None):
             if step.get("defer"):
                 if step.get("notify") or step["defer"] in aliases:
                     raise ValueError("deferred request requires a unique name")
-                aliases[step["defer"]] = (response, step["method"], started, started_ns)
+                aliases[step["defer"]] = (response, step["method"], started, started_ns, resource_start)
                 continue
             if response is not None:
                 completed_ns = time.monotonic_ns()
+                elapsed_ms = (completed_ns-started_ns)/1e6
                 result["raw_responses"].append({"method": step["method"], "reply": response,
                                                 "started_monotonic_ns": started_ns,
                                                 "completed_monotonic_ns": completed_ns,
-                                                "elapsed_ms": (time.monotonic()-started)*1000})
+                                                "elapsed_ms": elapsed_ms})
+                if resource_start is not None:
+                    result["raw_responses"][-1]["resource_snapshots"] = {
+                        "start": resource_start, "end": request_snapshot(proc, step["method"])}
             if step.get("expected_symbols") or step.get("forbidden_symbols"):
                 items = response.get("result") or []
                 if isinstance(items, dict):
                     items = items.get("items", [])
                 names = {re.split(r"[(<]", i.get("filterText", i.get("label", "")))[0].strip() for i in items}
                 result["responses"].append({"method": step["method"], "symbols": sorted(names),
-                                            "elapsed_ms": (time.monotonic()-started)*1000})
+                                            "elapsed_ms": elapsed_ms})
                 missing = set(step.get("expected_symbols", [])) - names
                 polluted = set(step.get("forbidden_symbols", [])) & names
                 if missing or polluted:

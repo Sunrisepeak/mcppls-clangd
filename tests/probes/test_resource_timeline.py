@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import platform
 import tempfile
+import time
 import unittest
 
 from project_completion import Resources, replay
@@ -52,8 +53,14 @@ while True:
                 ],
             }))
             resources = Resources()
+            def snapshot(proc, method):
+                result = resources.snapshot(proc, method)
+                if result is not None:
+                    time.sleep(0.06)  # A slow observer must not inflate reply latency.
+                return result
             try:
-                result = replay.replay(engine, case, process_started=resources.started)
+                result = replay.replay(engine, case, process_started=resources.started,
+                                       request_snapshot=snapshot)
             finally:
                 sampled = resources.finish()
             self.assertEqual(result['outcome'], 'pass', result)
@@ -67,6 +74,12 @@ while True:
                 start, end = reply['started_monotonic_ns'], reply['completed_monotonic_ns']
                 self.assertLess(start, end)
                 self.assertLessEqual((end-start)/1e6, reply['elapsed_ms'] + 0.001)
+                if reply['method'] == 'textDocument/completion':
+                    samples = reply['resource_snapshots']
+                    self.assertLessEqual(samples['start']['monotonic_ns'], start)
+                    self.assertGreaterEqual(samples['end']['sample_started_monotonic_ns'], end)
+                    self.assertGreater(samples['end']['cpu_ms'], samples['start']['cpu_ms'])
+                    self.assertEqual((end-start)/1e6, reply['elapsed_ms'])
             self.assertLessEqual(replies[1]['completed_monotonic_ns'],
                                  replies[2]['started_monotonic_ns'])
             stable = [s for s in sampled['samples']

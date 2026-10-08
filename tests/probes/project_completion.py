@@ -50,26 +50,14 @@ class Resources:
         self.thread = None
 
     def started(self, proc, deadline):
+        self.began = time.monotonic()
         if not platform.system() == 'Linux':
             self.errors.append('Linux /proc sampler unavailable on this platform')
             return
-        ticks = os.sysconf('SC_CLK_TCK')
-        began = time.monotonic()
         def sample():
             while not self.stop.is_set():
                 try:
-                    sample_started_ns = time.monotonic_ns()
-                    root = Path('/proc') / str(proc.pid)
-                    stat = (root / 'stat').read_text().rsplit(')', 1)[1].split()
-                    values = dict(line.split(':', 1) for line in (root / 'status').read_text().splitlines() if ':' in line)
-                    self.samples.append({
-                        'monotonic_ns': time.monotonic_ns(),
-                        'sample_started_monotonic_ns': sample_started_ns,
-                        'elapsed_ms': (time.monotonic() - began) * 1000,
-                        'cpu_ms': (int(stat[11]) + int(stat[12])) * 1000 / ticks,
-                        'rss_kib': int(values.get('VmRSS', '0 kB').split()[0]),
-                        'high_water_rss_kib': int(values.get('VmHWM', '0 kB').split()[0]),
-                    })
+                    self.samples.append(self.read(proc))
                 except FileNotFoundError:
                     break
                 except (OSError, ValueError, IndexError) as error:
@@ -79,11 +67,32 @@ class Resources:
         self.thread = threading.Thread(target=sample, daemon=True)
         self.thread.start()
 
+    def read(self, proc):
+        sample_started_ns = time.monotonic_ns()
+        root = Path('/proc') / str(proc.pid)
+        stat = (root / 'stat').read_text().rsplit(')', 1)[1].split()
+        values = dict(line.split(':', 1) for line in (root / 'status').read_text().splitlines() if ':' in line)
+        return {'monotonic_ns': time.monotonic_ns(),
+                'sample_started_monotonic_ns': sample_started_ns,
+                'elapsed_ms': (time.monotonic() - self.began) * 1000,
+                'cpu_ms': (int(stat[11]) + int(stat[12])) * 1000 / os.sysconf('SC_CLK_TCK'),
+                'rss_kib': int(values.get('VmRSS', '0 kB').split()[0]),
+                'high_water_rss_kib': int(values.get('VmHWM', '0 kB').split()[0])}
+
+    def snapshot(self, proc, method):
+        if platform.system() != 'Linux' or method != 'textDocument/completion':
+            return None
+        try:
+            return self.read(proc)
+        except (OSError, ValueError, IndexError) as error:
+            self.errors.append(str(error))
+            return {'error': str(error)}
+
     def finish(self):
         self.stop.set()
         if self.thread:
             self.thread.join(timeout=2)
-        return {'interval_ms': 100, 'clock': 'time.monotonic_ns; shared with replay request spans', 'scope': 'Engine process only; sampled CPU lower bound, observed VmHWM, no descendants or hard memory ceiling.',
+        return {'interval_ms': 100, 'clock': 'time.monotonic_ns; shared with replay request spans', 'scope': 'Engine process only; periodic CPU coverage is a lower bound, completion boundary snapshots delimit CPU windows; observed VmHWM, no descendants or hard memory ceiling.',
                 'samples': self.samples, 'errors': self.errors,
                 'sampler_stopped': self.thread is None or not self.thread.is_alive()}
 
@@ -197,7 +206,8 @@ def main():
                     os.environ['CLANGD_TRACE'] = str(args.trace.resolve())
                 sampler = Resources() if args.resources else None
                 try:
-                    result = replay.replay(engine, manifest, process_started=sampler.started if sampler else None)
+                    result = replay.replay(engine, manifest, process_started=sampler.started if sampler else None,
+                                           request_snapshot=sampler.snapshot if sampler else None)
                 finally:
                     resource_result = sampler.finish() if sampler else None
                 result['requested_phases'] = phases
@@ -227,6 +237,7 @@ def main():
                         result['context_answers'].append({'phase': phase, 'elapsed_ms': answer['elapsed_ms'],
                             'started_monotonic_ns': answer['started_monotonic_ns'],
                             'completed_monotonic_ns': answer['completed_monotonic_ns'],
+                            'resource_snapshots': answer.get('resource_snapshots'),
                             'missing': missing, 'polluted': polluted, 'unexpected_nonempty': empty_failure,
                             'semantic_pass': not (missing or polluted or empty_failure or semantic_origin_failed or index_origin_failed or untyped or 'error' in answer['reply']),
                             'origin': origin, 'semantic_origin_failed': semantic_origin_failed,
