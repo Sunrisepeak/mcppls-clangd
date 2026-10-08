@@ -21,12 +21,13 @@ cp /usr/share/doc/gcc-9-base/copyright "$RUNTIME_LICENSE_DIR/GCC-RUNTIME-copyrig
 cp /usr/share/common-licenses/GPL-3 "$RUNTIME_LICENSE_DIR/GPL-3.txt"
 cp /usr/share/doc/zlib1g-dev/copyright "$RUNTIME_LICENSE_DIR/zlib-copyright.txt"
 source ci/scripts/env.sh
+git config --global --add safe.directory "$LLVM_DIR"
 ./ci/ci_build.sh
 # The installed-engine semantic gates below need this same-source driver;
 # the non-test ci_build stage builds only clangd.
 cmake --build "$BUILD_DIR" --target clang clang-resource-headers -j "${JOBS:-4}"
 # Resource headers must be present before the final build stamp is recorded.
-python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$PWD/llvm-project" --platform "$PLATFORM"
+python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --platform "$PLATFORM"
 ./ci/scripts/package.sh
 python3 ci/portability_linux.py \
   "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.0}-$PLATFORM/clangd/bin/clangd" \
