@@ -1,0 +1,35 @@
+{
+  "fork_commit": "b053791302aa4695d0e5c2281df73b0307e2b3a3",
+  "series_sha256": "ca95a5118281de2d0ac427823db0fb04ea2d77b53bb9d91aa9c693313807ab9e",
+  "source": "/tmp/mcppls-part2-clean-selective68/llvm-project",
+  "build": "/tmp/mcppls-part2-clean-selective68/build-linux-x64",
+  "started_unix": 1791482304.40579,
+  "stages": [
+    {
+      "stage": "fetch",
+      "exit_code": 0
+    },
+    {
+      "stage": "apply",
+      "exit_code": 0
+    },
+    {
+      "stage": "configure",
+      "exit_code": 0
+    },
+    {
+      "stage": "build-test",
+      "exit_code": 1
+    },
+    {
+      "stage": "build-test-resume",
+      "exit_code": 127
+    }
+  ],
+  "current_stage": "failed",
+  "changed_sources_byte_equal": true,
+  "source_head": "b3f6c6a6db81e312becbf70f39bc372314e7edf5",
+  "resume_reason": "Confirmed terminal compiler temporary/output writes hit root filesystem exhaustion. Keep partial clean build, use dedicated tmpfs compiler temporary directory; no source/flags/series change.",
+  "compiler_temp": "/dev/shm/mcppls-clean-selective68-compiler-temp",
+  "finished_unix": 1791485289.1323063
+}

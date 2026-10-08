@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.."
 # Bring BUILD_DIR/LLVM_DIR/FORK_VERSION into this shell: the stage scripts run
 # configure in a child process, and their exported values do not come back.
 source ci/scripts/env.sh
+MCPPLS_CI_ROOT="$PWD"
 
 ./ci/scripts/fetch.sh
 # CI always starts from the pinned tree; re-apply if the cache restored an
@@ -61,6 +62,9 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   if [[ "$PLATFORM" == "linux-x64" ]]; then
     "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.PositiveScanMemo*'
   fi
+  python3 "$MCPPLS_CI_ROOT/tests/e2e/frontend_completion_consumers.py" \
+    --clang "$PWD/bin/clang" --c-index-test "$PWD/bin/c-index-test" \
+    --clang-repl "$PWD/bin/clang-repl" --workdir "$PWD/frontend-consumer-evidence"
 fi
 
 if [[ -n "${PACKAGE:-}" ]]; then

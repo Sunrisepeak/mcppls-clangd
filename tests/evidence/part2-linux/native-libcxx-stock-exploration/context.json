@@ -1,0 +1,19 @@
+{
+  "name": "native-libcxx-std-qualified",
+  "before": "    std::vector<int> stable;",
+  "prefix": "    std::ve",
+  "suffix": " probe_vector;\n",
+  "expected": [
+    "vector"
+  ],
+  "kind": {
+    "vector": 7
+  },
+  "bindings": {
+    "vector": {
+      "1": "int"
+    }
+  },
+  "require_sema": true,
+  "limit_ms": 200
+}

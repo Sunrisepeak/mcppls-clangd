@@ -1,0 +1,142 @@
+{
+  "passed": true,
+  "scope": "CLI/CIndex default completion consumer parity for text/PCH, two overloads and a second name; interpreter declaration execution smoke, not interactive completion or performance qualification.",
+  "tool_sha256": {
+    "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/clang-23": "4f8fde85b4f05a0b7da605e56b5b97549aa61d94ce7584057757c0365efbb37b",
+    "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/c-index-test": "d7c6da85d689544d4fa7c10abb3d32b2c5477f47dd11fa5e6c97b0a29834c89e",
+    "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/clang-repl": "ec65650ef999f91ee9e6e08f953794621878548b5d59e43d46be82aaa786a690"
+  },
+  "project": "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6",
+  "stages": {
+    "clang-build-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/clang-23",
+        "-x",
+        "c++-header",
+        "-std=c++20",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API.h",
+        "-o",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API.pch"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clang-text": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/clang-23",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-include",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API.h",
+        "-Xclang",
+        "-code-completion-at=/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp:1:23",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "240d7918d816d89bea0c20aff2f594db9f3e24fce6da09e4f62ccaa5e0d4ecf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "clang-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/clang-23",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-include-pch",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API.pch",
+        "-Xclang",
+        "-code-completion-at=/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp:1:23",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "240d7918d816d89bea0c20aff2f594db9f3e24fce6da09e4f62ccaa5e0d4ecf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-build-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/c-index-test",
+        "-write-pch",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API-index.pch",
+        "-x",
+        "c++-header",
+        "-std=c++20",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API.h"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-text": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/c-index-test",
+        "-code-completion-at=/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp:1:23",
+        "-std=c++20",
+        "-include",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API.h",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "b92ddd7c3d1ca958f093fbcfc960077c59b4329578ff0989f2e586eeb2afe74c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "index-pch": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/c-index-test",
+        "-code-completion-at=/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp:1:23",
+        "-std=c++20",
+        "-include-pch",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/API-index.pch",
+        "/tmp/mcppls-part2-clean-selective68/frontend-consumers-v2/consumers-168916c6/Use.cpp"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "b92ddd7c3d1ca958f093fbcfc960077c59b4329578ff0989f2e586eeb2afe74c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "interpreter": {
+      "argv": [
+        "/tmp/mcppls-part2-clean-selective68/build-linux-x64/bin/clang-repl"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout_sha256": "d3e1d8cd636aa4758a9d083f744c7f7e84d396bd0d60b16ee0bc8b2ef2bb61b9",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "parity": {
+    "clang": {
+      "text": [
+        "COMPLETION: vector : [#int#]vector(<#double amount#>)",
+        "COMPLETION: vector : [#int#]vector(<#int count#>)",
+        "COMPLETION: version : [#int#]version()"
+      ],
+      "pch": [
+        "COMPLETION: vector : [#int#]vector(<#double amount#>)",
+        "COMPLETION: vector : [#int#]vector(<#int count#>)",
+        "COMPLETION: version : [#int#]version()"
+      ]
+    },
+    "c-index-test": {
+      "text": [
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder double amount}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder int count}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText version}{LeftParen (}{RightParen )} (50)"
+      ],
+      "pch": [
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder double amount}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText vector}{LeftParen (}{Placeholder int count}{RightParen )} (50)",
+        "FunctionDecl:{ResultType int}{TypedText version}{LeftParen (}{RightParen )} (50)"
+      ]
+    }
+  },
+  "pch_sha256": {
+    "clang": "f262159b4cbbe6e321bf47c775e70665ae81563d67d2586c79911670223a78b9",
+    "c-index-test": "e8cafbe5636ea4cbb82a158eff37f0f657ad5450f590268d94ab68894b0ed5e6"
+  },
+  "source_unchanged": true
+}

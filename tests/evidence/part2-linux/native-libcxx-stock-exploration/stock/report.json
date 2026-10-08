@@ -1,0 +1,3107 @@
+{
+  "schema": 4,
+  "engine_sha256": "c52547480ebac0f2887bb70e34bdfb54a0841d6bc84881c21e66de81c1bf2b0b",
+  "engine_flags": [
+    "--experimental-modules-support",
+    "--background-index=false",
+    "--header-insertion=never",
+    "-j=4",
+    "-resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23",
+    "--compile-commands-dir=/tmp/mcppls-part2-native-libcxx-std/stock/cdb"
+  ],
+  "source_sha256": "fafdc87b03197f14d5ab9734bc17006a58321be989ac60b07eb6135f241d0039",
+  "position": {
+    "line": 2,
+    "character": 11
+  },
+  "draft_source_sha256": "fafdc87b03197f14d5ab9734bc17006a58321be989ac60b07eb6135f241d0039",
+  "draft_source": null,
+  "expression": "    std::ve",
+  "starts": 1,
+  "rounds": 1,
+  "phases": {
+    "cold-open": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        3.7643539981218055
+      ],
+      "p50_ms": 3.7643539981218055,
+      "p95_ms": 3.7643539981218055
+    },
+    "settled-warm": {
+      "requested": 2,
+      "answered": 2,
+      "missing": 0,
+      "samples_ms": [
+        133.58072299160995,
+        99.43905999534763
+      ],
+      "p50_ms": 99.43905999534763,
+      "p95_ms": 133.58072299160995
+    },
+    "edited": {
+      "requested": 1,
+      "answered": 1,
+      "missing": 0,
+      "samples_ms": [
+        166.69481799181085
+      ],
+      "p50_ms": 166.69481799181085,
+      "p95_ms": 166.69481799181085
+    }
+  },
+  "all_semantic_requests_passed": false,
+  "context": {
+    "name": "native-libcxx-std-qualified",
+    "before": "    std::vector<int> stable;",
+    "prefix": "    std::ve",
+    "suffix": " probe_vector;\n",
+    "expected": [
+      "vector"
+    ],
+    "kind": {
+      "vector": 7
+    },
+    "bindings": {
+      "vector": {
+        "1": "int"
+      }
+    },
+    "require_sema": true,
+    "limit_ms": 200
+  },
+  "insertions": [
+    {
+      "start": 0,
+      "answer": 0,
+      "phase": "cold-open",
+      "symbol": "vector",
+      "error": "no candidate of required symbol/kind"
+    },
+    {
+      "start": 0,
+      "answer": 1,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "filterText": "vector",
+        "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<class Tp, class Alloc>",
+        "score": 1.2068569660186768,
+        "sortText": "406585b6vector",
+        "textEdit": {
+          "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 2
+            },
+            "start": {
+              "character": 9,
+              "line": 2
+            }
+          }
+        }
+      },
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "clang++: warning: argument unused during compilation: '-stdlib=libc++' [-Wunused-command-line-argument]\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:235:59: error: incomplete type 'Alloc' named in nested name specifier\n  235 |   using value_type                             = typename allocator_type::value_type;\n      |                                                           ^~~~~~~~~~~~~~~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:297:27: note: in instantiation of template class 'std::__allocator_traits_base<Alloc>' requested here\n  297 | struct allocator_traits : __allocator_traits_base<_Alloc> {\n      |                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:120:51: note: in instantiation of template class 'std::__1::allocator_traits<Alloc>' requested here\n  120 |   using size_type _LIBCPP_NODEBUG      = typename __alloc_traits::size_type;\n      |                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_empty.h:22:70: error: incomplete type 'Alloc' used in type trait expression\n   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_empty : integral_constant<bool, __is_empty(_Tp)> {};\n      |                                                                      ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:138:1: note: in instantiation of template class 'std::__1::is_empty<Alloc>' requested here\n  138 | using __is_always_equal _LIBCPP_NODEBUG =\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:245:50: note: in instantiation of template type alias '__is_always_equal' requested here\n  245 |   using is_always_equal                        = __is_always_equal<allocator_type>;\n      |                                                  ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:297:27: note: in instantiation of template class 'std::__allocator_traits_base<Alloc>' requested here\n  297 | struct allocator_traits : __allocator_traits_base<_Alloc> {\n      |                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:120:51: note: in instantiation of template class 'std::__1::allocator_traits<Alloc>' requested here\n  120 |   using size_type _LIBCPP_NODEBUG      = typename __alloc_traits::size_type;\n      |                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:75: error: field has incomplete type 'allocator_type' (aka 'Alloc')\n  218 |   _LIBCPP_COMPRESSED_PAIR(pointer, __capacity_ = nullptr, allocator_type, __alloc_);\n      |                                                                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:3: note: in instantiation of member class 'std::__vector_layout<int, Alloc>::(anonymous struct at /home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:3)' requested here\n  218 |   _LIBCPP_COMPRESSED_PAIR(pointer, __capacity_ = nullptr, allocator_type, __alloc_);\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/compressed_pair.h:99:7: note: expanded from macro '_LIBCPP_COMPRESSED_PAIR'\n   99 |       struct {                                                                                                         \\\n      |       ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_trivially_copyable.h:23:83: error: incomplete type 'Alloc' used in type trait expression\n   23 | struct _LIBCPP_NO_SPECIALIZATIONS is_trivially_copyable : integral_constant<bool, __is_trivially_copyable(_Tp)> {};\n      |                                                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_trivially_relocatable.h:34:44: note: in instantiation of template class 'std::__1::is_trivially_copyable<Alloc>' requested here\n   34 | struct __libcpp_is_trivially_relocatable : is_trivially_copyable<_Tp> {};\n      |                                            ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:125:60: note: in instantiation of template class 'std::__libcpp_is_trivially_relocatable<Alloc>' requested here\n  125 |       __libcpp_is_trivially_relocatable<pointer>::value && __libcpp_is_trivially_relocatable<allocator_type>::value,\n      |                                                            ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:149:17: error: static assertion failed due to requirement '__has_rebind_other_v<Alloc, int>': This allocator has to implement rebind\n  149 |   static_assert(__has_rebind_other_v<_Tp, _Up>, \"This allocator has to implement rebind\");\n      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:163:1: note: in instantiation of template class 'std::__allocator_traits_rebind<Alloc, int>' requested here\n  163 | using __allocator_traits_rebind_t _LIBCPP_NODEBUG = typename __allocator_traits_rebind<_Alloc, _Tp>::type;\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:249:3: note: in instantiation of template type alias '__allocator_traits_rebind_t' requested here\n  249 |   using rebind_alloc = __allocator_traits_rebind_t<allocator_type, _Tp>;\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:313:3: note: in instantiation of template type alias 'rebind_alloc' requested here\n  313 |   using rebind_alloc = typename __base::template rebind_alloc<_Tp>;\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:403:1: note: in instantiation of template type alias 'rebind_alloc' requested here\n  403 | using __rebind_alloc _LIBCPP_NODEBUG = typename _Traits::template rebind_alloc<_Tp>;\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:412:33: note: in instantiation of template type alias '__rebind_alloc' requested here\n  412 |   static_assert(is_same<_Alloc, __rebind_alloc<_Traits, typename _Traits::value_type> >::value,\n      |                                 ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:129:17: note: in instantiation of template class 'std::__check_valid_allocator<Alloc>' requested here\n  129 |   static_assert(__check_valid_allocator<allocator_type>::value, \"\");\n      |                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:130:34: error: incomplete type 'Alloc' named in nested name specifier\n  130 |   static_assert(is_same<typename allocator_type::value_type, value_type>::value,\n      |                                  ^~~~~~~~~~~~~~~~\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/enable_if.h:34:58: error: no type named 'type' in 'std::__1::enable_if<false, int>'; 'enable_if' cannot be used to disable this declaration\n   34 | using __enable_if_t _LIBCPP_NODEBUG = typename enable_if<_Bp, _Tp>::type;\n      |                                                          ^~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:175:13: note: in instantiation of template type alias '__enable_if_t' requested here\n  175 |   template <__enable_if_t<__is_allocator_v<_Allocator>, int> = 0>\n      |             ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n7 errors generated.\n",
+      "elapsed_ms": 69.39098100701813,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+        "--no-default-config",
+        "-std=c++23",
+        "-stdlib=libc++",
+        "-nostdinc++",
+        "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+        "-fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm",
+        "/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-2qu079fv.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/tmp/mcppls-part2-native-libcxx-std",
+      "cdb_sha256": "b4a68a365b7c7bf58215f0b9792b7769e78e46afe52cc2266148297b7bed52b0",
+      "applied_tu_sha256": "056cbc4b4a1ffbf372d1f39deee5aa598f22a2b362c45057283b1945548795f9"
+    },
+    {
+      "start": 0,
+      "answer": 2,
+      "phase": "edited",
+      "symbol": "vector",
+      "item": {
+        "filterText": "vector",
+        "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<class Tp, class Alloc>",
+        "score": 1.2068569660186768,
+        "sortText": "406585b6vector",
+        "textEdit": {
+          "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 2
+            },
+            "start": {
+              "character": 9,
+              "line": 2
+            }
+          }
+        }
+      },
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "clang++: warning: argument unused during compilation: '-stdlib=libc++' [-Wunused-command-line-argument]\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:235:59: error: incomplete type 'Alloc' named in nested name specifier\n  235 |   using value_type                             = typename allocator_type::value_type;\n      |                                                           ^~~~~~~~~~~~~~~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:297:27: note: in instantiation of template class 'std::__allocator_traits_base<Alloc>' requested here\n  297 | struct allocator_traits : __allocator_traits_base<_Alloc> {\n      |                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:120:51: note: in instantiation of template class 'std::__1::allocator_traits<Alloc>' requested here\n  120 |   using size_type _LIBCPP_NODEBUG      = typename __alloc_traits::size_type;\n      |                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_empty.h:22:70: error: incomplete type 'Alloc' used in type trait expression\n   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_empty : integral_constant<bool, __is_empty(_Tp)> {};\n      |                                                                      ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:138:1: note: in instantiation of template class 'std::__1::is_empty<Alloc>' requested here\n  138 | using __is_always_equal _LIBCPP_NODEBUG =\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:245:50: note: in instantiation of template type alias '__is_always_equal' requested here\n  245 |   using is_always_equal                        = __is_always_equal<allocator_type>;\n      |                                                  ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:297:27: note: in instantiation of template class 'std::__allocator_traits_base<Alloc>' requested here\n  297 | struct allocator_traits : __allocator_traits_base<_Alloc> {\n      |                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:120:51: note: in instantiation of template class 'std::__1::allocator_traits<Alloc>' requested here\n  120 |   using size_type _LIBCPP_NODEBUG      = typename __alloc_traits::size_type;\n      |                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:75: error: field has incomplete type 'allocator_type' (aka 'Alloc')\n  218 |   _LIBCPP_COMPRESSED_PAIR(pointer, __capacity_ = nullptr, allocator_type, __alloc_);\n      |                                                                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:3: note: in instantiation of member class 'std::__vector_layout<int, Alloc>::(anonymous struct at /home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:3)' requested here\n  218 |   _LIBCPP_COMPRESSED_PAIR(pointer, __capacity_ = nullptr, allocator_type, __alloc_);\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/compressed_pair.h:99:7: note: expanded from macro '_LIBCPP_COMPRESSED_PAIR'\n   99 |       struct {                                                                                                         \\\n      |       ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_trivially_copyable.h:23:83: error: incomplete type 'Alloc' used in type trait expression\n   23 | struct _LIBCPP_NO_SPECIALIZATIONS is_trivially_copyable : integral_constant<bool, __is_trivially_copyable(_Tp)> {};\n      |                                                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_trivially_relocatable.h:34:44: note: in instantiation of template class 'std::__1::is_trivially_copyable<Alloc>' requested here\n   34 | struct __libcpp_is_trivially_relocatable : is_trivially_copyable<_Tp> {};\n      |                                            ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:125:60: note: in instantiation of template class 'std::__libcpp_is_trivially_relocatable<Alloc>' requested here\n  125 |       __libcpp_is_trivially_relocatable<pointer>::value && __libcpp_is_trivially_relocatable<allocator_type>::value,\n      |                                                            ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:149:17: error: static assertion failed due to requirement '__has_rebind_other_v<Alloc, int>': This allocator has to implement rebind\n  149 |   static_assert(__has_rebind_other_v<_Tp, _Up>, \"This allocator has to implement rebind\");\n      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:163:1: note: in instantiation of template class 'std::__allocator_traits_rebind<Alloc, int>' requested here\n  163 | using __allocator_traits_rebind_t _LIBCPP_NODEBUG = typename __allocator_traits_rebind<_Alloc, _Tp>::type;\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:249:3: note: in instantiation of template type alias '__allocator_traits_rebind_t' requested here\n  249 |   using rebind_alloc = __allocator_traits_rebind_t<allocator_type, _Tp>;\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:313:3: note: in instantiation of template type alias 'rebind_alloc' requested here\n  313 |   using rebind_alloc = typename __base::template rebind_alloc<_Tp>;\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:403:1: note: in instantiation of template type alias 'rebind_alloc' requested here\n  403 | using __rebind_alloc _LIBCPP_NODEBUG = typename _Traits::template rebind_alloc<_Tp>;\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:412:33: note: in instantiation of template type alias '__rebind_alloc' requested here\n  412 |   static_assert(is_same<_Alloc, __rebind_alloc<_Traits, typename _Traits::value_type> >::value,\n      |                                 ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:129:17: note: in instantiation of template class 'std::__check_valid_allocator<Alloc>' requested here\n  129 |   static_assert(__check_valid_allocator<allocator_type>::value, \"\");\n      |                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:130:34: error: incomplete type 'Alloc' named in nested name specifier\n  130 |   static_assert(is_same<typename allocator_type::value_type, value_type>::value,\n      |                                  ^~~~~~~~~~~~~~~~\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/enable_if.h:34:58: error: no type named 'type' in 'std::__1::enable_if<false, int>'; 'enable_if' cannot be used to disable this declaration\n   34 | using __enable_if_t _LIBCPP_NODEBUG = typename enable_if<_Bp, _Tp>::type;\n      |                                                          ^~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:175:13: note: in instantiation of template type alias '__enable_if_t' requested here\n  175 |   template <__enable_if_t<__is_allocator_v<_Allocator>, int> = 0>\n      |             ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n7 errors generated.\n",
+      "elapsed_ms": 73.34025199816097,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+        "--no-default-config",
+        "-std=c++23",
+        "-stdlib=libc++",
+        "-nostdinc++",
+        "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+        "-fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm",
+        "/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-p_nzshoj.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/tmp/mcppls-part2-native-libcxx-std",
+      "cdb_sha256": "b4a68a365b7c7bf58215f0b9792b7769e78e46afe52cc2266148297b7bed52b0",
+      "applied_tu_sha256": "00263163a907006209877bedfce44626c991b70b34953a22d621ed803e395cae"
+    },
+    {
+      "start": 0,
+      "answer": 3,
+      "phase": "settled-warm",
+      "symbol": "vector",
+      "item": {
+        "filterText": "vector",
+        "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+        "insertTextFormat": 2,
+        "kind": 7,
+        "label": " vector<class Tp, class Alloc>",
+        "score": 1.2068569660186768,
+        "sortText": "406585b6vector",
+        "textEdit": {
+          "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+          "range": {
+            "end": {
+              "character": 11,
+              "line": 2
+            },
+            "start": {
+              "character": 9,
+              "line": 2
+            }
+          }
+        }
+      },
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "clang++: warning: argument unused during compilation: '-stdlib=libc++' [-Wunused-command-line-argument]\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:235:59: error: incomplete type 'Alloc' named in nested name specifier\n  235 |   using value_type                             = typename allocator_type::value_type;\n      |                                                           ^~~~~~~~~~~~~~~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:297:27: note: in instantiation of template class 'std::__allocator_traits_base<Alloc>' requested here\n  297 | struct allocator_traits : __allocator_traits_base<_Alloc> {\n      |                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:120:51: note: in instantiation of template class 'std::__1::allocator_traits<Alloc>' requested here\n  120 |   using size_type _LIBCPP_NODEBUG      = typename __alloc_traits::size_type;\n      |                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_empty.h:22:70: error: incomplete type 'Alloc' used in type trait expression\n   22 | struct _LIBCPP_NO_SPECIALIZATIONS is_empty : integral_constant<bool, __is_empty(_Tp)> {};\n      |                                                                      ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:138:1: note: in instantiation of template class 'std::__1::is_empty<Alloc>' requested here\n  138 | using __is_always_equal _LIBCPP_NODEBUG =\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:245:50: note: in instantiation of template type alias '__is_always_equal' requested here\n  245 |   using is_always_equal                        = __is_always_equal<allocator_type>;\n      |                                                  ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:297:27: note: in instantiation of template class 'std::__allocator_traits_base<Alloc>' requested here\n  297 | struct allocator_traits : __allocator_traits_base<_Alloc> {\n      |                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:120:51: note: in instantiation of template class 'std::__1::allocator_traits<Alloc>' requested here\n  120 |   using size_type _LIBCPP_NODEBUG      = typename __alloc_traits::size_type;\n      |                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:75: error: field has incomplete type 'allocator_type' (aka 'Alloc')\n  218 |   _LIBCPP_COMPRESSED_PAIR(pointer, __capacity_ = nullptr, allocator_type, __alloc_);\n      |                                                                           ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:3: note: in instantiation of member class 'std::__vector_layout<int, Alloc>::(anonymous struct at /home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/layout.h:218:3)' requested here\n  218 |   _LIBCPP_COMPRESSED_PAIR(pointer, __capacity_ = nullptr, allocator_type, __alloc_);\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/compressed_pair.h:99:7: note: expanded from macro '_LIBCPP_COMPRESSED_PAIR'\n   99 |       struct {                                                                                                         \\\n      |       ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:91:49: note: in instantiation of template class 'std::__vector_layout<int, Alloc>' requested here\n   91 |   using __bound_type _LIBCPP_NODEBUG = typename __base_type::__bound_type;\n      |                                                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_trivially_copyable.h:23:83: error: incomplete type 'Alloc' used in type trait expression\n   23 | struct _LIBCPP_NO_SPECIALIZATIONS is_trivially_copyable : integral_constant<bool, __is_trivially_copyable(_Tp)> {};\n      |                                                                                   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/is_trivially_relocatable.h:34:44: note: in instantiation of template class 'std::__1::is_trivially_copyable<Alloc>' requested here\n   34 | struct __libcpp_is_trivially_relocatable : is_trivially_copyable<_Tp> {};\n      |                                            ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:125:60: note: in instantiation of template class 'std::__libcpp_is_trivially_relocatable<Alloc>' requested here\n  125 |       __libcpp_is_trivially_relocatable<pointer>::value && __libcpp_is_trivially_relocatable<allocator_type>::value,\n      |                                                            ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:149:17: error: static assertion failed due to requirement '__has_rebind_other_v<Alloc, int>': This allocator has to implement rebind\n  149 |   static_assert(__has_rebind_other_v<_Tp, _Up>, \"This allocator has to implement rebind\");\n      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:163:1: note: in instantiation of template class 'std::__allocator_traits_rebind<Alloc, int>' requested here\n  163 | using __allocator_traits_rebind_t _LIBCPP_NODEBUG = typename __allocator_traits_rebind<_Alloc, _Tp>::type;\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:249:3: note: in instantiation of template type alias '__allocator_traits_rebind_t' requested here\n  249 |   using rebind_alloc = __allocator_traits_rebind_t<allocator_type, _Tp>;\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:313:3: note: in instantiation of template type alias 'rebind_alloc' requested here\n  313 |   using rebind_alloc = typename __base::template rebind_alloc<_Tp>;\n      |   ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:403:1: note: in instantiation of template type alias 'rebind_alloc' requested here\n  403 | using __rebind_alloc _LIBCPP_NODEBUG = typename _Traits::template rebind_alloc<_Tp>;\n      | ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__memory/allocator_traits.h:412:33: note: in instantiation of template type alias '__rebind_alloc' requested here\n  412 |   static_assert(is_same<_Alloc, __rebind_alloc<_Traits, typename _Traits::value_type> >::value,\n      |                                 ^\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:129:17: note: in instantiation of template class 'std::__check_valid_allocator<Alloc>' requested here\n  129 |   static_assert(__check_valid_allocator<allocator_type>::value, \"\");\n      |                 ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:130:34: error: incomplete type 'Alloc' named in nested name specifier\n  130 |   static_assert(is_same<typename allocator_type::value_type, value_type>::value,\n      |                                  ^~~~~~~~~~~~~~~~\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:28: note: forward declaration of 'Alloc'\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                            ^\nIn module 'std' imported from /tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:1:\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__type_traits/enable_if.h:34:58: error: no type named 'type' in 'std::__1::enable_if<false, int>'; 'enable_if' cannot be used to disable this declaration\n   34 | using __enable_if_t _LIBCPP_NODEBUG = typename enable_if<_Bp, _Tp>::type;\n      |                                                          ^~~\n/home/speak/.local/share/mcppls/payload/kit/include/c++/v1/__vector/vector.h:175:13: note: in instantiation of template type alias '__enable_if_t' requested here\n  175 |   template <__enable_if_t<__is_allocator_v<_Allocator>, int> = 0>\n      |             ^\n/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp:3:35: note: in instantiation of template class 'std::__1::vector<int, Alloc>' requested here\n    3 |     std::vector<int, class Alloc> probe_vector;\n      |                                   ^\n7 errors generated.\n",
+      "elapsed_ms": 63.16771300043911,
+      "command": [
+        "/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++",
+        "--no-default-config",
+        "-std=c++23",
+        "-stdlib=libc++",
+        "-nostdinc++",
+        "--sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1",
+        "-isystem",
+        "/home/speak/.local/share/mcppls/payload/kit/share/libc++/v1",
+        "-fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm",
+        "/tmp/mcppls-part2-native-libcxx-std/.mcppls-insertion-id_yrl13.cpp",
+        "-fsyntax-only"
+      ],
+      "directory": "/tmp/mcppls-part2-native-libcxx-std",
+      "cdb_sha256": "b4a68a365b7c7bf58215f0b9792b7769e78e46afe52cc2266148297b7bed52b0",
+      "applied_tu_sha256": "00263163a907006209877bedfce44626c991b70b34953a22d621ed803e395cae"
+    }
+  ],
+  "semantic_counts": {
+    "cold-open": {
+      "answered": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "settled-warm": {
+      "answered": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "edited": {
+      "answered": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "all_insertions_compiled": false,
+  "raw_results": [
+    {
+      "id": "project-completion",
+      "outcome": "pass",
+      "responses": [],
+      "raw_responses": [
+        {
+          "method": "initialize",
+          "reply": {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "result": {
+              "capabilities": {
+                "astProvider": true,
+                "callHierarchyProvider": true,
+                "clangdInlayHintsProvider": true,
+                "codeActionProvider": true,
+                "compilationDatabase": {
+                  "automaticReload": true
+                },
+                "completionProvider": {
+                  "resolveProvider": false,
+                  "triggerCharacters": [
+                    ".",
+                    "<",
+                    ">",
+                    ":",
+                    "\"",
+                    "/",
+                    "*"
+                  ]
+                },
+                "declarationProvider": true,
+                "definitionProvider": true,
+                "documentFormattingProvider": true,
+                "documentHighlightProvider": true,
+                "documentLinkProvider": {
+                  "resolveProvider": false
+                },
+                "documentOnTypeFormattingProvider": {
+                  "firstTriggerCharacter": "\n",
+                  "moreTriggerCharacter": []
+                },
+                "documentRangeFormattingProvider": {
+                  "rangesSupport": true
+                },
+                "documentSymbolProvider": true,
+                "executeCommandProvider": {
+                  "commands": [
+                    "clangd.applyFix",
+                    "clangd.applyRename",
+                    "clangd.applyTweak"
+                  ]
+                },
+                "foldingRangeProvider": true,
+                "hoverProvider": true,
+                "implementationProvider": true,
+                "inactiveRegionsProvider": true,
+                "inlayHintProvider": true,
+                "memoryUsageProvider": true,
+                "referencesProvider": true,
+                "renameProvider": true,
+                "selectionRangeProvider": true,
+                "semanticTokensProvider": {
+                  "full": {
+                    "delta": true
+                  },
+                  "legend": {
+                    "tokenModifiers": [
+                      "declaration",
+                      "definition",
+                      "deprecated",
+                      "deduced",
+                      "readonly",
+                      "static",
+                      "abstract",
+                      "virtual",
+                      "dependentName",
+                      "defaultLibrary",
+                      "usedAsMutableReference",
+                      "usedAsMutablePointer",
+                      "constructorOrDestructor",
+                      "userDefined",
+                      "functionScope",
+                      "classScope",
+                      "fileScope",
+                      "globalScope"
+                    ],
+                    "tokenTypes": [
+                      "variable",
+                      "variable",
+                      "parameter",
+                      "function",
+                      "method",
+                      "function",
+                      "property",
+                      "variable",
+                      "class",
+                      "interface",
+                      "enum",
+                      "enumMember",
+                      "type",
+                      "type",
+                      "unknown",
+                      "namespace",
+                      "typeParameter",
+                      "concept",
+                      "type",
+                      "macro",
+                      "modifier",
+                      "operator",
+                      "bracket",
+                      "label",
+                      "comment"
+                    ]
+                  },
+                  "range": false
+                },
+                "signatureHelpProvider": {
+                  "triggerCharacters": [
+                    "(",
+                    ")",
+                    "{",
+                    "}",
+                    "<",
+                    ">",
+                    ","
+                  ]
+                },
+                "standardTypeHierarchyProvider": true,
+                "textDocumentSync": {
+                  "change": 2,
+                  "openClose": true,
+                  "save": true
+                },
+                "typeDefinitionProvider": true,
+                "typeHierarchyProvider": true,
+                "workspaceSymbolProvider": true
+              },
+              "serverInfo": {
+                "name": "clangd",
+                "version": "clangd version 23.1.0 (https://github.com/llvm/llvm-project ea7d852a70e8bdfaf601d6626a760f9771b2c4b4) linux+grpc x86_64-unknown-linux-gnu"
+              }
+            }
+          },
+          "elapsed_ms": 0.5111089994898066
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 4,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "deprecated": true,
+                  "filterText": "vector",
+                  "insertText": "vector",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " vector",
+                  "score": 0.11814375966787338,
+                  "sortText": "420e0aa5vector",
+                  "textEdit": {
+                    "newText": "vector",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "deprecated": true,
+                  "filterText": "probe_vector",
+                  "insertText": "probe_vector",
+                  "insertTextFormat": 1,
+                  "kind": 1,
+                  "label": " probe_vector",
+                  "score": 0.16283084452152252,
+                  "sortText": "4285e44eprobe_vector",
+                  "textEdit": {
+                    "newText": "probe_vector",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 3.7643539981218055
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 5,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 4
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 1
+                    }
+                  },
+                  "uri": "file:///tmp/mcppls-part2-native-libcxx-std/Use.cpp"
+                },
+                "name": "probe"
+              }
+            ]
+          },
+          "elapsed_ms": 2080.289380988688
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 6,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                  "insertTextFormat": 2,
+                  "kind": 7,
+                  "label": " vector<class Tp, class Alloc>",
+                  "score": 1.2068569660186768,
+                  "sortText": "406585b6vector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(from_range_t, Range &&range, const allocator_type &a = allocator_type())",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x, const __type_identity_t<allocator_type> &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il, const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x, const __type_identity_t<allocator_type> &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "[vector.cons], construct/copy/destroy"
+                  },
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>()",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 133.58072299160995
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 8,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                  "insertTextFormat": 2,
+                  "kind": 7,
+                  "label": " vector<class Tp, class Alloc>",
+                  "score": 1.2068569660186768,
+                  "sortText": "406585b6vector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(from_range_t, Range &&range, const allocator_type &a = allocator_type())",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x, const __type_identity_t<allocator_type> &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il, const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x, const __type_identity_t<allocator_type> &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "[vector.cons], construct/copy/destroy"
+                  },
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>()",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 166.69481799181085
+        },
+        {
+          "method": "textDocument/documentSymbol",
+          "reply": {
+            "id": 9,
+            "jsonrpc": "2.0",
+            "result": [
+              {
+                "containerName": "",
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 1,
+                      "line": 4
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 1
+                    }
+                  },
+                  "uri": "file:///tmp/mcppls-part2-native-libcxx-std/Use.cpp"
+                },
+                "name": "probe"
+              }
+            ]
+          },
+          "elapsed_ms": 29.7750400059158
+        },
+        {
+          "method": "textDocument/completion",
+          "reply": {
+            "id": 10,
+            "jsonrpc": "2.0",
+            "result": {
+              "isIncomplete": false,
+              "items": [
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                  "insertTextFormat": 2,
+                  "kind": 7,
+                  "label": " vector<class Tp, class Alloc>",
+                  "score": 1.2068569660186768,
+                  "sortText": "406585b6vector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(from_range_t, Range &&range, const allocator_type &a = allocator_type())",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last, const allocator_type &a)",
+                  "score": 0.44484052062034607,
+                  "sortText": "411c3dddvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x, const __type_identity_t<allocator_type> &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il, const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x, const __type_identity_t<allocator_type> &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>(const allocator_type &a)",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                },
+                {
+                  "documentation": {
+                    "kind": "plaintext",
+                    "value": "[vector.cons], construct/copy/destroy"
+                  },
+                  "filterText": "vector",
+                  "insertText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                  "insertTextFormat": 2,
+                  "kind": 4,
+                  "label": " vector<class Tp, class Alloc>()",
+                  "score": 0.24473007023334503,
+                  "sortText": "4185657bvector",
+                  "textEdit": {
+                    "newText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                    "range": {
+                      "end": {
+                        "character": 11,
+                        "line": 2
+                      },
+                      "start": {
+                        "character": 9,
+                        "line": 2
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "elapsed_ms": 99.43905999534763
+        }
+      ],
+      "readers_stopped": true,
+      "exit_code": 0,
+      "stderr": "I[03:23:10.269] clangd version 23.1.0 (https://github.com/llvm/llvm-project ea7d852a70e8bdfaf601d6626a760f9771b2c4b4)\nI[03:23:10.269] Features: linux+grpc\nI[03:23:10.269] PID: 2095754\nI[03:23:10.269] Working directory: /tmp/mcppls-part2-native-libcxx-std\nI[03:23:10.269] argv[0]: /home/speak/.local/share/mcppls/payload/clangd/bin/clangd\nI[03:23:10.269] argv[1]: --experimental-modules-support\nI[03:23:10.269] argv[2]: --background-index=false\nI[03:23:10.269] argv[3]: --header-insertion=never\nI[03:23:10.269] argv[4]: -j=4\nI[03:23:10.269] argv[5]: -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23\nI[03:23:10.269] argv[6]: --compile-commands-dir=/tmp/mcppls-part2-native-libcxx-std/stock/cdb\nI[03:23:10.269] Starting LSP over stdin/stdout\nI[03:23:10.269] <-- initialize(1)\nI[03:23:10.269] --> reply:initialize(1) 0 ms\nI[03:23:10.270] <-- initialized\nI[03:23:10.270] <-- textDocument/didOpen\nI[03:23:10.270] Loaded compilation database from /tmp/mcppls-part2-native-libcxx-std/stock/cdb/compile_commands.json\nI[03:23:10.271] <-- textDocument/completion(4)\nI[03:23:10.271] ASTWorker building file /tmp/mcppls-part2-native-libcxx-std/Use.cpp version 1 with command \n[/tmp/mcppls-part2-native-libcxx-std]\n/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++ --driver-mode=g++ --no-default-config -std=c++23 -stdlib=libc++ -nostdinc++ --sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot -isystem /home/speak/.local/share/mcppls/payload/kit/include/c++/v1 -isystem /home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1 -isystem /home/speak/.local/share/mcppls/payload/kit/share/libc++/v1 -fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm -c -o /tmp/mcppls-part2-native-libcxx-std/native/Use.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-part2-native-libcxx-std/Use.cpp\nI[03:23:10.273] Code complete: 0 results from Sema, 0 from Index, 0 matched, 2 from identifiers, 2 returned.\nI[03:23:10.273] --> reply:textDocument/completion(4) 2 ms\nI[03:23:10.273] <-- textDocument/documentSymbol(5)\nI[03:23:10.276] Built preamble of size 253064 for file /tmp/mcppls-part2-native-libcxx-std/Use.cpp version 1 in 0.00 seconds\nI[03:23:10.699] Running GC pass for clangd built module files under /tmp/mcppls-part2-native-libcxx-std/stock/cdb/.cache/clangd/modules with age threshold 259200 seconds (adjust with --modules-builder-versioned-gc-threshold-seconds)\nI[03:23:10.699] Failed to scan module cache directory /tmp/mcppls-part2-native-libcxx-std/stock/cdb/.cache/clangd/modules: No such file or directory\nI[03:23:10.699] Done running GC pass for clangd built module files under /tmp/mcppls-part2-native-libcxx-std/stock/cdb/.cache/clangd/modules\nI[03:23:12.245] Built module std to /tmp/mcppls-part2-native-libcxx-std/stock/cdb/.cache/clangd/modules/std.cppm-A2D1E42317435F54/4E68ECC8F58DBFA1/std-20261009-032312-225508.pcm\nI[03:23:12.245] Built prerequisite modules for file /tmp/mcppls-part2-native-libcxx-std/Use.cpp in 1.97 seconds\nI[03:23:12.246] Indexing c++23 standard library in the context of /tmp/mcppls-part2-native-libcxx-std/Use.cpp\nI[03:23:12.353] --> textDocument/publishDiagnostics\nI[03:23:12.353] --> reply:textDocument/documentSymbol(5) 2080 ms\nI[03:23:12.354] <-- textDocument/completion(6)\nI[03:23:12.483] Code complete: sema context Symbol, query scopes [std::] (AnyScope=false), expected type <none>\nI[03:23:12.487] Code complete: 18 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 18 returned.\nI[03:23:12.487] --> reply:textDocument/completion(6) 133 ms\nI[03:23:12.487] <-- textDocument/didChange\nI[03:23:12.489] <-- textDocument/completion(8)\nI[03:23:12.594] ASTWorker building file /tmp/mcppls-part2-native-libcxx-std/Use.cpp version 2 with command \n[/tmp/mcppls-part2-native-libcxx-std]\n/home/speak/.mcpp/registry/data/xpkgs/mcxx-x-mcxx/0.1.0/bin/clang++ --driver-mode=g++ --no-default-config -std=c++23 -stdlib=libc++ -nostdinc++ --sysroot=/home/speak/.local/share/mcppls/payload/kit/sysroot -isystem /home/speak/.local/share/mcppls/payload/kit/include/c++/v1 -isystem /home/speak/.local/share/mcppls/payload/kit/include/x86_64-unknown-linux-gnu/c++/v1 -isystem /home/speak/.local/share/mcppls/payload/kit/share/libc++/v1 -fmodule-file=std=/tmp/mcppls-part2-native-libcxx-std/native/std.pcm -c -o /tmp/mcppls-part2-native-libcxx-std/native/Use.o -resource-dir=/home/speak/workspace/github/mcppls-clangd/build-linux-x64/lib/clang/23 -- /tmp/mcppls-part2-native-libcxx-std/Use.cpp\nI[03:23:12.647] Code complete: sema context Symbol, query scopes [std::] (AnyScope=false), expected type <none>\nI[03:23:12.654] Code complete: 18 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 18 returned.\nI[03:23:12.654] --> reply:textDocument/completion(8) 164 ms\nI[03:23:12.654] <-- textDocument/documentSymbol(9)\nI[03:23:12.684] --> textDocument/publishDiagnostics\nI[03:23:12.684] --> reply:textDocument/documentSymbol(9) 29 ms\nI[03:23:12.684] <-- textDocument/completion(10)\nI[03:23:12.779] Code complete: sema context Symbol, query scopes [std::] (AnyScope=false), expected type <none>\nI[03:23:12.783] Code complete: 18 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 18 returned.\nI[03:23:12.783] --> reply:textDocument/completion(10) 98 ms\nI[03:23:12.783] <-- shutdown(11)\nI[03:23:12.783] --> reply:shutdown(11) 0 ms\nI[03:23:12.784] <-- exit\nI[03:23:12.784] LSP finished, exiting with status 0\nI[03:23:13.251] Indexed c++23 standard library: 14316 symbols, 2264 filtered\n",
+      "requested_phases": [
+        "cold-open",
+        "settled-warm",
+        "edited",
+        "settled-warm"
+      ],
+      "context_answers": [
+        {
+          "phase": "cold-open",
+          "elapsed_ms": 3.7643539981218055,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": false,
+          "origin": {
+            "sema": 0,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 2
+          },
+          "semantic_origin_failed": true,
+          "untyped_expected": [
+            "vector"
+          ],
+          "isIncomplete": false,
+          "items": [
+            {
+              "deprecated": true,
+              "filterText": "vector",
+              "insertText": "vector",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " vector",
+              "score": 0.11814375966787338,
+              "sortText": "420e0aa5vector",
+              "textEdit": {
+                "newText": "vector",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "deprecated": true,
+              "filterText": "probe_vector",
+              "insertText": "probe_vector",
+              "insertTextFormat": 1,
+              "kind": 1,
+              "label": " probe_vector",
+              "score": 0.16283084452152252,
+              "sortText": "4285e44eprobe_vector",
+              "textEdit": {
+                "newText": "probe_vector",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "import std;\nvoid probe() {\n    std::ve probe_vector;\n    std::vector<int> stable;\n}\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 133.58072299160995,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 18,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+              "insertTextFormat": 2,
+              "kind": 7,
+              "label": " vector<class Tp, class Alloc>",
+              "score": 1.2068569660186768,
+              "sortText": "406585b6vector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(from_range_t, Range &&range, const allocator_type &a = allocator_type())",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x, const __type_identity_t<allocator_type> &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il, const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x, const __type_identity_t<allocator_type> &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "documentation": {
+                "kind": "plaintext",
+                "value": "[vector.cons], construct/copy/destroy"
+              },
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>()",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "import std;\nvoid probe() {\n    std::ve probe_vector;\n    std::vector<int> stable;\n}\n"
+        },
+        {
+          "phase": "edited",
+          "elapsed_ms": 166.69481799181085,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 18,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+              "insertTextFormat": 2,
+              "kind": 7,
+              "label": " vector<class Tp, class Alloc>",
+              "score": 1.2068569660186768,
+              "sortText": "406585b6vector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(from_range_t, Range &&range, const allocator_type &a = allocator_type())",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x, const __type_identity_t<allocator_type> &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il, const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x, const __type_identity_t<allocator_type> &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "documentation": {
+                "kind": "plaintext",
+                "value": "[vector.cons], construct/copy/destroy"
+              },
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>()",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "import std;\nvoid probe() {\n    std::ve probe_vector;\n    std::vector<int> stable;\n}\n\n// probe 0\n"
+        },
+        {
+          "phase": "settled-warm",
+          "elapsed_ms": 99.43905999534763,
+          "missing": [],
+          "polluted": [],
+          "unexpected_nonempty": false,
+          "semantic_pass": true,
+          "origin": {
+            "sema": 18,
+            "index": 0,
+            "matched": 0,
+            "identifiers": 0
+          },
+          "semantic_origin_failed": false,
+          "untyped_expected": [],
+          "isIncomplete": false,
+          "items": [
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>",
+              "insertTextFormat": 2,
+              "kind": 7,
+              "label": " vector<class Tp, class Alloc>",
+              "score": 1.2068569660186768,
+              "sortText": "406585b6vector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(ForwardIterator first, ForwardIterator last, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:ForwardIterator first}, ${4:ForwardIterator last}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(from_range_t, Range &&range, const allocator_type &a = allocator_type())",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:from_range_t}, ${4:Range &&range})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(InputIterator first, InputIterator last, const allocator_type &a)",
+              "score": 0.44484052062034607,
+              "sortText": "411c3dddvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:InputIterator first}, ${4:InputIterator last}, ${5:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(vector<Tp, Allocator> &&x, const __type_identity_t<allocator_type> &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:vector<Tp, Allocator> &&x}, ${4:const __type_identity_t<allocator_type> &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il, const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il}, ${4:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(size_type n, const value_type &x)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:size_type n}, ${4:const value_type &x})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(initializer_list<value_type> il)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:initializer_list<value_type> il})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const vector<Tp, Allocator> &x, const __type_identity_t<allocator_type> &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const vector<Tp, Allocator> &x}, ${4:const __type_identity_t<allocator_type> &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>(const allocator_type &a)",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>(${3:const allocator_type &a})",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            },
+            {
+              "documentation": {
+                "kind": "plaintext",
+                "value": "[vector.cons], construct/copy/destroy"
+              },
+              "filterText": "vector",
+              "insertText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+              "insertTextFormat": 2,
+              "kind": 4,
+              "label": " vector<class Tp, class Alloc>()",
+              "score": 0.24473007023334503,
+              "sortText": "4185657bvector",
+              "textEdit": {
+                "newText": "vector<${1:class Tp}, ${2:class Alloc}>()",
+                "range": {
+                  "end": {
+                    "character": 11,
+                    "line": 2
+                  },
+                  "start": {
+                    "character": 9,
+                    "line": 2
+                  }
+                }
+              }
+            }
+          ],
+          "draft": "import std;\nvoid probe() {\n    std::ve probe_vector;\n    std::vector<int> stable;\n}\n\n// probe 0\n"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Single context probe; aggregate context/baseline gate requires separate matrix evidence.",
+    "Cold-open includes fallback responses; semantic contexts require per-request Sema evidence and typed expected items.",
+    "Insertion compilation is opt-in; no baseline speedup proof in this individual report.",
+    "Settled-warm is AST-ready, not proof of a particular cache hit."
+  ]
+}

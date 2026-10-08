@@ -1,0 +1,51 @@
+{
+  "scope": "Exploratory correctness only, compiler/build jobs overlap; latency is not qualification. Native Clang/libc++ source and actual insertion compiler inputs match between stock and candidate.",
+  "arms": {
+    "stock": {
+      "exit_code": 1,
+      "engine_sha256": "c52547480ebac0f2887bb70e34bdfb54a0841d6bc84881c21e66de81c1bf2b0b",
+      "semantic_pass": false,
+      "insertion_pass": false,
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 1,
+          "passed": 0,
+          "failed": 1
+        },
+        "settled-warm": {
+          "answered": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 1,
+          "passed": 1,
+          "failed": 0
+        }
+      }
+    },
+    "candidate": {
+      "exit_code": 1,
+      "engine_sha256": "6de880807d5d81c7c98341570d123fb88847928c523fc06042c92a11dba6ddb7",
+      "semantic_pass": true,
+      "insertion_pass": false,
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 1,
+          "passed": 1,
+          "failed": 0
+        }
+      }
+    }
+  }
+}
