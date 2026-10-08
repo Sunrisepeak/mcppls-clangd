@@ -1,0 +1,50 @@
+{
+  "identity": {
+    "source_commit": "94ec06cda917e45dcedc5dc11fa242150bf05893",
+    "source_base": "b5cac2d5b + privately cherry-picked37 892a0ab7f",
+    "verification": "Private changed objects plus read-only copied35/37 support objects before existing native archives. Focused mixed-tree proof, not a full immutable release recipe. No shared object/archive/binary mutation.",
+    "budget_root": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice",
+    "kernel": "6.8.0-142-generic",
+    "files": {
+      "/tmp/mcppls-cgroup-objects/clangd": "ee8df230d5ac0ac7b8c5e48c52557f6d8b24c860582045a5167499a331df1c52",
+      "/tmp/mcppls-cgroup-objects/ClangdTests": "d33424b0b676d20edd6a756a044085239ea3202f57435dbd7533df460c1e2214",
+      "/tmp/mcppls-cgroup-objects/aggregate-probe": "6150661f2e3fcd7c84a5417b2b9deedfc8a153c7338c2b26b96a76066728ee1f",
+      "/tmp/mcppls-cgroup-objects/frontend-probe": "3028d67be1721fcd58e3510ed12c85d126b1746142da25df6f892e2277050a3b",
+      "/tmp/mcppls-cgroup-objects/ModuleBuildMemoryBudget.cpp.o": "9e0bce006c6ad41042e85e97c4843c0d7613ab6a41e0587004291d4671d170cc",
+      "/tmp/mcppls-cgroup-objects/ModuleBuildWorker.cpp.o": "1008c00b9b5d9660b75e5a9d9ac9dd880561f8f64b20c3757d82a2c7e7fcc0b7",
+      "/tmp/mcppls-cgroup-objects/ClangdMain.cpp.o": "842171df39a1c790860853f284f52b64d865d373904c848e47b529efba27dd19",
+      "/tmp/mcppls-cgroup-objects/PrerequisiteModulesTest.cpp.o": "75d7a506048b6557b82b9399047bf3a1649b9d99acd5f19aa9514d5e1ee39fe3"
+    }
+  },
+  "private_linux_results": {
+    "aggregate": {
+      "exit": 0,
+      "log": "tampered_limit_rejected=module worker cgroup limit verification failed: memory.max\nfirst_current=42205184\nfirst_signal=9 second_signal=9\nevents=low 0\nhigh 0\nmax 54\noom 1\noom_kill 2\noom_group_kill 1\nremaining_current=40960\nremoved=1 parent_alive=1\n"
+    },
+    "frontend": {
+      "exit": 0,
+      "log": "budget_directory=/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-812466-0\nelapsed_ms=31 other_alive=1 no_children=1 output=1\nworker_success=1\n"
+    },
+    "inprocess": {
+      "exit": 0,
+      "log": "budget_directory=/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-814958-0\nelapsed_ms=0 other_alive=1 no_children=1 output=0\nmodule worker memory budget forbids in-process fallback\n"
+    },
+    "unsupported": {
+      "exit": 0,
+      "log": "budget_directory=/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.gnome.Terminal.slice/clangd-module-workers-814960-0\nelapsed_ms=0 other_alive=1 no_children=1 output=0\nrequired module worker cannot export request filesystem\n"
+    },
+    "unavailable_scope": {
+      "exit": 3,
+      "log": "module worker cgroup: memory.max\n",
+      "no_leaked_group": true
+    }
+  },
+  "scope": "Private changed-TU Linux proof, not root integration or final package",
+  "limits": [
+    "kernel-accounted group memory; not parent or scanner RSS",
+    "pre-bootstrap charges remain outside group",
+    "kernel can temporarily overshoot memory.max",
+    "cgroup cleanup after parent SIGKILL remains open",
+    "default builder integration pending"
+  ]
+}

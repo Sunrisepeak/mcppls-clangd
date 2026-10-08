@@ -73,3 +73,5 @@ they live here and in patch *filenames* only.
 | 0036-UP-03-windows-module-dag-macro-portability.patch | UP-03 | stabilizing | native Windows build; ci/module-worker-isolation.md | Upstream module DAG standard function calls compile with Windows min/max macros without changing scheduling |
 
 | 0037-UP-03-module-worker-owner-lifetime.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerPreservesCapturedInputs; ci/module-worker-isolation.md | Upstream supervised compiler workers use a real inherited owner object and exit when that owner dies; orphan directory collection remains separate |
+
+| 0038-UP-03-shared-module-worker-memory-budget.patch | UP-03 | stabilizing | PrerequisiteModulesTests.ModuleWorkerMemoryBudgetFailsClosed; ci/module-worker-isolation.md | Upstream worker admission shares a checked owned cgroup budget and rejects unverifiable limits, membership and in-process fallback |

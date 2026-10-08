@@ -1,0 +1,523 @@
+From 94ec06cda917e45dcedc5dc11fa242150bf05893 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:55:25 +0900
+Subject: [PATCH] clangd: add explicit shared cgroup memory admission for
+ module workers
+
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |   1 +
+ .../clangd/ModuleBuildMemoryBudget.cpp        | 258 ++++++++++++++++++
+ .../clangd/ModuleBuildMemoryBudget.h          |  43 +++
+ .../clangd/ModuleBuildWorker.cpp              |  26 +-
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |   8 +
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  |   5 +-
+ .../unittests/PrerequisiteModulesTest.cpp     |  33 +++
+ 7 files changed, 368 insertions(+), 6 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index ab7a7a215..154c3d89a 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -96,6 +96,7 @@ add_clang_library(clangDaemon STATIC
+   IncludeFixer.cpp
+   InlayHints.cpp
+   JSONTransport.cpp
++  ModuleBuildMemoryBudget.cpp
+   ModuleBuildWorker.cpp
+   ModulesBuilder.cpp
+   PathMapping.cpp
+diff --git a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+new file mode 100644
+index 000000000..4bed772cf
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+@@ -0,0 +1,258 @@
++//===--- ModuleBuildMemoryBudget.cpp --------------------------------------===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#include "ModuleBuildMemoryBudget.h"
++#include "support/Logger.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/Support/FormatVariadic.h"
++#include "llvm/Support/Path.h"
++#include <atomic>
++#include <chrono>
++#include <thread>
++#ifdef __linux__
++#include <cerrno>
++#include <fcntl.h>
++#include <linux/magic.h>
++#include <sys/stat.h>
++#include <sys/statfs.h>
++#include <unistd.h>
++#endif
++namespace clang::clangd {
++struct ModuleBuildWorkerMemoryBudget::Impl {
++  std::string Path, Name;
++  uint64_t Bytes = 0, Device = 0, Inode = 0;
++#ifdef __linux__
++  int Root = -1, Group = -1;
++  ~Impl();
++#endif
++};
++namespace {
++#ifdef __linux__
++llvm::Error failure(llvm::StringRef What) {
++  return llvm::createStringError(
++      std::error_code(errno, std::generic_category()),
++      "module worker cgroup: " + What);
++}
++llvm::Expected<std::string> readControl(int Group, const char *Name) {
++  int FD = openat(Group, Name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure(Name);
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  std::string Text;
++  char Buffer[4096];
++  for (;;) {
++    ssize_t N = read(FD, Buffer, sizeof(Buffer));
++    if (N < 0 && errno == EINTR)
++      continue;
++    if (N < 0)
++      return failure(Name);
++    if (!N)
++      return Text;
++    if (Text.size() + N > 1024 * 1024)
++      return llvm::createStringError(
++          "module worker cgroup control is too large");
++    Text.append(Buffer, N);
++  }
++}
++llvm::Error writeControl(int Group, const char *Name, llvm::StringRef Text) {
++  int FD = openat(Group, Name, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure(Name);
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  ssize_t N;
++  do {
++    N = write(FD, Text.data(), Text.size());
++  } while (N < 0 && errno == EINTR);
++  if (N < 0)
++    return failure(Name);
++  if (size_t(N) != Text.size())
++    return llvm::createStringError("short module worker cgroup control write");
++  return llvm::Error::success();
++}
++llvm::Error verifyControl(int Group, const char *Name, uint64_t Expected) {
++  auto Text = readControl(Group, Name);
++  if (!Text)
++    return Text.takeError();
++  uint64_t Value;
++  if (llvm::StringRef(*Text).trim().getAsInteger(10, Value) ||
++      Value != Expected)
++    return llvm::createStringError(
++        "module worker cgroup limit verification failed: " +
++        llvm::StringRef(Name));
++  return llvm::Error::success();
++}
++llvm::Error verifyGroup(int FD) {
++  struct statfs Stat;
++  if (fstatfs(FD, &Stat))
++    return failure("filesystem identity");
++  if (Stat.f_type != CGROUP2_SUPER_MAGIC)
++    return llvm::createStringError("module worker budget requires cgroup v2");
++  auto Type = readControl(FD, "cgroup.type");
++  if (!Type)
++    return Type.takeError();
++  if (llvm::StringRef(*Type).trim() != "domain")
++    return llvm::createStringError(
++        "module worker budget requires a domain cgroup");
++  return llvm::Error::success();
++}
++llvm::Error verifyLimits(int FD, uint64_t Bytes) {
++  if (auto Err = verifyControl(FD, "memory.max", Bytes))
++    return Err;
++  if (auto Err = verifyControl(FD, "memory.swap.max", 0))
++    return Err;
++  return verifyControl(FD, "memory.oom.group", 1);
++}
++#endif
++} // namespace
++#ifdef __linux__
++ModuleBuildWorkerMemoryBudget::Impl::~Impl() {
++  if (Group >= 0) {
++    // All top-level worker leases have been released after specific-child reap.
++    // Kill any remaining descendants in OUR private group before removal.
++    if (auto Err = writeControl(Group, "cgroup.kill", "1"))
++      elog("{0}", llvm::toString(std::move(Err)));
++    close(Group);
++  }
++  if (Root >= 0) {
++    bool Removed = Name.empty();
++    for (unsigned I = 0; !Removed && I < 100; ++I) {
++      if (unlinkat(Root, Name.c_str(), AT_REMOVEDIR) == 0 || errno == ENOENT)
++        Removed = true;
++      else if (errno == EBUSY || errno == ENOTEMPTY)
++        std::this_thread::sleep_for(std::chrono::milliseconds(10));
++      else
++        break;
++    }
++    if (!Removed)
++      elog("Failed to remove owned module worker cgroup {0}", Path);
++    close(Root);
++  }
++}
++#endif
++ModuleBuildWorkerMemoryBudget::ModuleBuildWorkerMemoryBudget(
++    std::unique_ptr<Impl> State)
++    : State(std::move(State)) {}
++ModuleBuildWorkerMemoryBudget::~ModuleBuildWorkerMemoryBudget() = default;
++llvm::StringRef ModuleBuildWorkerMemoryBudget::directory() const {
++  return State->Path;
++}
++std::string ModuleBuildWorkerMemoryBudget::bootstrapToken() const {
++  return llvm::formatv("{0}:{1}:{2}:{3}", State->Bytes, State->Device,
++                       State->Inode, State->Path)
++      .str();
++}
++llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
++createModuleBuildWorkerMemoryBudget(PathRef Root, uint64_t Bytes) {
++  if (!Bytes || !llvm::sys::path::is_absolute(Root) || Root.contains('\0'))
++    return llvm::createStringError(
++        "module worker budget needs an absolute root and positive bytes");
++#ifndef __linux__
++  return llvm::createStringError(
++      "module worker cgroup budget is unavailable on this platform");
++#else
++  auto State = std::make_unique<ModuleBuildWorkerMemoryBudget::Impl>();
++  State->Bytes = Bytes;
++  State->Root =
++      open(Root.str().c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (State->Root < 0)
++    return failure("delegated root");
++  if (auto Err = verifyGroup(State->Root))
++    return std::move(Err);
++  static std::atomic<uint64_t> Counter{0};
++  for (unsigned I = 0; I < 128; ++I) {
++    auto Name =
++        llvm::formatv("clangd-module-workers-{0}-{1}", getpid(), Counter++)
++            .str();
++    if (mkdirat(State->Root, Name.c_str(), 0700) == 0) {
++      State->Name = std::move(Name);
++      break;
++    }
++    if (errno != EEXIST)
++      return failure("create private group");
++  }
++  if (State->Name.empty())
++    return llvm::createStringError("no unique module worker cgroup name");
++  State->Path = (Root + "/" + State->Name).str();
++  State->Group = openat(State->Root, State->Name.c_str(),
++                        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (State->Group < 0)
++    return failure("open private group");
++  if (auto Err = verifyGroup(State->Group))
++    return std::move(Err);
++  struct stat Stat;
++  if (fstat(State->Group, &Stat))
++    return failure("private group identity");
++  State->Device = Stat.st_dev;
++  State->Inode = Stat.st_ino;
++  auto Limit = std::to_string(Bytes);
++  if (auto Err = writeControl(State->Group, "memory.max", Limit))
++    return std::move(Err);
++  if (auto Err = writeControl(State->Group, "memory.swap.max", "0"))
++    return std::move(Err);
++  if (auto Err = writeControl(State->Group, "memory.oom.group", "1"))
++    return std::move(Err);
++  if (auto Err = verifyLimits(State->Group, Bytes))
++    return std::move(Err);
++  // Require owned-tree termination support before admitting any process.
++  if (auto Err = writeControl(State->Group, "cgroup.kill", "1"))
++    return std::move(Err);
++  return std::shared_ptr<ModuleBuildWorkerMemoryBudget>(
++      new ModuleBuildWorkerMemoryBudget(std::move(State)));
++#endif
++}
++llvm::Error enterModuleBuildWorkerMemoryBudget(llvm::StringRef Token) {
++  if (Token.empty())
++    return llvm::Error::success();
++#ifndef __linux__
++  return llvm::createStringError(
++      "module worker cgroup budget is unavailable on this platform");
++#else
++  uint64_t Bytes, Device, Inode;
++  auto Take = [&](uint64_t &Value) {
++    auto Pair = Token.split(':');
++    if (Pair.first.getAsInteger(10, Value) || Pair.second.empty())
++      return false;
++    Token = Pair.second;
++    return true;
++  };
++  if (!Take(Bytes) || !Bytes || !Take(Device) || !Take(Inode) ||
++      !llvm::sys::path::is_absolute(Token) || Token.contains('\0'))
++    return llvm::createStringError(
++        "invalid module worker cgroup bootstrap token");
++  int FD = open(Token.str().c_str(),
++                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure("bootstrap directory");
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  if (auto Err = verifyGroup(FD))
++    return Err;
++  struct stat Stat;
++  if (fstat(FD, &Stat))
++    return failure("bootstrap identity");
++  if (Device != uint64_t(Stat.st_dev) || Inode != uint64_t(Stat.st_ino))
++    return llvm::createStringError(
++        "module worker cgroup owner identity changed");
++  if (auto Err = verifyLimits(FD, Bytes))
++    return Err;
++  if (auto Err = writeControl(FD, "cgroup.procs", std::to_string(getpid())))
++    return Err;
++  auto PIDs = readControl(FD, "cgroup.procs");
++  if (!PIDs)
++    return PIDs.takeError();
++  llvm::SmallVector<llvm::StringRef> Lines;
++  llvm::StringRef(*PIDs).split(Lines, '\n');
++  bool Found = false;
++  for (auto PID : Lines) {
++    uint64_t Value;
++    if (!PID.getAsInteger(10, Value) && Value == uint64_t(getpid()))
++      Found = true;
++  }
++  if (!Found)
++    return llvm::createStringError(
++        "module worker cgroup membership verification failed");
++  return verifyLimits(FD, Bytes);
++#endif
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+new file mode 100644
+index 000000000..5d2cf4f03
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+@@ -0,0 +1,43 @@
++//===--- ModuleBuildMemoryBudget.h -------------------------------*- C++
++//-*-===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDMEMORYBUDGET_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDMEMORYBUDGET_H
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include <cstdint>
++#include <memory>
++#include <string>
++namespace clang::clangd {
++// Explicit Linux cgroup-v2 admission. Share ONE owner across all worker calls
++// covered by an aggregate budget. It never enables controllers, moves the
++// parent, or changes a caller's delegated root. No in-process compiler/scanner
++// or parent RSS limit is implied. Kernel memory.max permits temporary
++// overshoot; memory charges made before bootstrap migration are not moved into
++// this group.
++class ModuleBuildWorkerMemoryBudget {
++public:
++  ~ModuleBuildWorkerMemoryBudget();
++  std::string bootstrapToken() const;
++  llvm::StringRef directory() const;
++
++private:
++  struct Impl;
++  std::unique_ptr<Impl> State;
++  explicit ModuleBuildWorkerMemoryBudget(std::unique_ptr<Impl> State);
++  friend llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
++  createModuleBuildWorkerMemoryBudget(PathRef, uint64_t);
++};
++// Requires a caller-provisioned delegated root with its memory controller
++// already enabled for children. Creates an owned private child and verifies
++// memory.max, zero swap, group OOM and group-kill support before returning.
++// Unavailable platforms, permissions, limits and controller state are errors.
++llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
++createModuleBuildWorkerMemoryBudget(PathRef DelegatedRoot, uint64_t Bytes);
++// Internal worker bootstrap, after the owner monitor and before request reads
++// or frontend work. Empty token selects the existing unbounded protocol.
++llvm::Error enterModuleBuildWorkerMemoryBudget(llvm::StringRef Token);
++} // namespace clang::clangd
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index c2bb7b580..4fe648695 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -8,6 +8,7 @@
+ //===----------------------------------------------------------------------===//
+ #include "ModuleBuildWorker.h"
+ #include "Compiler.h"
++#include "ModuleBuildMemoryBudget.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Frontend/TextDiagnosticPrinter.h"
+ #include "clang/Lex/PreprocessorOptions.h"
+@@ -342,12 +343,20 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+                     StringRef MainContents, const ThreadsafeFS &FS,
+                     PathRef WorkingDirectory,
+                     const ModuleBuildWorkerOptions &Options) {
+-  if (Options.Isolation == ModuleBuildWorkerOptions::Policy::InProcess)
++  // This lease outlives the specific-child guard below: all workers sharing the
++  // owner remain charged to one group until their final reap/cleanup completes.
++  auto MemoryBudget = Options.MemoryBudget;
++  if (Options.Isolation == ModuleBuildWorkerOptions::Policy::InProcess) {
++    if (MemoryBudget)
++      return llvm::createStringError(
++          "module worker memory budget forbids in-process fallback");
+     return std::optional<ModuleBuildWorkerResult>{};
++  }
+   const auto Started = std::chrono::steady_clock::now();
+   auto Snapshot = FS.snapshotForModuleBuild();
+   if (!Snapshot) {
+-    if (Options.Isolation == ModuleBuildWorkerOptions::Policy::WhenSupported)
++    if (Options.Isolation == ModuleBuildWorkerOptions::Policy::WhenSupported &&
++        !MemoryBudget)
+       return std::optional<ModuleBuildWorkerResult>{};
+     return llvm::createStringError(
+         "required module worker cannot export request filesystem");
+@@ -438,8 +447,10 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+         "module worker cancelled or timed out during owner setup");
+   std::array<std::optional<StringRef>, 3> Redirects{
+       StringRef(""), StringRef(""), StringRef(DiagnosticsPath)};
+-  std::array<StringRef, 4> Args{Options.Executable, "--module-build-worker",
+-                                RequestPath, OwnerToken};
++  const std::string MemoryToken =
++      MemoryBudget ? MemoryBudget->bootstrapToken() : "";
++  std::array<StringRef, 5> Args{Options.Executable, "--module-build-worker",
++                                RequestPath, OwnerToken, MemoryToken};
+   std::string LaunchError;
+   bool Failed = false;
+   auto Process =
+@@ -499,6 +510,11 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+ }
+ 
+ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken) {
++  return runModuleBuildWorker(RequestFile, OwnerToken, {});
++}
++
++llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
++                                 StringRef MemoryBudgetToken) {
+   std::unique_ptr<WorkerOwnerMonitor> Owner;
+   if (!OwnerToken.empty()) {
+     auto Monitor = WorkerOwnerMonitor::create(OwnerToken);
+@@ -506,6 +522,8 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken) {
+       return Monitor.takeError();
+     Owner = std::move(*Monitor);
+   }
++  if (auto Err = enterModuleBuildWorkerMemoryBudget(MemoryBudgetToken))
++    return Err;
+   auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
+   if (!Buffer)
+     return llvm::errorCodeToError(Buffer.getError());
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index 587972686..49fe100b1 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -14,6 +14,7 @@
+ #include "llvm/Support/Program.h"
+ #include <chrono>
+ #include <functional>
++#include <memory>
+ #include <optional>
+ #include <string>
+ #include <vector>
+@@ -22,6 +23,7 @@ namespace clang {
+ class CompilerInvocation;
+ namespace clangd {
+ class ThreadsafeFS;
++class ModuleBuildWorkerMemoryBudget;
+ 
+ // These files belong to the parent until the child has been reaped. The main
+ // buffer and every virtual overlay backing file must contain the exact request
+@@ -50,6 +52,9 @@ struct ModuleBuildWorkerOptions {
+   std::string Executable;
+   std::chrono::milliseconds Timeout{60000};
+   std::function<bool()> Cancelled;
++  // Explicit aggregate Linux worker budget; share the same owner across calls.
++  // Supplying a budget forbids every in-process/unsupported fallback.
++  std::shared_ptr<ModuleBuildWorkerMemoryBudget> MemoryBudget;
+ };
+ struct ModuleBuildWorkerResult {
+   std::chrono::milliseconds WallTime;
+@@ -81,6 +86,9 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+ // probes may omit it; supervised production workers must retain it.
+ llvm::Error runModuleBuildWorker(PathRef RequestFile,
+                                  llvm::StringRef OwnerToken = {});
++llvm::Error runModuleBuildWorker(PathRef RequestFile,
++                                 llvm::StringRef OwnerToken,
++                                 llvm::StringRef MemoryBudgetToken);
+ 
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 01090f1c1..753d6eb84 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -793,9 +793,10 @@ int clangdMain(int argc, char *argv[]) {
+   // The internal compiler worker has no LSP transport or inherited clangd
+   // configuration. Inputs are the captured request and optional inherited
+   // owner-lifetime object; neither enters ordinary command-line parsing.
+-  if ((argc == 3 || argc == 4) &&
++  if ((argc == 3 || argc == 4 || argc == 5) &&
+       llvm::StringRef(argv[1]) == "--module-build-worker") {
+-    if (auto Err = runModuleBuildWorker(argv[2], argc == 4 ? argv[3] : "")) {
++    if (auto Err = runModuleBuildWorker(argv[2], argc >= 4 ? argv[3] : "",
++                                        argc == 5 ? argv[4] : "")) {
+       llvm::errs() << llvm::toString(std::move(Err)) << "\n";
+       return 1;
+     }
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 4b6cfe21b..c5aecfc30 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -14,6 +14,7 @@
+ #include "Annotations.h"
+ #include "CodeComplete.h"
+ #include "Compiler.h"
++#include "ModuleBuildMemoryBudget.h"
+ #include "ModuleBuildWorker.h"
+ #include "ModuleDependencyScanCache.h"
+ #include "ModulesBuilder.h"
+@@ -429,6 +430,38 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerPolicyDoesNotInventDiskSemantics) {
+               testing::HasSubstr("cannot export"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests,
++       ModuleWorkerBudgetFailsClosedBeforeRequestRead) {
++  // Ordinary files named like controls are never evidence of a kernel bound.
++  auto Budget = createModuleBuildWorkerMemoryBudget(TestDir, 64 * 1024 * 1024);
++  ASSERT_FALSE(static_cast<bool>(Budget));
++#ifdef __linux__
++  EXPECT_THAT(llvm::toString(Budget.takeError()),
++              testing::HasSubstr("cgroup v2"));
++#else
++  EXPECT_THAT(llvm::toString(Budget.takeError()),
++              testing::HasSubstr("unavailable"));
++#endif
++  auto Err = runModuleBuildWorker((TestDir + "/nonexistent-request.json").str(), "",
++                                  "67108864:0:0:" + TestDir.str().str());
++  ASSERT_TRUE(static_cast<bool>(Err));
++#ifdef __linux__
++  EXPECT_THAT(llvm::toString(std::move(Err)), testing::HasSubstr("cgroup v2"));
++#else
++  EXPECT_THAT(llvm::toString(std::move(Err)),
++              testing::HasSubstr("unavailable"));
++#endif
++  Budget = createModuleBuildWorkerMemoryBudget("relative", 1);
++  ASSERT_FALSE(static_cast<bool>(Budget));
++  llvm::consumeError(Budget.takeError());
++  Budget = createModuleBuildWorkerMemoryBudget(TestDir, 0);
++  ASSERT_FALSE(static_cast<bool>(Budget));
++  llvm::consumeError(Budget.takeError());
++  Err = enterModuleBuildWorkerMemoryBudget("bad-token");
++  ASSERT_TRUE(static_cast<bool>(Err));
++  llvm::consumeError(std::move(Err));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleWorkerPreservesCapturedInputs) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "#error disk main must not be read\n");
+-- 
+2.53.0
+

@@ -157,3 +157,31 @@ leave no new unit directory. Killing the actual supervisor during marked
 frontend work causes natural worker exit 1 and adopted reap in 7.26 ms; its
 unit remains and no staged PCM exists. tests/evidence/module-worker-owner-lifetime.json
 records current engine identity and separate private/root evidence.
+
+## 0038 shared kernel memory admission
+
+A caller-provisioned delegated cgroup-v2 root can now own one private budget
+shared by all admitted worker calls. The factory verifies the actual cgroup
+filesystem/domain, writes and reads back memory.max, zero swap and group OOM,
+and requires owned group-kill support. Child bootstrap verifies device/inode,
+limits and its actual membership before request/frontend work. Once a group
+is configured, InProcess and unsupported WhenSupported fallbacks are errors.
+The group owner remains held through specific-child reap and kills remaining
+descendants before normal removal. Shared controllers and the parent process
+are never modified or moved.
+
+Private Linux proof has two workers allocate 40 MiB each under the same
+64 MiB group: oom_group_kill=1 and oom_kill=2, both receive SIGKILL, the parent
+survives and its private group is removed. Actual frontend success under
+128 MiB takes 31 ms and preserves an unrelated child. Modified limits reject
+bootstrap; unavailable child controllers reject the factory without leaking
+a group. Three related units pass. The current populated terminal scope
+cannot delegate memory, but its empty parent slice already has the controller
+enabled for private children; only those private children were used.
+
+The bound covers kernel-accounted admitted group memory/descendants, not
+parent/scanners, pre-migration charges or an exact sum-RSS ceiling; the kernel
+permits temporary overshoot. All covered calls must share the same owner.
+Parent-death group directory collection and default/native integration remain
+required. Evidence retains the private source and executable identities in
+tests/evidence/module-worker-memory-budget.json.
