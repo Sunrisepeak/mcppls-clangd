@@ -22,7 +22,9 @@ cp /usr/share/common-licenses/GPL-3 "$RUNTIME_LICENSE_DIR/GPL-3.txt"
 cp /usr/share/doc/zlib1g-dev/copyright "$RUNTIME_LICENSE_DIR/zlib-copyright.txt"
 source ci/scripts/env.sh
 ./ci/ci_build.sh
-cmake --build "$BUILD_DIR" --target clang-resource-headers -j "${JOBS:-4}"
+# The installed-engine semantic gates below need this same-source driver;
+# the non-test ci_build stage builds only clangd.
+cmake --build "$BUILD_DIR" --target clang clang-resource-headers -j "${JOBS:-4}"
 # Resource headers must be present before the final build stamp is recorded.
 python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$PWD/llvm-project" --platform "$PLATFORM"
 ./ci/scripts/package.sh
