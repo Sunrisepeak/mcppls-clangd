@@ -63,14 +63,25 @@
     "std_qualified_edited_p95_ms": 157.615552
   },
   "native_distribution_status": {
-    "status": "incomplete",
+    "status": "per_arm_qualified",
     "original_invocation_exit_code": 1,
-    "valid_arms": [
-      "baseline-before",
-      "candidate"
-    ],
-    "invalid_arm": "baseline-after",
-    "reason": "Observed external compiler overlap. No selected insertion stage executed. Third timing excluded, replacement prepared_not_run."
+    "replacement_invocation_exit_code": 0,
+    "typed_sema_checks": 549,
+    "selected_native_insertions": 48,
+    "all_edit_fields_equal": true,
+    "comparisons": {
+      "baseline-before": {
+        "edited_p95_improvement_fraction": 0.7356116826230013,
+        "cpu_ratio_conservative": 0.5707607309817254,
+        "rss_observed_p95_max_ratio": 0.546941222511803
+      },
+      "baseline-after": {
+        "edited_p95_improvement_fraction": 0.7326453779584029,
+        "cpu_ratio_conservative": 0.5786299009047824,
+        "rss_observed_p95_max_ratio": 0.5476754268943437
+      }
+    },
+    "scope": "Before/candidate original untouched valid measurements, only compiler-overlapped after replaced. Main process resources only; original cold failures and overlapped timings excluded."
   },
   "product_inferred_under_load": {
     "checks": 17,

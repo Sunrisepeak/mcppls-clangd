@@ -1,0 +1,182 @@
+{
+  "scope": "Final3starts30rounds AST-ready A/B/A combined from unchanged valid original before/candidate and only invalid after-arm replacement. Original full invocation exit1 and overlapped after report retained; cold completion not requested. Main process resources and selected actual native insertion only; no full release or descendant resource claim.",
+  "original_invocation_exit_code": 1,
+  "replacement_invocation_exit_code": 0,
+  "typed_sema_checks": 549,
+  "selected_native_insertions": 48,
+  "all_edit_fields_equal": true,
+  "comparisons": {
+    "baseline-before": {
+      "edited_p95_improvement_fraction": 0.7356116826230013,
+      "cpu_ratio_conservative": 0.5707607309817254,
+      "rss_observed_p95_max_ratio": 0.546941222511803
+    },
+    "baseline-after": {
+      "edited_p95_improvement_fraction": 0.7326453779584029,
+      "cpu_ratio_conservative": 0.5786299009047824,
+      "rss_observed_p95_max_ratio": 0.5476754268943437
+    }
+  },
+  "arms": {
+    "baseline-after": {
+      "report_sha256": "ab688d51962b9e9d4470aa42e0f5b44c9a12c6709cfa3c99d203e6664a5cb820",
+      "timing_source": "/tmp/mcppls-part2-floor70/qualification/native-settled-remainder/baseline-after/report.json",
+      "typed_sema_checks": 183,
+      "selected_native_insertions": 16,
+      "main_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 122286494546807,
+            "end_monotonic_ns": 122292807443722,
+            "cpu_ms": 7700.0,
+            "cpu_lower_ms": 7680.0,
+            "cpu_upper_ms": 7720.0,
+            "cpu_ms_per_completion": 126.22950819672131,
+            "rss_observations": 185,
+            "rss_p95_kib": 479744,
+            "rss_observed_max_kib": 490996,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          },
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 122293313320077,
+            "end_monotonic_ns": 122299661603180,
+            "cpu_ms": 7780.0,
+            "cpu_lower_ms": 7760.0,
+            "cpu_upper_ms": 7800.0,
+            "cpu_ms_per_completion": 127.54098360655738,
+            "rss_observations": 186,
+            "rss_p95_kib": 343280,
+            "rss_observed_max_kib": 354696,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          },
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 122300178103829,
+            "end_monotonic_ns": 122306587976977,
+            "cpu_ms": 7790.0,
+            "cpu_lower_ms": 7770.0,
+            "cpu_upper_ms": 7810.0,
+            "cpu_ms_per_completion": 127.70491803278688,
+            "rss_observations": 186,
+            "rss_p95_kib": 343452,
+            "rss_observed_max_kib": 353588,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          }
+        ],
+        "cpu_lower_ms": 23210.0,
+        "cpu_upper_ms": 23330.0,
+        "rss_p95_max_kib": 479744,
+        "scope": "Main process only; no descendants or hard memory ceiling."
+      }
+    },
+    "baseline-before": {
+      "report_sha256": "c1070b58df4e6f3eef78f1c28318ffd0af47888f20050d71fba80f80888dc2ba",
+      "timing_source": "/tmp/mcppls-part2-floor70/qualification/native-settled-distribution/baseline-before/report.json",
+      "typed_sema_checks": 183,
+      "selected_native_insertions": 16,
+      "main_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 121006980322550,
+            "end_monotonic_ns": 121013479392969,
+            "cpu_ms": 7890.0,
+            "cpu_lower_ms": 7870.0,
+            "cpu_upper_ms": 7910.0,
+            "cpu_ms_per_completion": 129.34426229508196,
+            "rss_observations": 187,
+            "rss_p95_kib": 480388,
+            "rss_observed_max_kib": 491016,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          },
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 121013995183846,
+            "end_monotonic_ns": 121020434394189,
+            "cpu_ms": 7870.0,
+            "cpu_lower_ms": 7850.0,
+            "cpu_upper_ms": 7890.0,
+            "cpu_ms_per_completion": 129.01639344262296,
+            "rss_observations": 187,
+            "rss_p95_kib": 343072,
+            "rss_observed_max_kib": 354572,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          },
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 121020961285553,
+            "end_monotonic_ns": 121027340318989,
+            "cpu_ms": 7830.0,
+            "cpu_lower_ms": 7810.0,
+            "cpu_upper_ms": 7850.0,
+            "cpu_ms_per_completion": 128.36065573770492,
+            "rss_observations": 186,
+            "rss_p95_kib": 343004,
+            "rss_observed_max_kib": 353356,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          }
+        ],
+        "cpu_lower_ms": 23530.0,
+        "cpu_upper_ms": 23650.0,
+        "rss_p95_max_kib": 480388,
+        "scope": "Main process only; no descendants or hard memory ceiling."
+      }
+    },
+    "candidate": {
+      "report_sha256": "ee71ca8d94bd5bbf77f22c91b83bcda195f76563f0f958aebf34b4bcc2217370",
+      "timing_source": "/tmp/mcppls-part2-floor70/qualification/native-settled-distribution/candidate/report.json",
+      "typed_sema_checks": 183,
+      "selected_native_insertions": 16,
+      "main_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 121029122291578,
+            "end_monotonic_ns": 121032837041854,
+            "cpu_ms": 4440.0,
+            "cpu_lower_ms": 4420.0,
+            "cpu_upper_ms": 4460.0,
+            "cpu_ms_per_completion": 72.78688524590164,
+            "rss_observations": 159,
+            "rss_p95_kib": 258084,
+            "rss_observed_max_kib": 289272,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          },
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 121033177407352,
+            "end_monotonic_ns": 121036930679440,
+            "cpu_ms": 4480.0,
+            "cpu_lower_ms": 4460.0,
+            "cpu_upper_ms": 4500.0,
+            "cpu_ms_per_completion": 73.44262295081967,
+            "rss_observations": 160,
+            "rss_p95_kib": 261196,
+            "rss_observed_max_kib": 292236,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          },
+          {
+            "stable_requests": 61,
+            "start_monotonic_ns": 121037267216961,
+            "end_monotonic_ns": 121040984554506,
+            "cpu_ms": 4450.0,
+            "cpu_lower_ms": 4430.0,
+            "cpu_upper_ms": 4470.0,
+            "cpu_ms_per_completion": 72.95081967213115,
+            "rss_observations": 160,
+            "rss_p95_kib": 262744,
+            "rss_observed_max_kib": 290700,
+            "scope": "Observed stable main-process window including intervening AST work; no descendants or hard RSS ceiling."
+          }
+        ],
+        "cpu_lower_ms": 13310.0,
+        "cpu_upper_ms": 13430.0,
+        "rss_p95_max_kib": 262744,
+        "scope": "Main process only; no descendants or hard memory ceiling."
+      }
+    }
+  },
+  "all_checked_requirements_passed": true
+}
