@@ -1,0 +1,113 @@
+Note: Google Test filter = PrerequisiteModulesTests.TextualPreamble*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from PrerequisiteModulesTests
+[ RUN      ] PrerequisiteModulesTests.TextualPreambleAuditDeclinesToSemanticFallback
+Module dependency scan memo miss: /tmp/modules-test-8b8107/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-8b8107/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-8b8107/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-8b8107/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-8b8107/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-8b8107/M.cppm (entries=3, bytes=258367)
+Module dependency scan memo miss: /tmp/modules-test-8b8107/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-8b8107/Header.hpp (entries=4, bytes=344074)
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-8b8107/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-8b8107/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-8b8107/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-8b8107/.cache/clangd/modules/M.cppm-C046D7A48AC7EC9F/B78F7D6A532BD70D/M-20261008-113854-384896.-58d198.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-8b8107/Use.cpp in 0.01 seconds
+Module dependency scan manifest unsupported child filesystem visit
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Textual module preamble audit: imports=false, emittedFree=true, complete=false, facts=22, replay=false, current=true, same=true
+Textual module preamble input/import audit declined: /tmp/modules-test-8b8107/Use.cpp; retrying with zero prefix
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-8b8107/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-8b8107/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-8b8107/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing persistent module M from /tmp/modules-test-8b8107/.cache/clangd/modules/M.cppm-C046D7A48AC7EC9F/B78F7D6A532BD70D/M.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-8b8107/Use.cpp in 0.00 seconds
+Built preamble of size 268620 for file /tmp/modules-test-8b8107/Use.cpp version null in 0.01 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-8b8107/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] PrerequisiteModulesTests.TextualPreambleAuditDeclinesToSemanticFallback (39 ms)
+[ RUN      ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback
+Module dependency scan memo miss: /tmp/modules-test-c74a6c/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-c74a6c/Use.cpp (entries=1, bytes=86366)
+Module dependency scan memo miss: /tmp/modules-test-c74a6c/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-c74a6c/Use.cpp (entries=2, bytes=172653)
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module provider inventory: 3 files
+Module provider index rebuilt: 3 commands
+Module dependency scan memo miss: /tmp/modules-test-c74a6c/M.cppm
+Module dependency scan memo stored: /tmp/modules-test-c74a6c/M.cppm (entries=3, bytes=258367)
+Module dependency scan memo miss: /tmp/modules-test-c74a6c/Header.hpp
+Module dependency scan memo stored: /tmp/modules-test-c74a6c/Header.hpp (entries=4, bytes=344074)
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Module build task M started (active=1, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module M to /tmp/modules-test-c74a6c/.cache/clangd/modules/M.cppm-E3D9EFE4D0612B33/D36FBB5339693C82/M-20261008-113854-420325.-6b570b.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-c74a6c/Use.cpp in 0.00 seconds
+Textual module preamble construction failed: /tmp/modules-test-c74a6c/Use.cpp: Could not emit PCH; retrying with zero prefix
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing persistent module M from /tmp/modules-test-c74a6c/.cache/clangd/modules/M.cppm-E3D9EFE4D0612B33/D36FBB5339693C82/M.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-c74a6c/Use.cpp in 0.00 seconds
+Built preamble of size 268620 for file /tmp/modules-test-c74a6c/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/Use.cpp
+Module provider index reused: 3 commands
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Module dependency scan memo hit: /tmp/modules-test-c74a6c/M.cppm
+Module build task M started (active=1, limit=2)
+Reusing module M from /tmp/modules-test-c74a6c/.cache/clangd/modules/M.cppm-E3D9EFE4D0612B33/D36FBB5339693C82/M-20261008-113854-422084.-9ba6bf.pcm
+Module build task M finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-c74a6c/Use.cpp in 0.00 seconds
+Could not build a preamble for file /tmp/modules-test-c74a6c/Use.cpp version null: Could not emit PCH
+  error: file '/tmp/modules-test-c74a6c/Broken.pcm' is not a valid module file: file doesn't start with precompiled file magic
+Could not build a preamble for file /tmp/modules-test-c74a6c/Use.cpp version null: Could not emit PCH
+  error: file '/tmp/modules-test-c74a6c/Broken.pcm' is not a valid module file: file doesn't start with precompiled file magic
+[       OK ] PrerequisiteModulesTests.TextualPreambleConstructionFailureUsesSemanticFallback (23 ms)
+[----------] 2 tests from PrerequisiteModulesTests (63 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (63 ms total)
+[  PASSED  ] 2 tests.
