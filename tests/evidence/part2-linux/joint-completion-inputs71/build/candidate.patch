@@ -1,0 +1,225 @@
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 8fbcbb0ec..5c58d1aef 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1410,13 +1410,22 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+   const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
+   std::unique_ptr<PrerequisiteModules> FreshModules;
+   bool ReusePreamble = true;
++  std::optional<ModulesBuilder::CompletionInputs> CompletionInputs;
+   // Body edits can safely use a stale preamble, but dependency edits cannot:
+   // its copy-on-read BMIs describe the old exports even after the current AST
+   // update has noticed the invalidation. Validate against this request's VFS.
+   if (RequiredModules && Input.ParseInput.ModulesManager) {
+     trace::Span ModuleTracer("Completion module validation");
+-    auto CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
+-        Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
++    std::vector<std::string> CurrentNames;
++    if (Input.Preamble.TextualModuleInputs) {
++      CompletionInputs = Input.ParseInput.ModulesManager->getCompletionInputs(
++          Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
++          Input.ParseInput.CompileCommand, *CI);
++      CurrentNames = std::move(CompletionInputs->RequiredModules);
++    } else {
++      CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
++          Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
++    }
+     llvm::StringSet<> CurrentNameSet;
+     for (const auto &Name : CurrentNames)
+       CurrentNameSet.insert(Name);
+@@ -1430,7 +1439,9 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+     }
+   }
+   if (Input.Preamble.TextualModuleInputs) {
+-    auto Current = Input.ParseInput.ModulesManager
++    auto Current = CompletionInputs
++                       ? std::move(CompletionInputs->TextualPreamble)
++                       : Input.ParseInput.ModulesManager
+                        ? Input.ParseInput.ModulesManager->getTextualPreambleInputs(
+                              Input.FileName, *Input.ParseInput.TFS,
+                              Input.ParseInput.Contents,
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 9d59502d4..e3bd1c523 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -2324,6 +2324,37 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+   return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
+ }
+ 
++ModulesBuilder::CompletionInputs ModulesBuilder::getCompletionInputs(
++    PathRef File, const ThreadsafeFS &TFS, llvm::StringRef Contents,
++    const tooling::CompileCommand &Command, const CompilerInvocation &CI) {
++  RequestModuleFS MainFS(TFS, File, Contents);
++  auto MDB = Impl->getCDB().getProjectModules(File);
++  if (!MDB)
++    return {};
++  MDB->setFileSystem(MainFS);
++  auto Inputs = MDB->getRequiredModulesAndInputs(File);
++  CompletionInputs Result{std::move(Inputs.RequiredModules), std::nullopt};
++  const auto &Lang = CI.getLangOpts();
++  const auto &HS = CI.getHeaderSearchOpts();
++  if (!Inputs.OrdinaryTU || !Lang.CPlusPlus || !Lang.CPlusPlus20 || Lang.ObjC ||
++      HS.ImplicitModuleMaps || !CI.getFrontendOpts().ModuleMapFiles.empty() ||
++      !CI.getFrontendOpts().ModuleFiles.empty() ||
++      !CI.getPreprocessorOpts().ImplicitPCHInclude.empty())
++    return Result;
++  auto ScanCommand = MDB->getCompileCommand(File);
++  if (!ScanCommand || ScanCommand->Directory != Command.Directory ||
++      ScanCommand->Filename != Command.Filename ||
++      ScanCommand->CommandLine != Command.CommandLine)
++    return Result;
++  auto Bounds = Lexer::ComputePreamble(Contents, Lang);
++  if (!Bounds.Size)
++    return Result;
++  RequestModuleFS PrefixFS(TFS, File, Contents.take_front(Bounds.Size));
++  MDB->setFileSystem(PrefixFS);
++  Result.TextualPreamble = MDB->getVerifiedInputs(File, /*ImportFree=*/true);
++  return Result;
++}
++
+ bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
+                                                  const ThreadsafeFS &TFS,
+                                                  llvm::StringRef Contents) {
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
+index a6166870b..458a87a27 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.h
++++ b/clang-tools-extra/clangd/ModulesBuilder.h
+@@ -140,6 +140,17 @@ public:
+                           const tooling::CompileCommand &Command,
+                           const CompilerInvocation &CI);
+ 
++  struct CompletionInputs {
++    std::vector<std::string> RequiredModules;
++    std::optional<ProjectModules::VerifiedInputs> TextualPreamble;
++  };
++  /// Validate a completion's full draft once for imports and ordinary-TU role,
++  /// then independently prove its textual prefix is import-free. No result is
++  /// retained across requests; all manifest replay and command checks remain.
++  CompletionInputs getCompletionInputs(
++      PathRef File, const ThreadsafeFS &TFS, llvm::StringRef Contents,
++      const tooling::CompileCommand &Command, const CompilerInvocation &CI);
++
+   /// Returns the list of directly required module names
+   std::vector<std::string> getRequiredModuleNames(PathRef File);
+   std::vector<std::string> getRequiredModuleNames(PathRef File,
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 4258a891a..457c40370 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -569,6 +569,17 @@ public:
+     return Scanner.getRequiredModules(File, Mangler);
+   }
+ 
++  RequiredModulesAndInputs getRequiredModulesAndInputs(PathRef File) override {
++    auto Result = Scanner.scan(File, Mangler);
++    if (!Result)
++      return {};
++    RequiredModulesAndInputs Inputs;
++    Inputs.RequiredModules = std::move(Result->RequiredModules);
++    if (!Result->ModuleName && !Result->VerifiedInputsKey.empty())
++      Inputs.OrdinaryTU = VerifiedInputs{CDB, std::move(Result->VerifiedInputsKey)};
++    return Inputs;
++  }
++
+   std::optional<VerifiedInputs>
+   getVerifiedInputs(PathRef File, bool ImportFree) override {
+     auto Result = Scanner.scan(File, Mangler);
+@@ -828,6 +839,10 @@ public:
+     return Scanning->getRequiredModules(File);
+   }
+ 
++  RequiredModulesAndInputs getRequiredModulesAndInputs(PathRef File) override {
++    return Scanning->getRequiredModulesAndInputs(File);
++  }
++
+   std::optional<VerifiedInputs>
+   getVerifiedInputs(PathRef File, bool ImportFree) override {
+     return Scanning->getVerifiedInputs(File, ImportFree);
+diff --git a/clang-tools-extra/clangd/ProjectModules.h b/clang-tools-extra/clangd/ProjectModules.h
+index c5cd3e919..4d6df17fa 100644
+--- a/clang-tools-extra/clangd/ProjectModules.h
++++ b/clang-tools-extra/clangd/ProjectModules.h
+@@ -47,6 +47,10 @@ public:
+       return Generation == Other.Generation && Key == Other.Key;
+     }
+   };
++  struct RequiredModulesAndInputs {
++    std::vector<std::string> RequiredModules;
++    std::optional<VerifiedInputs> OrdinaryTU;
++  };
+   enum class ModuleNameState {
+     Unknown,
+     Unique,
+@@ -85,6 +89,13 @@ public:
+   /// without command information must decline, rather than invent a fallback.
+   virtual std::optional<tooling::CompileCommand>
+   getCompileCommand(PathRef File) { return std::nullopt; }
++
++  /// Return imports and an ordinary-TU proof from the same canonical scan.
++  /// Backends without a joint operation retain their existing conservative
++  /// queries. The result belongs only to this request's filesystem view.
++  virtual RequiredModulesAndInputs getRequiredModulesAndInputs(PathRef File) {
++    return {getRequiredModules(File), getVerifiedInputs(File, false)};
++  }
+ };
+ 
+ // One immutable compilation-database generation's command inventory. Facades
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index e2a80d9a7..c3c56f06e 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -3370,6 +3370,54 @@ export int BValue = MValue;
+   EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, CompletionInputsKeepDraftRoleAndPrefixIndependent) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
++  CDB.addFile("Header.hpp", "int header_value;\n");
++  CDB.addFile("Use.cpp", "#include \"Header.hpp\"\nimport M;\nvoid use() {}\n");
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Check = [&](llvm::StringRef Draft, const tooling::CompileCommand &Command) {
++    return Builder.getCompletionInputs(getFullPath("Use.cpp"), FS, Draft,
++                                       Command, *CI);
++  };
++  auto First = Check(Inputs.Contents, Inputs.CompileCommand);
++  EXPECT_THAT(First.RequiredModules, testing::ElementsAre("M"));
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux()) {
++    EXPECT_FALSE(First.TextualPreamble);
++    return;
++  }
++  ASSERT_TRUE(First.TextualPreamble);
++  auto Before = getModuleDependencyScanCache().stats();
++  auto Warm = Check(Inputs.Contents, Inputs.CompileCommand);
++  ASSERT_TRUE(Warm.TextualPreamble);
++  EXPECT_EQ(*Warm.TextualPreamble, *First.TextualPreamble);
++  // One full draft replay and one prefix replay. No second full draft replay.
++  EXPECT_EQ(getModuleDependencyScanCache().stats().Hits - Before.Hits, 2u);
++
++  auto Body = Check("#include \"Header.hpp\"\nimport M;\nvoid use() { int local; }\n",
++                    Inputs.CompileCommand);
++  ASSERT_TRUE(Body.TextualPreamble);
++  EXPECT_EQ(*Body.TextualPreamble, *First.TextualPreamble);
++
++  auto ModuleUnit = Check("#include \"Header.hpp\"\nexport module Other;\nimport M;\n",
++                          Inputs.CompileCommand);
++  EXPECT_THAT(ModuleUnit.RequiredModules, testing::ElementsAre("M"));
++  EXPECT_FALSE(ModuleUnit.TextualPreamble);
++
++  auto ChangedCommand = Inputs.CompileCommand;
++  ChangedCommand.CommandLine.push_back("-DNEW_MACRO=1");
++  auto Mismatch = Check(Inputs.Contents, ChangedCommand);
++  EXPECT_THAT(Mismatch.RequiredModules, testing::ElementsAre("M"));
++  EXPECT_FALSE(Mismatch.TextualPreamble);
++
++  auto PrefixImport = Check("#include \"Header.hpp\"\n", Inputs.CompileCommand);
++  ASSERT_TRUE(PrefixImport.TextualPreamble);
++  EXPECT_TRUE(PrefixImport.RequiredModules.empty());
++}
++
+ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixPreservesFreshHeaderBytes) {
+   VerifiedScanCompilationDatabase CDB(TestDir, FS);
+   Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { text_^; }\n");
