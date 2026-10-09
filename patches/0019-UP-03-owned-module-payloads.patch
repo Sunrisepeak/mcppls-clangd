@@ -1,4 +1,4 @@
-From cc7b8e7af5d177bed2f19e8062b423fdb918f325 Mon Sep 17 00:00:00 2001
+From 12adfb573b4c33d3dffb82fc0c59d5ddc299720d Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -2229,7 +2229,7 @@ index 6827763..9c820e1 100644
      if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
                               TFS.view(std::nullopt))) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 061e2dd..9da2174 100644
+index 9cc3898..fb3434d 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -12,6 +12,14 @@

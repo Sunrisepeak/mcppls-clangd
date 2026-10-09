@@ -29,7 +29,7 @@ preamble and a main file on x86_64-pc-windows-msvc), and 0017's module worker
 reports a command directory that does not exist yet and builds on, as an
 in-process build does, instead of failing every prerequisite of a project
 opened before its first build. The tree is now
-`e69db3dbdb463589600c95b05982d369224de451`.
+`dfe2f25a9569548048273839685e5b454801a438`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

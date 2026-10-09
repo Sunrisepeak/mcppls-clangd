@@ -1,4 +1,4 @@
-From fe8d09566ae65de9962baa053fcbc6ca595f391f Mon Sep 17 00:00:00 2001
+From 139112c079b7259ae8508cb2484c3f49905c172a Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 18:54:35 +0900
 Subject: [clangd] Module preamble policy follows the attached prerequisites
@@ -348,10 +348,10 @@ index ac0320d..b56aa62 100644
    auto TU = TestTU::withCode("#define VALUE 1\nint value = VALUE;\n");
    for (bool Skip : {false, true}) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 9da2174..fba92a9 100644
+index fb3434d..f53f6ef 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -3430,6 +3430,46 @@ export int BValue = MValue;
+@@ -3433,6 +3433,46 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  
