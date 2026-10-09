@@ -1,4 +1,4 @@
-From 44c673dea2d989770567bff61371f1e6c97a41c1 Mon Sep 17 00:00:00 2001
+From e9ca7157f1dc51be4ff7e97ebc26cc0669bb39b9 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -54,7 +54,7 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang-tools-extra/clangd/ModulesBuilder.h     |  11 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
- .../clangd/unittests/CodeCompleteTests.cpp    | 462 ++++++++++++++++++
+ .../clangd/unittests/CodeCompleteTests.cpp    | 467 ++++++++++++++++++
  .../unittests/PrerequisiteModulesTest.cpp     |  97 ++++
  clang/include/clang/AST/ExternalASTSource.h   |  17 +
  .../include/clang/Sema/CodeCompleteConsumer.h |   7 +
@@ -65,7 +65,7 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 16 files changed, 978 insertions(+), 21 deletions(-)
+ 16 files changed, 983 insertions(+), 21 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
 index c6f4728..5c58d1a 100644
@@ -257,10 +257,10 @@ index c5cd3e9..4d6df17 100644
  
  // One immutable compilation-database generation's command inventory. Facades
 diff --git a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
-index 5fad022..02e5401 100644
+index 5fad022..4b622d1 100644
 --- a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
 +++ b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
-@@ -25,7 +25,10 @@
+@@ -25,9 +25,13 @@
  #include "index/MemIndex.h"
  #include "index/SymbolOrigin.h"
  #include "support/Threading.h"
@@ -270,8 +270,11 @@ index 5fad022..02e5401 100644
 +#include "clang/Basic/IdentifierTable.h"
  #include "clang/Tooling/CompilationDatabase.h"
  #include "llvm/ADT/StringRef.h"
++#include "llvm/ADT/StringSet.h"
  #include "llvm/Support/Error.h"
-@@ -5135,6 +5138,465 @@ TEST(CompletionTest, FuzzyMatchMacro) {
+ #include "llvm/Support/Path.h"
+ #include "llvm/Testing/Annotations/Annotations.h"
+@@ -5135,6 +5139,469 @@ TEST(CompletionTest, FuzzyMatchMacro) {
    }
  }
  
@@ -292,15 +295,18 @@ index 5fad022..02e5401 100644
 +  CodeCompleteOptions Opts;
 +  Opts.ForceLoadPreamble = true;
 +  Opts.BundleOverloads = true;
-+  // Declarations are compared. Macros and keywords come from the preprocessor
-+  // and language options rather than from name lookup, and a preamble's macro
-+  // table differs from a main file's on some targets (x86_64-pc-windows-msvc
-+  // offers __STDC__ only from the preamble).
-+  auto Keys = [](const CodeCompleteResult &R) {
++  // An empty pattern selects no names: the external lookup is the ordinary one,
++  // and a textual TU also lists what the target predeclares and defines (on
++  // x86_64-pc-windows-msvc size_t, type_info and macros a preamble does not
++  // offer). There, what the header declares is compared.
++  auto Keys = [](const CodeCompleteResult &R, bool HeaderOnly) {
++    static const llvm::StringSet<> Header = {
++        "visible", "unrelated", "backing", "vector_api", "version_api",
++        "bridge",  "host",      "abi",     "vector_abi", "vehicle",
++        "vehicle_alias"};
 +    std::vector<std::string> Keys;
 +    for (const auto &C : R.Completions) {
-+      if (C.Kind == CompletionItemKind::Keyword ||
-+          C.Kind == CompletionItemKind::Constant)
++      if (HeaderOnly && !Header.contains(C.Name))
 +        continue;
 +      Keys.push_back(C.Name + "|" + C.RequiredQualifier + "|" + C.Signature +
 +                     "|" + C.SnippetSuffix + "|" +
@@ -321,7 +327,8 @@ index 5fad022..02e5401 100644
 +                          (Body + Pattern + "^ }").str());
 +      auto LocalTU = TestTU::withCode(Textual.code());
 +      auto Local = completions(LocalTU, Textual.point(), {}, Opts);
-+      EXPECT_EQ(Keys(Result), Keys(Local)) << Pattern.str() << Body.str();
++      EXPECT_EQ(Keys(Result, Pattern.empty()), Keys(Local, Pattern.empty()))
++          << Pattern.str() << Body.str();
 +      if (Pattern == "ve" && !Body.ends_with("::")) {
 +        EXPECT_THAT(Result.Completions, has("vector_api"));
 +        EXPECT_THAT(Result.Completions, has("vector_abi"));
