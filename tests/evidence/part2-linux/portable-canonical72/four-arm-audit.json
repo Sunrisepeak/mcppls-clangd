@@ -1,0 +1,54 @@
+{
+  "scope": "Final72 versus portable70 same Clang12 recipe, four arms3x30. Distinct edits/documentation preserved; only known module constructor multiplicity removed. Selected replies compiled. Main resources only; not full release or header parity.",
+  "arms": {
+    "baseline-headers": {
+      "report_sha256": "1b127ac99f9e25b491699fc63187a713d1ba191d504ce689c995f35f93a919cf",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 21,
+      "warm_p95_ms": 40.484414,
+      "edited_p95_ms": 141.677506
+    },
+    "candidate-modules": {
+      "report_sha256": "568021bf72f1567cfe5385ff3502a804ea9cc3b7c9cdacb8afcf91aa85b348d1",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 20,
+      "warm_p95_ms": 71.132441,
+      "edited_p95_ms": 144.506764
+    },
+    "baseline-modules": {
+      "report_sha256": "572c2154000cd1bdb20d821b23e0a0821adb6cfaba3c48c6c54cc8d2d4dcda59",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 20,
+      "warm_p95_ms": 84.757711,
+      "edited_p95_ms": 157.166119
+    },
+    "candidate-headers": {
+      "report_sha256": "678fe4fad1722cb5e9e082d162f7bb9ccbb02a9a9d7bc39b55e432cc1bfddead",
+      "typed_sema_checks": 186,
+      "selected_gcc_insertions": 21,
+      "warm_p95_ms": 40.152919,
+      "edited_p95_ms": 136.773706
+    }
+  },
+  "typed_sema_checks": 744,
+  "selected_gcc_insertions": 82,
+  "proof_cdb_hashes": [
+    "8e4b828dc81b40d56ddc476a399019ca30e0daf6ea2929d8231d309da53c4291"
+  ],
+  "all_actual_edit_fields_equal": true,
+  "explicit_performance_checks": {
+    "both_candidate_modes_warm_edited_p95_within_200ms": true,
+    "main_cpu_and_rss_no_20_percent_regression": true
+  },
+  "resource_comparisons": {
+    "headers": {
+      "cpu_ratio_conservative": 1.0041984732824427,
+      "rss_observed_p95_max_ratio": 0.9982768523836876
+    },
+    "modules": {
+      "cpu_ratio_conservative": 0.9555393586005831,
+      "rss_observed_p95_max_ratio": 0.9983472564456999
+    }
+  },
+  "all_checked_requirements_passed": true
+}
