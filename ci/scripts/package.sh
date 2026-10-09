@@ -21,6 +21,12 @@ cp "$CLANGD" "$OUT/clangd/bin/$TARGET"
 if command -v strip >/dev/null 2>&1; then
   strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
 fi
+# Stripping a Mach-O invalidates its signature, and Apple Silicon refuses to run an unsigned arm64
+# executable. The part is shipped byte for byte (mcpp-language-server never re-signs it), so it is
+# signed here, before engine.json records its SHA-256.
+if [[ "$PLATFORM" == darwin-* ]]; then
+  codesign --force --sign - "$OUT/clangd/bin/clangd"
+fi
 
 MAJOR="$("$OUT/clangd/bin/clangd"* --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)"
 if [[ -d "$BUILD_DIR/lib/clang/$MAJOR/include" ]]; then
