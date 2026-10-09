@@ -64,7 +64,7 @@ def main():
         parser.error(f'binary does not report expected identity: {version.strip()}')
     subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', 'HEAD', '--',
                     'UPSTREAM', 'patches', 'overlay', 'ci/scripts', 'ci/package_identity.py',
-                    'tests/e2e/module_directive_diagnostics.py'], check=True,
+                    'ci/const_views_canary.py', 'tests/e2e/module_directive_diagnostics.py'], check=True,
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')], text=True).strip()
@@ -93,6 +93,19 @@ def main():
     if (formatted.returncode != 0 or not re.search(
             r'"id":\s*1,.*?"result":\s*\[\s*\]', formatted.stdout, re.S)):
         parser.error('final package bytes failed mcpp formatting fallback canary')
+    # `import hello.` and other malformed directives recover instead of hanging the file.
+    recovery_canary = source / 'clang-tools-extra/clangd/test/module-directive-recovery.test'
+    try:
+        recovered = subprocess.run([str(engine.resolve()), '-lit-test'], input=recovery_canary.read_text(),
+                                   text=True, capture_output=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        parser.error('final package bytes hang on a malformed module directive')
+    if recovered.returncode != 0 or recovered.stdout.count('"name": "marker"') != 2:
+        parser.error('final package bytes failed module directive recovery canary')
+    views = subprocess.run(['python3', str(ROOT / 'ci/const_views_canary.py'), '--engine', str(engine.resolve())],
+                           text=True, capture_output=True, timeout=120)
+    if views.returncode != 0:
+        parser.error('final package bytes failed misc-const-correctness view canary: ' + views.stdout.strip())
     directive_report = args.build_dir / 'module-directive-package-canary.json'
     directive = subprocess.run([
         'python3', str(ROOT / 'tests/e2e/module_directive_diagnostics.py'),
@@ -109,7 +122,8 @@ def main():
                 'llvm-commit': commit, 'fork-commit': fork, 'patch-series-sha256': series,
                 'platform': args.platform, 'sha256': sha(engine),
                 'features': ['semantic-tokens-range', 'format-style-mcpp',
-                             'module-directive-diagnostic-ranges'],
+                             'module-directive-diagnostic-ranges', 'module-directive-recovery',
+                             'const-correctness-views'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
                 'llvm-tree-commit': stamp['llvm-tree-commit'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}

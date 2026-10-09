@@ -21,12 +21,15 @@ patch returns it to `stabilizing` until the same run passes again.
 The 0.0.12 series carries 25 topic patches. They were regrouped from 74
 incremental patches without changing the patched tree (both apply to
 `a2e92ba00e6666eaa5d1f975a4bd65b80537dbab`); each multi-change patch lists the
-changes it combines in its message. Since then one test changed: 0025's
-`ExternalUnqualifiedNamesPreserveScopesAndUsing` compares, for an empty
-pattern, only the names its header declares, because the ordinary lookup an
+changes it combines in its message. Since then two changes went in, found by running the product against the
+engine: 0025's `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares, for
+an empty pattern, only the names its header declares (the ordinary lookup an
 empty pattern uses lists target predeclarations and macros differently for a
-preamble and a main file on x86_64-pc-windows-msvc (the tree is now
-`e54ec2c4c206466ecbbf8d59037ea2ffc82b97b0`; no non-test file differs).
+preamble and a main file on x86_64-pc-windows-msvc), and 0017's module worker
+reports a command directory that does not exist yet and builds on, as an
+in-process build does, instead of failing every prerequisite of a project
+opened before its first build. The tree is now
+`dfe2f25a9569548048273839685e5b454801a438`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

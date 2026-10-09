@@ -1,4 +1,4 @@
-From 07ebff0a217d77a0022e87ed6c505ac7b7fd5430 Mon Sep 17 00:00:00 2001
+From b09b03d162ce619086a24f2626172a4a8cb03aee Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:34:00 +0900
 Subject: [clangd] Consumers bind to published prerequisite generations
@@ -189,10 +189,10 @@ index 9c820e1..046830e 100644
          // the compilation on this caller, bypassing the pool's global limit.
          // Wait instead on a separate promise set only by the pool worker.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index bee21f6..7635d79 100644
+index f53f6ef..dccf7c7 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2463,6 +2463,51 @@ void func() {
+@@ -2476,6 +2476,51 @@ void func() {
    EXPECT_EQ(Result.signatures[0].parameters[0].labelString, "int a");
  }
  
@@ -244,7 +244,7 @@ index bee21f6..7635d79 100644
  TEST_F(PrerequisiteModulesTests, ReusablePrerequisiteModulesTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3460,6 +3505,55 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+@@ -3473,6 +3518,55 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
    EXPECT_FALSE(llvm::sys::fs::exists(ReadCopy));
  }
  

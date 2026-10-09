@@ -1,4 +1,4 @@
-From f0b26f1f5c641901a1c98d3906de701c1343b578 Mon Sep 17 00:00:00 2001
+From 754890345c36dc9f65e7e904b44da42003b3a1a2 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 10:24:01 +0900
 Subject: Bound BMI read-copy maintenance outside module build requests
@@ -496,7 +496,7 @@ index c7be791..6827763 100644
          // the compilation on this caller, bypassing the pool's global limit.
          // Wait instead on a separate promise set only by the pool worker.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 972faf1..b77308b 100644
+index 5922308..9cc3898 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -43,6 +43,7 @@
@@ -507,7 +507,7 @@ index 972faf1..b77308b 100644
  
  namespace clang::clangd {
  namespace {
-@@ -2828,6 +2829,12 @@ TEST_F(PrerequisiteModulesTests,
+@@ -2841,6 +2842,12 @@ TEST_F(PrerequisiteModulesTests,
    auto NewInfo =
        SecondBuilder.buildPrerequisiteModulesFor(getFullPath("A.cppm"), FS);
    ASSERT_TRUE(NewInfo);

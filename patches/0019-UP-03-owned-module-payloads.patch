@@ -1,4 +1,4 @@
-From d7bef3f8dd124cddfe992737f0c0d6f47de2ec48 Mon Sep 17 00:00:00 2001
+From 12adfb573b4c33d3dffb82fc0c59d5ddc299720d Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -1629,7 +1629,7 @@ index 0000000..24f07eb
 +} // namespace clang
 +#endif
 diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
-index bf26775..0a168c7 100644
+index 77485ea..7de87e8 100644
 --- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
 +++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
 @@ -7,6 +7,7 @@
@@ -1640,7 +1640,7 @@ index bf26775..0a168c7 100644
  #include "Compiler.h"
  #include "ModuleBuildMemoryBudget.h"
  #include "ModuleBuildWorkerOutput.h"
-@@ -47,6 +48,10 @@ constexpr int ProtocolVersion = 1;
+@@ -48,6 +49,10 @@ constexpr int ProtocolVersion = 1;
  // Version 1 workers ignore unknown resource fields. A bounded parent must not
  // launch one and mistake its successful response for enforcement.
  constexpr int BoundedProtocolVersion = 2;
@@ -1651,7 +1651,7 @@ index bf26775..0a168c7 100644
  constexpr llvm::StringLiteral CapturedFileSystem =
      "disk-with-captured-overlays";
  
-@@ -469,7 +474,8 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+@@ -470,7 +475,8 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
        static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
      return llvm::createStringError("module worker address limit is too large");
    llvm::json::Object Request{
@@ -1661,7 +1661,7 @@ index bf26775..0a168c7 100644
                        ? BoundedProtocolVersion
                        : ProtocolVersion},
        {"filesystem", CapturedFileSystem},
-@@ -493,7 +499,11 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+@@ -494,7 +500,11 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
    // owner remain charged to one group until their final reap/cleanup completes.
    auto MemoryBudget = Options.MemoryBudget;
    const bool PayloadBound =
@@ -1674,7 +1674,7 @@ index bf26775..0a168c7 100644
    if (PayloadBound)
      if (auto Error = validateBoundedModuleBuildOutputs(Invocation))
        return std::move(Error);
-@@ -539,6 +549,7 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+@@ -540,6 +550,7 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
    ModuleBuildWorkerInputs Inputs;
    Inputs.AddressSpaceLimitBytes = Options.AddressSpaceLimitBytes;
    Inputs.OutputLimitBytes = Options.OutputLimitBytes;
@@ -1682,7 +1682,7 @@ index bf26775..0a168c7 100644
    Inputs.FileSystem =
        ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
    Inputs.WorkingDirectory = WorkingDirectory.str();
-@@ -671,21 +682,29 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+@@ -672,21 +683,29 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
    if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
      return llvm::createStringError(
          "module worker cancelled or timed out before accepting output");
@@ -1717,7 +1717,7 @@ index bf26775..0a168c7 100644
    Success = true;
    return std::optional<ModuleBuildWorkerResult>(
        {std::chrono::duration_cast<std::chrono::milliseconds>(
-@@ -731,7 +750,8 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+@@ -732,7 +751,8 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
    const auto *Object = Request->getAsObject();
    if (!Object ||
        (Object->getInteger("version") != ProtocolVersion &&
@@ -1727,7 +1727,7 @@ index bf26775..0a168c7 100644
        Object->getString("filesystem") != CapturedFileSystem)
      return llvm::createStringError(
          "unsupported module worker request protocol");
-@@ -761,6 +781,9 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+@@ -762,6 +782,9 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
        return llvm::createStringError("invalid module worker output limit");
      OutputLimit = static_cast<uint64_t>(*Limit);
    }
@@ -1737,7 +1737,7 @@ index bf26775..0a168c7 100644
    ModuleBuildWorkerInputs Inputs;
    Inputs.FileSystem =
        ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
-@@ -795,6 +818,26 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+@@ -796,6 +819,26 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
      if (auto Error = validateBoundedModuleBuildOutputs(*Invocation))
        return Error;
  
@@ -1763,7 +1763,7 @@ index bf26775..0a168c7 100644
 +
    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS(
        llvm::vfs::createPhysicalFileSystem().release());
-   if (auto EC = VFS->setCurrentWorkingDirectory(Inputs.WorkingDirectory))
+   // As for an in-process build (ThreadsafeFS::view): a command's directory that
 diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
 index 22cea85..333552e 100644
 --- a/clang-tools-extra/clangd/ModuleBuildWorker.h
@@ -2229,7 +2229,7 @@ index 6827763..9c820e1 100644
      if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
                               TFS.view(std::nullopt))) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index b77308b..9c0634c 100644
+index 9cc3898..fb3434d 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -12,6 +12,14 @@
