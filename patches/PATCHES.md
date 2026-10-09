@@ -21,9 +21,13 @@ patch returns it to `stabilizing` until the same run passes again.
 The 0.0.12 series carries 25 topic patches. They were regrouped from 74
 incremental patches without changing the patched tree (both apply to
 `a2e92ba00e6666eaa5d1f975a4bd65b80537dbab`); each multi-change patch lists the
-changes it combines in its message. The incremental history and the raw
-evidence it produced are in the `archive/0.0.12-joint` branch and the
-`evidence-0.0.12` release (`tests/evidence/README.md`).
+changes it combines in its message. Since then one test changed: 0025's
+`ExternalUnqualifiedNamesPreserveScopesAndUsing` compares declarations only,
+because macro completions differ between a preamble and a main file on
+x86_64-pc-windows-msvc (the tree is now `54656481a1a8e3d77c57bb8a8bf0a4410e9570ef`;
+no non-test file differs). The incremental history and the raw evidence it
+produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
+release (`tests/evidence/README.md`).
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
