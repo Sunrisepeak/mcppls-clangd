@@ -1,0 +1,20 @@
+diff --git a/clang/lib/Serialization/ASTReader.cpp b/clang/lib/Serialization/ASTReader.cpp
+index 05d15e930..fe9162384 100644
+--- a/clang/lib/Serialization/ASTReader.cpp
++++ b/clang/lib/Serialization/ASTReader.cpp
+@@ -10655,8 +10655,13 @@ void ASTReader::ReadComments() {
+       SourceLocation CommentLoc = C->getBeginLoc();
+       if (CommentLoc.isValid()) {
+         FileIDAndOffset Loc = SourceMgr.getDecomposedLoc(CommentLoc);
+-        if (Loc.first.isValid())
+-          Context.Comments.OrderedComments[Loc.first].emplace(Loc.second, C);
++        if (Loc.first.isValid()) {
++          auto &InFile = Context.Comments.OrderedComments[Loc.first];
++          // The writer emits each file's comments in source order. An end
++          // hint avoids searching the growing tree for each serialized entry.
++          // Existing offsets or non-monotonic input still use map semantics.
++          InFile.emplace_hint(InFile.end(), Loc.second, C);
++        }
+       }
+     }
+   }

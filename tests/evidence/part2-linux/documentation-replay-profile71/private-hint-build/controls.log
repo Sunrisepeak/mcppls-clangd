@@ -1,0 +1,2520 @@
+Note: Google Test filter = CompletionStringTest.*:CompletionTest.*
+[==========] Running 168 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 148 tests from CompletionTest
+[ RUN      ] CompletionTest.Limit
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned (incomplete).
+[       OK ] CompletionTest.Limit (7 ms)
+[ RUN      ] CompletionTest.Filter
+Built preamble of size 210580 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210580 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "C",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 11 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 11 returned.
+Built preamble of size 210580 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "M",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.Filter (13 ms)
+[ RUN      ] CompletionTest.CompletionOptions
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 97 results from Sema, 3 from Index, 0 matched, 0 from identifiers, 100 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 97 results from Sema, 3 from Index, 0 matched, 0 from identifiers, 100 returned.
+[       OK ] CompletionTest.CompletionOptions (12 ms)
+[ RUN      ] CompletionTest.Accessible
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.Accessible (8 ms)
+[ RUN      ] CompletionTest.Qualifiers
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.Qualifiers (2 ms)
+[ RUN      ] CompletionTest.QualificationWithInlineNamespace
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "",
+    "a::"
+  ]
+})
+Code complete: sema context Statement, query scopes [,a::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.QualificationWithInlineNamespace (2 ms)
+[ RUN      ] CompletionTest.InjectedTypename
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 105 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 105 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 110 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 110 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 107 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 107 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+[       OK ] CompletionTest.InjectedTypename (17 ms)
+[ RUN      ] CompletionTest.SkipInjectedWhenUnqualified
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.SkipInjectedWhenUnqualified (2 ms)
+[ RUN      ] CompletionTest.Snippets
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.Snippets (3 ms)
+[ RUN      ] CompletionTest.HeuristicsForMemberFunctionCompletion
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:33:11:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:36:11:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:38:11:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:48:9:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:51:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:53:9:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:33:11:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:36:11:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:33:11:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:36:11:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:38:11:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:40:11:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:33:11:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:36:11:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:38:11:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:40:11:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:42:11:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 10 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 10 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:48:9:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:48:9:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:51:9:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:48:9:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:51:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:53:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:55:9:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:48:9:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Ignored diagnostic. /clangd-test/TestTU.cpp:51:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:53:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:55:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:57:9:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 10 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 10 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Ignored diagnostic. /clangd-test/TestTU.cpp:21:7:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:33:11:must use 'struct' tag to refer to type 'Foo' in this scope
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:11:struct 'Foo' is hidden by a non-type declaration of 'Foo' here
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:16:16:expected identifier
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type int
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 8 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 8 returned.
+[       OK ] CompletionTest.HeuristicsForMemberFunctionCompletion (47 ms)
+[ RUN      ] CompletionTest.PrivateMemberDefinition
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.PrivateMemberDefinition (2 ms)
+[ RUN      ] CompletionTest.DeclParamName
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.DeclParamName (2 ms)
+[ RUN      ] CompletionTest.DefaultArgsWithValues
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.DefaultArgsWithValues (2 ms)
+[ RUN      ] CompletionTest.NoSnippetsInUsings
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>, inside using declaration
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>, inside using declaration
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context SymbolOrNewName, query scopes [] (AnyScope=true), expected type <none>, inside using declaration
+Code complete: 1 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.NoSnippetsInUsings (8 ms)
+[ RUN      ] CompletionTest.Kinds
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [
+    "c:I"
+  ],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 79 results from Sema, 5 from Index, 0 matched, 0 from identifiers, 84 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type auto
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:8:41:non-const static data member must be initialized out of line
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Color
+Code complete: 87 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 87 returned.
+[       OK ] CompletionTest.Kinds (14 ms)
+[ RUN      ] CompletionTest.NoDuplicates
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Adapter",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 1 from Index, 1 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.NoDuplicates (2 ms)
+[ RUN      ] CompletionTest.ScopedNoIndex
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [fake::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.ScopedNoIndex (2 ms)
+[ RUN      ] CompletionTest.Scoped
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "ba",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "fake::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [fake::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.Scoped (2 ms)
+[ RUN      ] CompletionTest.ScopedWithFilter
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:2:22:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "x",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ScopedWithFilter (2 ms)
+[ RUN      ] CompletionTest.ReferencesAffectRanking
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "abs",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 2 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "abs",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 2 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.ReferencesAffectRanking (5 ms)
+[ RUN      ] CompletionTest.ContextWords
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type auto
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.ContextWords (2 ms)
+[ RUN      ] CompletionTest.GlobalQualified
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.GlobalQualified (2 ms)
+[ RUN      ] CompletionTest.FullyQualified
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.FullyQualified (2 ms)
+[ RUN      ] CompletionTest.SemaIndexMerge
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 2 from Index, 1 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.SemaIndexMerge (2 ms)
+[ RUN      ] CompletionTest.SemaIndexMergeWithLimit
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": 1,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+[       OK ] CompletionTest.SemaIndexMergeWithLimit (2 ms)
+[ RUN      ] CompletionTest.IncludeInsertionPreprocessorIntegrationTests
+Built preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:1:14:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:1:14:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210748 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:24:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.IncludeInsertionPreprocessorIntegrationTests (8 ms)
+[ RUN      ] CompletionTest.NoIncludeInsertionWhenDeclFoundInFile
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 2 from Index, 2 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.NoIncludeInsertionWhenDeclFoundInFile (2 ms)
+[ RUN      ] CompletionTest.IncludeInsertionRespectsQuotedAngledConfig
+Built preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:1:14:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:1:14:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210544 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:1:14:use of undeclared identifier 'ns'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.IncludeInsertionRespectsQuotedAngledConfig (8 ms)
+[ RUN      ] CompletionTest.IndexSuppressesPreambleCompletions
+Built preamble of size 211360 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 211360 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 211360 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.IndexSuppressesPreambleCompletions (8 ms)
+[ RUN      ] CompletionTest.CompletionInPreamble
+Built preamble of size 210652 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context PreprocessorDirective, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.CompletionInPreamble (3 ms)
+[ RUN      ] CompletionTest.CompletionRecoveryASTType
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:6:7:no matching function for call to 'overloaded'
+Ignored diagnostic. /clangd-test/foo.cpp:3:7:candidate function not viable: requires 1 argument, but 0 were provided
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.CompletionRecoveryASTType (2 ms)
+[ RUN      ] CompletionTest.DynamicIndexIncludeInsertion
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo_impl.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo_impl.cpp
+ASTWorker building file /clangd-test/foo_impl.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo_impl.cpp
+Building first preamble for /clangd-test/foo_impl.cpp version null
+Built preamble of size 256048 for file /clangd-test/foo_impl.cpp version null in 0.00 seconds
+indexed preamble AST for /clangd-test/foo_impl.cpp version null:
+  symbol slab: 2 symbols, 4664 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 7116 bytes
+indexed file AST for /clangd-test/foo_impl.cpp version null:
+  symbol slab: 1 symbols, 4432 bytes
+  ref slab: 2 symbols, 2 refs, 4256 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 11560 bytes
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 255252 for file /clangd-test/foo.cpp version null in 0.00 seconds
+indexed preamble AST for /clangd-test/foo.cpp version null:
+  symbol slab: 0 symbols, 104 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Trying to fix unresolved name "Foo" in scopes: []
+Dex query tree: (LIMIT 10000 (& T=foo S= ?=Restricted For Code Completion))
+indexed file AST for /clangd-test/foo.cpp version null:
+  symbol slab: 1 symbols, 4432 bytes
+  ref slab: 1 symbols, 1 refs, 4232 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 20488 bytes
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Dex query tree: (& T=foo (| S= (* 2.000000e-01 true)) (| (* 2.340640e+00 U=unittest:///) true) ?=Restricted For Code Completion)
+Code complete: sema context TopLevel, query scopes [] (AnyScope=true), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.DynamicIndexIncludeInsertion (14 ms)
+[ RUN      ] CompletionTest.DynamicIndexMultiFile
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 256248 for file /clangd-test/foo.cpp version null in 0.00 seconds
+indexed preamble AST for /clangd-test/foo.cpp version null:
+  symbol slab: 3 symbols, 4896 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 8576 bytes
+indexed file AST for /clangd-test/foo.cpp version null:
+  symbol slab: 0 symbols, 104 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 216 bytes
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name bar.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/bar.cpp
+ASTWorker building file /clangd-test/bar.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/bar.cpp
+Building first preamble for /clangd-test/bar.cpp version null
+Built preamble of size 255256 for file /clangd-test/bar.cpp version null in 0.00 seconds
+indexed preamble AST for /clangd-test/bar.cpp version null:
+  symbol slab: 0 symbols, 104 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+indexed file AST for /clangd-test/bar.cpp version null:
+  symbol slab: 4 symbols, 5128 bytes
+  ref slab: 3 symbols, 3 refs, 4304 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 13248 bytes
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/bar.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Dex query tree: (& S=ns:: (| (* 2.340640e+00 U=unittest:///) true) ?=Restricted For Code Completion)
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 2 from Index, 0 matched, 0 from identifiers, 4 returned.
+[       OK ] CompletionTest.DynamicIndexMultiFile (17 ms)
+[ RUN      ] CompletionTest.Documentation
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.01 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 88 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 88 returned.
+[       OK ] CompletionTest.Documentation (7 ms)
+[ RUN      ] CompletionTest.CommentsFromSystemHeaders
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 255804 for file /clangd-test/foo.cpp version null in 0.01 seconds
+indexed preamble AST for /clangd-test/foo.cpp version null:
+  symbol slab: 1 symbols, 4432 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 6872 bytes
+indexed file AST for /clangd-test/foo.cpp version null:
+  symbol slab: 1 symbols, 4432 bytes
+  ref slab: 2 symbols, 2 refs, 4256 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 11560 bytes
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [
+    "c:I"
+  ],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Dex query tree: (& T=foo (| S= (* 2.000000e-01 true)) (| (* 2.340640e+00 U=unittest:///) true) (| (* 5.000000e+00 Ty=c:I) true) ?=Restricted For Code Completion)
+Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int
+Code complete: 1 results from Sema, 1 from Index, 1 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.CommentsFromSystemHeaders (18 ms)
+[ RUN      ] CompletionTest.CommentsOnMembersFromHeader
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 256828 for file /clangd-test/foo.cpp version null in 0.01 seconds
+indexed preamble AST for /clangd-test/foo.cpp version null:
+  symbol slab: 6 symbols, 5592 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 12096 bytes
+indexed file AST for /clangd-test/foo.cpp version null:
+  symbol slab: 4 symbols, 5128 bytes
+  ref slab: 6 symbols, 6 refs, 4400 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 13224 bytes
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Ignored diagnostic. /clangd-test/foo.cpp:5:11:expected unqualified-id
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.CommentsOnMembersFromHeader (37 ms)
+[ RUN      ] CompletionTest.CommentsOnMembersFromHeaderOverloadBundling
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 256660 for file /clangd-test/foo.cpp version null in 0.01 seconds
+indexed preamble AST for /clangd-test/foo.cpp version null:
+  symbol slab: 5 symbols, 5360 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 9320 bytes
+indexed file AST for /clangd-test/foo.cpp version null:
+  symbol slab: 2 symbols, 4664 bytes
+  ref slab: 3 symbols, 3 refs, 4304 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 12104 bytes
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=true), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.CommentsOnMembersFromHeaderOverloadBundling (21 ms)
+[ RUN      ] CompletionTest.GlobalCompletionFiltering
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.01 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:2:7:use of undeclared identifier 'XYZ'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "foooo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "XYZ::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [XYZ::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.GlobalCompletionFiltering (14 ms)
+[ RUN      ] CompletionTest.Issue1427Crash
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:3:12:no matching literal operator for call to 'operator""_' with argument of type 'long double' or 'const char *', and no matching literal operator template
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 89 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 89 returned.
+[       OK ] CompletionTest.Issue1427Crash (8 ms)
+[ RUN      ] CompletionTest.BacktrackCrashes
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Multiple code complete callbacks (parser backtracked?). Dropping results from context Symbol, keeping results from Symbol.
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: Ignoring sema code complete callback with Recovery context.
+Code complete: sema context TypeQualifiers, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.BacktrackCrashes (6 ms)
+[ RUN      ] CompletionTest.CompleteInMacroWithStringification
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.CompleteInMacroWithStringification (2 ms)
+[ RUN      ] CompletionTest.CompleteInMacroAndNamespaceWithStringification
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [ns::,] (AnyScope=false), expected type <none>
+Code complete: 94 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 94 returned.
+[       OK ] CompletionTest.CompleteInMacroAndNamespaceWithStringification (3 ms)
+[ RUN      ] CompletionTest.IgnoreCompleteInExcludedPPBranchWithRecoveryContext
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: Ignoring sema code complete callback with Recovery context.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.IgnoreCompleteInExcludedPPBranchWithRecoveryContext (2 ms)
+[ RUN      ] CompletionTest.DefaultArgs
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.DefaultArgs (8 ms)
+[ RUN      ] CompletionTest.NoCrashWithTemplateParamsAndPreferredTypes
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 90 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 90 returned.
+[       OK ] CompletionTest.NoCrashWithTemplateParamsAndPreferredTypes (2 ms)
+[ RUN      ] CompletionTest.NestedTemplateHeuristics
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.NestedTemplateHeuristics (2 ms)
+[ RUN      ] CompletionTest.RecordCCResultCallback
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.RecordCCResultCallback (2 ms)
+[ RUN      ] CompletionTest.ASTSignals
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [
+    "c:I"
+  ],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "xy",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "bar::",
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [bar::,] (AnyScope=true), expected type int
+Code complete: 3 results from Sema, 3 from Index, 1 matched, 0 from identifiers, 5 returned.
+[       OK ] CompletionTest.ASTSignals (2 ms)
+[ RUN      ] CompletionTest.UnqualifiedIdQuery
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "vec",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::",
+    "",
+    "std::"
+  ]
+})
+Code complete: sema context Statement, query scopes [ns::,,std::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned (incomplete).
+[       OK ] CompletionTest.UnqualifiedIdQuery (2 ms)
+[ RUN      ] CompletionTest.EnclosingScopeComesFirst
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "vec",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "nx::ns::",
+    "",
+    "nx::",
+    "std::"
+  ]
+})
+Code complete: sema context Statement, query scopes [nx::ns::,,nx::,std::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned (incomplete).
+[       OK ] CompletionTest.EnclosingScopeComesFirst (2 ms)
+[ RUN      ] CompletionTest.ResolvedQualifiedIdQuery
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "foo::",
+    "ns1::",
+    "ns3::nns3::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [foo::,ns1::,ns3::nns3::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned (incomplete).
+[       OK ] CompletionTest.ResolvedQualifiedIdQuery (2 ms)
+[ RUN      ] CompletionTest.UnresolvedQualifierIdQuery
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:6:7:use of undeclared identifier 'bar'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "a::bar::",
+    "bar::",
+    "ns::bar::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [a::bar::,bar::,ns::bar::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned (incomplete).
+[       OK ] CompletionTest.UnresolvedQualifierIdQuery (2 ms)
+[ RUN      ] CompletionTest.UnresolvedNestedQualifierIdQuery
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:6:12:no member named 'bar' in namespace 'a'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "a::bar::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [a::bar::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned (incomplete).
+[       OK ] CompletionTest.UnresolvedNestedQualifierIdQuery (2 ms)
+[ RUN      ] CompletionTest.EmptyQualifiedQuery
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::",
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [ns::,] (AnyScope=false), expected type <none>
+Code complete: 91 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 91 returned (incomplete).
+[       OK ] CompletionTest.EmptyQualifiedQuery (3 ms)
+[ RUN      ] CompletionTest.GlobalQualifiedQuery
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+[       OK ] CompletionTest.GlobalQualifiedQuery (2 ms)
+[ RUN      ] CompletionTest.NoDuplicatedQueryScopes
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "na::nb::",
+    "",
+    "na::"
+  ]
+})
+Code complete: sema context TopLevel, query scopes [na::nb::,,na::] (AnyScope=false), expected type <none>
+Code complete: 75 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 75 returned (incomplete).
+[       OK ] CompletionTest.NoDuplicatedQueryScopes (2 ms)
+[ RUN      ] CompletionTest.NoIndexCompletionsInsideClasses
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+[       OK ] CompletionTest.NoIndexCompletionsInsideClasses (2 ms)
+[ RUN      ] CompletionTest.NoIndexCompletionsInsideDependentCode
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.NoIndexCompletionsInsideDependentCode (8 ms)
+[ RUN      ] CompletionTest.OverloadBundling
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:14:11:no matching constructor for initialization of 'X'
+Ignored diagnostic. /clangd-test/foo.cpp:9:7:candidate constructor not viable: requires 1 argument, but 0 were provided
+Ignored diagnostic. /clangd-test/foo.cpp:10:7:candidate constructor not viable: requires 1 argument, but 0 were provided
+Ignored diagnostic. /clangd-test/foo.cpp:2:12:candidate constructor (the implicit copy constructor) not viable: requires 1 argument, but 0 were provided
+Ignored diagnostic. /clangd-test/foo.cpp:2:12:candidate constructor (the implicit move constructor) not viable: requires 1 argument, but 0 were provided
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type X
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [
+    "c:I"
+  ],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "GFunc",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 1 from Index, 1 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [
+    "c:I"
+  ],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "GFunc",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:14:11:no matching constructor for initialization of 'X'
+Ignored diagnostic. /clangd-test/foo.cpp:9:7:candidate constructor not viable: requires 1 argument, but 0 were provided
+Ignored diagnostic. /clangd-test/foo.cpp:10:7:candidate constructor not viable: requires 1 argument, but 0 were provided
+Ignored diagnostic. /clangd-test/foo.cpp:2:12:candidate constructor (the implicit copy constructor) not viable: requires 1 argument, but 0 were provided
+Ignored diagnostic. /clangd-test/foo.cpp:2:12:candidate constructor (the implicit move constructor) not viable: requires 1 argument, but 0 were provided
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.OverloadBundling (14 ms)
+[ RUN      ] CompletionTest.OverloadBundlingSameFileDifferentURI
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:1:14:no member named 'ns' in the global namespace
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.OverloadBundlingSameFileDifferentURI (2 ms)
+[ RUN      ] CompletionTest.DocumentationFromChangedFileCrash
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 255780 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=true), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.DocumentationFromChangedFileCrash (7 ms)
+[ RUN      ] CompletionTest.NonDocComments
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+[       OK ] CompletionTest.NonDocComments (3 ms)
+[ RUN      ] CompletionTest.CompleteOnInvalidLine
+[       OK ] CompletionTest.CompleteOnInvalidLine (0 ms)
+[ RUN      ] CompletionTest.QualifiedNames
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 2 from Index, 1 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.QualifiedNames (2 ms)
+[ RUN      ] CompletionTest.Render
+[       OK ] CompletionTest.Render (0 ms)
+[ RUN      ] CompletionTest.IgnoreRecoveryResults
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: Ignoring sema code complete callback with Recovery context.
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type auto
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.IgnoreRecoveryResults (2 ms)
+[ RUN      ] CompletionTest.ScopeOfClassFieldInConstructorInitializer
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ScopeOfClassFieldInConstructorInitializer (2 ms)
+[ RUN      ] CompletionTest.ConstructorInitListIncomplete
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:5:13:expected '(' or '{'
+Ignored diagnostic. /clangd-test/foo.cpp:5:13:expected '(' or '{'
+Code complete: sema context Symbol, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:7:21:expected ')'
+Ignored diagnostic. /clangd-test/foo.cpp:6:23:to match this '('
+Ignored diagnostic. /clangd-test/foo.cpp:7:21:expected ')'
+Ignored diagnostic. /clangd-test/foo.cpp:6:23:to match this '('
+Code complete: sema context Expression, query scopes [ns::,] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ConstructorInitListIncomplete (5 ms)
+[ RUN      ] CompletionTest.CodeCompletionContext
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [ns::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.CodeCompletionContext (2 ms)
+[ RUN      ] CompletionTest.OffsetOfDesignator
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.OffsetOfDesignator (11 ms)
+[ RUN      ] CompletionTest.FixItForArrowToDot
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.FixItForArrowToDot (2 ms)
+[ RUN      ] CompletionTest.FixItForDotToArrow
+Built preamble of size 210512 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.FixItForDotToArrow (2 ms)
+[ RUN      ] CompletionTest.RenderWithFixItMerged
+[       OK ] CompletionTest.RenderWithFixItMerged (0 ms)
+[ RUN      ] CompletionTest.RenderWithFixItNonMerged
+[       OK ] CompletionTest.RenderWithFixItNonMerged (0 ms)
+[ RUN      ] CompletionTest.CompletionInsertRange
+Built preamble of size 210524 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210524 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210552 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context IncludedFile, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210680 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context IncludedFile, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.CompletionInsertRange (11 ms)
+[ RUN      ] CompletionTest.ArgumentListsPolicy
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210680 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ArgumentListsPolicy (25 ms)
+[ RUN      ] CompletionTest.SuggestOverrides
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context ClassStructUnion, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 91 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 91 returned.
+[       OK ] CompletionTest.SuggestOverrides (3 ms)
+[ RUN      ] CompletionTest.OverridesNonIdentName
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context ClassStructUnion, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 88 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 88 returned.
+[       OK ] CompletionTest.OverridesNonIdentName (3 ms)
+[ RUN      ] CompletionTest.NoCrashOnMissingNewLineAtEOF
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 255276 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.NoCrashOnMissingNewLineAtEOF (8 ms)
+[ RUN      ] CompletionTest.EnableSpeculativeIndexRequest
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name foo.cpp -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -fdeprecated-macro -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fcxx-exceptions -fexceptions -no-round-trip-args -faddrsig -fdwarf2-cfi-asm -x c++ /clangd-test/foo.cpp
+ASTWorker building file /clangd-test/foo.cpp version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/foo.cpp
+Building first preamble for /clangd-test/foo.cpp version null
+Built preamble of size 255256 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "ab",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns1::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns1::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+Ignored diagnostic. /clangd-test/foo.cpp:4:23:no member named 'ab' in namespace 'ns1'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "ab",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns1::"
+  ]
+})
+Code complete: speculative fuzzy request matches the actual index request. Waiting for the speculative index results.
+Code complete: sema context Symbol, query scopes [ns1::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "ab",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "ns2::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [ns2::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+[       OK ] CompletionTest.EnableSpeculativeIndexRequest (10 ms)
+[ RUN      ] CompletionTest.InsertTheMostPopularHeader
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Fun",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.InsertTheMostPopularHeader (3 ms)
+[ RUN      ] CompletionTest.InsertIncludeOrImport
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Fun",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 212024 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/Foo.m"
+  ],
+  "Query": "Fun",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Fun",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.InsertIncludeOrImport (8 ms)
+[ RUN      ] CompletionTest.NoInsertIncludeIfOnePresent
+Built preamble of size 210648 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "Fun",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.NoInsertIncludeIfOnePresent (2 ms)
+[ RUN      ] CompletionTest.MergeMacrosFromIndexAndSema
+Built preamble of size 210588 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Clangd_Macro_T",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 1 from Index, 1 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.MergeMacrosFromIndexAndSema (2 ms)
+[ RUN      ] CompletionTest.MacroFromPreamble
+Built preamble of size 211088 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "CLANGD_",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.MacroFromPreamble (2 ms)
+[ RUN      ] CompletionTest.DeprecatedResults
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.DeprecatedResults (2 ms)
+[ RUN      ] CompletionTest.IncludedCompletionKinds
+Built preamble of size 210552 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context IncludedFile, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+[       OK ] CompletionTest.IncludedCompletionKinds (2 ms)
+[ RUN      ] CompletionTest.NoCrashAtNonAlphaIncludeHeader
+Built preamble of size 210532 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context IncludedFile, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.NoCrashAtNonAlphaIncludeHeader (2 ms)
+[ RUN      ] CompletionTest.NoAllScopesCompletionWhenQualified
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:2:16:use of undeclared identifier 'na'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Clangd",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "na::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [na::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.NoAllScopesCompletionWhenQualified (2 ms)
+[ RUN      ] CompletionTest.AllScopesCompletion
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Clangd",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "na::",
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [na::,] (AnyScope=true), expected type <none>
+Code complete: 0 results from Sema, 5 from Index, 0 matched, 0 from identifiers, 5 returned.
+[       OK ] CompletionTest.AllScopesCompletion (2 ms)
+[ RUN      ] CompletionTest.NoCodePatternsIfDisabled
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.NoCodePatternsIfDisabled (2 ms)
+[ RUN      ] CompletionTest.CompleteIncludeIfCodePatternsNone
+Built preamble of size 210552 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context IncludedFile, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+[       OK ] CompletionTest.CompleteIncludeIfCodePatternsNone (2 ms)
+[ RUN      ] CompletionTest.NoQualifierIfShadowed
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Clangd",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>
+Code complete: 1 results from Sema, 2 from Index, 1 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.NoQualifierIfShadowed (2 ms)
+[ RUN      ] CompletionTest.NoCompletionsForNewNames
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context NewName, query scopes [] (AnyScope=true), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.NoCompletionsForNewNames (2 ms)
+[ RUN      ] CompletionTest.Lambda
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.Lambda (2 ms)
+[ RUN      ] CompletionTest.StructuredBinding
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.StructuredBinding (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodNoArguments
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/Foo.m:5:18:initializer element is not a compile-time constant
+Code complete: sema context ObjCInstanceMessage, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodNoArguments (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodOneArgument
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/Foo.m:5:18:initializer element is not a compile-time constant
+Code complete: sema context ObjCInstanceMessage, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodOneArgument (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodTwoArgumentsFromBeginning
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context ObjCClassMessage, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodTwoArgumentsFromBeginning (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodTwoArgumentsFromMiddle
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context ObjCClassMessage, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodTwoArgumentsFromMiddle (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodFilterOnEntireSelector
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context ObjCClassMessage, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodFilterOnEntireSelector (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCSimpleMethodDeclaration
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context Other, query scopes [] (AnyScope=false), expected type <none>
+Multiple code complete callbacks (parser backtracked?). Dropping results from context ObjCImplementation, keeping results from Other.
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCSimpleMethodDeclaration (3 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodDeclaration
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context Other, query scopes [] (AnyScope=false), expected type <none>
+Multiple code complete callbacks (parser backtracked?). Dropping results from context ObjCImplementation, keeping results from Other.
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodDeclaration (3 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodDeclarationFilterOnEntireSelector
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context Other, query scopes [] (AnyScope=false), expected type <none>
+Multiple code complete callbacks (parser backtracked?). Dropping results from context ObjCImplementation, keeping results from Other.
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodDeclarationFilterOnEntireSelector (3 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodDeclarationPrefixTyped
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context Other, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodDeclarationPrefixTyped (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCMethodDeclarationFromMiddle
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: sema context Other, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCMethodDeclarationFromMiddle (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCProtocolFromIndex
+Built preamble of size 212024 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/Foo.m"
+  ],
+  "Query": "Foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context ObjCProtocolName, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 2 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 212024 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/Foo.m"
+  ],
+  "Query": "Fo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCProtocolFromIndex (5 ms)
+[ RUN      ] CompletionTest.ObjectiveCProtocolFromIndexSpeculation
+Driver produced command: cc1 -cc1 -triple x86_64-unknown-linux-gnu -fsyntax-only -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name Foo.m -mrelocation-model pic -pic-level 2 -pic-is-pie -mframe-pointer=all -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -ffreestanding -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -fdebug-compilation-dir=/clangd-test -fcoverage-compilation-dir=/clangd-test -resource-dir lib/clang/23 -internal-isystem lib/clang/23/include -internal-isystem /usr/local/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -ferror-limit 19 -fgnuc-version=4.2.1 -fskip-odr-check-in-gmf -fobjc-runtime=gcc -fobjc-encode-cxx-class-template-spec -fobjc-exceptions -no-round-trip-args -faddrsig -x objective-c /clangd-test/Foo.m
+ASTWorker building file /clangd-test/Foo.m version null with command 
+[/clangd-test]
+clang -ffreestanding /clangd-test/Foo.m
+Building first preamble for /clangd-test/Foo.m version null
+Built preamble of size 249868 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/Foo.m"
+  ],
+  "Query": "Foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context ObjCProtocolName, query scopes [] (AnyScope=true), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+Ignored diagnostic. /clangd-test/Foo.m:4:10:no type or protocol named 'Foo'
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/Foo.m"
+  ],
+  "Query": "Foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: speculative fuzzy request matches the actual index request. Waiting for the speculative index results.
+Code complete: sema context TopLevel, query scopes [] (AnyScope=true), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned (incomplete).
+[       OK ] CompletionTest.ObjectiveCProtocolFromIndexSpeculation (7 ms)
+[ RUN      ] CompletionTest.ObjectiveCCategoryFromIndexIgnored
+Built preamble of size 212028 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.ObjectiveCCategoryFromIndexIgnored (2 ms)
+[ RUN      ] CompletionTest.ObjectiveCForwardDeclFromIndex
+Built preamble of size 212024 for file /clangd-test/Foo.m version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/Foo.m"
+  ],
+  "Query": "Foo",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context ObjCClassForwardDecl, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjectiveCForwardDeclFromIndex (2 ms)
+[ RUN      ] CompletionTest.CursorInSnippets
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:8:5:expected '(' or '{'
+Ignored diagnostic. /clangd-test/foo.cpp:8:5:expected '(' or '{'
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.CursorInSnippets (5 ms)
+[ RUN      ] CompletionTest.WorksWithNullType
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:3:29:use of undeclared identifier 'y'
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.WorksWithNullType (2 ms)
+[ RUN      ] CompletionTest.UsingDecl
+Built preamble of size 211596 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+indexed preamble AST for /clangd-test/TestTU.cpp version null:
+  symbol slab: 3 symbols, 4896 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 8512 bytes
+indexed file AST for /clangd-test/TestTU.cpp version null:
+  symbol slab: 0 symbols, 104 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 216 bytes
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:3:7:use of undeclared identifier 'std'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "std::"
+  ]
+})
+Dex query tree: (& S=std:: (| (* 2.340640e+00 U=unittest:///) true) ?=Restricted For Code Completion)
+Code complete: sema context Symbol, query scopes [std::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.UsingDecl (5 ms)
+[ RUN      ] CompletionTest.Enums
+Built preamble of size 212344 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+indexed preamble AST for /clangd-test/TestTU.cpp version null:
+  symbol slab: 8 symbols, 6056 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for header symbols with estimated memory usage of 12392 bytes
+indexed file AST for /clangd-test/TestTU.cpp version null:
+  symbol slab: 0 symbols, 104 bytes
+  ref slab: 0 symbols, 0 refs, 112 bytes
+  relations slab: 0 relations, 24 bytes
+Build dynamic index for main-file symbols with estimated memory usage of 216 bytes
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": true,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "Clangd",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Dex query tree: (& T=cla T=lan T=ang T=ngd (| S= (* 2.000000e-01 true)) (| (* 2.340640e+00 U=unittest:///) true) ?=Restricted For Code Completion)
+Code complete: sema context Statement, query scopes [] (AnyScope=true), expected type <none>
+Code complete: 0 results from Sema, 3 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.Enums (5 ms)
+[ RUN      ] CompletionTest.ScopeIsUnresolved
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:3:16:use of undeclared identifier 'b'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "X",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "a::b::",
+    "b::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [a::b::,b::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ScopeIsUnresolved (2 ms)
+[ RUN      ] CompletionTest.NestedScopeIsUnresolved
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:4:19:no member named 'c' in namespace 'a::b'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "X",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "a::b::c::",
+    "b::c::"
+  ]
+})
+Code complete: sema context Symbol, query scopes [a::b::c::,b::c::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.NestedScopeIsUnresolved (2 ms)
+[ RUN      ] CompletionTest.NamespaceDoubleInsertion
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/foo.cpp:5:5:expected unqualified-id
+Sema said no scope specifier, but we saw ns:: in the source code
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/foo.cpp"
+  ],
+  "Query": "ABC",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    "foo::ns::",
+    "ns::"
+  ]
+})
+Code complete: sema context TopLevel, query scopes [foo::ns::,ns::] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.NamespaceDoubleInsertion (2 ms)
+[ RUN      ] CompletionTest.DerivedMethodsAreAlwaysVisible
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type auto
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.DerivedMethodsAreAlwaysVisible (2 ms)
+[ RUN      ] CompletionTest.NoCrashWithIncompleteLambda
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 100 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 100 returned.
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.NoCrashWithIncompleteLambda (5 ms)
+[ RUN      ] CompletionTest.DelayedTemplateParsing
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.DelayedTemplateParsing (2 ms)
+[ RUN      ] CompletionTest.CompletionRange
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type auto
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type auto
+Code complete: 85 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 85 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 2 from identifiers, 2 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.CompletionRange (8 ms)
+[ RUN      ] CompletionTest.ReplaceRange
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context NewName, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type auto
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.ReplaceRange (22 ms)
+[ RUN      ] CompletionTest.ReplaceRangeNoCompile
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 1 from identifiers, 1 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 3 from identifiers, 3 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 1 from identifiers, 1 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 1 from identifiers, 1 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 1 from identifiers, 1 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 1 from identifiers, 1 returned.
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.ReplaceRangeNoCompile (0 ms)
+[ RUN      ] CompletionTest.FunctionArgsExist
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Object
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Object
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Container
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Container
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Container
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type Container
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210608 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.FunctionArgsExist (40 ms)
+[ RUN      ] CompletionTest.FunctionArgsExist_Issue1785
+Built preamble of size 210504 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.FunctionArgsExist_Issue1785 (2 ms)
+[ RUN      ] CompletionTest.NoCrashDueToMacroOrdering
+Built preamble of size 210732 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.NoCrashDueToMacroOrdering (2 ms)
+[ RUN      ] CompletionTest.ObjCCategoryDecls
+Built preamble of size 212944 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context ObjCCategoryName, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 212944 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context ObjCCategoryName, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.ObjCCategoryDecls (5 ms)
+[ RUN      ] CompletionTest.PreambleCodeComplete
+Built preamble of size 210592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.PreambleCodeComplete (2 ms)
+[ RUN      ] CompletionTest.CommentParamName
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.CommentParamName (37 ms)
+[ RUN      ] CompletionTest.Concepts
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 79 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 80 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:17:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:44:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 80 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 81 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:17:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:44:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context TopLevel, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 80 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 81 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 81 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 82 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 82 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 83 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:17:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 82 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 83 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:17:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 82 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 83 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:17:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:44:use of concept 'A' requires template arguments
+Ignored diagnostic. /clangd-test/TestTU.cpp:3:13:template is declared here
+Ignored diagnostic. /clangd-test/TestTU.cpp:19:10:variable has incomplete type 'void'
+Code complete: fuzzyFind({
+  "AnyScope": false,
+  "Limit": null,
+  "PreferredTypes": [
+    "c:v"
+  ],
+  "ProximityPaths": [
+    "/clangd-test/TestTU.cpp"
+  ],
+  "Query": "",
+  "RestrictForCodeCompletion": true,
+  "Scopes": [
+    ""
+  ]
+})
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type void
+Code complete: 84 results from Sema, 1 from Index, 0 matched, 0 from identifiers, 85 returned.
+[       OK ] CompletionTest.Concepts (27 ms)
+[ RUN      ] CompletionTest.DoNotCrash
+Built preamble of size 210508 for file /clangd-test/foo.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 88 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 88 returned.
+[       OK ] CompletionTest.DoNotCrash (2 ms)
+[ RUN      ] CompletionTest.PreambleFromDifferentTarget
+Built preamble of size 210352 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 9 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 9 returned.
+[       OK ] CompletionTest.PreambleFromDifferentTarget (3 ms)
+[ RUN      ] CompletionTest.SkipExplicitObjectParameter
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Ignored diagnostic. /clangd-test/TestTU.cpp:9:9:expected unqualified-id
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Ignored diagnostic. /clangd-test/TestTU.cpp:9:9:expected unqualified-id
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:12:no member named 'fo' in 'A'
+Code complete: sema context Symbol, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+[       OK ] CompletionTest.SkipExplicitObjectParameter (6 ms)
+[ RUN      ] CompletionTest.MemberAccessInExplicitObjMemfn
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:9:use of undeclared identifier 'mem'
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:9:use of undeclared identifier 'mem'
+Ignored diagnostic. /clangd-test/TestTU.cpp:12:14:no member named 'mem' in 'A'
+Code complete: sema context Statement, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 0 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 0 returned.
+[       OK ] CompletionTest.MemberAccessInExplicitObjMemfn (6 ms)
+[ RUN      ] CompletionTest.ListExplicitObjectOverloads
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Code complete: sema context ArrowMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Code complete: sema context DotMemberAccess, query scopes [] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.ListExplicitObjectOverloads (10 ms)
+[ RUN      ] CompletionTest.FuzzyMatchMacro
+Built preamble of size 210768 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210768 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:13:use of undeclared identifier 'glf'
+Ignored diagnostic. /clangd-test/TestTU.cpp:11:9:redefinition of 'y'
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:9:previous definition is here
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210768 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210768 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:13:use of undeclared identifier 'glf'
+Ignored diagnostic. /clangd-test/TestTU.cpp:11:9:redefinition of 'y'
+Ignored diagnostic. /clangd-test/TestTU.cpp:10:9:previous definition is here
+Code complete: sema context Expression, query scopes [] (AnyScope=false), expected type int
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.FuzzyMatchMacro (11 ms)
+[ RUN      ] CompletionTest.ExternalUnqualifiedNamesPreserveScopesAndUsing
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 6 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 6 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 112 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 112 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Statement, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 112 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 112 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 102 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 102 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Expression, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 102 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 102 returned.
+Built preamble of size 213592 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 13 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 13 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [,backing::,bridge::,host::] (AnyScope=false), expected type <none>
+Code complete: 13 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 13 returned.
+[       OK ] CompletionTest.ExternalUnqualifiedNamesPreserveScopesAndUsing (71 ms)
+[ RUN      ] CompletionTest.SelectedExternalTUNamesPreserveOrdinaryLookup
+Built preamble of size 211648 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.SelectedExternalTUNamesPreserveOrdinaryLookup (2 ms)
+[ RUN      ] CompletionTest.ExternalNameFilterScopeIsSynchronous
+[       OK ] CompletionTest.ExternalNameFilterScopeIsSynchronous (0 ms)
+[ RUN      ] CompletionTest.ExternalNameFilterScopeClearsAfterCancelledReturn
+[       OK ] CompletionTest.ExternalNameFilterScopeClearsAfterCancelledReturn (0 ms)
+[ RUN      ] CompletionTest.SelectedExternalNamesPreserveOrdinaryLookup
+Built preamble of size 211476 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.SelectedExternalNamesPreserveOrdinaryLookup (2 ms)
+[ RUN      ] CompletionTest.ExternalQualifiedFuzzyUsingAndOverloads
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::,backing::] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::,backing::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::,backing::] (AnyScope=false), expected type <none>
+Code complete: 4 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 4 returned.
+[       OK ] CompletionTest.ExternalQualifiedFuzzyUsingAndOverloads (8 ms)
+[ RUN      ] CompletionTest.SelectedExternalOperatorNamesPreserveOverloadsAndLookup
+Built preamble of size 212332 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.SelectedExternalOperatorNamesPreserveOverloadsAndLookup (2 ms)
+[ RUN      ] CompletionTest.ExternalQualifiedOperatorNamesMatchTextualResults
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 5 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 5 returned.
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 212560 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 7 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 7 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 7 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 7 returned.
+[       OK ] CompletionTest.ExternalQualifiedOperatorNamesMatchTextualResults (32 ms)
+[ RUN      ] CompletionTest.SelectedExternalNamesPreserveOrdinaryDeductionGuideLookup
+Built preamble of size 213820 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.SelectedExternalNamesPreserveOrdinaryDeductionGuideLookup (3 ms)
+[ RUN      ] CompletionTest.ExternalQualifiedDeductionGuidesPreserveAliasResults
+Built preamble of size 214300 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 214300 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 1 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 1 returned.
+Built preamble of size 214300 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 12 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 12 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 12 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 12 returned.
+Built preamble of size 214300 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+Built preamble of size 210368 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 2 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 2 returned.
+[       OK ] CompletionTest.ExternalQualifiedDeductionGuidesPreserveAliasResults (26 ms)
+[ RUN      ] CompletionTest.ExternalNameFilterBindsExactSourceAndContext
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionTest.ExternalNameFilterBindsExactSourceAndContext (2 ms)
+[ RUN      ] CompletionTest.ExternalQualifiedAliasAndNameHiding
+Built preamble of size 212244 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::,backing::] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+Built preamble of size 210520 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+Code complete: sema context Symbol, query scopes [api::,backing::] (AnyScope=false), expected type <none>
+Code complete: 3 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 3 returned.
+[       OK ] CompletionTest.ExternalQualifiedAliasAndNameHiding (5 ms)
+[----------] 148 tests from CompletionTest (1047 ms total)
+
+[----------] 20 tests from CompletionStringTest
+[ RUN      ] CompletionStringTest.ReturnType
+[       OK ] CompletionStringTest.ReturnType (0 ms)
+[ RUN      ] CompletionStringTest.Documentation
+[       OK ] CompletionStringTest.Documentation (0 ms)
+[ RUN      ] CompletionStringTest.DocumentationWithAnnotation
+[       OK ] CompletionStringTest.DocumentationWithAnnotation (0 ms)
+[ RUN      ] CompletionStringTest.GetDeclCommentBadUTF8
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionStringTest.GetDeclCommentBadUTF8 (2 ms)
+[ RUN      ] CompletionStringTest.GetDeclCommentForParam
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionStringTest.GetDeclCommentForParam (2 ms)
+[ RUN      ] CompletionStringTest.GetDeclCommentForMultipleParams
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionStringTest.GetDeclCommentForMultipleParams (2 ms)
+[ RUN      ] CompletionStringTest.GetDeclCommentForUndocumentedParam
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionStringTest.GetDeclCommentForUndocumentedParam (2 ms)
+[ RUN      ] CompletionStringTest.GetDeclCommentForParamWithUnknownDoxygenCommand
+Built preamble of size 210516 for file /clangd-test/TestTU.cpp version null in 0.00 seconds
+[       OK ] CompletionStringTest.GetDeclCommentForParamWithUnknownDoxygenCommand (2 ms)
+[ RUN      ] CompletionStringTest.MultipleAnnotations
+[       OK ] CompletionStringTest.MultipleAnnotations (0 ms)
+[ RUN      ] CompletionStringTest.EmptySignature
+[       OK ] CompletionStringTest.EmptySignature (0 ms)
+[ RUN      ] CompletionStringTest.Function
+[       OK ] CompletionStringTest.Function (0 ms)
+[ RUN      ] CompletionStringTest.FunctionWithDefaultParams
+[       OK ] CompletionStringTest.FunctionWithDefaultParams (0 ms)
+[ RUN      ] CompletionStringTest.EscapeSnippet
+[       OK ] CompletionStringTest.EscapeSnippet (0 ms)
+[ RUN      ] CompletionStringTest.SnippetsInPatterns
+[       OK ] CompletionStringTest.SnippetsInPatterns (0 ms)
+[ RUN      ] CompletionStringTest.DropFunctionArguments
+[       OK ] CompletionStringTest.DropFunctionArguments (0 ms)
+[ RUN      ] CompletionStringTest.IgnoreInformativeQualifier
+[       OK ] CompletionStringTest.IgnoreInformativeQualifier (0 ms)
+[ RUN      ] CompletionStringTest.ObjectiveCMethodNoArguments
+[       OK ] CompletionStringTest.ObjectiveCMethodNoArguments (0 ms)
+[ RUN      ] CompletionStringTest.ObjectiveCMethodOneArgument
+[       OK ] CompletionStringTest.ObjectiveCMethodOneArgument (0 ms)
+[ RUN      ] CompletionStringTest.ObjectiveCMethodTwoArgumentsFromBeginning
+[       OK ] CompletionStringTest.ObjectiveCMethodTwoArgumentsFromBeginning (0 ms)
+[ RUN      ] CompletionStringTest.ObjectiveCMethodTwoArgumentsFromMiddle
+[       OK ] CompletionStringTest.ObjectiveCMethodTwoArgumentsFromMiddle (0 ms)
+[----------] 20 tests from CompletionStringTest (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 168 tests from 2 test suites ran. (1061 ms total)
+[  PASSED  ] 168 tests.
