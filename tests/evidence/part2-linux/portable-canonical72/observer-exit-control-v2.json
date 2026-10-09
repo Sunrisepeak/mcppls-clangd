@@ -1,0 +1,19 @@
+{
+  "scope": "Actual Linux unreaped exited process and unexpected observer exception controls. Not engine semantics or latency.",
+  "exited_process_state": "Z",
+  "exit_race": "root exited during legacy memory observation",
+  "unexpected_exception_recorded": {
+    "interval_ms": 200,
+    "cpu_tick_ms": 10.0,
+    "clock": "time.monotonic_ns; shared with request spans",
+    "samples": [],
+    "errors": [
+      "RuntimeError: injected unexpected observation failure"
+    ],
+    "membership_races": [],
+    "remaining_owned_processes": [],
+    "sampler_stopped": true,
+    "latency_qualification": false,
+    "scope": "Resource-only Linux root plus observed descendants, including tracked reparented children. Own plus reaped CPU; stable membership/reap required per observation. PSS proportional mapped pages, private clean+dirty, RSS sum double counts shared pages. Fast unsampled child lifetimes/escapes and physical cache allocation remain outside coverage. All replay latency excluded."
+  }
+}
