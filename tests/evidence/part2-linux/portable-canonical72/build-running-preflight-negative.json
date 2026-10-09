@@ -1,0 +1,34 @@
+{
+  "scope": "Actual preflight rejection while build is running. No engine, timing, insertion compiler or result directory created. Not performance qualification.",
+  "checks": [
+    {
+      "script": "matrix-control.py",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/tmp/mcppls-part2-floor72/qualification/matrix-control.py\", line 1, in <module>\n    import final72_identity\n  File \"/home/data_disk/codex-mcppls-part2-builds/portable72/qualification/final72_identity.py\", line 4, in <module>\n    assert json.loads((floor/'retry1-progress.json').read_text())['status']=='complete', 'clean72 build/test/package required; no measurement started'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: clean72 build/test/package required; no measurement started\n",
+      "expected_rejection": true
+    },
+    {
+      "script": "matrix-distribution.py",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/tmp/mcppls-part2-floor72/qualification/matrix-distribution.py\", line 1, in <module>\n    import final72_identity\n  File \"/home/data_disk/codex-mcppls-part2-builds/portable72/qualification/final72_identity.py\", line 4, in <module>\n    assert json.loads((floor/'retry1-progress.json').read_text())['status']=='complete', 'clean72 build/test/package required; no measurement started'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: clean72 build/test/package required; no measurement started\n",
+      "expected_rejection": true
+    },
+    {
+      "script": "native-settled-distribution.py",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/tmp/mcppls-part2-floor72/qualification/native-settled-distribution.py\", line 1, in <module>\n    import final72_identity\n  File \"/home/data_disk/codex-mcppls-part2-builds/portable72/qualification/final72_identity.py\", line 4, in <module>\n    assert json.loads((floor/'retry1-progress.json').read_text())['status']=='complete', 'clean72 build/test/package required; no measurement started'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: clean72 build/test/package required; no measurement started\n",
+      "expected_rejection": true
+    },
+    {
+      "script": "four-arm.py",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/tmp/mcppls-part2-floor72/qualification/four-arm.py\", line 1, in <module>\n    import final72_identity\n  File \"/home/data_disk/codex-mcppls-part2-builds/portable72/qualification/final72_identity.py\", line 4, in <module>\n    assert json.loads((floor/'retry1-progress.json').read_text())['status']=='complete', 'clean72 build/test/package required; no measurement started'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: clean72 build/test/package required; no measurement started\n",
+      "expected_rejection": true
+    }
+  ],
+  "no_result_directories_created": true
+}

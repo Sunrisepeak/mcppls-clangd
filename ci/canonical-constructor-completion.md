@@ -36,3 +36,18 @@ baseline-failing/candidate-passing fixture, existing controls, raw short reports
 insertion proofs and a replayable audit. Final clean portable package,
 distributions, native/product/platform/resource and long-term release gates
 remain required. The ordered-comment experiment stays outside the series.
+
+The whole72 clean Ubuntu20/Clang12 recipe now passes all 4744 build steps,
+16 lit cases, 259 selected clangd tests (including the new constructor and joint
+input regressions), five namespace tests, two memo controls and seven frontend
+stages. The final stripped engine SHA is
+`696e8caa5246525669583eb0f999f23cb21a87191f3b1be59a0c3952a5d1a0b1`;
+its glibc2.31 dependency/startup check reports no problems, maximum symbol2.29.
+Final-byte12-context1x1 controls pass48 requests (36 typed-Sema requirements)
+and52 selected GCC insertions. The build's original mount126 startup failure
+remains recorded, separately from the successful physical-path retry.
+
+This evidence is in `tests/evidence/part2-linux/portable-canonical72/`.
+Final72 full distributions, product/kit, process-tree resources and platform/
+long-term gates remain open. State remains stabilizing; short timing is not a
+release performance conclusion.
