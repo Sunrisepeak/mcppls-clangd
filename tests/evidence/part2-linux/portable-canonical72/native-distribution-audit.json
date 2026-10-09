@@ -1,0 +1,50 @@
+{
+  "scope": "Final72 AST-ready native three-arm qualification only; cold baseline not requested, old failures retained. Selected replies compiled, not every reply. Main resources do not qualify descendants or physical cache.",
+  "arms": {
+    "baseline-before": {
+      "report_sha256": "a962bbbc46205f097b8b619a8ad5ee8f5707031f75fc7125e66939971627760b",
+      "typed_sema_checks": 183,
+      "selected_native_insertions": 15,
+      "warm_p95_ms": 88.066913,
+      "edited_p95_ms": 89.780771
+    },
+    "candidate": {
+      "report_sha256": "fd60ef5ac351345a008da5f38869f46596444e6fe4842ceee939bf4a4ebfb429",
+      "typed_sema_checks": 183,
+      "selected_native_insertions": 17,
+      "warm_p95_ms": 20.129784,
+      "edited_p95_ms": 23.926179
+    },
+    "baseline-after": {
+      "report_sha256": "9a1cf10d915128e5796ef1933c11c3f7c78f37372b19b444bdee65f4487705f2",
+      "typed_sema_checks": 183,
+      "selected_native_insertions": 15,
+      "warm_p95_ms": 86.430674,
+      "edited_p95_ms": 89.66224
+    }
+  },
+  "typed_sema_checks": 549,
+  "selected_native_insertions": 47,
+  "proof_cdb_hashes": [
+    "b4a68a365b7c7bf58215f0b9792b7769e78e46afe52cc2266148297b7bed52b0"
+  ],
+  "all_actual_edit_fields_equal": true,
+  "explicit_performance_checks": {
+    "candidate_warm_edited_p95_within_200ms": true,
+    "both_baselines_at_least_50_percent_edited_improvement": true,
+    "main_cpu_and_rss_no_20_percent_regression": true
+  },
+  "comparisons": {
+    "baseline-before": {
+      "edited_p95_improvement_fraction": 0.7335044159957147,
+      "cpu_ratio_conservative": 0.5708844688954718,
+      "rss_observed_p95_max_ratio": 0.5425996996495912
+    },
+    "baseline-after": {
+      "edited_p95_improvement_fraction": 0.7331521162085622,
+      "cpu_ratio_conservative": 0.5804647160068847,
+      "rss_observed_p95_max_ratio": 0.5424367785414026
+    }
+  },
+  "all_checked_requirements_passed": true
+}
