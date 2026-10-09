@@ -1,0 +1,237 @@
+From ef2d715c0fa71c82a541729bfa7173ee78b3d54d Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 12:33:59 +0900
+Subject: [PATCH] fix(clangd): owned worker admission waits within its original
+ deadline
+
+Distinguish transient capacity pressure from identity, corruption and I/O failures. Wait outside admission locks with cancellation polling and a deadline; subtract admission time from the original worker timeout. Do not enlarge the payload quota, evict a live lease, or compile without a reservation. Concurrent publication, cancellation, timeout and invalid envelopes have real reservation controls.
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 36 +++++++++-
+ clang-tools-extra/clangd/ModuleBuildCache.h   | 16 +++++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 13 +++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 67 +++++++++++++++++++
+ 4 files changed, 129 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 1f0e17f02..9d1aafa56 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -19,6 +19,7 @@
+ #include <mutex>
+ #include <optional>
+ #include <vector>
++#include <thread>
+ #ifdef __linux__
+ #include <dirent.h>
+ #include <fcntl.h>
+@@ -28,6 +29,13 @@
+ #endif
+ namespace clang::clangd {
+ using llvm::StringRef;
++char ModuleCachePressure::ID;
++void ModuleCachePressure::log(llvm::raw_ostream &OS) const {
++  OS << "owned module cache: payload or generation admission exhausted";
++}
++std::error_code ModuleCachePressure::convertToErrorCode() const {
++  return llvm::inconvertibleErrorCode();
++}
+ namespace {
+ llvm::Error failure(StringRef Message) {
+   return llvm::createStringError("owned module cache: " + Message);
+@@ -833,7 +841,7 @@ ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
+     if (!exactWrite(State->Ledger.Value, &Pressure, sizeof(Pressure),
+                     offsetof(Header, PressureBytes)))
+       return ioError();
+-    return failure("payload or generation admission exhausted");
++    return llvm::make_error<ModuleCachePressure>();
+   }
+   // Monotonically increasing per-slot generation survives clearing/reuse.
+   // Every reuse changes the immutable pathname; no old consumer observes ABA.
+@@ -893,6 +901,32 @@ ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
+ #endif
+ }
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++ModuleBuildCache::reserveUntil(
++    StringRef Key, PathRef Source, uint64_t Bytes, uint64_t OutputEnvelope,
++    uint64_t CaptureEnvelope, std::chrono::steady_clock::time_point Deadline,
++    const std::function<bool()> &Cancelled) {
++  for (;;) {
++    if (Cancelled && Cancelled())
++      return failure("worker admission cancelled");
++    const auto Now = std::chrono::steady_clock::now();
++    if (Now >= Deadline)
++      return failure("worker admission deadline exhausted");
++    auto Result = reserve(Key, Source, Bytes, OutputEnvelope, CaptureEnvelope);
++    if (Result)
++      return Result;
++    bool Pressure = false;
++    auto Error = llvm::handleErrors(Result.takeError(),
++        [&](const ModuleCachePressure &) { Pressure = true; });
++    if (Error)
++      return std::move(Error);
++    assert(Pressure);
++    // Never collect, evict a lease, compile without admission, or wait while
++    // holding the ledger/mutex. Another process can publish or release space.
++    std::this_thread::sleep_until((std::min)(Deadline,
++        std::chrono::steady_clock::now() + std::chrono::milliseconds(25)));
++  }
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+ ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
+ #ifndef __linux__
+   return failure("unsupported lookup");
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
+index b17a403ff..24f07eb15 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.h
++++ b/clang-tools-extra/clangd/ModuleBuildCache.h
+@@ -6,6 +6,7 @@
+ #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDCACHE_H
+ #include "support/Path.h"
+ #include "llvm/Support/Error.h"
++#include <chrono>
+ #include <cstdint>
+ #include <functional>
+ #include <memory>
+@@ -14,6 +15,14 @@ namespace clang {
+ class CompilerInvocation;
+ namespace clangd {
+ class ModuleBuildCache;
++// Only temporary capacity pressure is retryable. Corruption, changed identity
++// and I/O errors never become a request to wait or bypass admission.
++class ModuleCachePressure : public llvm::ErrorInfo<ModuleCachePressure> {
++public:
++  static char ID;
++  void log(llvm::raw_ostream &OS) const override;
++  std::error_code convertToErrorCode() const override;
++};
+ // An immutable generation's kernel lease. Keeping this object alive protects
+ // both its payload and its persistent charge. Reserved/copy generations clean
+ // up on final release; stable generations remain eligible for bounded GC.
+@@ -46,6 +55,13 @@ public:
+   llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+   reserve(llvm::StringRef Key, PathRef SourceAnchor, uint64_t Bytes,
+           uint64_t OutputEnvelope = 0, uint64_t CaptureEnvelope = 0);
++  // Deadline includes admission waiting; callers must give the worker only
++  // its remaining time. Cross-process publication is polled outside all locks.
++  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  reserveUntil(llvm::StringRef Key, PathRef SourceAnchor, uint64_t Bytes,
++               uint64_t OutputEnvelope, uint64_t CaptureEnvelope,
++               std::chrono::steady_clock::time_point Deadline,
++               const std::function<bool()> &Cancelled);
+   llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+   lookup(llvm::StringRef Key, std::function<bool(PathRef)> Usable = {});
+   llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index e3bd1c523..31b7b1b49 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -2110,10 +2110,19 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+       uint64_t Capture = WorkerOptions.CaptureLimitBytes;
+       if (!Output || !Capture || Capture > UINT64_MAX - Output)
+         return llvm::createStringError("Owned worker envelope is invalid");
+-      auto Reservation = (*Owned)->reserve(
++      const auto AdmissionDeadline =
++          std::chrono::steady_clock::now() + WorkerOptions.Timeout;
++      auto Reservation = (*Owned)->reserveUntil(
+           Key, getModuleSourceHashLockPath(ModuleSource, getCDB()),
+-          Output + Capture, Output, Capture);
++          Output + Capture, Output, Capture, AdmissionDeadline,
++          WorkerOptions.Cancelled);
+       if (!Reservation) return Reservation.takeError();
++      // Waiting for a concurrent publisher is part of the original worker
++      // deadline, not an extra timeout before launching the bounded child.
++      WorkerOptions.Timeout = std::chrono::duration_cast<std::chrono::milliseconds>(
++          AdmissionDeadline - std::chrono::steady_clock::now());
++      if (WorkerOptions.Timeout.count() <= 0)
++        return llvm::createStringError("Owned worker admission deadline exhausted");
+       WorkerOptions.UnitRoot = (*Reservation)->workers();
+       WorkerOptions.OwnedPayloadAdmission = true;
+       bool Existing = false;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 3c8673b1c..c2f64266f 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -56,6 +56,7 @@
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+ #include <thread>
++#include <future>
+ 
+ namespace clang::clangd {
+ namespace {
+@@ -1179,6 +1180,72 @@ TEST_F(PrerequisiteModulesTests, OwnedPayloadAdmissionAndImmutableCopyLeases) {
+   EXPECT_TRUE(llvm::sys::fs::exists(Foreign + "/keep"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, OwnedAdmissionWaitsForConcurrentPublication) {
++  auto Root = (TestDir + "/owned-wait-publish").str();
++  auto Anchor = (TestDir + "/wait-source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto First = (*Cache)->reserve("first", Anchor, 6);
++  ASSERT_THAT_EXPECTED(First, llvm::Succeeded());
++  { std::error_code EC; llvm::raw_fd_ostream F((*First)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
++  auto Waiting = std::async(std::launch::async, [&] {
++    return (*Cache)->reserveUntil("second", Anchor, 3, 0, 0,
++        std::chrono::steady_clock::now() + std::chrono::seconds(2), {});
++  });
++  // An immediate failure is the defect: a real concurrent publisher can
++  // shrink its reservation while retaining the immutable published generation.
++  EXPECT_EQ(Waiting.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout);
++  ASSERT_THAT_ERROR((*First)->publish(), llvm::Succeeded());
++  auto Second = Waiting.get();
++  ASSERT_THAT_EXPECTED(Second, llvm::Succeeded());
++  EXPECT_TRUE(llvm::sys::fs::exists((*First)->payload()));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("over-budget", Anchor, 1), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedAdmissionCancellationPreservesLiveReservation) {
++  auto Root = (TestDir + "/owned-wait-cancel").str();
++  auto Anchor = (TestDir + "/cancel-source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto First = (*Cache)->reserve("first", Anchor, 6);
++  ASSERT_THAT_EXPECTED(First, llvm::Succeeded());
++  { std::error_code EC; llvm::raw_fd_ostream F((*First)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
++  std::atomic<bool> Cancelled{false};
++  auto Waiting = std::async(std::launch::async, [&] {
++    return (*Cache)->reserveUntil("second", Anchor, 3, 0, 0,
++        std::chrono::steady_clock::now() + std::chrono::seconds(2),
++        [&] { return Cancelled.load(); });
++  });
++  EXPECT_EQ(Waiting.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout);
++  Cancelled = true;
++  auto Result = Waiting.get();
++  ASSERT_FALSE(static_cast<bool>(Result));
++  EXPECT_THAT(llvm::toString(Result.takeError()), testing::HasSubstr("cancelled"));
++  EXPECT_TRUE(llvm::sys::fs::exists((*First)->payload()));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("still-held", Anchor, 1), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedAdmissionDeadlineAndInvalidEnvelopeKeepBounds) {
++  auto Root = (TestDir + "/owned-wait-deadline").str();
++  auto Anchor = (TestDir + "/deadline-source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto First = (*Cache)->reserve("first", Anchor, 6);
++  ASSERT_THAT_EXPECTED(First, llvm::Succeeded());
++  auto TimedOut = (*Cache)->reserveUntil("second", Anchor, 3, 0, 0,
++      std::chrono::steady_clock::now() + std::chrono::milliseconds(50), {});
++  ASSERT_FALSE(static_cast<bool>(TimedOut));
++  EXPECT_THAT(llvm::toString(TimedOut.takeError()), testing::HasSubstr("deadline exhausted"));
++  auto Invalid = (*Cache)->reserveUntil("invalid", Anchor, 7, 0, 0,
++      std::chrono::steady_clock::now() + std::chrono::seconds(2), {});
++  ASSERT_FALSE(static_cast<bool>(Invalid));
++  EXPECT_THAT(llvm::toString(Invalid.takeError()), testing::HasSubstr("invalid reservation"));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("still-held", Anchor, 1), llvm::Failed());
++}
++
+ TEST_F(PrerequisiteModulesTests, OwnedPayloadCrashChargesAndChangedIdentityRetain) {
+   auto Root = (TestDir + "/owned-crash").str();
+   auto Anchor = (TestDir + "/source-anchor").str();
+-- 
+2.53.0
+

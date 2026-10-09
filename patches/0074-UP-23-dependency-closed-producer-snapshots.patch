@@ -1,0 +1,173 @@
+From 83740693f48d066168fa2c2315c26dc1c8271d2e Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 12:34:00 +0900
+Subject: [PATCH] perf(modules): each producer binds only its dependency
+ closure
+
+The build-wave snapshot contained unrelated completed module roots, and every producer key included all of them. Shared importing Base acquired different cache generations when a consumer additionally imported or edited Noise. Preserve the planner dependency closure per node and select immutable prerequisite snapshots from that closure, conservatively retaining unknown prebuilt leaves. Actual transitive dependency changes still invalidate and rebuild consumers.
+
+The old implementation fails the two unrelated-root reuse assertions. All 77 prerequisite-module controls pass with the change. A private same-recipe original UP20 replay has zero prerequisite/admission failures, 85 actual builds instead of 526, and restores all sources with normal cleanup. The replay is correctness-only, not release or a latency distribution.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 41 +++++++++++++++--
+ .../unittests/PrerequisiteModulesTest.cpp     | 45 +++++++++++++++++++
+ 2 files changed, 83 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 31b7b1b49..e6bd3edaa 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -874,6 +874,25 @@ public:
+     RequiredModules.emplace_back(std::move(MF));
+   }
+ 
++  std::shared_ptr<const ReusablePrerequisiteModules> forBuild(
++      llvm::ArrayRef<std::string> Dependencies,
++      const llvm::StringSet<> &PlannedNames) const {
++    auto Result = std::make_shared<ReusablePrerequisiteModules>(*this);
++    Result->RequiredModules.clear();
++    Result->BuiltModuleNames.clear();
++    llvm::StringSet<> Needed;
++    for (StringRef Name : Dependencies)
++      Needed.insert(Name);
++    for (const auto &Module : RequiredModules) {
++      // Unknown/prebuilt leaves may encode imports not represented in this
++      // source plan. Keep those conservatively; prune only known graph peers.
++      if (Needed.contains(Module->getModuleName()) ||
++          !PlannedNames.contains(Module->getModuleName()))
++        Result->addModuleFile(Module);
++    }
++    return Result;
++  }
++
+   void setDirectModuleNames(std::vector<std::string> Names) {
+     DirectModuleNames.insert_range(Names);
+   }
+@@ -1507,6 +1526,7 @@ struct ModuleBuildNode {
+   std::string Name;
+   std::string Source;
+   unsigned Depth;
++  std::vector<std::string> Dependencies;
+ };
+ 
+ /// Plan the entire forest before dispatching work. A completed shared
+@@ -1518,6 +1538,7 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+                    const ReusablePrerequisiteModules &AlreadyBuilt) {
+   llvm::SmallVector<ModuleBuildNode> Plan;
+   llvm::StringMap<unsigned> Completed;
++  llvm::StringMap<std::vector<std::string>> Closures;
+   llvm::StringSet<> Active;
+   auto Visit = [&](StringRef Name, auto Visitor) -> llvm::Error {
+     if (int Reason = isCancelled())
+@@ -1539,13 +1560,24 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+       return llvm::make_error<ModuleUnitNotFound>(
+           Name.str(), "no unit source in this project");
+     unsigned Depth = 0;
++    std::vector<std::string> Dependencies;
+     for (StringRef Dependency : MDB.getRequiredModules(Source)) {
+       if (llvm::Error Err = Visitor(Dependency, Visitor))
+         return Err;
+       Depth = (std::max)(Depth, Completed.find(Dependency)->second + 1);
++      Dependencies.push_back(Dependency.str());
++      const auto Closure = Closures.find(Dependency);
++      if (Closure != Closures.end())
++        Dependencies.insert(Dependencies.end(), Closure->second.begin(),
++                            Closure->second.end());
+     }
++    llvm::sort(Dependencies);
++    Dependencies.erase(std::unique(Dependencies.begin(), Dependencies.end()),
++                       Dependencies.end());
++    Closures.insert({Name, Dependencies});
+     Completed.insert({Name, Depth});
+-    Plan.push_back({Name.str(), std::move(Source), Depth});
++    Plan.push_back({Name.str(), std::move(Source), Depth,
++                    std::move(Dependencies)});
+     return llvm::Error::success();
+   };
+   for (StringRef Root : Roots) {
+@@ -2222,6 +2254,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+                     [](const ModuleBuildNode &L, const ModuleBuildNode &R) {
+                       return L.Depth < R.Depth;
+                     });
++  llvm::StringSet<> PlannedNames;
++  for (const auto &Node : *Plan)
++    PlannedNames.insert(Node.Name);
+   using Result = llvm::Expected<std::shared_ptr<const ModuleFile>>;
+   for (size_t Begin = 0; Begin < Plan->size();) {
+     if (int Reason = isCancelled())
+@@ -2233,8 +2268,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+     // immutable prerequisite snapshot; workers never wait on peer tasks.
+     for (size_t Batch = Begin; Batch < End;) {
+       size_t BatchEnd = (std::min)(End, Batch + BuildPool.getMaxConcurrency());
+-      auto Snapshot =
+-          std::make_shared<const ReusablePrerequisiteModules>(BuiltModuleFiles);
+       std::vector<std::optional<Result>> Results(BatchEnd - Batch);
+       llvm::SmallVector<std::future<void>> Futures;
+       llvm::Error PreparationError = llvm::Error::success();
+@@ -2248,6 +2281,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+               llvm::formatv("No compile command for {0}", Node.Source));
+           break;
+         }
++        auto Snapshot =
++            BuiltModuleFiles.forBuild(Node.Dependencies, PlannedNames);
+         // ThreadPool's returned future is deferred: waiting on it may run
+         // the compilation on this caller, bypassing the pool's global limit.
+         // Wait instead on a separate promise set only by the pool worker.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index c2f64266f..6268237a9 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -2480,6 +2480,51 @@ void func() {
+   EXPECT_EQ(Result.signatures[0].parameters[0].labelString, "int a");
+ }
+ 
++TEST_F(PrerequisiteModulesTests, UnrelatedRootDoesNotChangeProducerGeneration) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Leaf.cppm", "export module Leaf;\nexport constexpr int leaf = 7;\n");
++  CDB.addFile("Base.cppm", "export module Base;\nimport Leaf;\nexport constexpr int base = leaf;\n");
++  CDB.addFile("Noise.cppm", "export module Noise;\nexport constexpr int noise = 1;\n");
++  CDB.addFile("Shared.cppm", "export module Shared;\nimport Base;\nexport int shared() { return base; }\n");
++  CDB.addFile("Plain.cpp", "import Shared;\nint main() { return shared(); }\n");
++  CDB.addFile("Mixed.cpp", "import Noise;\nimport Shared;\nint main() { return shared() + noise; }\n");
++  ModulesBuilder Builder(CDB);
++  auto Plain = Builder.buildPrerequisiteModulesFor(getFullPath("Plain.cpp"), FS);
++  ASSERT_TRUE(Plain);
++  HeaderSearchOptions PlainPublished;
++  Plain->adjustHeaderSearchOptionsForValidation(PlainPublished);
++  ASSERT_EQ(PlainPublished.PrebuiltModuleFiles.count("Shared"), 1u);
++  auto Mixed = Builder.buildPrerequisiteModulesFor(getFullPath("Mixed.cpp"), FS);
++  ASSERT_TRUE(Mixed);
++  HeaderSearchOptions MixedPublished;
++  Mixed->adjustHeaderSearchOptionsForValidation(MixedPublished);
++  ASSERT_EQ(MixedPublished.PrebuiltModuleFiles.count("Shared"), 1u);
++  EXPECT_EQ(PlainPublished.PrebuiltModuleFiles.at("Shared"),
++            MixedPublished.PrebuiltModuleFiles.at("Shared"))
++      << "Shared imports Base, so an unrelated Noise root cannot change its producer chain";
++  CDB.addFile("Noise.cppm", "export module Noise;\nexport constexpr int noise = 2;\n");
++  auto Changed = Builder.buildPrerequisiteModulesFor(getFullPath("Mixed.cpp"), FS);
++  ASSERT_TRUE(Changed);
++  HeaderSearchOptions ChangedPublished;
++  Changed->adjustHeaderSearchOptionsForValidation(ChangedPublished);
++  EXPECT_EQ(PlainPublished.PrebuiltModuleFiles.at("Shared"),
++            ChangedPublished.PrebuiltModuleFiles.at("Shared"));
++  auto Inputs = getInputs("Mixed.cpp", CDB);
++  auto Invocation = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(Invocation);
++  EXPECT_FALSE(Mixed->canReuse(*Invocation, FS.view(TestDir)));
++  EXPECT_TRUE(Changed->canReuse(*Invocation, FS.view(TestDir)));
++  CDB.addFile("Leaf.cppm", "export module Leaf;\nexport constexpr int leaf = 9;\n");
++  EXPECT_FALSE(Changed->canReuse(*Invocation, FS.view(TestDir)));
++  auto ChangedDependency = Builder.buildPrerequisiteModulesFor(getFullPath("Mixed.cpp"), FS);
++  ASSERT_TRUE(ChangedDependency);
++  HeaderSearchOptions DependencyPublished;
++  ChangedDependency->adjustHeaderSearchOptionsForValidation(DependencyPublished);
++  EXPECT_NE(ChangedPublished.PrebuiltModuleFiles.at("Shared"),
++            DependencyPublished.PrebuiltModuleFiles.at("Shared"));
++  EXPECT_TRUE(ChangedDependency->canReuse(*Invocation, FS.view(TestDir)));
++}
++
+ TEST_F(PrerequisiteModulesTests, ReusablePrerequisiteModulesTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+
