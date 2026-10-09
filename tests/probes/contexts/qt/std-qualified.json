@@ -1,0 +1,24 @@
+{
+  "name": "std-qualified",
+  "before": "    cli.addHelpOption();",
+  "prefix": "    std::ve",
+  "suffix": " probe_vector;\n",
+  "expected": [
+    "vector"
+  ],
+  "kind": {
+    "vector": 7
+  },
+  "limit_ms": 200,
+  "forbidden": [
+    "qVersion",
+    "Counter",
+    "AdlTester"
+  ],
+  "bindings": {
+    "vector": {
+      "1": "int"
+    }
+  },
+  "require_sema": true
+}

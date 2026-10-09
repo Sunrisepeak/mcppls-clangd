@@ -1,28 +1,43 @@
-From 6b5483dad1765189c00d4c2ddd0224cc7dbe6cd4 Mon Sep 17 00:00:00 2001
+From 8b7366c44a183e674c3016f1dcbb7849fe69b514 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
-Date: Tue, 6 Oct 2026 04:40:25 +0900
-Subject: [PATCH] [clangd] Break module cache locks whose owner died
+Date: Wed, 7 Oct 2026 10:23:53 +0900
+Subject: [clangd] Module cache locks survive dead owners and closed documents
 
-llvm::LockFileManager detects dead owners on Unix, but its liveness
-check is conservative on Windows: a clangd killed while holding a module
-cache lock leaves every later builder waiting forever.
+A module cache lock whose owner process died is broken instead of waited on forever, and closing a document cancels the preamble's wait on a module cache lock without deleting a lock a live owner still holds.
 
-After waiting --modules-builder-lock-stale-seconds, a builder now reads
-the owner recorded in the lock file and breaks the lock when that
-process is provably dead. Breaking is safe by design: publishing a BMI
-is an atomic rename and every consumer revalidates, so a broken race
-costs a rebuild, never correctness.
+* [clangd] Break module cache locks whose owner died
+
+  llvm::LockFileManager detects dead owners on Unix, but its liveness
+  check is conservative on Windows: a clangd killed while holding a module
+  cache lock leaves every later builder waiting forever.
+
+  After waiting --modules-builder-lock-stale-seconds, a builder now reads
+  the owner recorded in the lock file and breaks the lock when that
+  process is provably dead. Breaking is safe by design: publishing a BMI
+  is an atomic rename and every consumer revalidates, so a broken race
+  costs a rebuild, never correctness.
+
+* fix(clangd): document close cancels module cache lock waits
 ---
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 56 +++++++++++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 63 +++++++++++-
+ clang-tools-extra/clangd/TUScheduler.cpp      |  8 ++
  .../clangd/test/modules-stale-lock.test       | 98 +++++++++++++++++++
- 2 files changed, 154 insertions(+)
+ 3 files changed, 168 insertions(+), 1 deletion(-)
  create mode 100644 clang-tools-extra/clangd/test/modules-stale-lock.test
 
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 0086e707e..6156b1f62 100644
+index 545e375..a596bd7 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
-@@ -22,9 +22,14 @@
+@@ -11,6 +11,7 @@
+ #include "Compiler.h"
+ #include "SourceCode.h"
+ #include "support/Logger.h"
++#include "support/Cancellation.h"
+ #include "clang/Frontend/FrontendAction.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+@@ -22,9 +23,14 @@
  #include "llvm/Support/CommandLine.h"
  #include "llvm/Support/FileSystem.h"
  #include "llvm/Support/LockFileManager.h"
@@ -37,7 +52,7 @@ index 0086e707e..6156b1f62 100644
  #include <chrono>
  #include <ctime>
  
-@@ -45,6 +50,11 @@ llvm::cl::opt<unsigned> VersionedModuleFileGCThresholdSeconds(
+@@ -45,6 +51,11 @@ llvm::cl::opt<unsigned> VersionedModuleFileGCThresholdSeconds(
                     "access time is older than this many seconds."),
      llvm::cl::init(3 * 24 * 60 * 60));
  
@@ -49,7 +64,7 @@ index 0086e707e..6156b1f62 100644
  
  //===----------------------------------------------------------------------===//
  // Persistent Module Cache Layout.
-@@ -229,6 +239,40 @@ llvm::Error ensureLockAnchorFileExists(PathRef LockPath) {
+@@ -229,6 +240,40 @@ llvm::Error ensureLockAnchorFileExists(PathRef LockPath) {
    return llvm::Error::success();
  }
  
@@ -90,7 +105,25 @@ index 0086e707e..6156b1f62 100644
  //===----------------------------------------------------------------------===//
  // Persistent Module Cache Locking.
  //
-@@ -277,6 +321,18 @@ public:
+@@ -253,7 +298,7 @@ class ScopedModuleSourceLock {
+ public:
+   static llvm::Expected<ScopedModuleSourceLock>
+   acquire(PathRef ModuleUnitFileName, const GlobalCompilationDatabase &CDB) {
+-    constexpr auto LockWaitInterval = std::chrono::seconds(10);
++    constexpr auto LockWaitInterval = std::chrono::seconds(1);
+     llvm::SmallString<256> LockPath =
+         getModuleSourceHashLockPath(ModuleUnitFileName, CDB);
+     if (llvm::Error Err = ensureLockAnchorFileExists(LockPath))
+@@ -262,6 +307,8 @@ public:
+     auto Waited = std::chrono::seconds::zero();
+ 
+     while (true) {
++      if (int Reason = isCancelled())
++        return llvm::make_error<CancelledError>(Reason);
+       auto Lock = std::make_unique<llvm::LockFileManager>(LockPath);
+       auto TryLock = Lock->tryLock();
+       if (!TryLock)
+@@ -277,6 +324,18 @@ public:
          Waited += LockWaitInterval;
          log("Still waiting for module lock {0} after {1}s", LockPath,
              Waited.count());
@@ -109,9 +142,58 @@ index 0086e707e..6156b1f62 100644
          continue;
        }
        llvm_unreachable("Unhandled lock wait result");
+@@ -1275,6 +1334,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
+   // Get Required modules in topological order.
+   auto ReqModuleNames = getAllRequiredModules(RequiredSource, MDB, ModuleName);
+   for (llvm::StringRef ReqModuleName : ReqModuleNames) {
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
+     if (BuiltModuleFiles.isModuleUnitBuilt(ReqModuleName))
+       continue;
+ 
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 0661ecb..01f8da0 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -501,6 +501,10 @@ public:
+ 
+         CurrentReq = std::move(*NextReq);
+         NextReq.reset();
++        // Keep cancellation independent of the moved build request so stop()
++        // can release module-cache waits during document close and shutdown.
++        WithContext RequestContext(CurrentReq->Ctx.clone());
++        std::tie(CurrentReq->Ctx, ActiveBuildCanceler) = cancelableTask();
+       }
+ 
+       {
+@@ -518,6 +522,7 @@ public:
+       {
+         std::lock_guard<std::mutex> Lock(Mutex);
+         CurrentReq.reset();
++        ActiveBuildCanceler = nullptr;
+         IsEmpty = !NextReq;
+       }
+       if (IsEmpty) {
+@@ -539,6 +544,8 @@ public:
+     {
+       std::lock_guard<std::mutex> Lock(Mutex);
+       Done = true;
++      if (ActiveBuildCanceler)
++        ActiveBuildCanceler();
+       NextReq.reset();
+     }
+     // Let the worker thread know that it should stop.
+@@ -572,6 +579,7 @@ private:
+ 
+   mutable std::mutex Mutex;
+   bool Done = false;                  /* GUARDED_BY(Mutex) */
++  Canceler ActiveBuildCanceler;       /* GUARDED_BY(Mutex) */
+   std::optional<Request> NextReq;     /* GUARDED_BY(Mutex) */
+   std::optional<Request> CurrentReq;  /* GUARDED_BY(Mutex) */
+   // Signaled whenever a thread populates NextReq or worker thread builds a
 diff --git a/clang-tools-extra/clangd/test/modules-stale-lock.test b/clang-tools-extra/clangd/test/modules-stale-lock.test
 new file mode 100644
-index 000000000..9ae79b8f3
+index 0000000..9ae79b8
 --- /dev/null
 +++ b/clang-tools-extra/clangd/test/modules-stale-lock.test
 @@ -0,0 +1,98 @@
@@ -214,5 +296,5 @@ index 000000000..9ae79b8f3
 +  "method": "exit"
 +}
 -- 
-2.43.0
+2.53.0
 

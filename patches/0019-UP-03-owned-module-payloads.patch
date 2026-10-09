@@ -1,0 +1,2693 @@
+From d7bef3f8dd124cddfe992737f0c0d6f47de2ec48 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 12:33:59 +0900
+Subject: [clangd] Module payloads are admitted and owned through stable leases
+
+Module payloads hold persistent admission and kernel leases through publication, reuse and retirement, implicit module bundles are owned the same way, and an admission wait stays within the request's original deadline and is cancellable.
+
+* feat(clangd): owned module payloads retain persistent admission and leases
+
+* clangd: retain owned implicit module bundles through stable leases
+
+* fix(clangd): owned worker admission waits within its original deadline
+
+  Distinguish transient capacity pressure from identity, corruption and I/O failures. Wait outside admission locks with cancellation polling and a deadline; subtract admission time from the original worker timeout. Do not enlarge the payload quota, evict a live lease, or compile without a reservation. Concurrent publication, cancellation, timeout and invalid envelopes have real reservation controls.
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |    1 +
+ clang-tools-extra/clangd/Compiler.cpp         |    6 +
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 1455 +++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildCache.h   |   97 ++
+ .../clangd/ModuleBuildWorker.cpp              |   59 +-
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |    2 +
+ .../clangd/ModuleBuildWorkerOutput.cpp        |   10 +-
+ .../clangd/ModuleBuildWorkerStorage.cpp       |  126 +-
+ .../clangd/ModuleBuildWorkerStorage.h         |    4 +
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  143 +-
+ .../unittests/PrerequisiteModulesTest.cpp     |  410 +++++
+ 11 files changed, 2294 insertions(+), 19 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index 80bb747..e079372 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -98,6 +98,7 @@ add_clang_library(clangDaemon STATIC
+   JSONTransport.cpp
+   ModuleBuildMemoryBudget.cpp
+   ModuleBuildWorker.cpp
++  ModuleBuildCache.cpp
+   ModuleBuildWorkerOutput.cpp
+   ModuleBuildWorkerStorage.cpp
+   ModulesBuilder.cpp
+diff --git a/clang-tools-extra/clangd/Compiler.cpp b/clang-tools-extra/clangd/Compiler.cpp
+index 0ccc2b0..17e5dff 100644
+--- a/clang-tools-extra/clangd/Compiler.cpp
++++ b/clang-tools-extra/clangd/Compiler.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "Compiler.h"
++#include "ModuleBuildCache.h"
+ #include "support/Logger.h"
+ #include "clang/Basic/TargetInfo.h"
+ #include "clang/Driver/CreateInvocationFromArgs.h"
+@@ -118,6 +119,11 @@ buildCompilerInvocation(const ParseInputs &Inputs, clang::DiagnosticConsumer &D,
+   std::unique_ptr<CompilerInvocation> CI = createInvocation(ArgStrs, CIOpts);
+   if (!CI)
+     return nullptr;
++  if (auto Error = rejectUnleasedOwnedModuleInputs(
++          *CI, Inputs.CompileCommand.Directory)) {
++    elog("Refused compile command: {0}", llvm::toString(std::move(Error)));
++    return nullptr;
++  }
+   // createInvocationFromCommandLine sets DisableFree.
+   CI->getFrontendOpts().DisableFree = false;
+   CI->getLangOpts().CommentOpts.ParseAllComments = true;
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+new file mode 100644
+index 0000000..9d1aafa
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -0,0 +1,1455 @@
++//===--- ModuleBuildCache.cpp - persistent owned payload admission --------===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#include "ModuleBuildCache.h"
++#include "ModuleBuildWorkerStorage.h"
++#include "clang/Frontend/CompilerInvocation.h"
++#include "clang/Lex/HeaderSearchOptions.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/LockFileManager.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/SHA256.h"
++#include "llvm/Support/xxhash.h"
++#include <algorithm>
++#include <array>
++#include <cerrno>
++#include <cstring>
++#include <mutex>
++#include <optional>
++#include <vector>
++#include <thread>
++#ifdef __linux__
++#include <dirent.h>
++#include <fcntl.h>
++#include <sys/file.h>
++#include <sys/stat.h>
++#include <unistd.h>
++#endif
++namespace clang::clangd {
++using llvm::StringRef;
++char ModuleCachePressure::ID;
++void ModuleCachePressure::log(llvm::raw_ostream &OS) const {
++  OS << "owned module cache: payload or generation admission exhausted";
++}
++std::error_code ModuleCachePressure::convertToErrorCode() const {
++  return llvm::inconvertibleErrorCode();
++}
++namespace {
++llvm::Error failure(StringRef Message) {
++  return llvm::createStringError("owned module cache: " + Message);
++}
++std::string path(PathRef Root, StringRef Name) {
++  llvm::SmallString<256> P(Root);
++  llvm::sys::path::append(P, Name);
++  return P.str().str();
++}
++#ifdef __linux__
++// The format is local to one target ABI. Exact header/layout validation rejects
++// a different ABI instead of reinterpreting its reservations. Fixed-size banks
++// bound all reads. No PID, timestamp or arbitrary recursive scan establishes
++// GC.
++// Same namespace, new explicit layout. A layout-1 ledger remains charged and
++// rejects new admission; opening another independent quota is not a migration.
++constexpr uint64_t Magic = 0x324548434143434dULL;
++constexpr unsigned MaximumSlots = 4096;
++enum Kind : uint64_t { Free, Reserved, Stable, Copy, Retired, Erased };
++struct Header {
++  uint64_t MagicValue = Magic, RecordSize = 0, Slots = 0, Limit = 0;
++  uint64_t PressureBytes = 0;
++};
++struct Record {
++  uint64_t Sequence = 0, Generation = 0, Bytes = 0, Type = Free;
++  uint64_t Device = 0, Inode = 0, LeaseDevice = 0, LeaseInode = 0;
++  uint64_t StableSlot = UINT64_MAX, StableGeneration = 0;
++  uint64_t OutputEnvelope = 0, CaptureEnvelope = 0;
++  uint64_t MainBytes = 0, BundleFiles = 0;
++  char MainPath[32] = "payload.pcm";
++  std::array<uint8_t, 32> BundleDigest{};
++  char Key[65] = {};
++  char Source[1024] = {};
++  uint64_t Checksum = 0;
++};
++uint64_t checksum(const Record &R) {
++  return llvm::xxh3_64bits(reinterpret_cast<const uint8_t *>(&R),
++                           offsetof(Record, Checksum));
++}
++bool valid(const Record &R) {
++  return R.Sequence && R.Checksum == checksum(R) && R.Type <= Erased &&
++         R.Key[64] == 0 && R.Source[1023] == 0 && R.MainPath[11] == 0 &&
++         StringRef(R.MainPath) == "payload.pcm";
++}
++llvm::Error ioError() {
++  return llvm::errorCodeToError(
++      std::error_code(errno, std::generic_category()));
++}
++bool exactRead(int FD, void *Data, size_t N, off_t At) {
++  auto *P = static_cast<char *>(Data);
++  while (N) {
++    ssize_t Got = pread(FD, P, N, At);
++    if (Got < 0 && errno == EINTR)
++      continue;
++    if (Got <= 0)
++      return false;
++    P += Got;
++    N -= Got;
++    At += Got;
++  }
++  return true;
++}
++bool exactWrite(int FD, const void *Data, size_t N, off_t At) {
++  auto *P = static_cast<const char *>(Data);
++  while (N) {
++    ssize_t Got = pwrite(FD, P, N, At);
++    if (Got < 0 && errno == EINTR)
++      continue;
++    if (Got <= 0)
++      return false;
++    P += Got;
++    N -= Got;
++    At += Got;
++  }
++  return true;
++}
++bool owned(int FD, bool Directory) {
++  struct stat S;
++  return !fstat(FD, &S) && S.st_uid == geteuid() &&
++         (Directory ? S_ISDIR(S.st_mode) : S_ISREG(S.st_mode)) &&
++         !(S.st_mode & 0077) && (Directory || S.st_nlink == 1);
++}
++class FD {
++public:
++  int Value = -1;
++  explicit FD(int V = -1) : Value(V) {}
++  FD(FD &&Other) : Value(Other.Value) { Other.Value = -1; }
++  FD(const FD &) = delete;
++  ~FD() {
++    if (Value >= 0)
++      close(Value);
++  }
++  int release() {
++    int V = Value;
++    Value = -1;
++    return V;
++  }
++};
++class Lock {
++  int Descriptor;
++
++public:
++  explicit Lock(int FD) : Descriptor(FD) {}
++  bool acquire(bool Try = false) {
++    int R;
++    do {
++      R = flock(Descriptor, LOCK_EX | (Try ? LOCK_NB : 0));
++    } while (R < 0 && errno == EINTR);
++    return R == 0;
++  }
++  ~Lock() { flock(Descriptor, LOCK_UN); }
++};
++std::string digest(StringRef Key) {
++  auto H = llvm::SHA256::hash(llvm::arrayRefFromStringRef(Key));
++  return llvm::toHex(llvm::ArrayRef<uint8_t>(H), true);
++}
++
++struct BundleNode {
++  std::string Relative;
++  bool Directory;
++  uint64_t Device, Inode;
++  std::shared_ptr<FD> Parent;
++};
++struct BundleInventory {
++  uint64_t Bytes = 0, MainBytes = 0, CacheFiles = 0;
++  std::array<uint8_t, 32> Digest{};
++  std::vector<BundleNode> Nodes;
++};
++
++// Inspect only this leased, same-user generation. These bounds match the
++// supervisor's existing bounded unit cleanup, rather than admitting arbitrary
++// recursive trees. Directory cursors, names and inode identities are retained
++// for verified FD-relative deletion; no path alias or symlink is followed.
++llvm::Expected<BundleInventory> inventoryBundle(int Generation,
++                                                bool Retiring = false) {
++  BundleInventory Result;
++  llvm::SHA256 Hash;
++  auto Add = [&](StringRef Value) {
++    Hash.update(Value);
++    Hash.update(StringRef("\0", 1));
++  };
++  auto Marker = [](int Directory, StringRef Name, StringRef Expected) {
++    FD File(openat(Directory, Name.str().c_str(),
++                   O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++    struct stat S;
++    std::array<char, 64> Bytes{};
++    return File.Value >= 0 && !fstat(File.Value, &S) &&
++           uint64_t(S.st_size) == Expected.size() &&
++           Expected.size() <= Bytes.size() &&
++           exactRead(File.Value, Bytes.data(), Expected.size(), 0) &&
++           StringRef(Bytes.data(), Expected.size()) == Expected;
++  };
++  unsigned Units = 0;
++  std::function<llvm::Error(int, StringRef, unsigned)> Visit =
++      [&](int Directory, StringRef Relative, unsigned Depth) -> llvm::Error {
++    auto Parent = std::make_shared<FD>(fcntl(Directory, F_DUPFD_CLOEXEC, 0));
++    if (Parent->Value < 0)
++      return ioError();
++    if (!Retiring &&
++        ((Relative == "workers" &&
++          !Marker(Directory, "owned.root", "clangd-worker-root-v1\n")) ||
++         (Depth == 2 &&
++          !Marker(Directory, "bundle.unit", "clangd-worker-bundle-v1\n"))))
++      return failure("bundle ownership marker missing");
++    FD Cursor(openat(Directory, ".",
++                     O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++    DIR *Stream = Cursor.Value < 0 ? nullptr : fdopendir(Cursor.release());
++    if (!Stream)
++      return ioError();
++    auto Close = llvm::scope_exit([&] { closedir(Stream); });
++    std::vector<std::string> Names;
++    errno = 0;
++    while (auto *Entry = readdir(Stream)) {
++      StringRef Name(Entry->d_name);
++      if (Name == "." || Name == "..")
++        continue;
++      if (Names.size() + Result.Nodes.size() >= 4608)
++        return failure("bundle inventory entry limit");
++      Names.push_back(Name.str());
++    }
++    if (errno)
++      return ioError();
++    llvm::sort(Names);
++    for (const auto &Name : Names) {
++      const std::string Child = Relative.empty() ? Name : path(Relative, Name);
++      if (Child.size() >= 1024 || Result.Nodes.size() >= 4608)
++        return failure("bundle inventory path/entry limit");
++      struct stat S;
++      if (fstatat(Directory, Name.c_str(), &S, AT_SYMLINK_NOFOLLOW))
++        return ioError();
++      if (S.st_uid != geteuid() ||
++          (!S_ISDIR(S.st_mode) && (!S_ISREG(S.st_mode) || S.st_nlink != 1)))
++        return failure("bundle contains foreign, aliased or nonregular output");
++      bool Metadata = false;
++      if (S_ISDIR(S.st_mode)) {
++        bool Known = false;
++        if (Relative.empty())
++          Known = Name == "workers";
++        else if (Relative == "workers") {
++          Known = StringRef(Name).starts_with("unit-") && ++Units == 1;
++        } else if (Depth == 2)
++          Known = Name == "module-cache";
++        else
++          Known = Relative.contains("/module-cache") && Depth < 6;
++        if (!Known)
++          return failure("unknown bundle directory");
++      } else if (Relative.empty()) {
++        Metadata = Name == "owned.generation";
++        if (!Metadata && Name != "payload.pcm" &&
++            !(Retiring && Name == "staged.pcm"))
++          return failure("unknown generation payload");
++        if (Name == "payload.pcm")
++          Result.MainBytes = S.st_size;
++      } else if (Relative == "workers") {
++        Metadata = Name == "owned.root" &&
++                   Marker(Directory, Name, "clangd-worker-root-v1\n");
++        if (!Metadata)
++          return failure("unknown bundle root marker");
++      } else if (Depth == 2) {
++        Metadata = Name == "bundle.unit" &&
++                   Marker(Directory, Name, "clangd-worker-bundle-v1\n");
++        if (!Metadata)
++          return failure("worker capture/startup payload remains");
++      } else {
++        if (!Relative.contains("/module-cache") ||
++            (llvm::sys::path::extension(Name) != ".pcm" &&
++             Name != "modules.idx" && Name != "modules.timestamp") ||
++            ++Result.CacheFiles > 128)
++          return failure("unknown or excessive implicit bundle output");
++      }
++      Result.Nodes.push_back({Child, bool(S_ISDIR(S.st_mode)),
++                              uint64_t(S.st_dev), uint64_t(S.st_ino), Parent});
++      Add(Child);
++      Add(std::to_string(S.st_mode));
++      Add(std::to_string(S.st_dev));
++      Add(std::to_string(S.st_ino));
++      Add(std::to_string(S.st_size));
++      Add(std::to_string(S.st_mtim.tv_sec));
++      Add(std::to_string(S.st_mtim.tv_nsec));
++      if (S_ISDIR(S.st_mode)) {
++        FD ChildFD(openat(Directory, Name.c_str(),
++                          O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++        struct stat Opened;
++        if (ChildFD.Value < 0 || fstat(ChildFD.Value, &Opened) ||
++            Opened.st_dev != S.st_dev || Opened.st_ino != S.st_ino)
++          return failure("bundle directory identity changed");
++        if (auto Error = Visit(ChildFD.Value, Child, Depth + 1))
++          return Error;
++      } else if (!Metadata) {
++        if (S.st_size < 0 || uint64_t(S.st_size) > UINT64_MAX - Result.Bytes)
++          return failure("bundle size overflow");
++        Result.Bytes += S.st_size;
++      }
++    }
++    return llvm::Error::success();
++  };
++  if (auto Error = Visit(Generation, {}, 0))
++    return std::move(Error);
++  Result.Digest = Hash.final();
++  return Result;
++}
++
++bool bundleNodeMatches(const BundleNode &Node) {
++  struct stat Named;
++  const auto Name = llvm::sys::path::filename(Node.Relative);
++  return !fstatat(Node.Parent->Value, Name.str().c_str(), &Named,
++                  AT_SYMLINK_NOFOLLOW) &&
++         uint64_t(Named.st_dev) == Node.Device &&
++         uint64_t(Named.st_ino) == Node.Inode &&
++         bool(S_ISDIR(Named.st_mode)) == Node.Directory &&
++         (Node.Directory || (S_ISREG(Named.st_mode) && Named.st_nlink == 1));
++}
++
++llvm::Error syncBundle(const BundleInventory &Bundle) {
++  for (const auto &Node : Bundle.Nodes) {
++    if (!bundleNodeMatches(Node))
++      return failure("bundle identity changed before durability");
++    const auto Name = llvm::sys::path::filename(Node.Relative);
++    FD File(openat(Node.Parent->Value, Name.str().c_str(),
++                   O_RDONLY | O_NOFOLLOW | O_CLOEXEC |
++                       (Node.Directory ? O_DIRECTORY : 0)));
++    struct stat Opened;
++    if (File.Value < 0 || fstat(File.Value, &Opened) ||
++        uint64_t(Opened.st_dev) != Node.Device ||
++        uint64_t(Opened.st_ino) != Node.Inode || fsync(File.Value))
++      return ioError();
++  }
++  return llvm::Error::success();
++}
++#endif
++} // namespace
++class ModuleBuildCache::Impl {
++public:
++  std::string Root;
++  std::mutex Mutex;
++  unsigned Cursor = 0;
++#ifdef __linux__
++  FD Directory, Ledger;
++  Header Description;
++  off_t offset(unsigned Slot, unsigned Bank) const {
++    return sizeof(Header) + (uint64_t(Slot) * 2 + Bank) * sizeof(Record);
++  }
++  bool ledgerMatches() const {
++    struct stat Opened, Named;
++    return !fstat(Ledger.Value, &Opened) &&
++           !fstatat(Directory.Value, "ledger-v1", &Named,
++                    AT_SYMLINK_NOFOLLOW) &&
++           S_ISREG(Named.st_mode) && Named.st_uid == geteuid() &&
++           Named.st_nlink == 1 && !(Named.st_mode & 0077) &&
++           Opened.st_dev == Named.st_dev && Opened.st_ino == Named.st_ino;
++  }
++  llvm::Expected<Record> read(unsigned Slot) {
++    if (!rootMatches() || !ledgerMatches())
++      return failure("namespace or ledger identity changed");
++    Record A{}, B{};
++    if (!exactRead(Ledger.Value, &A, sizeof(A), offset(Slot, 0)) ||
++        !exactRead(Ledger.Value, &B, sizeof(B), offset(Slot, 1)))
++      return failure("truncated ledger");
++    const bool VA = valid(A), VB = valid(B);
++    if (!VA && !VB)
++      return failure("ambiguous ledger record");
++    return VA && (!VB || A.Sequence >= B.Sequence) ? A : B;
++  }
++  llvm::Error write(unsigned Slot, Record R) {
++    if (++R.Sequence == 0)
++      return failure("record sequence exhausted");
++    R.Checksum = checksum(R);
++    // An acknowledged update is durable before any dependent payload write.
++    // A torn newer bank leaves the older, conservatively charged state intact.
++    if (!exactWrite(Ledger.Value, &R, sizeof(R),
++                    offset(Slot, R.Sequence & 1)) ||
++        fdatasync(Ledger.Value))
++      return ioError();
++    return llvm::Error::success();
++  }
++  std::string name(unsigned Slot, uint64_t Generation) const {
++    return "generation-" + std::to_string(Slot) + "-" +
++           std::to_string(Generation);
++  }
++  llvm::Expected<int> lease(unsigned Slot, bool Exclusive, bool Try,
++                            bool Create = false) {
++    std::string Name = "lease-" + std::to_string(Slot);
++    FD F(openat(Directory.Value, Name.c_str(),
++                O_RDWR | (Create ? O_CREAT : 0) | O_CLOEXEC | O_NOFOLLOW,
++                0600));
++    if (F.Value < 0)
++      return ioError();
++    if (!owned(F.Value, false))
++      return failure("unrecognized lease");
++    int R;
++    struct flock Range{};
++    Range.l_type = Exclusive ? F_WRLCK : F_RDLCK;
++    Range.l_whence = SEEK_SET;
++    do {
++      R = fcntl(F.Value, Try ? F_OFD_SETLK : F_OFD_SETLKW, &Range);
++    } while (R < 0 && errno == EINTR);
++    if (R)
++      return ioError();
++    return F.release();
++  }
++  bool leaseMatches(unsigned Slot, int FD, const Record &R) const {
++    struct stat Opened, Named;
++    const std::string Name = "lease-" + std::to_string(Slot);
++    return !fstat(FD, &Opened) &&
++           !fstatat(Directory.Value, Name.c_str(), &Named,
++                    AT_SYMLINK_NOFOLLOW) &&
++           S_ISREG(Named.st_mode) && Named.st_uid == geteuid() &&
++           Named.st_nlink == 1 && !(Named.st_mode & 0077) &&
++           Opened.st_dev == Named.st_dev && Opened.st_ino == Named.st_ino &&
++           (!R.LeaseInode || (uint64_t(Opened.st_dev) == R.LeaseDevice &&
++                              uint64_t(Opened.st_ino) == R.LeaseInode));
++  }
++  bool rootMatches() const {
++    struct stat Opened, Current;
++    return !fstat(Directory.Value, &Opened) && !lstat(Root.c_str(), &Current) &&
++           S_ISDIR(Current.st_mode) && Current.st_uid == geteuid() &&
++           !(Current.st_mode & 0077) && Opened.st_dev == Current.st_dev &&
++           Opened.st_ino == Current.st_ino;
++  }
++  std::string marker(unsigned Slot, const Record &R) const {
++    return "clangd-owned-generation-v2\n" + std::to_string(Slot) + "\n" +
++           std::to_string(R.Generation) + "\n" + std::to_string(R.LeaseDevice) +
++           "\n" + std::to_string(R.LeaseInode) + "\n";
++  }
++  llvm::Expected<int> generation(unsigned Slot, const Record &R) {
++    if (!rootMatches())
++      return failure("namespace identity changed");
++    FD F(openat(Directory.Value, name(Slot, R.Generation).c_str(),
++                O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++    if (F.Value < 0)
++      return ioError();
++    struct stat S;
++    if (!owned(F.Value, true) || fstat(F.Value, &S) ||
++        uint64_t(S.st_dev) != R.Device || uint64_t(S.st_ino) != R.Inode)
++      return failure("generation identity changed");
++    FD Marker(
++        openat(F.Value, "owned.generation", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++    const std::string Expected = marker(Slot, R);
++    struct stat M;
++    std::array<char, 128> Data{};
++    if (Marker.Value < 0 || !owned(Marker.Value, false) ||
++        fstat(Marker.Value, &M) || uint64_t(M.st_size) != Expected.size() ||
++        Expected.size() > Data.size() ||
++        !exactRead(Marker.Value, Data.data(), Expected.size(), 0) ||
++        StringRef(Data.data(), Expected.size()) != Expected)
++      return failure("unrecognized generation marker");
++    return F.release();
++  }
++  // Caller owns the slot's exclusive lease and the ledger lock. Deletion is
++  // restricted to known names. Unknown entries, symlinks and failed removals
++  // retain the full charge. Worker retirement uses BOTH existing worker leases.
++  llvm::Expected<bool> clean(unsigned Slot, Record &R) {
++    if (!R.Device || !R.Inode)
++      return false;
++    if (R.Type == Erased && rootMatches()) {
++      struct stat Missing;
++      if (fstatat(Directory.Value, name(Slot, R.Generation).c_str(), &Missing,
++                  AT_SYMLINK_NOFOLLOW) &&
++          errno == ENOENT) {
++        // Erased acknowledges removal AND an unlinked directory descriptor.
++        // Missing paths alone (which could be renamed) never release charges.
++        if (fsync(Directory.Value))
++          return false;
++        return true;
++      }
++    }
++    auto G = generation(Slot, R);
++    if (!G) {
++      llvm::consumeError(G.takeError());
++      return false;
++    }
++    FD Gen(*G);
++    std::optional<BundleInventory> RetainedBundle;
++    const std::string UnitRoot =
++        path(path(Root, name(Slot, R.Generation)), "workers");
++    struct stat W;
++    if (!fstatat(Gen.Value, "workers", &W, AT_SYMLINK_NOFOLLOW)) {
++      if (!S_ISDIR(W.st_mode) || W.st_uid != geteuid())
++        return false;
++      if (R.Type != Retired) {
++        ModuleBuildWorkerCollector Collector(UnitRoot);
++        auto Sweep = Collector.collect(32);
++        if (!Sweep) {
++          llvm::consumeError(Sweep.takeError());
++          return false;
++        }
++      }
++      // Live/incomplete/foreign units keep the generation charged. A
++      // completed retained bundle is inventoried through no-follow directory
++      // FDs before the generation can enter retirement.
++      FD WF(openat(Gen.Value, "workers",
++                   O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++      if (WF.Value < 0)
++        return false;
++      DIR *D = fdopendir(dup(WF.Value));
++      if (!D)
++        return ioError();
++      bool Empty = true;
++      unsigned Seen = 0;
++      while (auto *E = readdir(D)) {
++        StringRef N(E->d_name);
++        if (N == "." || N == "..")
++          continue;
++        if (++Seen > 1 || N != "owned.root") {
++          Empty = false;
++          break;
++        }
++      }
++      closedir(D);
++      if (!Empty) {
++        auto Bundle = inventoryBundle(Gen.Value, R.Type == Retired);
++        if (!Bundle) {
++          llvm::consumeError(Bundle.takeError());
++          return false;
++        }
++        if (R.Type == Stable &&
++            (Bundle->Bytes != R.Bytes || Bundle->MainBytes != R.MainBytes ||
++             Bundle->CacheFiles != R.BundleFiles ||
++             Bundle->Digest != R.BundleDigest))
++          return false;
++        RetainedBundle = std::move(*Bundle);
++      } else {
++        if ((unlinkat(WF.Value, "owned.root", 0) && errno != ENOENT) ||
++            unlinkat(Gen.Value, "workers", AT_REMOVEDIR))
++          return false;
++      }
++    } else if (errno != ENOENT)
++      return false;
++    DIR *D = fdopendir(dup(Gen.Value));
++    if (!D)
++      return ioError();
++    bool Known = true;
++    unsigned Seen = 0;
++    while (auto *E = readdir(D)) {
++      StringRef N(E->d_name);
++      if (N == "." || N == "..")
++        continue;
++      if (++Seen > 4 ||
++          (N != "payload.pcm" && N != "staged.pcm" &&
++           !(RetainedBundle && N == "workers") && N != "owned.generation")) {
++        Known = false;
++        break;
++      }
++      struct stat S;
++      if (RetainedBundle && N == "workers")
++        continue; // Every descendant was validated through no-follow FDs.
++      if (fstatat(Gen.Value, E->d_name, &S, AT_SYMLINK_NOFOLLOW) ||
++          !S_ISREG(S.st_mode) || S.st_uid != geteuid() || S.st_nlink != 1) {
++        Known = false;
++        break;
++      }
++    }
++    closedir(D);
++    if (!Known)
++      return false;
++    if (R.Type != Retired) {
++      std::lock_guard<std::mutex> Guard(Mutex);
++      Lock LedgerGuard(Ledger.Value);
++      if (!LedgerGuard.acquire())
++        return ioError();
++      R.Type = Retired;
++      if (auto Error = write(Slot, R))
++        return std::move(Error);
++      ++R.Sequence;
++    }
++    if (RetainedBundle) {
++      // Preflight all named identities before the first destructive operation.
++      // Open directory handles keep every unlink within the validated tree.
++      for (const auto &Node : RetainedBundle->Nodes)
++        if (!bundleNodeMatches(Node))
++          return false;
++      for (auto I = RetainedBundle->Nodes.rbegin(),
++                End = RetainedBundle->Nodes.rend();
++           I != End; ++I) {
++        if (I->Relative == "owned.generation")
++          continue;
++        if (!bundleNodeMatches(*I))
++          return false;
++        const auto Name = llvm::sys::path::filename(I->Relative);
++        if (unlinkat(I->Parent->Value, Name.str().c_str(),
++                     I->Directory ? AT_REMOVEDIR : 0))
++          return false;
++      }
++    }
++    for (const char *N : {"payload.pcm", "staged.pcm"})
++      if (unlinkat(Gen.Value, N, 0) && errno != ENOENT)
++        return false;
++    // Recheck the path immediately before removal. An externally replaced
++    // same-name directory is retained, never treated as our generation.
++    struct stat S;
++    const std::string Name = name(Slot, R.Generation);
++    if (fstatat(Directory.Value, Name.c_str(), &S, AT_SYMLINK_NOFOLLOW) ||
++        uint64_t(S.st_dev) != R.Device || uint64_t(S.st_ino) != R.Inode)
++      return false;
++    // Keep the version marker through every fallible payload deletion.
++    if (unlinkat(Gen.Value, "owned.generation", 0))
++      return false;
++    if (unlinkat(Directory.Value, Name.c_str(), AT_REMOVEDIR))
++      return false;
++    if (fsync(Directory.Value) || fstat(Gen.Value, &S) || S.st_nlink != 0)
++      return false;
++    {
++      std::lock_guard<std::mutex> Guard(Mutex);
++      Lock LedgerGuard(Ledger.Value);
++      if (!LedgerGuard.acquire())
++        return ioError();
++      R.Type = Erased;
++      if (auto Error = write(Slot, R))
++        return std::move(Error);
++      ++R.Sequence;
++    }
++    return true;
++  }
++#endif
++};
++class ModuleBuildCacheLease::Impl {
++public:
++  std::shared_ptr<ModuleBuildCache> Cache;
++  unsigned Slot = 0;
++#ifdef __linux__
++  FD Lease;
++  Record Description;
++  std::shared_ptr<ModuleBuildCacheLease> Companion;
++#endif
++};
++ModuleBuildCache::ModuleBuildCache(std::unique_ptr<Impl> I)
++    : State(std::move(I)) {}
++ModuleBuildCache::~ModuleBuildCache() = default;
++ModuleBuildCacheLease::ModuleBuildCacheLease(std::unique_ptr<Impl> I)
++    : State(std::move(I)) {}
++ModuleBuildCacheLease::~ModuleBuildCacheLease() {
++#ifdef __linux__
++  if (State->Description.Type == Stable)
++    return;
++  // A consuming worker owns an independent shared OFD lease. Its parent may
++  // disappear; failure to upgrade preserves the charge for later collection.
++  if (State->Description.Type == Copy) {
++    struct flock Range{};
++    Range.l_type = F_WRLCK;
++    Range.l_whence = SEEK_SET;
++    if (fcntl(State->Lease.Value, F_OFD_SETLK, &Range))
++      return;
++  }
++  auto &C = *State->Cache->State;
++  // The still-exclusive reservation protects cleanup; no request waits behind
++  // collector IO. Cleanup failure leaves the durable charge for maintenance.
++  Record R;
++  {
++    std::lock_guard<std::mutex> Guard(C.Mutex);
++    Lock Ledger(C.Ledger.Value);
++    if (!Ledger.acquire())
++      return;
++    auto Current = C.read(State->Slot);
++    if (!Current) {
++      llvm::consumeError(Current.takeError());
++      return;
++    }
++    R = *Current;
++    if (R.Generation != State->Description.Generation ||
++        !C.leaseMatches(State->Slot, State->Lease.Value, R))
++      return;
++  }
++  auto Clean = C.clean(State->Slot, R);
++  if (!Clean) {
++    llvm::consumeError(Clean.takeError());
++    return;
++  }
++  if (*Clean) {
++    std::lock_guard<std::mutex> Guard(C.Mutex);
++    Lock Ledger(C.Ledger.Value);
++    if (!Ledger.acquire())
++      return;
++    R.Type = Free;
++    R.Bytes = 0;
++    llvm::consumeError(C.write(State->Slot, R));
++  }
++#endif
++}
++std::string ModuleBuildCacheLease::payload() const {
++#ifdef __linux__
++  return path(path(State->Cache->root(),
++                   State->Cache->State->name(State->Slot,
++                                             State->Description.Generation)),
++              State->Description.MainPath);
++#else
++  return {};
++#endif
++}
++std::string ModuleBuildCacheLease::workers() const {
++  return path(llvm::sys::path::parent_path(payload()), "workers");
++}
++uint64_t ModuleBuildCacheLease::mainBytes() const {
++#ifdef __linux__
++  return State->Description.MainBytes;
++#else
++  return 0;
++#endif
++}
++uint64_t ModuleBuildCacheLease::payloadBytes() const {
++#ifdef __linux__
++  return State->Description.Bytes;
++#else
++  return 0;
++#endif
++}
++llvm::StringRef ModuleBuildCache::root() const { return State->Root; }
++
++llvm::Expected<std::shared_ptr<ModuleBuildCache>>
++ModuleBuildCache::open(PathRef Root, uint64_t Bytes, unsigned Slots) {
++#ifndef __linux__
++  return failure("strict payload admission is only supported on Linux");
++#else
++  if (!llvm::sys::path::is_absolute(Root) || Root.contains('\0') || !Bytes ||
++      !Slots || Slots > MaximumSlots)
++    return failure("invalid root or payload/slot limits");
++  auto I = std::make_unique<Impl>();
++  I->Root = Root.str();
++  if (mkdir(I->Root.c_str(), 0700) && errno != EEXIST)
++    return ioError();
++  I->Directory.Value =
++      ::open(I->Root.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
++  if (I->Directory.Value < 0)
++    return ioError();
++  if (!owned(I->Directory.Value, true))
++    return failure("unrecognized root");
++  struct stat Existing;
++  if (fstatat(I->Directory.Value, "ledger-v1", &Existing,
++              AT_SYMLINK_NOFOLLOW)) {
++    if (errno != ENOENT)
++      return ioError();
++    DIR *D = fdopendir(dup(I->Directory.Value));
++    if (!D)
++      return ioError();
++    bool Empty = true;
++    while (auto *E = readdir(D)) {
++      StringRef N(E->d_name);
++      if (N != "." && N != ".." && N != "ledger-v1") {
++        Empty = false;
++        break;
++      }
++    }
++    closedir(D);
++    if (!Empty)
++      return failure("unmarked nonempty namespace");
++  }
++  I->Ledger.Value = openat(I->Directory.Value, "ledger-v1",
++                           O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
++  if (I->Ledger.Value < 0)
++    return ioError();
++  if (!owned(I->Ledger.Value, false))
++    return failure("unrecognized ledger");
++  Lock Guard(I->Ledger.Value);
++  if (!Guard.acquire())
++    return ioError();
++  struct stat S;
++  if (fstat(I->Ledger.Value, &S))
++    return ioError();
++  const uint64_t Size = sizeof(Header) + uint64_t(Slots) * 2 * sizeof(Record);
++  if (!S.st_size) {
++    // Empty existing roots are deliberately not adopted: the namespace must
++    // have contained only our just-created ledger before initializing it.
++    DIR *D = fdopendir(dup(I->Directory.Value));
++    if (!D)
++      return ioError();
++    bool OnlyLedger = true;
++    while (auto *E = readdir(D)) {
++      StringRef N(E->d_name);
++      if (N != "." && N != ".." && N != "ledger-v1") {
++        OnlyLedger = false;
++        break;
++      }
++    }
++    closedir(D);
++    if (!OnlyLedger)
++      return failure("unmarked nonempty namespace");
++    I->Description = {Magic, sizeof(Record), Slots, Bytes};
++    if (ftruncate(I->Ledger.Value, Size) ||
++        !exactWrite(I->Ledger.Value, &I->Description, sizeof(Header), 0))
++      return ioError();
++    Record Empty{};
++    Empty.Sequence = 1;
++    Empty.Checksum = checksum(Empty);
++    for (unsigned Slot = 0; Slot < Slots; ++Slot)
++      if (!exactWrite(I->Ledger.Value, &Empty, sizeof(Empty),
++                      I->offset(Slot, 1)))
++        return ioError();
++    if (fdatasync(I->Ledger.Value) || fsync(I->Directory.Value))
++      return ioError();
++  } else if (uint64_t(S.st_size) != Size ||
++             !exactRead(I->Ledger.Value, &I->Description, sizeof(Header), 0) ||
++             I->Description.MagicValue != Magic ||
++             I->Description.RecordSize != sizeof(Record) ||
++             I->Description.Slots != Slots || I->Description.Limit != Bytes)
++    return failure("incompatible marked ledger or limits");
++  return std::shared_ptr<ModuleBuildCache>(new ModuleBuildCache(std::move(I)));
++#endif
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
++                          uint64_t OutputEnvelope, uint64_t CaptureEnvelope) {
++#ifndef __linux__
++  return failure("unsupported admission");
++#else
++  if (!State->rootMatches())
++    return failure("namespace identity changed");
++  if (!Bytes || Bytes > State->Description.Limit || Source.size() >= 1024 ||
++      Source.contains('\0') || !llvm::sys::path::is_absolute(Source))
++    return failure("invalid reservation envelope/source guard");
++  std::lock_guard<std::mutex> Guard(State->Mutex);
++  Lock Ledger(State->Ledger.Value);
++  if (!Ledger.acquire())
++    return ioError();
++  uint64_t Used = 0;
++  unsigned Candidate = State->Description.Slots;
++  Record Selected{};
++  FD Lease;
++  for (unsigned S = 0; S < State->Description.Slots; ++S) {
++    auto R = State->read(S);
++    if (!R)
++      return R.takeError();
++    if (R->Bytes > State->Description.Limit - Used)
++      return failure("invalid charged total");
++    Used += R->Bytes;
++    if (R->Type == Free && Candidate == State->Description.Slots) {
++      auto L = State->lease(S, true, true, true);
++      if (!L) {
++        llvm::consumeError(L.takeError());
++        continue;
++      }
++      FD CandidateLease(*L);
++      if (!State->leaseMatches(S, CandidateLease.Value, *R))
++        continue;
++      Lease.Value = CandidateLease.release();
++      Selected = *R;
++      Candidate = S;
++    }
++  }
++  if (Candidate == State->Description.Slots ||
++      Bytes > State->Description.Limit - Used) {
++    // Advisory cross-process pressure never authorizes deletion without leases.
++    // Retain idle stable generations until admission needs space/another slot.
++    uint64_t Pressure = Bytes;
++    if (!exactWrite(State->Ledger.Value, &Pressure, sizeof(Pressure),
++                    offsetof(Header, PressureBytes)))
++      return ioError();
++    return llvm::make_error<ModuleCachePressure>();
++  }
++  // Monotonically increasing per-slot generation survives clearing/reuse.
++  // Every reuse changes the immutable pathname; no old consumer observes ABA.
++  if (++Selected.Generation == 0)
++    return failure("generation counter exhausted");
++  Selected.Bytes = Bytes;
++  Selected.MainBytes = Selected.BundleFiles = 0;
++  Selected.BundleDigest = {};
++  Selected.Type = Reserved;
++  Selected.StableSlot = UINT64_MAX;
++  Selected.StableGeneration = 0;
++  Selected.OutputEnvelope = OutputEnvelope;
++  Selected.CaptureEnvelope = CaptureEnvelope;
++  Selected.Device = Selected.Inode = 0;
++  struct stat LeaseIdentity;
++  if (fstat(Lease.Value, &LeaseIdentity))
++    return ioError();
++  Selected.LeaseDevice = LeaseIdentity.st_dev;
++  Selected.LeaseInode = LeaseIdentity.st_ino;
++  std::memset(Selected.Key, 0, sizeof(Selected.Key));
++  std::memset(Selected.Source, 0, sizeof(Selected.Source));
++  std::memcpy(Selected.Key, digest(Key).data(), 64);
++  std::memcpy(Selected.Source, Source.data(), Source.size());
++  if (auto E = State->write(Candidate, Selected))
++    return std::move(E);
++  ++Selected.Sequence;
++  std::string Name = State->name(Candidate, Selected.Generation);
++  if (mkdirat(State->Directory.Value, Name.c_str(), 0700))
++    return ioError();
++  FD Gen(openat(State->Directory.Value, Name.c_str(),
++                O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++  struct stat S;
++  if (Gen.Value < 0 || !owned(Gen.Value, true) || fstat(Gen.Value, &S))
++    return failure("invalid new generation");
++  Selected.Device = S.st_dev;
++  Selected.Inode = S.st_ino;
++  const auto Marker = State->marker(Candidate, Selected);
++  FD MarkerFile(openat(Gen.Value, "owned.generation",
++                       O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
++                       0600));
++  if (MarkerFile.Value < 0 ||
++      !exactWrite(MarkerFile.Value, Marker.data(), Marker.size(), 0) ||
++      fdatasync(MarkerFile.Value) || fsync(Gen.Value))
++    return ioError();
++  if (auto E = State->write(Candidate, Selected))
++    return std::move(E);
++  ++Selected.Sequence;
++  if (fsync(State->Directory.Value))
++    return ioError();
++  auto I = std::make_unique<ModuleBuildCacheLease::Impl>();
++  I->Cache = shared_from_this();
++  I->Slot = Candidate;
++  I->Lease.Value = Lease.release();
++  I->Description = Selected;
++  return std::shared_ptr<ModuleBuildCacheLease>(
++      new ModuleBuildCacheLease(std::move(I)));
++#endif
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++ModuleBuildCache::reserveUntil(
++    StringRef Key, PathRef Source, uint64_t Bytes, uint64_t OutputEnvelope,
++    uint64_t CaptureEnvelope, std::chrono::steady_clock::time_point Deadline,
++    const std::function<bool()> &Cancelled) {
++  for (;;) {
++    if (Cancelled && Cancelled())
++      return failure("worker admission cancelled");
++    const auto Now = std::chrono::steady_clock::now();
++    if (Now >= Deadline)
++      return failure("worker admission deadline exhausted");
++    auto Result = reserve(Key, Source, Bytes, OutputEnvelope, CaptureEnvelope);
++    if (Result)
++      return Result;
++    bool Pressure = false;
++    auto Error = llvm::handleErrors(Result.takeError(),
++        [&](const ModuleCachePressure &) { Pressure = true; });
++    if (Error)
++      return std::move(Error);
++    assert(Pressure);
++    // Never collect, evict a lease, compile without admission, or wait while
++    // holding the ledger/mutex. Another process can publish or release space.
++    std::this_thread::sleep_until((std::min)(Deadline,
++        std::chrono::steady_clock::now() + std::chrono::milliseconds(25)));
++  }
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
++#ifndef __linux__
++  return failure("unsupported lookup");
++#else
++  const std::string K = digest(Key);
++  for (unsigned S = 0; S < State->Description.Slots; ++S) {
++    auto L = State->lease(S, false, true);
++    if (!L) {
++      llvm::consumeError(L.takeError());
++      continue;
++    }
++    FD Lease(*L);
++    auto R = [&]() -> llvm::Expected<Record> {
++      std::lock_guard<std::mutex> Guard(State->Mutex);
++      Lock Ledger(State->Ledger.Value);
++      if (!Ledger.acquire())
++        return ioError();
++      return State->read(S);
++    }();
++    if (!R)
++      return R.takeError();
++    if (R->Type != Stable || StringRef(R->Key) != K ||
++        !State->leaseMatches(S, Lease.Value, *R))
++      continue;
++    auto G = State->generation(S, *R);
++    if (!G)
++      return G.takeError();
++    FD Gen(*G);
++    struct stat F;
++    if (fstatat(Gen.Value, "payload.pcm", &F, AT_SYMLINK_NOFOLLOW) ||
++        !S_ISREG(F.st_mode) || F.st_nlink != 1 ||
++        uint64_t(F.st_size) != R->MainBytes)
++      return failure("stable payload changed");
++    auto Bundle = inventoryBundle(Gen.Value);
++    if (!Bundle)
++      return Bundle.takeError();
++    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
++        Bundle->CacheFiles != R->BundleFiles ||
++        Bundle->Digest != R->BundleDigest)
++      return failure("stable bundle changed");
++    if (Usable && !Usable(path(path(State->Root, State->name(S, R->Generation)),
++                               "payload.pcm")))
++      continue;
++    auto I = std::make_unique<ModuleBuildCacheLease::Impl>();
++    I->Cache = shared_from_this();
++    I->Slot = S;
++    I->Lease.Value = Lease.release();
++    I->Description = *R;
++    return std::shared_ptr<ModuleBuildCacheLease>(
++        new ModuleBuildCacheLease(std::move(I)));
++  }
++  return std::shared_ptr<ModuleBuildCacheLease>{};
++#endif
++}
++llvm::Error ModuleBuildCacheLease::publish() {
++#ifndef __linux__
++  return failure("unsupported publication");
++#else
++  auto &C = *State->Cache->State;
++  auto R = [&]() -> llvm::Expected<Record> {
++    std::lock_guard<std::mutex> Guard(C.Mutex);
++    Lock Ledger(C.Ledger.Value);
++    if (!Ledger.acquire())
++      return ioError();
++    return C.read(State->Slot);
++  }();
++  if (!R)
++    return R.takeError();
++  if (R->Generation != State->Description.Generation || R->Type != Reserved ||
++      !C.leaseMatches(State->Slot, State->Lease.Value, *R))
++    return failure("reservation changed before publication");
++  auto G = C.generation(State->Slot, *R);
++  if (!G)
++    return G.takeError();
++  FD Gen(*G);
++  // Empty worker roots from ordinary builds can be removed. A retained bundle
++  // keeps its ORIGINAL absolute implicit PCM paths; the inventory below must
++  // prove it contains only retired output, never capture/startup payload.
++  const std::string Workers = this->workers();
++  struct stat W;
++  if (!fstatat(Gen.Value, "workers", &W, AT_SYMLINK_NOFOLLOW)) {
++    if (!S_ISDIR(W.st_mode))
++      return failure("invalid worker root");
++    DIR *D = opendir(Workers.c_str());
++    if (!D)
++      return ioError();
++    bool Empty = true;
++    unsigned Count = 0;
++    while (auto *E = readdir(D)) {
++      StringRef N(E->d_name);
++      if (N == "." || N == "..")
++        continue;
++      if (++Count > 1 || N != "owned.root") {
++        Empty = false;
++        break;
++      }
++    }
++    closedir(D);
++    if (Empty &&
++        (unlink(path(Workers, "owned.root").c_str()) || rmdir(Workers.c_str())))
++      return failure("worker root cleanup remains charged");
++  } else if (errno != ENOENT)
++    return ioError();
++  auto Bundle = inventoryBundle(Gen.Value);
++  if (!Bundle)
++    return Bundle.takeError();
++  if (!Bundle->MainBytes || Bundle->Bytes > R->Bytes ||
++      (R->OutputEnvelope && Bundle->Bytes > R->OutputEnvelope))
++    return failure("invalid stable bundle or output envelope");
++  if (auto Error = syncBundle(*Bundle))
++    return Error;
++  FD Payload(
++      openat(Gen.Value, "payload.pcm", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++  if (Payload.Value < 0 || fsync(Payload.Value) || fsync(Gen.Value))
++    return ioError();
++  auto Confirmed = inventoryBundle(Gen.Value);
++  if (!Confirmed)
++    return Confirmed.takeError();
++  if (Confirmed->Digest != Bundle->Digest || Confirmed->Bytes != Bundle->Bytes)
++    return failure("bundle changed during publication");
++  R->Type = Stable;
++  R->Bytes = Bundle->Bytes;
++  R->MainBytes = Bundle->MainBytes;
++  R->BundleFiles = Bundle->CacheFiles;
++  R->BundleDigest = Bundle->Digest;
++  {
++    std::lock_guard<std::mutex> Guard(C.Mutex);
++    Lock Ledger(C.Ledger.Value);
++    if (!Ledger.acquire())
++      return ioError();
++    if (auto E = C.write(State->Slot, *R))
++      return E;
++  }
++  State->Description = *R;
++  State->Description.Type = Stable;
++  // Never release/reacquire during transfer: downgrade the same kernel lease.
++  struct flock Range{};
++  Range.l_type = F_RDLCK;
++  Range.l_whence = SEEK_SET;
++  // OFD range-lock conversion is one kernel operation, preserving continuous
++  // ownership. Unlike flock conversion it does not drop/reacquire the lease.
++  if (fcntl(State->Lease.Value, F_OFD_SETLK, &Range))
++    return ioError();
++  return llvm::Error::success();
++#endif
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
++    const std::shared_ptr<ModuleBuildCacheLease> &StableLease) {
++#ifndef __linux__
++  return failure("unsupported copy");
++#else
++  if (!StableLease || StableLease->State->Cache.get() != this ||
++      StableLease->State->Description.Type != Stable)
++    return failure("copy requires this namespace's stable lease");
++  const auto &R = StableLease->State->Description;
++  auto Result = reserve("read-copy", R.Source, R.MainBytes);
++  if (!Result)
++    return Result.takeError();
++  {
++    std::lock_guard<std::mutex> Guard(State->Mutex);
++    Lock Ledger(State->Ledger.Value);
++    if (!Ledger.acquire())
++      return ioError();
++    auto Entry = State->read((*Result)->State->Slot);
++    if (!Entry)
++      return Entry.takeError();
++    Entry->StableSlot = StableLease->State->Slot;
++    Entry->StableGeneration = R.Generation;
++    if (auto Error = State->write((*Result)->State->Slot, *Entry))
++      return std::move(Error);
++    (*Result)->State->Companion = StableLease;
++  }
++  FD Input(::open(StableLease->payload().c_str(),
++                  O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++  FD Output(::open((*Result)->payload().c_str(),
++                   O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
++  if (Input.Value < 0 || Output.Value < 0)
++    return ioError();
++  std::array<char, 65536> Buffer;
++  uint64_t Written = 0;
++  for (;;) {
++    ssize_t N = read(Input.Value, Buffer.data(), Buffer.size());
++    if (N < 0 && errno == EINTR)
++      continue;
++    if (N < 0)
++      return ioError();
++    if (!N)
++      break;
++    // Even a changed source cannot grow the copy past its PRE-WRITE charge.
++    if (uint64_t(N) > R.MainBytes - Written)
++      return failure("copy source grew");
++    if (!exactWrite(Output.Value, Buffer.data(), N, Written))
++      return ioError();
++    Written += N;
++  }
++  if (Written != R.MainBytes)
++    return failure("copy source size changed");
++  if (fdatasync(Output.Value))
++    return ioError();
++  auto &C = *State;
++  std::lock_guard<std::mutex> Guard(C.Mutex);
++  Lock Ledger(C.Ledger.Value);
++  if (!Ledger.acquire())
++    return ioError();
++  auto Current = C.read((*Result)->State->Slot);
++  if (!Current)
++    return Current.takeError();
++  Current->Type = Copy;
++  Current->MainBytes = Written;
++  if (auto E = C.write((*Result)->State->Slot, *Current))
++    return std::move(E);
++  (*Result)->State->Description.Type = Copy;
++  (*Result)->State->Description.MainBytes = Written;
++  struct flock Range{};
++  Range.l_type = F_RDLCK;
++  Range.l_whence = SEEK_SET;
++  if (fcntl((*Result)->State->Lease.Value, F_OFD_SETLK, &Range))
++    return ioError();
++  return Result;
++#endif
++}
++namespace {
++#ifdef __linux__
++struct ManagedPath {
++  std::string Root;
++  unsigned Slot;
++  uint64_t Generation;
++};
++llvm::Expected<std::optional<ManagedPath>> identifyManaged(PathRef Generation) {
++  StringRef Root = llvm::sys::path::parent_path(Generation);
++  if (llvm::sys::path::filename(Root) != ".owned-payload-v1")
++    return std::optional<ManagedPath>{};
++  StringRef Name = llvm::sys::path::filename(Generation);
++  if (!Name.consume_front("generation-"))
++    return failure("invalid managed generation name");
++  auto Parts = Name.split('-');
++  ManagedPath Result{Root.str(), 0, 0};
++  if (Parts.first.getAsInteger(10, Result.Slot) ||
++      Parts.second.getAsInteger(10, Result.Generation) ||
++      Result.Slot >= MaximumSlots || !Result.Generation)
++    return failure("invalid managed generation identifier");
++  return std::optional<ManagedPath>(Result);
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCache>>
++openManaged(const ManagedPath &P) {
++  FD Directory(
++      ::open(P.Root.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
++  if (Directory.Value < 0 || !owned(Directory.Value, true))
++    return failure("unrecognized managed root");
++  FD Ledger(
++      openat(Directory.Value, "ledger-v1", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++  Header H;
++  if (Ledger.Value < 0 || !owned(Ledger.Value, false) ||
++      !exactRead(Ledger.Value, &H, sizeof(H), 0) || H.MagicValue != Magic ||
++      H.RecordSize != sizeof(Record) || !H.Slots || H.Slots > MaximumSlots ||
++      !H.Limit)
++    return failure("unrecognized managed ledger");
++  return ModuleBuildCache::open(P.Root, H.Limit, H.Slots);
++}
++#endif
++} // namespace
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
++                                    bool StableOnly) {
++#ifndef __linux__
++  return failure("managed read leases unavailable");
++#else
++  if (Slot >= State->Description.Slots)
++    return failure("managed slot out of range");
++  auto F = State->lease(Slot, false, true);
++  if (!F)
++    return F.takeError();
++  FD Lease(*F);
++  auto R = [&]() -> llvm::Expected<Record> {
++    std::lock_guard<std::mutex> Guard(State->Mutex);
++    Lock Ledger(State->Ledger.Value);
++    if (!Ledger.acquire())
++      return ioError();
++    return State->read(Slot);
++  }();
++  if (!R)
++    return R.takeError();
++  if (R->Generation != Generation || (R->Type != Stable && R->Type != Copy) ||
++      (StableOnly && R->Type != Stable) ||
++      !State->leaseMatches(Slot, Lease.Value, *R))
++    return failure("managed input retired or identity changed");
++  auto G = State->generation(Slot, *R);
++  if (!G)
++    return G.takeError();
++  FD Gen(*G);
++  struct stat Payload;
++  if (fstatat(Gen.Value, "payload.pcm", &Payload, AT_SYMLINK_NOFOLLOW) ||
++      !S_ISREG(Payload.st_mode) || Payload.st_nlink != 1 ||
++      Payload.st_uid != geteuid() || uint64_t(Payload.st_size) != R->MainBytes)
++    return failure("managed input payload changed");
++  if (R->Type == Stable) {
++    auto Bundle = inventoryBundle(Gen.Value);
++    if (!Bundle)
++      return Bundle.takeError();
++    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
++        Bundle->CacheFiles != R->BundleFiles ||
++        Bundle->Digest != R->BundleDigest)
++      return failure("managed input bundle changed");
++  }
++  std::shared_ptr<ModuleBuildCacheLease> Companion;
++  if (R->Type == Copy) {
++    if (R->StableSlot >= State->Description.Slots || R->StableSlot == Slot)
++      return failure("invalid managed stable companion");
++    auto Parent = acquireGeneration(R->StableSlot, R->StableGeneration, true);
++    if (!Parent)
++      return Parent.takeError();
++    if ((*Parent)->State->Description.Type != Stable)
++      return failure("managed companion is not stable");
++    Companion = std::move(*Parent);
++  }
++  auto I = std::make_unique<ModuleBuildCacheLease::Impl>();
++  I->Cache = shared_from_this();
++  I->Slot = Slot;
++  I->Lease.Value = Lease.release();
++  I->Description = *R;
++  I->Companion = std::move(Companion);
++  return std::shared_ptr<ModuleBuildCacheLease>(
++      new ModuleBuildCacheLease(std::move(I)));
++#endif
++}
++llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++ModuleBuildCache::acquireInput(PathRef Payload) {
++#ifndef __linux__
++  for (auto I = llvm::sys::path::begin(Payload),
++            E = llvm::sys::path::end(Payload);
++       I != E; ++I)
++    if (*I == ".owned-payload-v1")
++      return failure("managed read leases unavailable");
++  return std::shared_ptr<ModuleBuildCacheLease>{};
++#else
++  llvm::SmallString<256> Normalized(Payload);
++  llvm::sys::path::remove_dots(Normalized, true);
++  llvm::SmallString<256> Canonical;
++  if (!llvm::sys::fs::real_path(Normalized, Canonical))
++    Normalized = Canonical;
++  auto Identified = identifyManaged(llvm::sys::path::parent_path(Normalized));
++  if (!Identified)
++    return Identified.takeError();
++  if (!*Identified)
++    return std::shared_ptr<ModuleBuildCacheLease>{};
++  if (llvm::sys::path::filename(Normalized) != "payload.pcm")
++    return failure("unknown managed input filename");
++  auto Cache = openManaged(**Identified);
++  if (!Cache)
++    return Cache.takeError();
++  return (*Cache)->acquireGeneration((*Identified)->Slot,
++                                     (*Identified)->Generation);
++#endif
++}
++llvm::Error ModuleBuildCache::validateWorker(PathRef Unit,
++                                             uint64_t OutputLimit) {
++#ifndef __linux__
++  return failure("managed worker admission unavailable");
++#else
++  auto Identified = identifyManaged(
++      llvm::sys::path::parent_path(llvm::sys::path::parent_path(Unit)));
++  if (!Identified)
++    return Identified.takeError();
++  if (!*Identified || llvm::sys::path::filename(
++                          llvm::sys::path::parent_path(Unit)) != "workers")
++    return failure("managed worker has no reservation");
++  auto Cache = openManaged(**Identified);
++  if (!Cache)
++    return Cache.takeError();
++  auto &C = *(*Cache)->State;
++  if ((*Identified)->Slot >= C.Description.Slots)
++    return failure("managed slot out of range");
++  Lock Ledger(C.Ledger.Value);
++  if (!Ledger.acquire())
++    return ioError();
++  auto R = C.read((*Identified)->Slot);
++  if (!R)
++    return R.takeError();
++  if (R->Type != Reserved || R->Generation != (*Identified)->Generation ||
++      !OutputLimit || R->OutputEnvelope != OutputLimit || !R->CaptureEnvelope ||
++      R->CaptureEnvelope > UINT64_MAX - OutputLimit ||
++      R->Bytes != OutputLimit + R->CaptureEnvelope)
++    return failure("managed worker envelope changed");
++  auto G = C.generation((*Identified)->Slot, *R);
++  if (!G)
++    return G.takeError();
++  FD Gen(*G);
++  return llvm::Error::success();
++#endif
++}
++
++llvm::Expected<unsigned> ModuleBuildCache::collect(unsigned MaxSlots) {
++#ifndef __linux__
++  return failure("unsupported collection");
++#else
++  if (!State->rootMatches() || !State->ledgerMatches())
++    return failure("namespace or ledger identity changed");
++  bool Pressure = false;
++  {
++    std::unique_lock<std::mutex> Guard(State->Mutex, std::try_to_lock);
++    if (!Guard.owns_lock())
++      return 0;
++    Lock Ledger(State->Ledger.Value);
++    if (!Ledger.acquire(true))
++      return 0;
++    uint64_t Needed = 0;
++    if (!exactRead(State->Ledger.Value, &Needed, sizeof(Needed),
++                   offsetof(Header, PressureBytes)))
++      return failure("invalid pressure record");
++    if (Needed) {
++      uint64_t Used = 0;
++      unsigned Entries = 0;
++      for (unsigned S = 0; S < State->Description.Slots; ++S) {
++        auto R = State->read(S);
++        if (!R)
++          return R.takeError();
++        if (R->Bytes > State->Description.Limit - Used)
++          return failure("invalid charged total");
++        Used += R->Bytes;
++        Entries += R->Type != Free;
++      }
++      Pressure = Needed > State->Description.Limit - Used ||
++                 Entries == State->Description.Slots;
++      if (!Pressure) {
++        Needed = 0;
++        if (!exactWrite(State->Ledger.Value, &Needed, sizeof(Needed),
++                        offsetof(Header, PressureBytes)))
++          return ioError();
++      }
++    }
++  }
++  unsigned Removed = 0;
++  for (unsigned N = 0; N < (std::min)(MaxSlots, 128u); ++N) {
++    unsigned S;
++    {
++      std::unique_lock<std::mutex> Guard(State->Mutex, std::try_to_lock);
++      if (!Guard.owns_lock())
++        return Removed;
++      S = State->Cursor++ % State->Description.Slots;
++    }
++    auto L = State->lease(S, true, true);
++    if (!L) {
++      llvm::consumeError(L.takeError());
++      continue;
++    }
++    FD Lease(*L);
++    Record R;
++    {
++      std::unique_lock<std::mutex> Guard(State->Mutex, std::try_to_lock);
++      if (!Guard.owns_lock())
++        continue;
++      Lock Ledger(State->Ledger.Value);
++      if (!Ledger.acquire(true))
++        continue;
++      auto Current = State->read(S);
++      if (!Current)
++        return Current.takeError();
++      R = *Current;
++    }
++    if (R.Type == Free || (R.Type == Stable && !Pressure) ||
++        !State->leaseMatches(S, Lease.Value, R))
++      continue;
++    llvm::LockFileManager Source(R.Source);
++    auto Locked = Source.tryLock();
++    if (!Locked) {
++      llvm::consumeError(Locked.takeError());
++      continue;
++    }
++    if (!*Locked)
++      continue;
++    // The lease excludes all writers/readers while IO proceeds outside both
++    // admission locks. Requests cannot queue behind worker retirement/removal.
++    auto Clean = State->clean(S, R);
++    if (!Clean) {
++      llvm::consumeError(Clean.takeError());
++      continue;
++    }
++    if (!*Clean)
++      continue;
++    {
++      std::lock_guard<std::mutex> Guard(State->Mutex);
++      Lock Ledger(State->Ledger.Value);
++      if (!Ledger.acquire())
++        return ioError();
++      R.Type = Free;
++      R.Bytes = 0;
++      if (auto E = State->write(S, R))
++        return std::move(E);
++    }
++    ++Removed;
++  }
++  return Removed;
++#endif
++}
++llvm::Error rejectUnleasedOwnedModuleInputs(const CompilerInvocation &CI,
++                                            PathRef WorkingDirectory) {
++  auto Check = [&](PathRef P) -> llvm::Error {
++    llvm::SmallString<256> Absolute(P), Canonical;
++    if (llvm::sys::path::is_relative(Absolute)) {
++      Absolute = WorkingDirectory;
++      llvm::sys::path::append(Absolute, P);
++    }
++    llvm::sys::path::remove_dots(Absolute, true);
++    (void)llvm::sys::fs::real_path(Absolute, Canonical);
++    for (PathRef Candidate : {PathRef(Absolute), PathRef(Canonical)})
++      for (auto I = llvm::sys::path::begin(Candidate),
++                E = llvm::sys::path::end(Candidate);
++           I != E; ++I)
++        if (*I == ".owned-payload-v1")
++          return failure(
++              "explicit prebuilt module input has no owned generation lease");
++    return llvm::Error::success();
++  };
++  for (const auto &Entry : CI.getHeaderSearchOpts().PrebuiltModuleFiles)
++    if (auto E = Check(Entry.second))
++      return E;
++  for (const auto &P : CI.getHeaderSearchOpts().PrebuiltModulePaths)
++    if (auto E = Check(P))
++      return E;
++  // Unnamed -fmodule-file inputs are a separate frontend field.
++  for (const auto &P : CI.getFrontendOpts().ModuleFiles)
++    if (auto E = Check(P))
++      return E;
++  return llvm::Error::success();
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
+new file mode 100644
+index 0000000..24f07eb
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildCache.h
+@@ -0,0 +1,97 @@
++//===--- ModuleBuildCache.h - owned module payload admission -----*- C++
++//-*-===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDCACHE_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDCACHE_H
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include <chrono>
++#include <cstdint>
++#include <functional>
++#include <memory>
++#include <string>
++namespace clang {
++class CompilerInvocation;
++namespace clangd {
++class ModuleBuildCache;
++// Only temporary capacity pressure is retryable. Corruption, changed identity
++// and I/O errors never become a request to wait or bypass admission.
++class ModuleCachePressure : public llvm::ErrorInfo<ModuleCachePressure> {
++public:
++  static char ID;
++  void log(llvm::raw_ostream &OS) const override;
++  std::error_code convertToErrorCode() const override;
++};
++// An immutable generation's kernel lease. Keeping this object alive protects
++// both its payload and its persistent charge. Reserved/copy generations clean
++// up on final release; stable generations remain eligible for bounded GC.
++class ModuleBuildCacheLease {
++public:
++  ~ModuleBuildCacheLease();
++  std::string payload() const;
++  std::string workers() const;
++  // Published main-copy size versus the entire retained generation's logical
++  // payload charge (including implicit modules and indexes).
++  uint64_t mainBytes() const;
++  uint64_t payloadBytes() const;
++  llvm::Error publish();
++
++private:
++  friend class ModuleBuildCache;
++  class Impl;
++  explicit ModuleBuildCacheLease(std::unique_ptr<Impl>);
++  std::unique_ptr<Impl> State;
++};
++// Linux-only, version-marked fixed-slot namespace. Limits bound logical payload
++// reservations and generation count, not physical allocation, metadata or RSS.
++// Each record has two checksummed durable banks; ambiguous identity or cleanup
++// preserves its reservation. No legacy/prebuilt paths are enrolled or removed.
++class ModuleBuildCache : public std::enable_shared_from_this<ModuleBuildCache> {
++public:
++  static llvm::Expected<std::shared_ptr<ModuleBuildCache>>
++  open(PathRef Root, uint64_t PayloadBytes, unsigned Slots);
++  ~ModuleBuildCache();
++  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  reserve(llvm::StringRef Key, PathRef SourceAnchor, uint64_t Bytes,
++          uint64_t OutputEnvelope = 0, uint64_t CaptureEnvelope = 0);
++  // Deadline includes admission waiting; callers must give the worker only
++  // its remaining time. Cross-process publication is polled outside all locks.
++  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  reserveUntil(llvm::StringRef Key, PathRef SourceAnchor, uint64_t Bytes,
++               uint64_t OutputEnvelope, uint64_t CaptureEnvelope,
++               std::chrono::steady_clock::time_point Deadline,
++               const std::function<bool()> &Cancelled);
++  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  lookup(llvm::StringRef Key, std::function<bool(PathRef)> Usable = {});
++  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  copy(const std::shared_ptr<ModuleBuildCacheLease> &Stable);
++  // Child-side bootstrap: take its own leases before consuming any managed
++  // prerequisite. Foreign paths return a null lease and remain untouched.
++  static llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  acquireInput(PathRef Payload);
++  static llvm::Error validateWorker(PathRef Unit, uint64_t OutputLimit);
++
++private:
++  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
++  acquireGeneration(unsigned Slot, uint64_t Generation,
++                    bool StableOnly = false);
++
++public:
++  llvm::Expected<unsigned> collect(unsigned MaxSlots = 32);
++  llvm::StringRef root() const;
++
++private:
++  friend class ModuleBuildCacheLease;
++  class Impl;
++  explicit ModuleBuildCache(std::unique_ptr<Impl>);
++  std::unique_ptr<Impl> State;
++};
++// Compile-command references into the reserved owned namespace are not leased.
++// Reject them before parent AST/preamble compilation; internally supplied
++// prerequisite paths are injected only after this compile-command check.
++llvm::Error rejectUnleasedOwnedModuleInputs(const CompilerInvocation &,
++                                            PathRef WorkingDirectory);
++} // namespace clangd
++} // namespace clang
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index bf26775..0a168c7 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -7,6 +7,7 @@
+ //
+ //===----------------------------------------------------------------------===//
+ #include "ModuleBuildWorker.h"
++#include "ModuleBuildCache.h"
+ #include "Compiler.h"
+ #include "ModuleBuildMemoryBudget.h"
+ #include "ModuleBuildWorkerOutput.h"
+@@ -47,6 +48,10 @@ constexpr int ProtocolVersion = 1;
+ // Version 1 workers ignore unknown resource fields. A bounded parent must not
+ // launch one and mistake its successful response for enforcement.
+ constexpr int BoundedProtocolVersion = 2;
++// Owned layout 2 retains implicit module bundles. Older children must reject
++// before reading captures or writing into a reservation with different
++// semantics.
++constexpr int OwnedProtocolVersion = 4;
+ constexpr llvm::StringLiteral CapturedFileSystem =
+     "disk-with-captured-overlays";
+ 
+@@ -469,7 +474,8 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+       static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
+     return llvm::createStringError("module worker address limit is too large");
+   llvm::json::Object Request{
+-      {"version", Inputs.OutputLimitBytes || Inputs.AddressSpaceLimitBytes
++      {"version", Inputs.OwnedPayloadAdmission ? OwnedProtocolVersion :
++                  Inputs.OutputLimitBytes || Inputs.AddressSpaceLimitBytes
+                       ? BoundedProtocolVersion
+                       : ProtocolVersion},
+       {"filesystem", CapturedFileSystem},
+@@ -493,7 +499,11 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   // owner remain charged to one group until their final reap/cleanup completes.
+   auto MemoryBudget = Options.MemoryBudget;
+   const bool PayloadBound =
+-      Options.OutputLimitBytes || Options.CaptureLimitBytes;
++      Options.OutputLimitBytes || Options.CaptureLimitBytes ||
++      Options.OwnedPayloadAdmission;
++  if (Options.OwnedPayloadAdmission &&
++      (!Options.OutputLimitBytes || !Options.CaptureLimitBytes))
++    return llvm::createStringError("owned module worker requires both envelopes");
+   if (PayloadBound)
+     if (auto Error = validateBoundedModuleBuildOutputs(Invocation))
+       return std::move(Error);
+@@ -539,6 +549,7 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   ModuleBuildWorkerInputs Inputs;
+   Inputs.AddressSpaceLimitBytes = Options.AddressSpaceLimitBytes;
+   Inputs.OutputLimitBytes = Options.OutputLimitBytes;
++  Inputs.OwnedPayloadAdmission = Options.OwnedPayloadAdmission;
+   Inputs.FileSystem =
+       ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
+   Inputs.WorkingDirectory = WorkingDirectory.str();
+@@ -671,21 +682,29 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
+     return llvm::createStringError(
+         "module worker cancelled or timed out before accepting output");
+-  // A BMI must not reference prerequisites about to disappear with this
+-  // worker's private cache. Explicit prerequisite copies remain parent-owned.
++  // Foreign/legacy outputs still cannot reference a private cache which will
++  // disappear. Admitted owned generations can retain those exact paths and
++  // continuously transfer the whole bundle's reservation and kernel leases.
+   std::error_code EC;
++  bool HasImplicit = false;
+   for (llvm::sys::fs::recursive_directory_iterator I(Path("module-cache"), EC),
+        End;
+        I != End && !EC; I.increment(EC))
+-    if (llvm::sys::path::extension(I->path()) == ".pcm")
+-      return llvm::createStringError(
+-          "module worker built uncaptured implicit prerequisites");
++    if (llvm::sys::path::extension(I->path()) == ".pcm") {
++      if (!Options.OwnedPayloadAdmission)
++        return llvm::createStringError(
++            "module worker built uncaptured implicit prerequisites");
++      HasImplicit = true;
++    }
+   if (EC && EC != std::errc::no_such_file_or_directory)
+     return llvm::errorCodeToError(EC);
+   if (!llvm::sys::fs::exists(WorkerOutput))
+     return llvm::createStringError("module worker produced no staged output");
+   if (auto EC = llvm::sys::fs::rename(WorkerOutput, Output))
+     return llvm::errorCodeToError(EC);
++  if (HasImplicit)
++    if (auto Error = (*Unit)->retainImplicitOutputs())
++      return std::move(Error);
+   Success = true;
+   return std::optional<ModuleBuildWorkerResult>(
+       {std::chrono::duration_cast<std::chrono::milliseconds>(
+@@ -731,7 +750,8 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+   const auto *Object = Request->getAsObject();
+   if (!Object ||
+       (Object->getInteger("version") != ProtocolVersion &&
+-       Object->getInteger("version") != BoundedProtocolVersion) ||
++       Object->getInteger("version") != BoundedProtocolVersion &&
++       Object->getInteger("version") != OwnedProtocolVersion) ||
+       Object->getString("filesystem") != CapturedFileSystem)
+     return llvm::createStringError(
+         "unsupported module worker request protocol");
+@@ -761,6 +781,9 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+       return llvm::createStringError("invalid module worker output limit");
+     OutputLimit = static_cast<uint64_t>(*Limit);
+   }
++  if (Object->getInteger("version") == OwnedProtocolVersion)
++    if (auto Error = ModuleBuildCache::validateWorker(UnitDirectory, OutputLimit))
++      return Error;
+   ModuleBuildWorkerInputs Inputs;
+   Inputs.FileSystem =
+       ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
+@@ -795,6 +818,26 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+     if (auto Error = validateBoundedModuleBuildOutputs(*Invocation))
+       return Error;
+ 
++  // Independently retain each managed prerequisite and its stable companion
++  // before frontend reads. Parent death can close every parent FD immediately;
++  // the child's leases keep these charges/files alive until frontend teardown.
++  std::vector<std::shared_ptr<ModuleBuildCacheLease>> PrerequisiteLeases;
++  auto LeaseInput = [&](PathRef P) -> llvm::Error {
++    llvm::SmallString<256> Absolute(P);
++    if (llvm::sys::path::is_relative(Absolute)) {
++      Absolute = Inputs.WorkingDirectory;
++      llvm::sys::path::append(Absolute, P);
++    }
++    auto Lease = ModuleBuildCache::acquireInput(Absolute);
++    if (!Lease) return Lease.takeError();
++    if (*Lease) PrerequisiteLeases.push_back(std::move(*Lease));
++    return llvm::Error::success();
++  };
++  for (const auto &Entry : Invocation->getHeaderSearchOpts().PrebuiltModuleFiles)
++    if (auto Error = LeaseInput(Entry.second)) return Error;
++  for (const auto &P : Invocation->getFrontendOpts().ModuleFiles)
++    if (auto Error = LeaseInput(P)) return Error;
++
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS(
+       llvm::vfs::createPhysicalFileSystem().release());
+   if (auto EC = VFS->setCurrentWorkingDirectory(Inputs.WorkingDirectory))
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index 22cea85..333552e 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -43,6 +43,7 @@ struct ModuleBuildWorkerInputs {
+   // Zero preserves the unbounded direct protocol. A positive ceiling controls
+   // all known compiler outputs within this worker unit before payload writes.
+   uint64_t OutputLimitBytes = 0;
++  bool OwnedPayloadAdmission = false;
+ };
+ 
+ // Only opt into DiskWithCapturedOverlays if it reproduces the entire request
+@@ -69,6 +70,7 @@ struct ModuleBuildWorkerOptions {
+   // Opt-in per-worker bounds, distinct from aggregate persistent-cache quota.
+   // Any positive bound forbids in-process/unsupported-filesystem fallback.
+   uint64_t OutputLimitBytes = 0;
++  bool OwnedPayloadAdmission = false;
+   uint64_t CaptureLimitBytes = 0;
+   unsigned CaptureLimitFiles = 4096;
+ };
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+index 05afee5..778bfcf 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+@@ -159,7 +159,15 @@ private:
+       return llvm::createStringError(
+           "module worker output path or file limit rejected");
+     llvm::vfs::OnDiskOutputBackend Disk;
+-    auto File = Disk.createFile(Path, Config);
++    // The unit is unpublished/private until the supervisor accepts it. Write
++    // directly through the bounded stream: Disk's atomic keep() fallback can
++    // copy a temporary after a failed rename, transiently duplicating payload
++    // outside this writer's reservation. Publication itself stays atomic in
++    // the parent, under the generation/source leases.
++    Disk.Settings.UseTemporaries = false;
++    auto PrivateConfig = Config.value_or(llvm::vfs::OutputConfig{});
++    PrivateConfig.setNoAtomicWrite();
++    auto File = Disk.createFile(Path, PrivateConfig);
+     if (!File)
+       return File.takeError();
+     return std::make_unique<BoundedFile>(File->takeImpl(), B, Path);
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+index aa4fb05..7e0422f 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+@@ -20,6 +20,7 @@
+ #ifndef _WIN32
+ #include <cerrno>
+ #include <unistd.h>
++#include <sys/stat.h>
+ #endif
+ 
+ namespace clang::clangd {
+@@ -68,14 +69,93 @@ llvm::Error writeMarker(PathRef Path, StringRef Marker) {
+   }
+   return llvm::Error::success();
+ }
++// Protocol-owned units have bounded, known direct names. Never let recursive
++// deletion erase an unexpected side output, foreign entry or symlink. Clang's
++// bounded private cache may have hashed subdirectories and at most 64 outputs.
++bool outputTemporary(StringRef Name, bool Main) {
++  if (!Name.consume_back(".tmp")) return false;
++  StringRef Extension = llvm::sys::path::extension(Name);
++  if (Extension != ".pcm" && (Main || Extension != ".idx")) return false;
++  Name = Name.drop_back(Extension.size());
++  if (Name.size() < 9 || Name[Name.size()-9] != '-') return false;
++  StringRef Random = Name.take_back(8);
++  for (char C : Random)
++    if (!((C >= '0' && C <= '9') || (C >= 'a' && C <= 'f'))) return false;
++  return !Main || Name.drop_back(9) == "output";
++}
++std::error_code validateUnitContents(PathRef Unit) {
++  std::error_code EC;
++  unsigned Entries = 0, CacheFiles = 0;
++  llvm::sys::fs::recursive_directory_iterator I(Unit, EC), End;
++  for (; I != End && !EC; I.increment(EC)) {
++    if (++Entries > 4608) return std::make_error_code(std::errc::value_too_large);
++    llvm::sys::fs::file_status S;
++    if (llvm::sys::fs::status(I->path(), S, false))
++      return std::make_error_code(std::errc::operation_not_permitted);
++    if (llvm::sys::fs::is_symlink_file(S) ||
++        (!llvm::sys::fs::is_directory(S) && S.getLinkCount() != 1))
++      return std::make_error_code(std::errc::operation_not_permitted);
++#ifndef _WIN32
++    if (S.getUser() != geteuid())
++      return std::make_error_code(std::errc::operation_not_permitted);
++#endif
++    StringRef Name = llvm::sys::path::filename(I->path());
++    if (llvm::sys::fs::is_directory(S)) {
++      if ((I.level() == 0 && Name != "module-cache") || I.level() >= 4)
++        return std::make_error_code(std::errc::operation_not_permitted);
++      continue;
++    }
++    if (I.level() > 0) {
++      if (!llvm::sys::fs::is_regular_file(S) || ++CacheFiles > 128 ||
++          (llvm::sys::path::extension(Name) != ".pcm" &&
++           Name != "modules.idx" && Name != "modules.timestamp" &&
++           !outputTemporary(Name, false)))
++        return std::make_error_code(std::errc::operation_not_permitted);
++      continue;
++    }
++    bool Overlay = false;
++    if (Name.consume_front("overlay-") && !Name.empty() && Name.size() <= 4) {
++      unsigned N;
++      Overlay = !Name.getAsInteger(10, N) && N < 4096;
++    }
++    Name = llvm::sys::path::filename(I->path());
++    bool Known = Overlay || outputTemporary(Name, true) ||
++                 Name == "parent.lease" || Name == "worker.lease" ||
++                 Name == "owned.unit" || Name == "retired.unit" ||
++                 Name == "bundle.unit" || Name == "main.snapshot" ||
++                 Name == "request.json" || Name == "filesystem.yaml" ||
++                 Name == "output.pcm" || Name == "owner.pipe" ||
++                 Name == "stderr.log";
++    if (!Known) return std::make_error_code(std::errc::operation_not_permitted);
++    if (!llvm::sys::fs::is_regular_file(S) &&
++        !(S.type() == llvm::sys::fs::file_type::fifo_file &&
++          (Name == "owner.pipe" || Name == "stderr.log")))
++      return std::make_error_code(std::errc::operation_not_permitted);
++  }
++  return EC;
++}
++
+ std::error_code removeOwnerPipe(PathRef Unit) {
+   const std::string Path = unitPath(Unit, "owner.pipe");
+ #ifdef _WIN32
+   return llvm::sys::fs::remove(Path);
+ #else
+-  // LLVM's remove()/remove_directories() intentionally skip FIFO files.
+-  if (unlink(Path.c_str()) && errno != ENOENT)
+-    return std::error_code(errno, std::generic_category());
++  // The bounded diagnostics backend also owns a FIFO. After parent SIGKILL
++  // its destructor cannot unlink it; recursive LLVM removal skips FIFOs.
++  // Only these known, same-user FIFO names may be removed by unit collection.
++  for (StringRef Name : {StringRef("owner.pipe"), StringRef("stderr.log")}) {
++    const std::string FIFO = unitPath(Unit, Name);
++    struct stat S;
++    if (lstat(FIFO.c_str(), &S)) {
++      if (errno == ENOENT) continue;
++      return std::error_code(errno, std::generic_category());
++    }
++    if (Name == "stderr.log" && S_ISREG(S.st_mode)) continue;
++    if (!S_ISFIFO(S.st_mode) || S.st_uid != geteuid())
++      return std::make_error_code(std::errc::operation_not_permitted);
++    if (unlink(FIFO.c_str()) && errno != ENOENT)
++      return std::error_code(errno, std::generic_category());
++  }
+   return {};
+ #endif
+ }
+@@ -188,16 +268,45 @@ ModuleBuildWorkerUnit::create(PathRef Output, PathRef ConfiguredRoot) {
+ std::string ModuleBuildWorkerUnit::file(StringRef Name) const {
+   return unitPath(Directory, Name);
+ }
++llvm::Error ModuleBuildWorkerUnit::retainImplicitOutputs() {
++  if (auto EC = validateUnitContents(Directory))
++    return llvm::errorCodeToError(EC);
++  // The parent still holds both the unit lease and the enclosing generation's
++  // exclusive admission lease. No collector can cross this ownership transfer.
++  if (auto Err = writeMarker(file("bundle.unit"), "clangd-worker-bundle-v1\n"))
++    return Err;
++  if (auto EC = llvm::sys::fs::rename(file("owned.unit"), file("retired.unit")))
++    return llvm::errorCodeToError(EC);
++  if (auto EC = removeOwnerPipe(Directory))
++    return llvm::errorCodeToError(EC);
++  std::error_code EC;
++  for (llvm::sys::fs::directory_iterator I(Directory, EC), End; I != End && !EC;
++       I.increment(EC)) {
++    StringRef Name = llvm::sys::path::filename(I->path());
++    if (Name == "module-cache" || Name == "bundle.unit")
++      continue;
++    if (auto Error = llvm::sys::fs::remove(I->path()))
++      return llvm::errorCodeToError(Error);
++  }
++  if (EC)
++    return llvm::errorCodeToError(EC);
++  // Neither startup nor the separate orphan-unit collector accepts bundle.unit.
++  // It is removed only while holding the enclosing generation's exclusive
++  // lease.
++  ParentLease.reset();
++  Directory.clear();
++  return llvm::Error::success();
++}
+ ModuleBuildWorkerUnit::~ModuleBuildWorkerUnit() {
+   if (Directory.empty())
+     return;
+   // Parent lease is still held while retiring the marker. Delayed child
+   // startup must not begin compilation after normal failure cleanup either.
+-  llvm::sys::fs::remove(file("owned.unit"));
++  (void)llvm::sys::fs::rename(file("owned.unit"), file("retired.unit"));
+   // Windows cannot unlink open lease files. The worker has been reaped by
+   // the caller before this object is destroyed.
+   ParentLease.reset();
+-  removeOwnerPipe(Directory);
++  if (validateUnitContents(Directory) || removeOwnerPipe(Directory)) return;
+   llvm::sys::fs::remove_directories(Directory);
+ }
+ 
+@@ -297,7 +406,12 @@ ModuleBuildWorkerCollector::collect(unsigned MaxEntries) {
+       llvm::sys::fs::unlockFile(FD);
+       llvm::sys::Process::SafelyCloseFileDescriptor(FD);
+     }
+-    if (removeOwnerPipe(Unit))
++    // The kernel leases and retired marker exclude late frontend startup.
++    // Recheck physical identity and reject every unknown/symlink entry before
++    // deleting known payloads. Ambiguity leaves the whole ledger charge intact.
++    auto CurrentKey = ownershipKey(Unit);
++    if (!CurrentKey) { llvm::consumeError(CurrentKey.takeError()); continue; }
++    if (*CurrentKey != *Key || validateUnitContents(Unit) || removeOwnerPipe(Unit))
+       continue;
+     llvm::sys::fs::remove_directories(Unit);
+     if (!llvm::sys::fs::exists(Unit))
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+index 80684a0..3f67c3a 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+@@ -40,6 +40,10 @@ public:
+   ~ModuleBuildWorkerUnit();
+   std::string file(llvm::StringRef Name) const;
+   const std::string &directory() const { return Directory; }
++  // After the child is reaped, retain only its immutable implicit module cache
++  // at the original serialized paths. The enclosing admitted generation now
++  // owns cleanup; startup/orphan unit collectors must no longer recognize it.
++  llvm::Error retainImplicitOutputs();
+ 
+ private:
+   ModuleBuildWorkerUnit() = default;
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 6827763..9c820e1 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "ModulesBuilder.h"
++#include "ModuleBuildCache.h"
+ #include "Compiler.h"
+ #include "ModuleValidationCache.h"
+ #include "ModuleBuildMemoryBudget.h"
+@@ -18,6 +19,7 @@
+ #include "support/Context.h"
+ #include "support/Logger.h"
+ #include "clang/Frontend/FrontendAction.h"
++#include "clang/Frontend/DependencyOutputOptions.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+ #include "clang/Serialization/ModuleCache.h"
+@@ -153,6 +155,22 @@ llvm::cl::opt<unsigned> ModuleWorkerCaptureMiB(
+     llvm::cl::desc("Optional request snapshot payload limit per worker in MiB; "
+                    "0 disables the bound; bounds also cap captured file count"),
+     llvm::cl::init(0));
++// Logical payload admission applies only to the marked owned namespace. It
++// excludes physical allocation/metadata and retains legacy/foreign files.
++llvm::cl::opt<unsigned> ModuleOwnedCacheMiB(
++    "modules-builder-owned-cache-payload-mib",
++    llvm::cl::desc("Owned module stable/staging/read-copy payload admission in "
++                   "MiB; 0 disables strict admission (not a filesystem quota)"),
++#ifdef __linux__
++    llvm::cl::init(1024));
++#else
++    llvm::cl::init(0));
++#endif
++llvm::cl::opt<unsigned> ModuleOwnedCacheSlots(
++    "modules-builder-owned-cache-generations",
++    llvm::cl::desc("Owned cache generation admission slots (1-4096); each "
++                   "worker has separate captured/output file count bounds"),
++    llvm::cl::init(4096));
+ llvm::cl::opt<std::string> ModuleWorkerExecutable(
+     "modules-builder-worker-executable",
+     llvm::cl::desc("Worker-capable clangd executable (defaults to this executable)"),
+@@ -737,6 +755,23 @@ public:
+   }
+ };
+ 
++// Both immutable generations remain leased through validation and every
++// consumer. The exact-size copy has its own persistent payload reservation.
++class OwnedModuleFile final : public ModuleFile {
++  std::shared_ptr<ModuleBuildCacheLease> Stable, Copy;
++  std::optional<ModuleValidationCache::FileIdentity> Identity;
++public:
++  OwnedModuleFile(StringRef Name, std::shared_ptr<ModuleBuildCacheLease> Stable,
++                  std::shared_ptr<ModuleBuildCacheLease> Copy)
++      : ModuleFile(Name, Copy->payload(), Stable->payload()),
++        Stable(std::move(Stable)), Copy(std::move(Copy)) {
++    if (auto ID = ModuleValidationCache::identityOf(PublishedModuleFilePath))
++      Identity = *ID;
++  }
++  const std::optional<ModuleValidationCache::FileIdentity> &
++  getPublishedSourceIdentity() const override { return Identity; }
++};
++
+ // ReusablePrerequisiteModules - stands for PrerequisiteModules for which all
+ // the required modules are built successfully. All the module files
+ // are owned by the modules builder.
+@@ -962,7 +997,7 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                 const ThreadsafeFS &TFS,
+                 const ReusablePrerequisiteModules &BuiltModuleFiles,
+                 const ModuleBuildWorkerOptions &WorkerOptions,
+-                bool &PublishedExistingModuleFile) {
++                bool &PublishedExistingModuleFile, bool OwnedOutput = false) {
+   PublishedExistingModuleFile = false;
+   if (int Reason = isCancelled())
+     return llvm::make_error<CancelledError>(Reason);
+@@ -974,7 +1009,10 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                       ModuleFilesPrefix, EC.message()));
+ 
+   llvm::SmallString<256> TemporaryModuleFilePath =
+-      getTemporaryModuleFilePath(ModuleFilePath);
++      OwnedOutput ? llvm::SmallString<256>(
++                        (llvm::sys::path::parent_path(ModuleFilePath) +
++                         "/staged.pcm").str())
++                  : getTemporaryModuleFilePath(ModuleFilePath);
+   auto RemoveTemporaryModuleFile = llvm::scope_exit([&] {
+     if (!TemporaryModuleFilePath.empty() && !DebugModulesBuilder)
+       llvm::sys::fs::remove(TemporaryModuleFilePath);
+@@ -1008,6 +1046,13 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+     if (!CompilerInvocation::CreateFromArgs(Original, Args, Diags))
+       return llvm::createStringError(
+           "Failed to inspect bounded worker invocation");
++    if (OwnedOutput && CI->getDependencyOutputOpts().OutputFile.empty()) {
++      // clangd already disables dependency-file emission for its semantic
++      // action. Ordinary CDB -MD/-MMD/-MF/-MT flags do not change the BMI.
++      // Admit precisely the filename proven absent from the FINAL invocation;
++      // do not strip new flags or waive plugin/other auxiliary writer checks.
++      Original.getDependencyOutputOpts().OutputFile.clear();
++    }
+     if (auto Error = validateBoundedModuleBuildOutputs(Original))
+       return std::move(Error);
+   }
+@@ -1738,6 +1783,7 @@ private:
+     std::string Root, WorkerRoot;
+     std::shared_ptr<ModuleBuildWorkerCollector> Workers;
+     std::shared_ptr<ModuleReadCopyCollector> Copies;
++    std::shared_ptr<ModuleBuildCache> Owned;
+   };
+   void configureWorkers() {
+     WorkerConfiguration.Isolation = ModuleWorkerPolicy;
+@@ -1749,8 +1795,21 @@ private:
+         uint64_t(ModuleWorkerOutputMiB) * MiB;
+     WorkerConfiguration.CaptureLimitBytes =
+         uint64_t(ModuleWorkerCaptureMiB) * MiB;
++    if (ModuleOwnedCacheMiB) {
++      // The reservation envelope and actual writer/capture ceilings agree.
++      // Explicit smaller ceilings remain authoritative; no flags are stripped.
++      if (!WorkerConfiguration.OutputLimitBytes)
++        WorkerConfiguration.OutputLimitBytes = 256 * MiB;
++      if (!WorkerConfiguration.CaptureLimitBytes)
++        WorkerConfiguration.CaptureLimitBytes = 64 * MiB;
++#ifndef __linux__
++      WorkerConfigurationError = "Strict owned cache admission requires Linux";
++#endif
++      if (!ModuleOwnedCacheSlots || ModuleOwnedCacheSlots > 4096)
++        WorkerConfigurationError = "Owned generation count must be 1-4096";
++    }
+     if (WorkerConfiguration.Isolation == WorkerPolicy::InProcess &&
+-        (ModuleWorkerOutputMiB || ModuleWorkerCaptureMiB))
++        (ModuleWorkerOutputMiB || ModuleWorkerCaptureMiB || ModuleOwnedCacheMiB))
+       WorkerConfigurationError =
+           "Worker payload bounds require worker isolation";
+     WorkerConfiguration.AddressSpaceLimitBytes =
+@@ -1791,12 +1850,33 @@ private:
+       WorkerCollectors.push_back(
+           {Root.str(), WorkerRoot.str().str(),
+            std::make_shared<ModuleBuildWorkerCollector>(WorkerRoot),
+-           std::make_shared<ModuleReadCopyCollector>(Root)});
++           std::make_shared<ModuleReadCopyCollector>(Root), nullptr});
+       ++WorkerRootsGeneration;
+     }
+     WorkerMaintenanceCV.notify_one();
+   }
+ 
++  llvm::Expected<std::shared_ptr<ModuleBuildCache>> ownedCache(PathRef Root) {
++    llvm::SmallString<256> OwnedRoot(Root);
++    llvm::sys::path::append(OwnedRoot, ".owned-payload-v1");
++    auto Cache = ModuleBuildCache::open(
++        OwnedRoot, uint64_t(ModuleOwnedCacheMiB) * 1024 * 1024,
++        ModuleOwnedCacheSlots);
++    if (!Cache) return Cache.takeError();
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      for (auto &Entry : WorkerCollectors)
++        if (Entry.Root == Root) {
++          if (Entry.Owned) return Entry.Owned;
++          Entry.Owned = *Cache;
++          ++WorkerRootsGeneration;
++          break;
++        }
++    }
++    WorkerMaintenanceCV.notify_one();
++    return Cache;
++  }
++
+   void maintainWorkerUnits() {
+     uint64_t SeenGeneration = 0;
+     size_t Cursor = 0;
+@@ -1827,6 +1907,12 @@ private:
+       MoreCopies = false;
+       for (const auto &Entry : Batch) {
+         MoreCopies |= Entry.Copies->collect(32).More;
++        if (Entry.Owned) {
++          auto Collected = Entry.Owned->collect(32);
++          if (!Collected)
++            vlog("Owned module payload collection deferred: {0}",
++                 llvm::toString(Collected.takeError()));
++        }
+         llvm::SmallString<256> Marker(Entry.WorkerRoot);
+         llvm::sys::path::append(Marker, "owned.root");
+         if (!llvm::sys::fs::exists(Marker))
+@@ -1962,6 +2048,55 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     Cache.remove(ModuleName, ModuleSource, CommandHash);
+   }
+ 
++  if (ModuleOwnedCacheMiB) {
++    auto Root = getModuleCacheRoot(ModuleSource, getCDB());
++    auto Owned = ownedCache(Root);
++    if (!Owned) return Owned.takeError();
++    const std::string Key = ModuleName.str() + "\n" + ModuleSource.str() +
++                            "\n" + CommandHash;
++    auto Stable = (*Owned)->lookup(Key, [&](PathRef Payload) {
++      return IsModuleFileUpToDate(Payload, Prerequisites, TFS.view(std::nullopt));
++    });
++    if (!Stable) return Stable.takeError();
++    if (!*Stable) {
++      uint64_t Output = WorkerOptions.OutputLimitBytes;
++      uint64_t Capture = WorkerOptions.CaptureLimitBytes;
++      if (!Output || !Capture || Capture > UINT64_MAX - Output)
++        return llvm::createStringError("Owned worker envelope is invalid");
++      const auto AdmissionDeadline =
++          std::chrono::steady_clock::now() + WorkerOptions.Timeout;
++      auto Reservation = (*Owned)->reserveUntil(
++          Key, getModuleSourceHashLockPath(ModuleSource, getCDB()),
++          Output + Capture, Output, Capture, AdmissionDeadline,
++          WorkerOptions.Cancelled);
++      if (!Reservation) return Reservation.takeError();
++      // Waiting for a concurrent publisher is part of the original worker
++      // deadline, not an extra timeout before launching the bounded child.
++      WorkerOptions.Timeout = std::chrono::duration_cast<std::chrono::milliseconds>(
++          AdmissionDeadline - std::chrono::steady_clock::now());
++      if (WorkerOptions.Timeout.count() <= 0)
++        return llvm::createStringError("Owned worker admission deadline exhausted");
++      WorkerOptions.UnitRoot = (*Reservation)->workers();
++      WorkerOptions.OwnedPayloadAdmission = true;
++      bool Existing = false;
++      auto Built = buildModuleFile(ModuleName, ModuleSource, std::move(Cmd),
++                                   (*Reservation)->payload(), TFS, Prerequisites,
++                                   WorkerOptions, Existing, true);
++      if (!Built) return Built.takeError();
++      if (Existing)
++        return llvm::createStringError("Owned immutable generation collision");
++      if (int Reason = isCancelled())
++        return llvm::make_error<CancelledError>(Reason);
++      if (auto Error = (*Reservation)->publish()) return std::move(Error);
++      *Stable = std::move(*Reservation);
++    }
++    auto Copy = (*Owned)->copy(*Stable);
++    if (!Copy) return Copy.takeError();
++    auto Result = std::make_shared<OwnedModuleFile>(ModuleName, *Stable, *Copy);
++    Cache.add(ModuleName, ModuleSource, CommandHash, Result);
++    return std::shared_ptr<const ModuleFile>(std::move(Result));
++  }
++
+   if (llvm::sys::fs::exists(PublishedModuleFilePath)) {
+     if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
+                              TFS.view(std::nullopt))) {
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index b77308b..9c0634c 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -12,6 +12,14 @@
+ #ifndef _WIN32
+ 
+ #include "Annotations.h"
++#include "ModuleBuildCache.h"
++#ifdef __linux__
++#include <dirent.h>
++#include <signal.h>
++#include <sys/stat.h>
++#include <sys/wait.h>
++#include <unistd.h>
++#endif
+ #include "CodeComplete.h"
+ #include "Compiler.h"
+ #include "ModuleBuildMemoryBudget.h"
+@@ -40,10 +48,12 @@
+ #include "llvm/Support/Process.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include "llvm/Support/raw_ostream.h"
++#include "llvm/Testing/Support/Error.h"
+ #include "llvm/TargetParser/Host.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+ #include <thread>
++#include <future>
+ 
+ namespace clang::clangd {
+ namespace {
+@@ -267,6 +277,8 @@ void MockDirectoryCompilationDatabase::addFile(llvm::StringRef Path,
+ 
+ class PrerequisiteModulesTests : public ::testing::Test {
+ protected:
++  llvm::cl::opt<unsigned> *OwnedQuotaOption = nullptr;
++  unsigned OriginalOwnedQuota = 0;
+   void SetUp() override {
+     // These tests exercise module semantics and in-process compiler hooks
+     // (including cancellation triggered by filesystem reads). ClangdTests has
+@@ -280,6 +292,10 @@ protected:
+             It->second);
+     OriginalWorkerPolicy = WorkerPolicyOption->getValue();
+     *WorkerPolicyOption = ModuleBuildWorkerOptions::Policy::InProcess;
++    OwnedQuotaOption = static_cast<llvm::cl::opt<unsigned> *>(
++        Options.at("modules-builder-owned-cache-payload-mib"));
++    OriginalOwnedQuota = OwnedQuotaOption->getValue();
++    *OwnedQuotaOption = 0; // Explicit in-process semantics; real LSP covers quota.
+     ASSERT_FALSE(llvm::sys::fs::current_path(OriginalWorkingDirectory));
+     ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("modules-test", TestDir));
+   }
+@@ -287,6 +303,7 @@ protected:
+   void TearDown() override {
+     if (WorkerPolicyOption)
+       *WorkerPolicyOption = OriginalWorkerPolicy;
++    if (OwnedQuotaOption) *OwnedQuotaOption = OriginalOwnedQuota;
+     // MockFS overlays the process-wide real filesystem; its scanner changes
+     // the process CWD. Restore it before deleting this request's directory.
+     ASSERT_FALSE(llvm::sys::fs::set_current_path(OriginalWorkingDirectory));
+@@ -926,6 +943,399 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
+   EXPECT_LE(Limited->Examined, 2u);
+ }
+ 
++#ifdef __linux__
++TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
++  const auto Root = (TestDir + "/bundles/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/source-anchor").str();
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(
++        llvm::sys::fs::create_directories(llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(File, EC);
++    EXPECT_FALSE(EC);
++    Out << Text;
++  };
++  Write(Anchor, "");
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  auto Cache = ModuleBuildCache::open(Root, 20, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Stable = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++  ASSERT_THAT_EXPECTED(Stable, llvm::Succeeded());
++  auto Unit =
++      ModuleBuildWorkerUnit::create((*Stable)->payload(), (*Stable)->workers());
++  ASSERT_THAT_EXPECTED(Unit, llvm::Succeeded());
++  const auto Implicit = (*Unit)->file("module-cache/context/Builtin.pcm");
++  const auto Snapshot = (*Unit)->file("main.snapshot");
++  Write(Implicit, "IMPLICIT");
++  Write(Snapshot, "DATA");
++  Write((*Stable)->payload(), "MAIN");
++  ASSERT_THAT_ERROR((*Unit)->retainImplicitOutputs(), llvm::Succeeded());
++  EXPECT_FALSE(llvm::sys::fs::exists(Snapshot));
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  EXPECT_EQ((*Stable)->mainBytes(), 4u);
++  EXPECT_EQ((*Stable)->payloadBytes(), 12u);
++  auto Copy = (*Cache)->copy(*Stable);
++  ASSERT_THAT_EXPECTED(Copy, llvm::Succeeded());
++  EXPECT_EQ((*Copy)->payloadBytes(), 4u);
++  // Copying the entire 12-byte bundle would exhaust this exact 20-byte quota.
++  const auto CopyPath = (*Copy)->payload();
++  int Ready[2], Continue[2];
++  ASSERT_EQ(pipe(Ready), 0);
++  ASSERT_EQ(pipe(Continue), 0);
++  pid_t Child = fork();
++  ASSERT_GE(Child, 0);
++  if (!Child) {
++    close(Ready[0]);
++    close(Continue[1]);
++    // Close every inherited cache/OFD handle: the independent input API must
++    // acquire both copy and stable companion, rather than inherit ownership.
++    DIR *Descriptors = opendir("/proc/self/fd");
++    if (!Descriptors)
++      _exit(2);
++    std::vector<int> Close;
++    while (auto *Entry = readdir(Descriptors)) {
++      unsigned FD;
++      if (!StringRef(Entry->d_name).getAsInteger(10, FD) && FD > 2 &&
++          int(FD) != Ready[1] && int(FD) != Continue[0] &&
++          int(FD) != dirfd(Descriptors))
++        Close.push_back(FD);
++    }
++    closedir(Descriptors);
++    for (int FD : Close)
++      close(FD);
++    auto Input = ModuleBuildCache::acquireInput(CopyPath);
++    if (!Input || !*Input || (*Input)->mainBytes() != 4)
++      _exit(3);
++    auto Header = llvm::MemoryBuffer::getFile(Implicit);
++    if (!Header || (*Header)->getBuffer() != "IMPLICIT")
++      _exit(4);
++    if (write(Ready[1], "R", 1) != 1)
++      _exit(5);
++    char Signal;
++    if (read(Continue[0], &Signal, 1) != 1)
++      _exit(6);
++    _exit(0);
++  }
++  close(Ready[1]);
++  close(Continue[0]);
++  bool Reaped = false;
++  auto ChildCleanup = llvm::scope_exit([&] {
++    if (!Reaped) {
++      close(Continue[1]);
++      kill(Child, SIGKILL);
++      int Status;
++      waitpid(Child, &Status, 0);
++    }
++  });
++  char Signal;
++  ASSERT_EQ(read(Ready[0], &Signal, 1), 1);
++  close(Ready[0]);
++  Stable->reset();
++  Copy->reset();
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 5),
++                       llvm::Failed());
++  auto Collected = (*Cache)->collect(8);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Implicit));
++  EXPECT_TRUE(llvm::sys::fs::exists(CopyPath));
++  ASSERT_EQ(write(Continue[1], "X", 1), 1);
++  close(Continue[1]);
++  int Status;
++  ASSERT_EQ(waitpid(Child, &Status, 0), Child);
++  Reaped = true;
++  ASSERT_TRUE(WIFEXITED(Status));
++  ASSERT_EQ(WEXITSTATUS(Status), 0);
++  Collected = (*Cache)->collect(8);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 2u);
++  EXPECT_FALSE(llvm::sys::fs::exists(Implicit));
++  EXPECT_FALSE(llvm::sys::fs::exists(CopyPath));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("after-cleanup", Anchor, 20),
++                       llvm::Succeeded());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleChecksOutputAndIdentity) {
++  const auto Root = (TestDir + "/bundle-guards").str();
++  const auto Anchor = (TestDir + "/source-anchor").str();
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(
++        llvm::sys::fs::create_directories(llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(File, EC);
++    EXPECT_FALSE(EC);
++    Out << Text;
++  };
++  Write(Anchor, "");
++  auto Cache = ModuleBuildCache::open(Root, 20, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Make = [&](unsigned HeaderBytes) {
++    auto Reservation = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++    EXPECT_THAT_EXPECTED(Reservation, llvm::Succeeded());
++    auto Unit = ModuleBuildWorkerUnit::create((*Reservation)->payload(),
++                                              (*Reservation)->workers());
++    EXPECT_THAT_EXPECTED(Unit, llvm::Succeeded());
++    Write((*Unit)->file("module-cache/Builtin.pcm"),
++          std::string(HeaderBytes, 'x'));
++    Write((*Reservation)->payload(), "MAIN");
++    EXPECT_THAT_ERROR((*Unit)->retainImplicitOutputs(), llvm::Succeeded());
++    return Reservation;
++  };
++  auto Oversized = Make(16);
++  // Within total capture+output reservation, but exceeds the distinct output
++  // envelope: captures cannot be silently converted to extra compiler output.
++  EXPECT_THAT_ERROR((*Oversized)->publish(), llvm::Failed());
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 1),
++                       llvm::Failed());
++  Oversized->reset();
++  auto Stable = Make(8);
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  std::string Implicit;
++  std::error_code EC;
++  for (llvm::sys::fs::recursive_directory_iterator I((*Stable)->workers(), EC),
++       End;
++       I != End && !EC; I.increment(EC))
++    if (llvm::sys::path::extension(I->path()) == ".pcm")
++      Implicit = I->path();
++  ASSERT_FALSE(EC);
++  ASSERT_FALSE(Implicit.empty());
++  ASSERT_FALSE(llvm::sys::fs::rename(Implicit, Implicit + ".foreign"));
++  Write(Implicit, "xxxxxxxx");
++  // Unknown output/identity prevents both admission and reclamation. The
++  // existing generation remains charged; a new independent quota is absent.
++  EXPECT_THAT_EXPECTED((*Cache)->lookup("M"), llvm::Failed());
++  Stable->reset();
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 9),
++                       llvm::Failed());
++  auto Collected = (*Cache)->collect(4);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Implicit + ".foreign"));
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedPayloadAdmissionAndImmutableCopyLeases) {
++  auto Root = (TestDir + "/owned").str();
++  auto Anchor = (TestDir + "/source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  // open() does not adopt a foreign nonempty namespace.
++  auto Foreign = (TestDir + "/foreign").str();
++  ASSERT_FALSE(llvm::sys::fs::create_directories(Foreign));
++  { std::error_code EC; llvm::raw_fd_ostream F(Foreign + "/keep", EC); ASSERT_FALSE(EC); F << "foreign"; }
++  ASSERT_EQ(chmod(Foreign.c_str(), 0700), 0);
++  EXPECT_THAT_EXPECTED(ModuleBuildCache::open(Foreign, 6, 4), llvm::Failed());
++  EXPECT_FALSE(llvm::sys::fs::exists(Foreign + "/ledger-v1"));
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Stable = (*Cache)->reserve("M", Anchor, 6);
++  ASSERT_THAT_EXPECTED(Stable, llvm::Succeeded());
++  auto Denied = (*Cache)->reserve("too-large", Anchor, 1);
++  EXPECT_THAT_EXPECTED(Denied, llvm::Failed());
++  { std::error_code EC; llvm::raw_fd_ostream F((*Stable)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  auto Copy = (*Cache)->copy(*Stable);
++  ASSERT_THAT_EXPECTED(Copy, llvm::Succeeded());
++  auto Contents = llvm::MemoryBuffer::getFile((*Copy)->payload());
++  ASSERT_TRUE(Contents); EXPECT_EQ((*Contents)->getBuffer(), "BMI");
++  // Another factory/process view cannot collect either active physical inode.
++  auto Other = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Other, llvm::Succeeded());
++  EXPECT_THAT_EXPECTED((*Other)->reserve("pressure", Anchor, 1), llvm::Failed());
++  auto Collected = (*Other)->collect(4);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded()); EXPECT_EQ(*Collected, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists((*Stable)->payload()));
++  EXPECT_TRUE(llvm::sys::fs::exists((*Copy)->payload()));
++  auto CopyPath = (*Copy)->payload();
++  Copy->reset();
++  EXPECT_FALSE(llvm::sys::fs::exists(CopyPath));
++  auto LeasedAgain = (*Other)->lookup("M");
++  ASSERT_THAT_EXPECTED(LeasedAgain, llvm::Succeeded()); ASSERT_TRUE(*LeasedAgain);
++  Stable->reset();
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 4), llvm::Failed());
++  Collected = (*Cache)->collect(4);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded()); EXPECT_EQ(*Collected, 0u);
++  auto StablePath = (*LeasedAgain)->payload();
++  LeasedAgain->reset();
++  Collected = (*Cache)->collect(4);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded()); EXPECT_EQ(*Collected, 1u);
++  EXPECT_FALSE(llvm::sys::fs::exists(StablePath));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("after-cleanup", Anchor, 6), llvm::Succeeded());
++  EXPECT_TRUE(llvm::sys::fs::exists(Foreign + "/keep"));
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedAdmissionWaitsForConcurrentPublication) {
++  auto Root = (TestDir + "/owned-wait-publish").str();
++  auto Anchor = (TestDir + "/wait-source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto First = (*Cache)->reserve("first", Anchor, 6);
++  ASSERT_THAT_EXPECTED(First, llvm::Succeeded());
++  { std::error_code EC; llvm::raw_fd_ostream F((*First)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
++  auto Waiting = std::async(std::launch::async, [&] {
++    return (*Cache)->reserveUntil("second", Anchor, 3, 0, 0,
++        std::chrono::steady_clock::now() + std::chrono::seconds(2), {});
++  });
++  // An immediate failure is the defect: a real concurrent publisher can
++  // shrink its reservation while retaining the immutable published generation.
++  EXPECT_EQ(Waiting.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout);
++  ASSERT_THAT_ERROR((*First)->publish(), llvm::Succeeded());
++  auto Second = Waiting.get();
++  ASSERT_THAT_EXPECTED(Second, llvm::Succeeded());
++  EXPECT_TRUE(llvm::sys::fs::exists((*First)->payload()));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("over-budget", Anchor, 1), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedAdmissionCancellationPreservesLiveReservation) {
++  auto Root = (TestDir + "/owned-wait-cancel").str();
++  auto Anchor = (TestDir + "/cancel-source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto First = (*Cache)->reserve("first", Anchor, 6);
++  ASSERT_THAT_EXPECTED(First, llvm::Succeeded());
++  { std::error_code EC; llvm::raw_fd_ostream F((*First)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
++  std::atomic<bool> Cancelled{false};
++  auto Waiting = std::async(std::launch::async, [&] {
++    return (*Cache)->reserveUntil("second", Anchor, 3, 0, 0,
++        std::chrono::steady_clock::now() + std::chrono::seconds(2),
++        [&] { return Cancelled.load(); });
++  });
++  EXPECT_EQ(Waiting.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout);
++  Cancelled = true;
++  auto Result = Waiting.get();
++  ASSERT_FALSE(static_cast<bool>(Result));
++  EXPECT_THAT(llvm::toString(Result.takeError()), testing::HasSubstr("cancelled"));
++  EXPECT_TRUE(llvm::sys::fs::exists((*First)->payload()));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("still-held", Anchor, 1), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedAdmissionDeadlineAndInvalidEnvelopeKeepBounds) {
++  auto Root = (TestDir + "/owned-wait-deadline").str();
++  auto Anchor = (TestDir + "/deadline-source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 6, 4);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto First = (*Cache)->reserve("first", Anchor, 6);
++  ASSERT_THAT_EXPECTED(First, llvm::Succeeded());
++  auto TimedOut = (*Cache)->reserveUntil("second", Anchor, 3, 0, 0,
++      std::chrono::steady_clock::now() + std::chrono::milliseconds(50), {});
++  ASSERT_FALSE(static_cast<bool>(TimedOut));
++  EXPECT_THAT(llvm::toString(TimedOut.takeError()), testing::HasSubstr("deadline exhausted"));
++  auto Invalid = (*Cache)->reserveUntil("invalid", Anchor, 7, 0, 0,
++      std::chrono::steady_clock::now() + std::chrono::seconds(2), {});
++  ASSERT_FALSE(static_cast<bool>(Invalid));
++  EXPECT_THAT(llvm::toString(Invalid.takeError()), testing::HasSubstr("invalid reservation"));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("still-held", Anchor, 1), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedPayloadCrashChargesAndChangedIdentityRetain) {
++  auto Root = (TestDir + "/owned-crash").str();
++  auto Anchor = (TestDir + "/source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  int Ready[2]; ASSERT_EQ(pipe(Ready), 0);
++  pid_t Child = fork(); ASSERT_GE(Child, 0);
++  if (!Child) {
++    close(Ready[0]);
++    auto Cache = ModuleBuildCache::open(Root, 8, 2);
++    if (!Cache) _exit(2);
++    auto Reservation = (*Cache)->reserve("killed", Anchor, 8);
++    if (!Reservation) _exit(3);
++    { std::error_code EC; llvm::raw_fd_ostream F((*Reservation)->payload(), EC); if (EC) _exit(4); F << "12345678"; }
++    if (write(Ready[1], "R", 1) != 1) _exit(5);
++    for (;;) pause();
++  }
++  close(Ready[1]); char Token = 0;
++  ASSERT_EQ(read(Ready[0], &Token, 1), 1); close(Ready[0]);
++  auto Cache = ModuleBuildCache::open(Root, 8, 2);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("before-kill", Anchor, 1), llvm::Failed());
++  ASSERT_EQ(kill(Child, SIGKILL), 0);
++  int Status = 0; ASSERT_EQ(waitpid(Child, &Status, 0), Child); ASSERT_TRUE(WIFSIGNALED(Status));
++  EXPECT_EQ(WTERMSIG(Status), SIGKILL);
++  // Kernel owner death alone does not free the persistent charge.
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("after-kill", Anchor, 1), llvm::Failed());
++  auto GC = (*Cache)->collect(2);
++  ASSERT_THAT_EXPECTED(GC, llvm::Succeeded()); EXPECT_EQ(*GC, 1u);
++  auto Stable = (*Cache)->reserve("changed", Anchor, 8);
++  ASSERT_THAT_EXPECTED(Stable, llvm::Succeeded());
++  { std::error_code EC; llvm::raw_fd_ostream F((*Stable)->payload(), EC); ASSERT_FALSE(EC); F << "12345678"; }
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  const auto Directory = llvm::sys::path::parent_path((*Stable)->payload()).str();
++  Stable->reset();
++  ASSERT_FALSE(llvm::sys::fs::rename(Directory, Directory + ".original"));
++  ASSERT_FALSE(llvm::sys::fs::create_directory(Directory));
++  { std::error_code EC; llvm::raw_fd_ostream F(Directory + "/payload.pcm", EC); ASSERT_FALSE(EC); F << "foreign"; }
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 1), llvm::Failed());
++  GC = (*Cache)->collect(2);
++  ASSERT_THAT_EXPECTED(GC, llvm::Succeeded()); EXPECT_EQ(*GC, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Directory + "/payload.pcm"));
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("retained-charge", Anchor, 1), llvm::Failed());
++}
++TEST_F(PrerequisiteModulesTests, OwnedPayloadUnknownAndSymlinkUnitsKeepCharges) {
++  auto Root = (TestDir + "/owned-uncertain").str();
++  auto Anchor = (TestDir + "/source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 8, 2);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  for (bool Symlink : {false, true}) {
++    auto R = (*Cache)->reserve("uncertain", Anchor, 4);
++    ASSERT_THAT_EXPECTED(R, llvm::Succeeded());
++    auto Unit = ModuleBuildWorkerUnit::create((*R)->payload(), (*R)->workers());
++    ASSERT_THAT_EXPECTED(Unit, llvm::Succeeded());
++    auto Unknown = (*Unit)->file(Symlink ? "output.pcm" : "foreign.bin");
++    if (Symlink) ASSERT_EQ(symlink(Anchor.c_str(), Unknown.c_str()), 0);
++    else { std::error_code EC; llvm::raw_fd_ostream F(Unknown, EC); ASSERT_FALSE(EC); F << "keep"; }
++    ASSERT_EQ(mkfifo((*Unit)->file("stderr.log").c_str(), 0600), 0);
++    Unit->reset();
++    R->reset();
++    auto GC = (*Cache)->collect(2);
++    ASSERT_THAT_EXPECTED(GC, llvm::Succeeded()); EXPECT_EQ(*GC, 0u);
++    EXPECT_TRUE(llvm::sys::fs::exists(Unknown));
++  }
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("no-free-charge", Anchor, 1), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedPayloadReplacedLeaseCannotCollectLiveGeneration) {
++  auto Root = (TestDir + "/owned-lease-change").str();
++  auto Anchor = (TestDir + "/source-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  auto Cache = ModuleBuildCache::open(Root, 8, 2);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Stable = (*Cache)->reserve("leased", Anchor, 8);
++  ASSERT_THAT_EXPECTED(Stable, llvm::Succeeded());
++  { std::error_code EC; llvm::raw_fd_ostream F((*Stable)->payload(), EC); ASSERT_FALSE(EC); F << "12345678"; }
++  ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++  const auto Payload = (*Stable)->payload();
++  ASSERT_FALSE(llvm::sys::fs::rename(Root + "/lease-0", Root + "/old-lease"));
++  { std::error_code EC; llvm::raw_fd_ostream F(Root + "/lease-0", EC); ASSERT_FALSE(EC); }
++  ASSERT_EQ(chmod((Root + "/lease-0").c_str(), 0600), 0);
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 1), llvm::Failed());
++  auto GC = (*Cache)->collect(2);
++  ASSERT_THAT_EXPECTED(GC, llvm::Succeeded()); EXPECT_EQ(*GC, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Payload));
++  Stable->reset();
++  GC = (*Cache)->collect(2);
++  ASSERT_THAT_EXPECTED(GC, llvm::Succeeded()); EXPECT_EQ(*GC, 0u);
++  EXPECT_TRUE(llvm::sys::fs::exists(Payload));
++}
++
++TEST_F(PrerequisiteModulesTests, ExplicitManagedPrebuiltInputsRequireLeases) {
++  CompilerInvocation CI;
++  CI.getHeaderSearchOpts().PrebuiltModuleFiles["M"] = "foreign/M.pcm";
++  EXPECT_THAT_ERROR(rejectUnleasedOwnedModuleInputs(CI, TestDir), llvm::Succeeded());
++  CI.getHeaderSearchOpts().PrebuiltModuleFiles["M"] = ".owned-payload-v1/generation-0-1/payload.pcm";
++  EXPECT_THAT_ERROR(rejectUnleasedOwnedModuleInputs(CI, TestDir), llvm::Failed());
++  CI.getHeaderSearchOpts().PrebuiltModuleFiles.clear();
++  CI.getFrontendOpts().ModuleFiles = {".owned-payload-v1/generation-0-1/payload.pcm"};
++  EXPECT_THAT_ERROR(rejectUnleasedOwnedModuleInputs(CI, TestDir), llvm::Failed());
++  CI.getFrontendOpts().ModuleFiles.clear();
++  CI.getHeaderSearchOpts().PrebuiltModulePaths = {".owned-payload-v1"};
++  EXPECT_THAT_ERROR(rejectUnleasedOwnedModuleInputs(CI, TestDir), llvm::Failed());
++}
++
++#endif
++
+ TEST_F(PrerequisiteModulesTests, ModuleWorkerPreservesCapturedInputs) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "#error disk main must not be read\n");
+-- 
+2.53.0
+

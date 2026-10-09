@@ -29,8 +29,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-linux-x64-
+          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
       - name: Build fork clangd
         env:
@@ -51,7 +50,7 @@ jobs:
             "$BUILD_DIR/bin/clangd" "--experimental-modules-support" \
             "--compile-commands-dir=/tmp/bench_proj" \
             --project /tmp/bench_proj \
-            --scenarios completion,definition,diagnostics,latency \
+            --scenarios completion,hover,diagnostics,latency \
             --budget-ms 5000
         env:
           BUILD_DIR: ${{ github.workspace }}/build-linux-x64

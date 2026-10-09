@@ -1,41 +1,54 @@
-From 150367aeb01cc567d909ca4d904eff97f6cc3cb3 Mon Sep 17 00:00:00 2001
+From 1d48cbbcfdf291c236cc77c147bfd6c302a7f9d4 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
-Date: Tue, 6 Oct 2026 04:40:25 +0900
-Subject: [PATCH] [clangd] Memoize module file validation across requests
+Date: Wed, 7 Oct 2026 01:26:20 +0900
+Subject: [clangd] Memoize module file validation across requests
 
-Validating a built module file re-hashes all of its input files for
-every request that reuses the same prerequisite modules, so completion
-on a file importing many modules re-validates the whole set on every
-keystroke even when nothing changed.
+Module file validation runs on every request that reuses a preamble. The verdict is now memoized across requests and keyed by precise input identity (native timestamps and file identity), and a memoized disk verdict is accepted only when the request filesystem shows the same inputs, so an unsaved dependency still invalidates it.
 
-Validation now goes through a bounded memo keyed by the published BMI,
-the dependency chain, and the (size, mtime) identity of every input the
-validation read. A later request re-stats those files and reuses the
-verdict when none of them moved; any drift falls back to a full
-validation. Validations whose inputs were read through an overlay
-buffer are not memoized.
+* [clangd] Memoize module file validation across requests
 
-To keep the memo key stable across requests, validation reads the
-published BMIs rather than the per-request copy-on-read views, and a
-copy may be validated through its published source while that source is
-unchanged.
+  Validating a built module file re-hashes all of its input files for
+  every request that reuses the same prerequisite modules, so completion
+  on a file importing many modules re-validates the whole set on every
+  keystroke even when nothing changed.
+
+  Validation now goes through a bounded memo keyed by the published BMI,
+  the dependency chain, and the (size, mtime) identity of every input the
+  validation read. A later request re-stats those files and reuses the
+  verdict when none of them moved; any drift falls back to a full
+  validation. Validations whose inputs were read through an overlay
+  buffer are not memoized.
+
+  To keep the memo key stable across requests, validation reads the
+  published BMIs rather than the per-request copy-on-read views, and a
+  copy may be validated through its published source while that source is
+  unchanged.
+
+* [clangd] Validation memo retains native input timestamps and file identity
+
+* [clangd] Validation memo respects the request filesystem
 ---
- .../clangd/ModuleValidationCache.h            | 148 +++++++++++++++
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 168 ++++++++++++++++--
+ .../clangd/ModuleValidationCache.h            | 153 ++++++++++++++++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 170 ++++++++++++++++--
  clang-tools-extra/clangd/ModulesBuilder.h     |  15 ++
+ clang-tools-extra/clangd/test/CMakeLists.txt  |   8 +
  .../test/Inputs/modules-cache-driver.py       | 104 +++++++++++
+ .../test/Inputs/validation-overlay-probe.cpp  |  34 ++++
  .../clangd/test/modules-validation-cache.test |  13 ++
- 5 files changed, 429 insertions(+), 19 deletions(-)
+ .../test/modules-validation-overlay.test      |   7 +
+ 8 files changed, 485 insertions(+), 19 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleValidationCache.h
  create mode 100644 clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py
+ create mode 100644 clang-tools-extra/clangd/test/Inputs/validation-overlay-probe.cpp
  create mode 100644 clang-tools-extra/clangd/test/modules-validation-cache.test
+ create mode 100644 clang-tools-extra/clangd/test/modules-validation-overlay.test
 
 diff --git a/clang-tools-extra/clangd/ModuleValidationCache.h b/clang-tools-extra/clangd/ModuleValidationCache.h
 new file mode 100644
-index 000000000..b3dbdada1
+index 0000000..c2cb062
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleValidationCache.h
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,153 @@
 +//===-- ModuleValidationCache.h ---------------------------------*- C++-*-===//
 +//
 +// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
@@ -58,7 +71,7 @@ index 000000000..b3dbdada1
 +// reused instead of recomputing it. Any drift falls back to a full
 +// validation, so the memo can only save work, never change the outcome. Like
 +// the compiler's own default BMI staleness checks, identity is (size, mtime):
-+// a content change that preserves both is not detected by the fast path. A
++// a content change that preserves the full identity is not detected. A
 +// validation that read an input through an overlay buffer (an unsaved edit)
 +// is not memoized at all, because its outcome depends on the buffer rather
 +// than the file the fast path re-stats.
@@ -78,6 +91,7 @@ index 000000000..b3dbdada1
 +#include "llvm/ADT/StringMap.h"
 +#include "llvm/ADT/StringRef.h"
 +#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/VirtualFileSystem.h"
 +#include <chrono>
 +#include <cstdint>
 +#include <mutex>
@@ -94,18 +108,17 @@ index 000000000..b3dbdada1
 +  struct FileIdentity {
 +    uint64_t Size = 0;
 +    llvm::sys::TimePoint<> ModTime = {};
++    llvm::sys::fs::UniqueID ID;
 +    bool operator==(const FileIdentity &Other) const {
-+      return Size == Other.Size && ModTime == Other.ModTime;
++      return Size == Other.Size && ModTime == Other.ModTime && ID == Other.ID;
 +    }
 +    bool operator!=(const FileIdentity &Other) const {
 +      return !(*this == Other);
 +    }
 +  };
 +
-+  /// The (size, mtime) identity of a regular file, or nullopt when the file
-+  /// cannot be stated (missing, unreadable, or a directory). The mtime is
-+  /// truncated to seconds: clang's FileEntry records second-precision times,
-+  /// and the fast path compares identities across that boundary.
++  /// Native file identity and full timestamp precision. Truncating to
++  /// seconds would hide same-size changes made within the same second.
 +  static std::optional<FileIdentity> identityOf(llvm::StringRef Path) {
 +    llvm::sys::fs::file_status Status;
 +    if (std::error_code EC = llvm::sys::fs::status(Path, Status))
@@ -114,14 +127,14 @@ index 000000000..b3dbdada1
 +      return std::nullopt;
 +    return FileIdentity{
 +        static_cast<uint64_t>(Status.getSize()),
-+        std::chrono::time_point_cast<std::chrono::seconds>(
-+            Status.getLastModificationTime())};
++        Status.getLastModificationTime(), Status.getUniqueID()};
 +  }
 +
 +  /// Returns true when a previous validation of \p BMIPath under the
 +  /// dependency chain \p ChainKey concluded up-to-date and neither the BMI
 +  /// nor any recorded input has moved since. Any doubt returns false.
-+  bool isFresh(llvm::StringRef BMIPath, llvm::StringRef ChainKey) {
++  bool isFresh(llvm::StringRef BMIPath, llvm::StringRef ChainKey,
++               llvm::vfs::FileSystem &FS) {
 +    std::lock_guard<std::mutex> Lock(Mutex);
 +    auto It = Entries.find(key(BMIPath, ChainKey));
 +    if (It == Entries.end())
@@ -130,11 +143,16 @@ index 000000000..b3dbdada1
 +      Entries.erase(It);
 +      return false;
 +    }
-+    for (const auto &Input : It->second.Inputs)
-+      if (identityOf(Input.first) != Input.second) {
++    for (const auto &Input : It->second.Inputs) {
++      auto Visible = FS.status(Input.first);
++      if (!Visible || Visible->getUniqueID() != Input.second.ID ||
++          Visible->getSize() != Input.second.Size ||
++          Visible->getLastModificationTime() != Input.second.ModTime ||
++          identityOf(Input.first) != Input.second) {
 +        Entries.erase(It);
 +        return false;
 +      }
++    }
 +    return true;
 +  }
 +
@@ -185,7 +203,7 @@ index 000000000..b3dbdada1
 +
 +#endif // LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULE_VALIDATION_CACHE_H
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 6e47122bd..0086e707e 100644
+index 6e47122..545e375 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -7,6 +7,7 @@
@@ -358,7 +376,7 @@ index 6e47122bd..0086e707e 100644
    std::string getAsString() const {
      std::string Result;
      llvm::raw_string_ostream OS(Result);
-@@ -521,14 +585,61 @@ private:
+@@ -521,14 +585,63 @@ private:
    llvm::StringSet<> DirectModuleNames;
  };
  
@@ -382,8 +400,10 @@ index 6e47122bd..0086e707e 100644
 +      if (!FE)
 +        return;
 +      auto Disk = ModuleValidationCache::identityOf(FE->getName());
-+      if (!Disk || Disk->Size != static_cast<uint64_t>(FE->getSize()) ||
-+          Disk->ModTime != llvm::sys::toTimePoint(FE->getModificationTime())) {
++      if (!Disk || Disk->ID != FE->getUniqueID() ||
++          Disk->Size != static_cast<uint64_t>(FE->getSize()) ||
++          std::chrono::time_point_cast<std::chrono::seconds>(Disk->ModTime) !=
++              llvm::sys::toTimePoint(FE->getModificationTime())) {
 +        Inputs.clear();
 +        Unrecordable = true;
 +        return;
@@ -412,7 +432,7 @@ index 6e47122bd..0086e707e 100644
 +  std::string ChainKey;
 +  RequisiteModules.getValidationChainKey(ChainKey);
 +  ModuleValidationCache &ValidationCache = getModuleValidationCache();
-+  if (ValidationCache.isFresh(ModuleFilePath, ChainKey)) {
++  if (ValidationCache.isFresh(ModuleFilePath, ChainKey, *VFS)) {
 +    log("Module file {0} is up to date via the validation cache",
 +        ModuleFilePath);
 +    return true;
@@ -421,7 +441,7 @@ index 6e47122bd..0086e707e 100644
    clang::clangd::IgnoreDiagnostics IgnoreDiags;
    DiagnosticOptions DiagOpts;
    IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
-@@ -573,9 +684,12 @@ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
+@@ -573,9 +686,12 @@ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
    // without treating it as a hard error.
    // ReadAST will validate all input files internally and return OutOfDate
    // if any file is modified.
@@ -437,7 +457,7 @@ index 6e47122bd..0086e707e 100644
  }
  
  bool IsModuleFilesUpToDate(
-@@ -703,7 +817,8 @@ copyModuleFileForRead(llvm::StringRef ModuleName,
+@@ -703,7 +819,8 @@ copyModuleFileForRead(llvm::StringRef ModuleName,
      return llvm::createStringError(llvm::formatv(
          "Failed to copy module file {0} to {1}: {2}", PublishedModuleFilePath,
          VersionedModuleFilePath, EC.message()));
@@ -447,7 +467,7 @@ index 6e47122bd..0086e707e 100644
  }
  
  bool ReusablePrerequisiteModules::canReuse(
-@@ -712,9 +827,24 @@ bool ReusablePrerequisiteModules::canReuse(
+@@ -712,9 +829,24 @@ bool ReusablePrerequisiteModules::canReuse(
    if (RequiredModules.empty())
      return true;
  
@@ -476,7 +496,7 @@ index 6e47122bd..0086e707e 100644
  }
  
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
-index d8c8c446f..f44226c2b 100644
+index d8c8c44..f44226c 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.h
 +++ b/clang-tools-extra/clangd/ModulesBuilder.h
 @@ -80,6 +80,21 @@ public:
@@ -501,9 +521,25 @@ index d8c8c446f..f44226c2b 100644
    virtual ~PrerequisiteModules() = default;
  };
  
+diff --git a/clang-tools-extra/clangd/test/CMakeLists.txt b/clang-tools-extra/clangd/test/CMakeLists.txt
+index 608835c..0f84b80 100644
+--- a/clang-tools-extra/clangd/test/CMakeLists.txt
++++ b/clang-tools-extra/clangd/test/CMakeLists.txt
+@@ -50,3 +50,11 @@ add_lit_testsuite(check-clangd "Running the Clangd regression tests"
+   # project only needs to pass CMAKE_CURRENT_BINARY_DIR.
+   ${CMAKE_CURRENT_BINARY_DIR}/../unittests;${CMAKE_CURRENT_BINARY_DIR}
+   DEPENDS ${CLANGD_TEST_DEPS})
++
++# A focused cache contract probe avoids linking the complete server test suite.
++set(LLVM_LINK_COMPONENTS Support)
++add_llvm_executable(clangd-validation-overlay-probe EXCLUDE_FROM_ALL
++  Inputs/validation-overlay-probe.cpp)
++target_include_directories(clangd-validation-overlay-probe PRIVATE
++  ${CMAKE_CURRENT_SOURCE_DIR}/..)
++add_dependencies(check-clangd clangd-validation-overlay-probe)
 diff --git a/clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py b/clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py
 new file mode 100644
-index 000000000..58058c2b2
+index 0000000..58058c2
 --- /dev/null
 +++ b/clang-tools-extra/clangd/test/Inputs/modules-cache-driver.py
 @@ -0,0 +1,104 @@
@@ -611,9 +647,49 @@ index 000000000..58058c2b2
 +    sys.exit("modules-cache-driver: FAILED:\n  " + "\n  ".join(Failures) +
 +             "\nlog:\n" + LogText[-4000:])
 +print("modules-cache-driver: OK")
+diff --git a/clang-tools-extra/clangd/test/Inputs/validation-overlay-probe.cpp b/clang-tools-extra/clangd/test/Inputs/validation-overlay-probe.cpp
+new file mode 100644
+index 0000000..ffaefb3
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/Inputs/validation-overlay-probe.cpp
+@@ -0,0 +1,34 @@
++//===-- validation-overlay-probe.cpp ---------------------------------------===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//===----------------------------------------------------------------------===//
++#include "ModuleValidationCache.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/VirtualFileSystem.h"
++#include "llvm/Support/raw_ostream.h"
++
++int main(int argc, char **argv) {
++  if (argc != 3)
++    return 2;
++  llvm::StringRef BMI = argv[1], Input = argv[2];
++  auto ID = clang::clangd::ModuleValidationCache::identityOf(Input);
++  if (!ID)
++    return 3;
++  clang::clangd::ModuleValidationCache Cache;
++  Cache.markFresh(BMI, "dependency", {{Input.str(), *ID}});
++  auto Disk = llvm::vfs::getRealFileSystem();
++  if (!Cache.isFresh(BMI, "dependency", *Disk))
++    return 4;
++  auto Draft = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++  std::string DraftContents(ID->Size, 'x');
++  Draft->addFile(Input, llvm::sys::toTimeT(ID->ModTime),
++                 llvm::MemoryBuffer::getMemBufferCopy(DraftContents));
++  auto Overlay = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(Disk);
++  Overlay->pushOverlay(Draft);
++  if (Cache.isFresh(BMI, "dependency", *Overlay)) {
++    llvm::errs() << "disk validation verdict accepted a draft overlay\n";
++    return 5;
++  }
++  return 0;
++}
 diff --git a/clang-tools-extra/clangd/test/modules-validation-cache.test b/clang-tools-extra/clangd/test/modules-validation-cache.test
 new file mode 100644
-index 000000000..bbb9b70e5
+index 0000000..bbb9b70
 --- /dev/null
 +++ b/clang-tools-extra/clangd/test/modules-validation-cache.test
 @@ -0,0 +1,13 @@
@@ -630,6 +706,19 @@ index 000000000..bbb9b70e5
 +# RUN: rm -fr %t
 +# RUN: mkdir -p %t
 +# RUN: %python %p/Inputs/modules-cache-driver.py clangd %t %clang
+diff --git a/clang-tools-extra/clangd/test/modules-validation-overlay.test b/clang-tools-extra/clangd/test/modules-validation-overlay.test
+new file mode 100644
+index 0000000..dda4139
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/modules-validation-overlay.test
+@@ -0,0 +1,7 @@
++# A disk-only validation verdict must not be accepted for an unsaved draft,
++# even when its size matches the disk input. Ordinary disk lookup still hits.
++# RUN: rm -fr %t
++# RUN: mkdir -p %t
++# RUN: echo bmi > %t/bmi
++# RUN: echo input > %t/input
++# RUN: clangd-validation-overlay-probe %t/bmi %t/input
 -- 
-2.43.0
+2.53.0
 

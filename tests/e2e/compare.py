@@ -50,6 +50,8 @@ os.makedirs(args.workdir, exist_ok=True)
 def run_json(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
     try:
+        if r.returncode != 0:
+            return {"_error": f"probe exited {r.returncode}", "_raw": r.stdout[-2000:]}
         return json.loads(r.stdout)
     except Exception:
         return {"_raw": r.stdout[-2000:], "_err": r.stderr[-2000:]}
@@ -72,17 +74,7 @@ def probe_product(mcppls, clangd, project):
     sc = res.get("scenarios", res)
     out = {"diagnostics": sc.get("diagnostics", "?")}
     comp = sc.get("completion", "?")
-    # A completion that answers at all proves the request path through the
-    # product works; whether the module-exported symbols are among the items
-    # depends on how mcppls's engine and clangd split the answer, so it is
-    # recorded but only the answered-ness is gated here (symbol visibility is
-    # pinned by the lit suite, which runs the real module path).
-    if comp == "ok":
-        out["completion"] = "ok"
-    elif isinstance(comp, str) and comp.startswith("fail: no module symbols"):
-        out["completion"] = "answered (module symbols not in the engine's item set)"
-    else:
-        out["completion"] = comp
+    out["completion"] = comp
     return out
 
 
@@ -128,7 +120,7 @@ for tag, clangd in (("vanilla", args.vanilla), ("fork", args.fork)):
 
 v, f = sides["vanilla"], sides["fork"]
 def _answered(x):
-    return x == "ok" or (isinstance(x, str) and x.startswith("answered"))
+    return x == "ok"
 
 gates = {
     "product_completion_both": _answered(v["product"].get("completion", "?"))
@@ -137,7 +129,8 @@ gates = {
                                 and f["product"].get("diagnostics") == "ok",
     "fork_version_detected": f["identity"]["fork_detected"],
     "fork_memo_fired": f["memo"]["memo_hits"] > 0,
-    "no_latency_regression": all(
+    "no_latency_regression": all(k in v["latency"] and k in f["latency"]
+                                 for k in ("cold_ms", "p50_ms", "p95_ms", "max_ms")) and all(
         f["latency"][k] <= v["latency"][k] * 1.10 + 5.0
         for k in v["latency"]),
 }

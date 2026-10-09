@@ -1,0 +1,403 @@
+From 2c9c01947625156076a1c9b5e043810aafe49c50 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 18:54:35 +0900
+Subject: [clangd] Module preamble policy follows the attached prerequisites
+
+The module preamble policy is resolved on the update worker and follows the prerequisites actually attached to the preamble; asynchronous trace spans own the preamble filenames they retain.
+
+* [clangd] Resolve module preamble policy on the update worker
+
+* [clangd] Own preamble filenames retained by asynchronous trace spans
+
+  JSON StringRef metadata borrows the caller storage, while a callback can retain the tracing context beyond buildPreamble return. Own the filename at both preamble trace attachment sites and exercise an actual retained callback context with caller storage overwritten before event serialization.
+
+* fix(clangd): preamble mode follows attached module prerequisites
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     | 25 ++--------
+ clang-tools-extra/clangd/ClangdServer.h       |  1 -
+ clang-tools-extra/clangd/Preamble.cpp         | 47 ++++++++++++------
+ clang-tools-extra/clangd/TUScheduler.cpp      | 22 +++++++--
+ .../clangd/unittests/ClangdTests.cpp          | 49 +++++++++++++++++++
+ .../clangd/unittests/PreambleTests.cpp        | 46 +++++++++++++++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 40 +++++++++++++++
+ 7 files changed, 188 insertions(+), 42 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index fcf9bd4..c36a53a 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -298,7 +298,9 @@ void ClangdServer::addDocument(PathRef File, llvm::StringRef Contents,
+   Inputs.ClangTidyProvider = ClangTidyProvider;
+   Inputs.FeatureModules = FeatureModules;
+   Inputs.ModulesManager = ModulesManager;
+-  adjustParseInputs(Inputs, File);
++  // Resolve module-dependent policy on the update worker, like the command.
++  // didChange must not synchronously scan the project's provider inventory.
++  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild;
+   bool NewFile = WorkScheduler->update(File, Inputs, WantDiags);
+   // If we loaded Foo.h, we want to make sure Foo.cpp is indexed.
+   if (NewFile && BackgroundIdx)
+@@ -1188,27 +1190,6 @@ void ClangdServer::profile(MemoryTree &MT) const {
+   WorkScheduler->profile(MT.child("tuscheduler"));
+ }
+ 
+-void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+-  // FIXME (upstream): don't skip the preamble when the TU requires C++20
+-  // named modules. Mixing PCH and *loaded module files* may cause different
+-  // issues (incorrect diagnostics, crashes) due to instability of such
+-  // scenario support in clang. A TU whose imports are all third-party never
+-  // loads a named-module BMI, so its parse is a plain textual one and the
+-  // preamble stays safe there.
+-  auto NeedsPreambleSkip = [this, File, &Inputs]() {
+-    if (!ModulesManager)
+-      return false;
+-    // Required modules check uses compile commands extracted from the
+-    // compilation database.
+-    // We use context provider here to make command mangler to use compile
+-    // command adjustments from the config.
+-    WithContext Ctx(ContextProvider ? ContextProvider(File)
+-                                    : Context::current().clone());
+-    return ModulesManager->hasBuildableRequiredModules(File, *Inputs.TFS,
+-                                                       Inputs.Contents);
+-  };
+-  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || NeedsPreambleSkip();
+-}
+ 
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/ClangdServer.h b/clang-tools-extra/clangd/ClangdServer.h
+index 264ab74..cc9ecae 100644
+--- a/clang-tools-extra/clangd/ClangdServer.h
++++ b/clang-tools-extra/clangd/ClangdServer.h
+@@ -485,7 +485,6 @@ private:
+   }
+   const ThreadsafeFS &TFS;
+ 
+-  void adjustParseInputs(ParseInputs &Inputs, PathRef File) const;
+ 
+   Path ResourceDir;
+   // The index used to look up symbols. This could be:
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index 21ff295..f43471e 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -582,7 +582,8 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+                                       Inputs.Opts.SkipPreambleBuild);
+ 
+   trace::Span Tracer("BuildPreamble");
+-  SPAN_ATTACH(Tracer, "File", FileName);
++  // Asynchronous callbacks can retain this span beyond the filename owner.
++  SPAN_ATTACH(Tracer, "File", FileName.str());
+   std::vector<std::unique_ptr<FeatureModule::ASTListener>> ASTListeners;
+   if (Inputs.FeatureModules) {
+     for (auto &M : *Inputs.FeatureModules) {
+@@ -634,6 +635,30 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+   auto StatCacheFS = StatCache->getProducingFS(VFS);
+   llvm::IntrusiveRefCntPtr<TimerFS> TimedFS(new TimerFS(StatCacheFS));
+ 
++  // Resolve and lease prerequisites before parsing. The earlier update policy
++  // may have observed a header before an import became visible. Named imports
++  // must remain textual: attaching successful modules after PCH creation can
++  // make a PCH with a failed import appear reusable on subsequent completions.
++  std::unique_ptr<PrerequisiteModules> RequiredModules;
++  bool SkipPreambleBuild = Inputs.Opts.SkipPreambleBuild;
++  if (Inputs.ModulesManager) {
++    WallTimer PrerequisiteModuleTimer;
++    PrerequisiteModuleTimer.startTimer();
++    RequiredModules = Inputs.ModulesManager->buildPrerequisiteModulesFor(
++        FileName, *Inputs.TFS, Inputs.Contents);
++    PrerequisiteModuleTimer.stopTimer();
++    log("Built prerequisite modules for file {0} in {1} seconds", FileName,
++        PrerequisiteModuleTimer.getTime());
++    if (RequiredModules) {
++      HeaderSearchOptions ModuleOptions;
++      RequiredModules->adjustHeaderSearchOptions(ModuleOptions);
++      SkipPreambleBuild |= !ModuleOptions.PrebuiltModuleFiles.empty();
++      RequiredModules->adjustHeaderSearchOptions(CI.getHeaderSearchOpts());
++    }
++  }
++  Bounds = computePreambleBounds(CI.getLangOpts(), *ContentsBuffer,
++                                 SkipPreambleBuild);
++
+   WallTimer PreambleTimer;
+   PreambleTimer.startTimer();
+   auto BuiltPreamble = PrecompiledPreamble::Build(
+@@ -668,23 +693,13 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+     auto Result = std::make_shared<PreambleData>(std::move(*BuiltPreamble));
+     Result->Version = Inputs.Version;
+     Result->CompileCommand = Inputs.CompileCommand;
+-    Result->SkipPreambleBuild = Inputs.Opts.SkipPreambleBuild;
++    Result->SkipPreambleBuild = SkipPreambleBuild;
+     Result->Diags = std::move(Diags);
+     Result->Includes = CapturedInfo.takeIncludes();
+     Result->Pragmas = std::make_shared<const include_cleaner::PragmaIncludes>(
+         CapturedInfo.takePragmaIncludes());
+ 
+-    if (Inputs.ModulesManager) {
+-      WallTimer PrerequisiteModuleTimer;
+-      PrerequisiteModuleTimer.startTimer();
+-      Result->RequiredModules =
+-          Inputs.ModulesManager->buildPrerequisiteModulesFor(
+-              FileName, *Inputs.TFS, Inputs.Contents);
+-      PrerequisiteModuleTimer.stopTimer();
+-
+-      log("Built prerequisite modules for file {0} in {1} seconds", FileName,
+-          PrerequisiteModuleTimer.getTime());
+-    }
++    Result->RequiredModules = std::move(RequiredModules);
+ 
+     Result->Macros = CapturedInfo.takeMacros();
+     Result->Marks = CapturedInfo.takeMarks();
+@@ -727,7 +742,8 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+   auto ContentsBuffer =
+       llvm::MemoryBuffer::getMemBuffer(Inputs.Contents, FileName);
+   auto Bounds = computePreambleBounds(CI.getLangOpts(), *ContentsBuffer,
+-                                      Inputs.Opts.SkipPreambleBuild);
++                                      Inputs.Opts.SkipPreambleBuild ||
++                                          Preamble.SkipPreambleBuild);
+   auto VFS = Inputs.TFS->view(Inputs.CompileCommand.Directory);
+ 
+   // Check that the set of required modules hasn't changed.
+@@ -795,7 +811,8 @@ PreamblePatch PreamblePatch::create(llvm::StringRef FileName,
+                                     const PreambleData &Baseline,
+                                     PatchType PatchType) {
+   trace::Span Tracer("CreatePreamblePatch");
+-  SPAN_ATTACH(Tracer, "File", FileName);
++  // Asynchronous callbacks can retain this span beyond the filename owner.
++  SPAN_ATTACH(Tracer, "File", FileName.str());
+   assert(llvm::sys::path::is_absolute(FileName) && "relative FileName!");
+   // First scan preprocessor directives in Baseline and Modified. These will be
+   // used to figure out newly added directives in Modified. Scanning can fail,
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 4c58773..15e64ee 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -52,6 +52,7 @@
+ #include "Config.h"
+ #include "Diagnostics.h"
+ #include "GlobalCompilationDatabase.h"
++#include "ModulesBuilder.h"
+ #include "ParsedAST.h"
+ #include "Preamble.h"
+ #include "clang-include-cleaner/Record.h"
+@@ -898,9 +899,20 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags,
+     else
+       Inputs.CompileCommand = CDB.getFallbackCommand(FileName);
+ 
++    // A preamble may only be mixed with imports that remain textual. Resolve
++    // this from current request bytes/VFS before constructing the preamble,
++    // under the same file configuration context as command lookup. Keep this
++    // potentially expensive inventory work off the document-update caller.
++    if (Inputs.ModulesManager && !Inputs.Opts.SkipPreambleBuild)
++      Inputs.Opts.SkipPreambleBuild =
++          Inputs.ModulesManager->hasBuildableRequiredModules(
++              FileName, *Inputs.TFS, Inputs.Contents);
++
+     bool InputsAreTheSame =
+-        std::tie(FileInputs.CompileCommand, FileInputs.Contents) ==
+-        std::tie(Inputs.CompileCommand, Inputs.Contents);
++        std::tie(FileInputs.CompileCommand, FileInputs.Contents,
++                 FileInputs.Opts.SkipPreambleBuild) ==
++        std::tie(Inputs.CompileCommand, Inputs.Contents,
++                 Inputs.Opts.SkipPreambleBuild);
+     // Cached AST is invalidated.
+     if (!InputsAreTheSame) {
+       IdleASTs.take(this);
+@@ -1195,8 +1207,10 @@ void ASTWorker::generateDiagnostics(
+   }
+   // Used to check whether we can update AST cache.
+   bool InputsAreLatest =
+-      std::tie(FileInputs.CompileCommand, FileInputs.Contents) ==
+-      std::tie(Inputs.CompileCommand, Inputs.Contents);
++      std::tie(FileInputs.CompileCommand, FileInputs.Contents,
++               FileInputs.Opts.SkipPreambleBuild) ==
++      std::tie(Inputs.CompileCommand, Inputs.Contents,
++               Inputs.Opts.SkipPreambleBuild);
+   // Take a shortcut and don't report the diagnostics, since they should be the
+   // same. All the clients should handle the lack of OnUpdated() call anyway to
+   // handle empty result from buildAST.
+diff --git a/clang-tools-extra/clangd/unittests/ClangdTests.cpp b/clang-tools-extra/clangd/unittests/ClangdTests.cpp
+index 847df22..6235568 100644
+--- a/clang-tools-extra/clangd/unittests/ClangdTests.cpp
++++ b/clang-tools-extra/clangd/unittests/ClangdTests.cpp
+@@ -13,6 +13,7 @@
+ #include "ConfigFragment.h"
+ #include "GlobalCompilationDatabase.h"
+ #include "Matchers.h"
++#include "ModulesBuilder.h"
+ #include "ProjectModules.h"
+ #include "SyncAPI.h"
+ #include "TestFS.h"
+@@ -1140,6 +1141,54 @@ TEST(ClangdServerTest, FallbackWhenPreambleIsNotReady) {
+                         Field(&CodeCompletion::Scope, ""))));
+ }
+ 
++TEST(ClangdServerTest, DocumentUpdateDoesNotWaitForModuleInventory) {
++  Notification AllowInventory;
++  Notification EnteredInventory;
++  Notification UpdateReturned;
++  class DelayedModulesDatabase : public MockCompilationDatabase {
++  public:
++    DelayedModulesDatabase(Notification &Allow, Notification &Entered)
++        : Allow(Allow), Entered(Entered) {}
++    std::unique_ptr<ProjectModules>
++    getProjectModules(PathRef File) const override {
++      Entered.notify();
++      Allow.wait();
++      return nullptr;
++    }
++  private:
++    Notification &Allow;
++    Notification &Entered;
++  } CDB(AllowInventory, EnteredInventory);
++  MockFS FS;
++  auto File = testPath("module-policy.cpp");
++  FS.Files[File] = "int CurrentValue = 42;";
++  ModulesBuilder Modules(CDB);
++  auto Opts = ClangdServer::optsForTest();
++  Opts.ModulesManager = &Modules;
++  ClangdServer Server(CDB, FS, Opts);
++  AsyncTaskRunner Calls;
++  Calls.runAsync("update", [&] {
++    Server.addDocument(File, FS.Files[File]);
++    UpdateReturned.notify();
++  });
++  // Release the database before asserting, so a failing baseline never leaves
++  // an update or server destructor blocked. This is a synchronization control,
++  // not a timing target for production completion.
++  bool Returned = UpdateReturned.wait(timeoutSeconds(2));
++  bool Scanned = EnteredInventory.wait(timeoutSeconds(2));
++  AllowInventory.notify();
++  Calls.wait();
++  EXPECT_TRUE(Returned);
++  EXPECT_TRUE(Scanned);
++  ASSERT_TRUE(Server.blockUntilIdleForTest());
++  Annotations Completion("int CurrentValue = 42;\nint v = CurrentV^");
++  Server.addDocument(File, Completion.code());
++  auto Result = cantFail(runCodeComplete(Server, File, Completion.point(),
++                                          CodeCompleteOptions()));
++  EXPECT_THAT(Result.Completions,
++              testing::Contains(Field(&CodeCompletion::Name, "CurrentValue")));
++}
++
+ TEST(ClangdServerTest, FallbackWhenWaitingForCompileCommand) {
+   MockFS FS;
+   ErrorCheckingCallbacks DiagConsumer;
+diff --git a/clang-tools-extra/clangd/unittests/PreambleTests.cpp b/clang-tools-extra/clangd/unittests/PreambleTests.cpp
+index ac0320d..b56aa62 100644
+--- a/clang-tools-extra/clangd/unittests/PreambleTests.cpp
++++ b/clang-tools-extra/clangd/unittests/PreambleTests.cpp
+@@ -20,6 +20,7 @@
+ #include "TestTU.h"
+ #include "XRefs.h"
+ #include "support/Context.h"
++#include "support/Trace.h"
+ #include "clang/Basic/SourceManager.h"
+ #include "clang/Format/Format.h"
+ #include "clang/Frontend/FrontendActions.h"
+@@ -107,6 +108,51 @@ collectPatchedIncludes(llvm::StringRef ModifiedContents,
+ 
+ // Check preamble lexing logic by building an empty preamble and patching it
+ // with all the contents.
++TEST(PreambleTest, TraceFilenameSurvivesRetainedCallbackContext) {
++  MockFS FS;
++  auto TU = TestTU::withCode("#define VALUE 1\nint value = VALUE;\n");
++  auto Inputs = TU.inputs(FS);
++  IgnoreDiagnostics Diags;
++  auto CI = buildCompilerInvocation(Inputs, Diags);
++  ASSERT_TRUE(CI);
++  const std::string Expected = testPath(TU.Filename);
++  std::string Filename = Expected;
++  std::string JSON;
++  llvm::raw_string_ostream OS(JSON);
++  auto Tracer = trace::createJSONTracer(OS);
++  {
++    trace::Session Session(*Tracer);
++    std::optional<Context> Retained;
++    auto Preamble = buildPreamble(
++        Filename, *CI, Inputs, true,
++        [&](CapturedASTCtx, std::shared_ptr<const include_cleaner::PragmaIncludes>) {
++          Retained.emplace(Context::current().clone());
++        });
++    ASSERT_TRUE(Preamble);
++    ASSERT_TRUE(Retained);
++    // The real callback retained the BuildPreamble span. Overwrite the caller's
++    // storage after return, before releasing the asynchronous event context.
++    Filename.assign(Filename.size(), 'x');
++    Retained.reset();
++  }
++  Tracer.reset();
++  auto Parsed = llvm::json::parse(JSON);
++  ASSERT_TRUE(static_cast<bool>(Parsed)) << llvm::toString(Parsed.takeError());
++  auto *Events = Parsed->getAsObject()->getArray("traceEvents");
++  ASSERT_TRUE(Events);
++  bool Found = false;
++  for (const auto &Event : *Events) {
++    const auto *Object = Event.getAsObject();
++    if (!Object || Object->getString("name") != "BuildPreamble")
++      continue;
++    Found = true;
++    const auto *Args = Object->getObject("args");
++    ASSERT_TRUE(Args);
++    EXPECT_EQ(Args->getString("File"), Expected);
++  }
++  EXPECT_TRUE(Found);
++}
++
+ TEST(PreambleTest, RecordsPreambleBuildMode) {
+   auto TU = TestTU::withCode("#define VALUE 1\nint value = VALUE;\n");
+   for (bool Skip : {false, true}) {
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 9c0634c..bee21f6 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -3420,6 +3420,46 @@ export int BValue = MValue;
+   EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  Annotations UseCpp("#include \"Header.hpp\"\nvoid use() { fn_^; }\n");
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m() { return 1; }\n");
++  CDB.addFile("Header.hpp", "import M;\n");
++  CDB.addFile("Use.cpp", UseCpp.code());
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  Inputs.Opts.SkipPreambleBuild = false;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++
++  // Simulate a preliminary update policy that ran before the header import
++  // became visible. Actual attached prerequisites must keep the import textual.
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs,
++                                /*StoreInMemory=*/true, nullptr);
++  ASSERT_TRUE(Preamble);
++  EXPECT_TRUE(Preamble->SkipPreambleBuild);
++  EXPECT_EQ(Preamble->Preamble.getBounds().Size, 0u);
++  EXPECT_TRUE(Preamble->Diags.empty());
++  EXPECT_TRUE(isPreambleCompatible(*Preamble, Inputs, getFullPath("Use.cpp"), *CI));
++  ASSERT_TRUE(Preamble->RequiredModules);
++  HeaderSearchOptions ModuleOptions;
++  Preamble->RequiredModules->adjustHeaderSearchOptions(ModuleOptions);
++  ASSERT_EQ(ModuleOptions.PrebuiltModuleFiles.count("M"), 1u);
++  const auto ReadCopy = ModuleOptions.PrebuiltModuleFiles.at("M");
++  EXPECT_TRUE(llvm::sys::fs::exists(ReadCopy));
++  // ClangdServer carries the actual published preamble mode into completion.
++  Inputs.Opts.SkipPreambleBuild = Preamble->SkipPreambleBuild;
++  for (unsigned Request = 0; Request != 2; ++Request) {
++    auto Result = codeComplete(getFullPath("Use.cpp"), UseCpp.point(),
++                               Preamble.get(), Inputs, {});
++    EXPECT_THAT(Result.Completions, testing::Contains(named("fn_m")));
++    EXPECT_TRUE(llvm::sys::fs::exists(ReadCopy));
++  }
++  Preamble.reset();
++  EXPECT_FALSE(llvm::sys::fs::exists(ReadCopy));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleImportThroughInclude) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

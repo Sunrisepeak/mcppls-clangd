@@ -1,7 +1,7 @@
-From bb4fc9fa7b524d82b7fd0f653ec1ac8e6cf96a9a Mon Sep 17 00:00:00 2001
+From d06f9f9d1566c1995cb1e1b1d3d227732c40b42f Mon Sep 17 00:00:00 2001
 From: Chuanqi Xu <yedeng.yd@linux.alibaba.com>
 Date: Thu, 27 Aug 2026 12:35:27 +0000
-Subject: [PATCH] [C++20] [Modules] Handling merging predefined decls from std
+Subject: [C++20] [Modules] Handling merging predefined decls from std
 
 Backport of llvm-project commit 52774473867e (PR #219151), shipped in
 clang 23.1.1, fixing llvm-project#218152: `align_val_t` is ambiguous
@@ -21,7 +21,7 @@ Close https://github.com/llvm/llvm-project/issues/218152
  create mode 100644 clang/test/Modules/pr218152.cppm
 
 diff --git a/clang/lib/Sema/SemaDecl.cpp b/clang/lib/Sema/SemaDecl.cpp
-index 27fe259af..6a25a799a 100644
+index 27fe259..6a25a79 100644
 --- a/clang/lib/Sema/SemaDecl.cpp
 +++ b/clang/lib/Sema/SemaDecl.cpp
 @@ -18387,7 +18387,7 @@ Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK, SourceLocation KWLoc,
@@ -35,7 +35,7 @@ index 27fe259af..6a25a799a 100644
        isStdBadAlloc = true;
 diff --git a/clang/test/Modules/pr218152.cppm b/clang/test/Modules/pr218152.cppm
 new file mode 100644
-index 000000000..c7b82372f
+index 0000000..c7b8237
 --- /dev/null
 +++ b/clang/test/Modules/pr218152.cppm
 @@ -0,0 +1,17 @@
@@ -57,5 +57,5 @@ index 000000000..c7b82372f
 +} // namespace std
 +} // extern "C++"
 -- 
-2.43.0
+2.53.0
 

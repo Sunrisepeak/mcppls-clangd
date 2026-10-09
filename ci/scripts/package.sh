@@ -21,6 +21,12 @@ cp "$CLANGD" "$OUT/clangd/bin/$TARGET"
 if command -v strip >/dev/null 2>&1; then
   strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
 fi
+# Stripping a Mach-O invalidates its signature, and Apple Silicon refuses to run an unsigned arm64
+# executable. The part is shipped byte for byte (mcpp-language-server never re-signs it), so it is
+# signed here, before engine.json records its SHA-256.
+if [[ "$PLATFORM" == darwin-* ]]; then
+  codesign --force --sign - "$OUT/clangd/bin/clangd"
+fi
 
 MAJOR="$("$OUT/clangd/bin/clangd"* --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)"
 if [[ -d "$BUILD_DIR/lib/clang/$MAJOR/include" ]]; then
@@ -28,11 +34,20 @@ if [[ -d "$BUILD_DIR/lib/clang/$MAJOR/include" ]]; then
   cp -a "$BUILD_DIR/lib/clang/$MAJOR/include" "$OUT/clangd/lib/clang/$MAJOR/include"
 fi
 
-if command -v sha256sum >/dev/null 2>&1; then
-  ( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS )
-else
-  ( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
+# Both the upstream license and distribution notice accompany the engine.
+cp "$LLVM_DIR/llvm/LICENSE.TXT" "$OUT/clangd/LICENSE.TXT"
+cat > "$OUT/clangd/NOTICE.txt" <<EOF
+mcppls-clangd is based on LLVM/Clang $UPSTREAM_VERSION.
+Upstream: https://github.com/llvm/llvm-project
+Modifications: https://github.com/Sunrisepeak/mcppls-clangd
+LLVM is distributed under Apache-2.0 WITH LLVM-exception; see LICENSE.TXT.
+Engine source and ordered patch identities are recorded in engine.json.
+EOF
+if [[ -n "${RUNTIME_LICENSE_DIR:-}" ]]; then
+  mkdir -p "$OUT/clangd/licenses"
+  cp -a "$RUNTIME_LICENSE_DIR/." "$OUT/clangd/licenses/"
 fi
+python3 "$REPO_DIR/ci/package_identity.py" --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --directory "$OUT/clangd" \
+  --version "$FORK_VERSION" --platform "$PLATFORM" --checksums "$OUT"
 
 echo "package.sh: $OUT"
-cat "$OUT/SHA256SUMS"

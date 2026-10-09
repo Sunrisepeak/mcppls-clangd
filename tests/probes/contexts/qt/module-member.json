@@ -1,0 +1,16 @@
+{
+  "name": "module-member",
+  "before": "    cli.addHelpOption();",
+  "prefix": "    nlohmann::json probe_json{};\n    probe_json.em",
+  "suffix": ";\n",
+  "expected": [
+    "empty"
+  ],
+  "limit_ms": 300,
+  "forbidden": [
+    "qVersion",
+    "Counter",
+    "AdlTester"
+  ],
+  "require_sema": true
+}

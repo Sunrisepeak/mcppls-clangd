@@ -1,0 +1,438 @@
+From 231570df4ab790220f34e5941c02ebeee0dd1d38 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Wed, 7 Oct 2026 09:02:03 +0900
+Subject: Add a pinned mcpp C++ formatting fallback style
+
+---
+ .../test/Inputs/mcpp-style/expected.cppm      |  23 +++
+ .../clangd/test/Inputs/mcpp-style/input.cppm  |   6 +
+ .../Inputs/mcpp-style/snapshot.clang-format   | 132 ++++++++++++++++
+ .../clangd/test/mcpp-format-fallback.test     |  12 ++
+ .../clangd/test/mcpp-format-style.test        |  14 ++
+ clang/include/clang/Format/Format.h           |   3 +
+ clang/lib/Format/Format.cpp                   | 147 ++++++++++++++++++
+ clang/unittests/Format/ConfigParseTest.cpp    |  10 ++
+ 8 files changed, 347 insertions(+)
+ create mode 100644 clang-tools-extra/clangd/test/Inputs/mcpp-style/expected.cppm
+ create mode 100644 clang-tools-extra/clangd/test/Inputs/mcpp-style/input.cppm
+ create mode 100644 clang-tools-extra/clangd/test/Inputs/mcpp-style/snapshot.clang-format
+ create mode 100644 clang-tools-extra/clangd/test/mcpp-format-fallback.test
+ create mode 100644 clang-tools-extra/clangd/test/mcpp-format-style.test
+
+diff --git a/clang-tools-extra/clangd/test/Inputs/mcpp-style/expected.cppm b/clang-tools-extra/clangd/test/Inputs/mcpp-style/expected.cppm
+new file mode 100644
+index 0000000..c10ac31
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/Inputs/mcpp-style/expected.cppm
+@@ -0,0 +1,23 @@
++module;
++#include <stddef.h>
++export module format.demo;
++import std;
++export namespace demo {
++template <class T>
++requires requires(T x) { x + x; }
++T sum(T first, T second) {
++    auto combine = [&](T left, T right) { return left + right; };
++    return combine(first, second);
++}
++class Buffer {
++public:
++    Buffer(int capacity, int limit) : capacity_(capacity), limit_(limit) {}
++    int scaled() const {
++        return capacity_ * limit_ + capacity_ * limit_ + capacity_ * limit_ + capacity_ * limit_ +
++               capacity_ * limit_;
++    }
++private:
++    int capacity_;
++    int limit_;
++};
++}  // namespace demo
+diff --git a/clang-tools-extra/clangd/test/Inputs/mcpp-style/input.cppm b/clang-tools-extra/clangd/test/Inputs/mcpp-style/input.cppm
+new file mode 100644
+index 0000000..45eb6e5
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/Inputs/mcpp-style/input.cppm
+@@ -0,0 +1,6 @@
++module;
++#include <stddef.h>
++export module format.demo;
++import std;
++export namespace demo {template<class T> requires requires(T x){x+x;} T sum(T first,T second){auto combine=[&](T left,T right){return left+right;};return combine(first,second);}
++class Buffer {public:Buffer(int capacity,int limit):capacity_(capacity),limit_(limit){} int scaled() const{return capacity_*limit_+capacity_*limit_+capacity_*limit_+capacity_*limit_+capacity_*limit_;}private:int capacity_;int limit_;};}
+diff --git a/clang-tools-extra/clangd/test/Inputs/mcpp-style/snapshot.clang-format b/clang-tools-extra/clangd/test/Inputs/mcpp-style/snapshot.clang-format
+new file mode 100644
+index 0000000..8bc7128
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/Inputs/mcpp-style/snapshot.clang-format
+@@ -0,0 +1,132 @@
++# -----------------------------------------------------------------------------
++# mcpp-community C++ Style Configuration
++#
++# This configuration follows the style specification defined in:
++# https://github.com/mcpp-community/mcpp-style-ref
++#
++# Maintained by: mcpp-community
++# -----------------------------------------------------------------------------
++
++Language: Cpp # Apply configuration to C++
++
++# -----------------------------------------------------------------------------
++# Language Standard
++# -----------------------------------------------------------------------------
++Standard: Latest # Always use the latest supported C++ standard
++
++# -----------------------------------------------------------------------------
++# Indentation
++# -----------------------------------------------------------------------------
++IndentWidth: 4 # Use 4 spaces for indentation
++TabWidth: 4 # Visual width of tab
++UseTab: Never # Never use tabs
++
++# -----------------------------------------------------------------------------
++# Line Width
++# -----------------------------------------------------------------------------
++ColumnLimit: 100 # Maximum line width
++
++# -----------------------------------------------------------------------------
++# Spaces
++# -----------------------------------------------------------------------------
++SpaceBeforeParens: ControlStatements # Space before parentheses for control statements (if/for/while); function calls remain tight
++SpacesInContainerLiterals: true # Enforce spaces in container literals
++SpaceBeforeAssignmentOperators: true # Add space before assignment operators
++SpacesInParentheses: false # No extra spaces inside parentheses
++PointerAlignment: Left # Pointer/reference attaches to type
++QualifierAlignment: Left # Place qualifiers like const to the left
++
++# -----------------------------------------------------------------------------
++# Braces
++# -----------------------------------------------------------------------------
++BreakBeforeBraces: Attach # Opening brace stays on same line
++AllowShortFunctionsOnASingleLine: Empty # Allow empty functions like `void f() {}`
++AllowShortIfStatementsOnASingleLine: Never # Disallow single-line if statements
++AllowShortBlocksOnASingleLine: Empty # Allow empty blocks on one line
++AllowShortLoopsOnASingleLine: false # Disallow one-line loops
++
++# -----------------------------------------------------------------------------
++# Constructor Initializer List
++# -----------------------------------------------------------------------------
++BreakConstructorInitializers: BeforeColon # Keep initializer list compact when short
++ConstructorInitializerAllOnOneLineOrOnePerLine: true # Allow compact initializer lists
++BreakConstructorInitializersBeforeComma: false # Do not break before commas
++
++# -----------------------------------------------------------------------------
++# Access Modifiers
++# -----------------------------------------------------------------------------
++AccessModifierOffset: -4 # Align access modifiers with class indentation
++EmptyLineBeforeAccessModifier: Never # Do not insert empty line before access specifiers
++EmptyLineAfterAccessModifier: Never # Do not insert empty line after access specifiers
++
++# -----------------------------------------------------------------------------
++# Namespace Formatting
++# -----------------------------------------------------------------------------
++NamespaceIndentation: None # Do not indent contents inside namespace
++FixNamespaceComments: true # Enforce closing namespace comments
++CompactNamespaces: true # Prefer namespace a::b instead of nested namespaces
++
++# -----------------------------------------------------------------------------
++# Switch / Case Formatting
++# -----------------------------------------------------------------------------
++IndentCaseLabels: true # Indent case/default labels
++IndentCaseBlocks: true # Indent statements inside case blocks
++
++# -----------------------------------------------------------------------------
++# Includes
++# -----------------------------------------------------------------------------
++SortIncludes: true # Automatically sort includes
++IncludeBlocks: Regroup # Regroup include blocks
++IncludeCategories:
++  - Regex: "^<.*>" # Standard / third-party headers
++    Priority: 1
++  - Regex: '^".*"' # Project headers
++    Priority: 2
++
++# -----------------------------------------------------------------------------
++# Comment Alignment
++# -----------------------------------------------------------------------------
++AlignTrailingComments: true # Align trailing comments
++SpacesBeforeTrailingComments: 2 # Two spaces before trailing comments
++
++# -----------------------------------------------------------------------------
++# Parameter Formatting
++# -----------------------------------------------------------------------------
++BinPackParameters: true # Allow parameters on same line
++BinPackArguments: true # Allow arguments on same line
++
++# -----------------------------------------------------------------------------
++# Template Formatting
++# -----------------------------------------------------------------------------
++AlwaysBreakTemplateDeclarations: Yes # Always place template declarations on their own line
++
++# -----------------------------------------------------------------------------
++# Operator Line Breaking
++# -----------------------------------------------------------------------------
++BreakBeforeBinaryOperators: None # Break after operators
++
++# -----------------------------------------------------------------------------
++# Method Chain Formatting
++# -----------------------------------------------------------------------------
++PenaltyBreakBeforeFirstCallParameter: 10000 # Avoid breaking chained calls unless necessary
++
++# -----------------------------------------------------------------------------
++# Lambda Formatting
++# -----------------------------------------------------------------------------
++AllowShortLambdasOnASingleLine: All # Allow short lambdas on one line
++
++# -----------------------------------------------------------------------------
++# Using Declarations
++# -----------------------------------------------------------------------------
++SortUsingDeclarations: true # Automatically sort using declarations
++
++# -----------------------------------------------------------------------------
++# Return Type Formatting
++# -----------------------------------------------------------------------------
++AlwaysBreakAfterReturnType: None # Break return type only when exceeding ColumnLimit
++
++# -----------------------------------------------------------------------------
++# Concepts / Requires
++# -----------------------------------------------------------------------------
++RequiresClausePosition: OwnLine # Force requires clause to a new line
++IndentRequiresClause: false # Do not indent requires clause
+diff --git a/clang-tools-extra/clangd/test/mcpp-format-fallback.test b/clang-tools-extra/clangd/test/mcpp-format-fallback.test
+new file mode 100644
+index 0000000..4aab6d3
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/mcpp-format-fallback.test
+@@ -0,0 +1,12 @@
++# RUN: clangd -lit-test -fallback-style=mcpp < %s | FileCheck %s
++{"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"rootUri": "test:///", "capabilities": {}}}
++---
++{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "test:///style.cpp", "languageId": "cpp", "version": 1, "text": "void f() {\n    int x;\n}\n"}}}
++---
++{"jsonrpc": "2.0", "id": 1, "method": "textDocument/formatting", "params": {"textDocument": {"uri": "test:///style.cpp"}, "options": {"tabSize": 4, "insertSpaces": true}}}
++# CHECK: "id": 1,
++# CHECK: "result": []
++---
++{"jsonrpc":"2.0","id":2,"method":"shutdown","params":null}
++---
++{"jsonrpc":"2.0","method":"exit"}
+diff --git a/clang-tools-extra/clangd/test/mcpp-format-style.test b/clang-tools-extra/clangd/test/mcpp-format-style.test
+new file mode 100644
+index 0000000..92a7f5c
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/mcpp-format-style.test
+@@ -0,0 +1,14 @@
++# RUN: clang-format -style=mcpp %S/Inputs/mcpp-style/input.cppm | diff -u %S/Inputs/mcpp-style/expected.cppm -
++# RUN: clang-format -style=file:%S/Inputs/mcpp-style/snapshot.clang-format %S/Inputs/mcpp-style/input.cppm | diff -u %S/Inputs/mcpp-style/expected.cppm -
++# RUN: split-file %s %t
++# RUN: clang-format -style=file -fallback-style=mcpp %t/override/input.cpp | FileCheck %s --check-prefix=OVERRIDE --strict-whitespace
++# RUN: clang-format -style=Google -fallback-style=mcpp %t/override/input.cpp | FileCheck %s --check-prefix=USER --strict-whitespace
++# OVERRIDE: void f() {
++# OVERRIDE-NEXT:   int x;
++# OVERRIDE-NEXT: }
++# USER: void f() { int x; }
++#--- override/.clang-format
++IndentWidth: 2
++AllowShortFunctionsOnASingleLine: Empty
++#--- override/input.cpp
++void f(){int x;}
+diff --git a/clang/include/clang/Format/Format.h b/clang/include/clang/Format/Format.h
+index 27b2d8f..9c63c04 100644
+--- a/clang/include/clang/Format/Format.h
++++ b/clang/include/clang/Format/Format.h
+@@ -6339,6 +6339,9 @@ FormatStyle getMicrosoftStyle(FormatStyle::LanguageKind Language);
+ 
+ FormatStyle getClangFormatStyle();
+ 
++/// Pinned mcpp-community C++ style; used as a fallback only when selected.
++FormatStyle getMcppStyle();
++
+ /// Returns style indicating formatting should be not applied at all.
+ FormatStyle getNoStyle();
+ 
+diff --git a/clang/lib/Format/Format.cpp b/clang/lib/Format/Format.cpp
+index 037111d..5ad87a1 100644
+--- a/clang/lib/Format/Format.cpp
++++ b/clang/lib/Format/Format.cpp
+@@ -2401,12 +2401,159 @@ FormatStyle getNoStyle() {
+   return NoStyle;
+ }
+ 
++FormatStyle getMcppStyle() {
++  // Immutable mcpp-community/mcpp .clang-format snapshot at
++  // 74bcb859e60afc71ad759540d2de5344dda400e9. No runtime network or project writes.
++  static const FormatStyle Style = [] {
++    FormatStyle Result = getLLVMStyle(FormatStyle::LK_Cpp);
++    constexpr StringRef Snapshot = R"mcppstyle(# -----------------------------------------------------------------------------
++# mcpp-community C++ Style Configuration
++#
++# This configuration follows the style specification defined in:
++# https://github.com/mcpp-community/mcpp-style-ref
++#
++# Maintained by: mcpp-community
++# -----------------------------------------------------------------------------
++
++Language: Cpp # Apply configuration to C++
++
++# -----------------------------------------------------------------------------
++# Language Standard
++# -----------------------------------------------------------------------------
++Standard: Latest # Always use the latest supported C++ standard
++
++# -----------------------------------------------------------------------------
++# Indentation
++# -----------------------------------------------------------------------------
++IndentWidth: 4 # Use 4 spaces for indentation
++TabWidth: 4 # Visual width of tab
++UseTab: Never # Never use tabs
++
++# -----------------------------------------------------------------------------
++# Line Width
++# -----------------------------------------------------------------------------
++ColumnLimit: 100 # Maximum line width
++
++# -----------------------------------------------------------------------------
++# Spaces
++# -----------------------------------------------------------------------------
++SpaceBeforeParens: ControlStatements # Space before parentheses for control statements (if/for/while); function calls remain tight
++SpacesInContainerLiterals: true # Enforce spaces in container literals
++SpaceBeforeAssignmentOperators: true # Add space before assignment operators
++SpacesInParentheses: false # No extra spaces inside parentheses
++PointerAlignment: Left # Pointer/reference attaches to type
++QualifierAlignment: Left # Place qualifiers like const to the left
++
++# -----------------------------------------------------------------------------
++# Braces
++# -----------------------------------------------------------------------------
++BreakBeforeBraces: Attach # Opening brace stays on same line
++AllowShortFunctionsOnASingleLine: Empty # Allow empty functions like `void f() {}`
++AllowShortIfStatementsOnASingleLine: Never # Disallow single-line if statements
++AllowShortBlocksOnASingleLine: Empty # Allow empty blocks on one line
++AllowShortLoopsOnASingleLine: false # Disallow one-line loops
++
++# -----------------------------------------------------------------------------
++# Constructor Initializer List
++# -----------------------------------------------------------------------------
++BreakConstructorInitializers: BeforeColon # Keep initializer list compact when short
++ConstructorInitializerAllOnOneLineOrOnePerLine: true # Allow compact initializer lists
++BreakConstructorInitializersBeforeComma: false # Do not break before commas
++
++# -----------------------------------------------------------------------------
++# Access Modifiers
++# -----------------------------------------------------------------------------
++AccessModifierOffset: -4 # Align access modifiers with class indentation
++EmptyLineBeforeAccessModifier: Never # Do not insert empty line before access specifiers
++EmptyLineAfterAccessModifier: Never # Do not insert empty line after access specifiers
++
++# -----------------------------------------------------------------------------
++# Namespace Formatting
++# -----------------------------------------------------------------------------
++NamespaceIndentation: None # Do not indent contents inside namespace
++FixNamespaceComments: true # Enforce closing namespace comments
++CompactNamespaces: true # Prefer namespace a::b instead of nested namespaces
++
++# -----------------------------------------------------------------------------
++# Switch / Case Formatting
++# -----------------------------------------------------------------------------
++IndentCaseLabels: true # Indent case/default labels
++IndentCaseBlocks: true # Indent statements inside case blocks
++
++# -----------------------------------------------------------------------------
++# Includes
++# -----------------------------------------------------------------------------
++SortIncludes: true # Automatically sort includes
++IncludeBlocks: Regroup # Regroup include blocks
++IncludeCategories:
++  - Regex: "^<.*>" # Standard / third-party headers
++    Priority: 1
++  - Regex: '^".*"' # Project headers
++    Priority: 2
++
++# -----------------------------------------------------------------------------
++# Comment Alignment
++# -----------------------------------------------------------------------------
++AlignTrailingComments: true # Align trailing comments
++SpacesBeforeTrailingComments: 2 # Two spaces before trailing comments
++
++# -----------------------------------------------------------------------------
++# Parameter Formatting
++# -----------------------------------------------------------------------------
++BinPackParameters: true # Allow parameters on same line
++BinPackArguments: true # Allow arguments on same line
++
++# -----------------------------------------------------------------------------
++# Template Formatting
++# -----------------------------------------------------------------------------
++AlwaysBreakTemplateDeclarations: Yes # Always place template declarations on their own line
++
++# -----------------------------------------------------------------------------
++# Operator Line Breaking
++# -----------------------------------------------------------------------------
++BreakBeforeBinaryOperators: None # Break after operators
++
++# -----------------------------------------------------------------------------
++# Method Chain Formatting
++# -----------------------------------------------------------------------------
++PenaltyBreakBeforeFirstCallParameter: 10000 # Avoid breaking chained calls unless necessary
++
++# -----------------------------------------------------------------------------
++# Lambda Formatting
++# -----------------------------------------------------------------------------
++AllowShortLambdasOnASingleLine: All # Allow short lambdas on one line
++
++# -----------------------------------------------------------------------------
++# Using Declarations
++# -----------------------------------------------------------------------------
++SortUsingDeclarations: true # Automatically sort using declarations
++
++# -----------------------------------------------------------------------------
++# Return Type Formatting
++# -----------------------------------------------------------------------------
++AlwaysBreakAfterReturnType: None # Break return type only when exceeding ColumnLimit
++
++# -----------------------------------------------------------------------------
++# Concepts / Requires
++# -----------------------------------------------------------------------------
++RequiresClausePosition: OwnLine # Force requires clause to a new line
++IndentRequiresClause: false # Do not indent requires clause
++)mcppstyle";
++    if (auto Error = parseConfiguration(Snapshot, &Result))
++      llvm::report_fatal_error("Invalid built-in mcpp format snapshot");
++    return Result;
++  }();
++  return Style;
++}
++
+ bool getPredefinedStyle(StringRef Name, FormatStyle::LanguageKind Language,
+                         FormatStyle *Style) {
+   constexpr StringRef Prefix("inheritparentconfig=");
+ 
+   if (Name.equals_insensitive("llvm"))
+     *Style = getLLVMStyle(Language);
++  else if (Name.equals_insensitive("mcpp") && Language == FormatStyle::LK_Cpp)
++    *Style = getMcppStyle();
+   else if (Name.equals_insensitive("chromium"))
+     *Style = getChromiumStyle(Language);
+   else if (Name.equals_insensitive("mozilla"))
+diff --git a/clang/unittests/Format/ConfigParseTest.cpp b/clang/unittests/Format/ConfigParseTest.cpp
+index 205cc9b..60c4b24 100644
+--- a/clang/unittests/Format/ConfigParseTest.cpp
++++ b/clang/unittests/Format/ConfigParseTest.cpp
+@@ -1921,4 +1921,14 @@ TEST(ConfigParseTest, RedirectInheritance) {
+ 
+ } // namespace
+ } // namespace format
++TEST(ConfigParseTest, McppPreset) {
++  FormatStyle Style = getLLVMStyle(FormatStyle::LK_Cpp);
++  ASSERT_TRUE(getPredefinedStyle("mcpp", FormatStyle::LK_Cpp, &Style));
++  EXPECT_EQ(4u, Style.IndentWidth);
++  EXPECT_EQ(100u, Style.ColumnLimit);
++  EXPECT_EQ(FormatStyle::PAS_Left, Style.PointerAlignment);
++  EXPECT_EQ(FormatStyle::SFS_Empty, Style.AllowShortFunctionsOnASingleLine);
++  EXPECT_FALSE(getPredefinedStyle("mcpp", FormatStyle::LK_JavaScript, &Style));
++}
++
+ } // namespace clang
+-- 
+2.53.0
+

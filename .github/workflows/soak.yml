@@ -28,8 +28,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-linux-x64-
+          key: llvm-tree-linux-x64-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
+
+      - name: Lifecycle gate negative controls
+        run: python3 ci/test_soak.py
 
       - name: Build clangd with ASan+UBSan
         env:
@@ -65,4 +67,11 @@ jobs:
           BUILD_DIR: ${{ github.workspace }}/build-san
         run: |
           python3 tests/probes/gen_bench_project.py /tmp/soak_proj 12
-          python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd" /tmp/soak_proj --cycles 10
+          python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd" /tmp/soak_proj --cycles 10 --output soak-outcomes.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sanitizer-lifecycle-outcomes
+          path: soak-outcomes.json
+          if-no-files-found: error

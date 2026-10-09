@@ -1,7 +1,7 @@
-From f173c8d41ed80a9832c745aab7817f50476964f1 Mon Sep 17 00:00:00 2001
+From 16bba462a06d198d58a56358461d85018b93e2eb Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Tue, 6 Oct 2026 23:16:20 +0900
-Subject: [PATCH] [clangd] Index fast path for completion on files with modules
+Subject: [clangd] Index fast path for completion on files with modules
 
 Completion on a file that imports modules re-deserializes every
 prerequisite module file into a fresh ASTContext on every request,
@@ -23,7 +23,7 @@ parser path. Enabled together with -experimental-modules-support.
  3 files changed, 42 insertions(+)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index 5f70dfe0d..7e59f67ab 100644
+index 5f70dfe..7e59f67 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
 @@ -2369,6 +2369,34 @@ CodeCompleteResult codeComplete(PathRef FileName, Position Pos,
@@ -62,7 +62,7 @@ index 5f70dfe0d..7e59f67ab 100644
        FileName, Preamble ? Preamble->Includes : IncludeStructure(),
        SpecFuzzyFind, Opts);
 diff --git a/clang-tools-extra/clangd/CodeComplete.h b/clang-tools-extra/clangd/CodeComplete.h
-index a9cb294fc..81300ed4f 100644
+index a9cb294..81300ed 100644
 --- a/clang-tools-extra/clangd/CodeComplete.h
 +++ b/clang-tools-extra/clangd/CodeComplete.h
 @@ -133,6 +133,16 @@ struct CodeCompleteOptions {
@@ -83,7 +83,7 @@ index a9cb294fc..81300ed4f 100644
    /// before they are ranked (by -Score). Thus the results are yielded in
    /// arbitrary order.
 diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
-index 13fe4d391..a272c5e61 100644
+index 13fe4d3..a272c5e 100644
 --- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
 +++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
 @@ -994,6 +994,10 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
@@ -98,5 +98,5 @@ index 13fe4d391..a272c5e61 100644
    RealThreadsafeFS TFS;
    std::vector<std::unique_ptr<config::Provider>> ProviderStack;
 -- 
-2.43.0
+2.53.0
 

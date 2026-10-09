@@ -1,26 +1,33 @@
-From 23a76c7c61f75772aa0fcc0daca0be6c3ed4f5af Mon Sep 17 00:00:00 2001
+From 8258d3a9a150d3fc0a16895063f579135995fa81 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
-Date: Tue, 6 Oct 2026 23:21:43 +0900
-Subject: [PATCH] [clangd] Optional minidump capture on unhandled exceptions
- (Windows)
+Date: Wed, 7 Oct 2026 01:19:24 +0900
+Subject: [clangd] Optional minidump capture on unhandled exceptions (Windows)
 
-Release builds print no usable stack on Windows without a debugger,
-which has kept the hard module-related crashes out of reach.
+On Windows, clangd can write a minidump for an unhandled exception into a directory given on the command line, so a crash on a user's machine has a symbolized stack. The support library carries its public declaration.
 
-Add --crash-dumps-dir: when set, an unhandled exception filter writes a
-minidump with full memory and thread stacks into the directory before
-the process terminates as it would have. The filter is process-wide and
-runs after LLVM's own diagnostics; the flag defaults to off and the
-implementation is compiled only on Windows.
+* [clangd] Optional minidump capture on unhandled exceptions (Windows)
+
+  Release builds print no usable stack on Windows without a debugger,
+  which has kept the hard module-related crashes out of reach.
+
+  Add --crash-dumps-dir: when set, an unhandled exception filter writes a
+  minidump with full memory and thread stacks into the directory before
+  the process terminates as it would have. The filter is process-wide and
+  runs after LLVM's own diagnostics; the flag defaults to off and the
+  implementation is compiled only on Windows.
+
+* [clangd] Crash dump support carries its public declaration
 ---
  .../clangd/support/CMakeLists.txt             |  1 +
- .../clangd/support/WindowsCrashDumps.cpp      | 95 +++++++++++++++++++
+ .../clangd/support/WindowsCrashDumps.cpp      | 99 +++++++++++++++++++
+ .../clangd/support/WindowsCrashDumps.h        | 37 +++++++
  clang-tools-extra/clangd/tool/ClangdMain.cpp  |  9 ++
- 3 files changed, 105 insertions(+)
+ 4 files changed, 146 insertions(+)
  create mode 100644 clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
+ create mode 100644 clang-tools-extra/clangd/support/WindowsCrashDumps.h
 
 diff --git a/clang-tools-extra/clangd/support/CMakeLists.txt b/clang-tools-extra/clangd/support/CMakeLists.txt
-index c0be846eb..79c9c6d46 100644
+index c0be846..79c9c6d 100644
 --- a/clang-tools-extra/clangd/support/CMakeLists.txt
 +++ b/clang-tools-extra/clangd/support/CMakeLists.txt
 @@ -17,6 +17,7 @@ endif()
@@ -33,10 +40,10 @@ index c0be846eb..79c9c6d46 100644
    DirectiveTree.cpp
 diff --git a/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp b/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
 new file mode 100644
-index 000000000..e1ef5a6db
+index 0000000..9680cc9
 --- /dev/null
 +++ b/clang-tools-extra/clangd/support/WindowsCrashDumps.cpp
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,99 @@
 +//===-- WindowsCrashDumps.cpp -------------------------------------*-C++-*-===//
 +//
 +// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
@@ -74,6 +81,9 @@ index 000000000..e1ef5a6db
 +} // namespace clang
 +
 +#ifdef _WIN32
++// MiniDumpWriteDump lives in dbghelp.dll; link its import library from the
++// translation unit so the support library needs no CMake changes per host.
++#pragma comment(lib, "dbghelp.lib")
 +namespace clang {
 +namespace clangd {
 +namespace {
@@ -106,8 +116,9 @@ index 000000000..e1ef5a6db
 +                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 +  if (File == INVALID_HANDLE_VALUE)
 +    return;
-+  MiniDumpWriteDump(Process, ProcessId, File, MiniDumpWithFullMemory |
-+                                                    MiniDumpWithHandleData,
++  MiniDumpWriteDump(Process, ProcessId, File,
++                    static_cast<MINIDUMP_TYPE>(MiniDumpWithFullMemory |
++                                               MiniDumpWithHandleData),
 +                    ExceptionPointers ? &ExceptionInfo : nullptr, nullptr,
 +                    nullptr);
 +  CloseHandle(File);
@@ -132,8 +143,51 @@ index 000000000..e1ef5a6db
 +} // namespace clangd
 +} // namespace clang
 +#endif
+diff --git a/clang-tools-extra/clangd/support/WindowsCrashDumps.h b/clang-tools-extra/clangd/support/WindowsCrashDumps.h
+new file mode 100644
+index 0000000..f1b9e23
+--- /dev/null
++++ b/clang-tools-extra/clangd/support/WindowsCrashDumps.h
+@@ -0,0 +1,37 @@
++//===-- WindowsCrashDumps.h ---------------------------------------*-C++-*-===//
++//
++// Part of the LLVM Project under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// Last-chance crash capture for Windows: an unhandled exception in any
++// thread writes a minidump (with full memory and thread stacks) into a
++// caller-provided directory, then the process terminates as it would have.
++//
++// Release builds print no usable stack on Windows without a debugger, which
++// has kept every hard crash (unresolved-import Build AST crash, silent
++// correct-command crash, save fan-out crash loop) out of reach. With dumps
++// enabled next to public PDBs, each crash yields symbolized stacks.
++//
++// Disabled unless a dump directory is configured.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_SUPPORT_WINDOWSCRASHDUMPS_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_SUPPORT_WINDOWSCRASHDUMPS_H
++
++#include "llvm/ADT/StringRef.h"
++
++namespace clang {
++namespace clangd {
++
++/// Installs the unhandled-exception filter that writes minidumps into
++/// \p DumpsDir. No-op on non-Windows platforms or when \p DumpsDir is empty.
++void installWindowsCrashDumps(llvm::StringRef DumpsDir);
++
++} // namespace clangd
++} // namespace clang
++
++#endif // LLVM_CLANG_TOOLS_EXTRA_CLANGD_SUPPORT_WINDOWSCRASHDUMPS_H
 diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
-index a272c5e61..0a6383ecb 100644
+index a272c5e..0a6383e 100644
 --- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
 +++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
 @@ -30,6 +30,7 @@
@@ -167,5 +221,5 @@ index a272c5e61..0a6383ecb 100644
    RealThreadsafeFS TFS;
    std::vector<std::unique_ptr<config::Provider>> ProviderStack;
 -- 
-2.43.0
+2.53.0
 

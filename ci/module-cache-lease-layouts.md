@@ -1,0 +1,7 @@
+# Lease canary follows the admitted cache layout
+
+Native381643e Linux run37762355929 built A successfully and returned semantic fn1, then the old fixture failed searching for a legacy A.pcm. Linux default admission publishes immutable generation-*/payload.pcm instead. The canary now selects actual Linux owned admission and verifies its published generation; other platforms use their existing legacy layout. Linux separately runs explicit legacy admission too.
+
+Both paths keep all6 original contracts: published inode/mtime preserved on reuse, live copy preserved against another reader/collector, killed-reader copies reclaimed, another live peer retained and published BMI surviving collection. Every client still requires marker AST and typed semantic fn1 completion. Owned copies use their existing generation marker; reclamation is observed through the independent bounded maintenance loop (15s observation deadline), without forcing GC. Lease flags/mode and actual publication are recorded. Controlled SIGKILL of one reader is solely orphan-lifetime testing.
+
+Root current joint through0065 passes both full fixtures and65 prerequisite units. [Exact compact proof](../tests/evidence/module-cache-lease-layouts.json). This is a private replacement-object link over unchanged46 archives; corrected native CI is required. Physical/global allocation and RSS qualification remain open. Failure artifacts are uploaded for either mode without masking the primary exit.

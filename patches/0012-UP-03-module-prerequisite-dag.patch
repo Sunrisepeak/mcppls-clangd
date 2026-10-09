@@ -1,0 +1,1174 @@
+From 80f1f1fc51508de2f85623c84f3bca296791a206 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 08:30:21 +0900
+Subject: [clangd] Prerequisite modules build as a bounded, cancellable DAG
+
+Prerequisite modules are planned once per request: cycles fail before any BMI is built, ready nodes compile in a shared bounded pool, cancellation is observed at compiler boundaries, imports with no buildable unit keep the resolvable modules and the textual preamble, reuse ends with the compile-command generation, and copy-on-read BMIs stay protected by reader leases.
+
+* fix(clangd): cyclic module prerequisites fail before bmi construction
+
+* fix(clangd): third-party imports keep resolvable modules and the preamble
+
+  A direct import whose module unit the project cannot supply (a toolchain
+  std seen through a foreign compiler profile, or a registry wrapper with
+  no compile command) used to discard every already-built module and return
+  FailedPrerequisiteModules forever. Every request then re-ran the
+  dependency build and parsed without a preamble, which dominated real
+  project completion latency.
+
+  Such imports now stay textual while resolved units keep their BMIs and
+  the prerequisite set stays reusable. Files whose imports are all textual
+  never load a named-module BMI, so their parse keeps its preamble: the
+  PCH+modules mixing upstream guards against cannot arise. The skip verdict
+  is cached per on-disk file identity and import-name set and dies with any
+  compile-command change, so a module becoming buildable re-derives it
+  before a real PCH can be combined with a loaded BMI.
+
+* fix(clangd): prerequisite reuse dies with the compile-command generation
+
+  An empty prerequisite set - every direct import resolved to a textual
+  third-party one - stayed reusable forever: canReuse held as long as the
+  import-name set was unchanged, so a provider appearing through a
+  compile-command change never reached files that had already resolved to
+  nothing.
+
+  The builder now counts command-change broadcasts and stamps each
+  reusable prerequisite set with that generation; canReuse rejects a
+  stale generation before consulting BMI freshness, so the next update
+  re-resolves the imports and builds the newly available units. The
+  provider-gain scenario in tests/e2e/third_party_import.py drives the
+  whole path in one process across the directory CDB's five-second
+  revalidation interval.
+
+* fix(clangd): copy-on-read BMIs remain protected by reader leases
+
+  Access time does not prove that a copy is unused and the old collector also removed published BMIs. Each new immutable reader copy carries a unique sidecar protected by a kernel lock for its full shared lifetime. GC only reclaims copies after it acquires their abandoned leases; stable and legacy unleased files remain untouched.
+
+  An in-process ownership set also prevents POSIX fcntl descriptor aliasing from dropping the live process lock. Crash cleanup no longer waits three days or trusts a reused PID.
+
+* perf(modules): ready prerequisites compile in a shared bounded pool
+
+  Independent module units were compiled serially after each direct import traversed its dependency closure. Four header-heavy independent units spent roughly three quarters of a second building prerequisites despite having no dependency ordering between their compilers.
+
+  Plan all buildable roots once on the document thread, reject cycles, and dispatch ready dependency layers in bounded batches. The shared pool defaults to two workers, caps at four physical cores, and keeps scanner/provider state out of compiler workers. Validated prebuilt modules are ready leaves even without provider commands; missing toolchain dependencies remain textual without dropping unrelated buildable roots.
+
+  Each worker receives an immutable BMI snapshot and the request cancellation context. Workers never submit or wait on dependencies, and every dispatched task drains before errors propagate or request state is released. Separate promise futures prevent deferred ThreadPool futures from executing work on the waiting caller and bypassing the global bound. The pool is destroyed before its counters and caches. A focused diamond lit test checks dependency order and semantic completion; raw replays additionally cover failure recovery, prebuilt-only dependencies and simultaneous documents.
+
+* Discard cancelled module builds at compiler boundaries
+
+  A request cancelled after acquiring its source lock or while ExecuteAction compiled a module could still publish the staged BMI and return a reusable prerequisite. Observe cancellation after lock acquisition, main-file reads, compiler preparation and action completion; the existing scope guard removes the uncommitted temporary output.
+
+  Exercise cancellation deterministically through request filesystem reads, separately while fetching the module source and while ExecuteAction reads a header. Both cases must leave no PCM and permit an uncancelled retry using the same builder. ExecuteAction remains synchronous: these checks neither interrupt the action nor enforce a hard runtime or RSS bound.
+
+* Avoid Windows min and max macros in module DAG compilation
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     |  16 +-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 651 +++++++++++++-----
+ clang-tools-extra/clangd/ModulesBuilder.h     |   6 +
+ .../clangd/test/modules-bounded-dag.test      |  63 ++
+ .../unittests/PrerequisiteModulesTest.cpp     | 106 +++
+ 5 files changed, 664 insertions(+), 178 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/test/modules-bounded-dag.test
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index 6f5fdd5..9b3d05c 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -1206,11 +1206,13 @@ void ClangdServer::profile(MemoryTree &MT) const {
+ }
+ 
+ void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+-  // FIXME: Don't perform optimization when the TU requires C++20
+-  // named modules. Mixing PCH and modules may cause different issues (incorrect
+-  // diagnostics, crashes) due to instability of such scenario support in the
+-  // clang.
+-  auto HasRequiredModules = [this, File]() {
++  // FIXME (upstream): don't skip the preamble when the TU requires C++20
++  // named modules. Mixing PCH and *loaded module files* may cause different
++  // issues (incorrect diagnostics, crashes) due to instability of such
++  // scenario support in clang. A TU whose imports are all third-party never
++  // loads a named-module BMI, so its parse is a plain textual one and the
++  // preamble stays safe there.
++  auto NeedsPreambleSkip = [this, File]() {
+     if (!ModulesManager)
+       return false;
+     // Required modules check uses compile commands extracted from the
+@@ -1219,9 +1221,9 @@ void ClangdServer::adjustParseInputs(ParseInputs &Inputs, PathRef File) const {
+     // command adjustments from the config.
+     WithContext Ctx(ContextProvider ? ContextProvider(File)
+                                     : Context::current().clone());
+-    return ModulesManager->hasRequiredModules(File);
++    return ModulesManager->hasBuildableRequiredModules(File);
+   };
+-  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || HasRequiredModules();
++  Inputs.Opts.SkipPreambleBuild = SkipPreambleBuild || NeedsPreambleSkip();
+ }
+ 
+ } // namespace clangd
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index a596bd7..b4fa510 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -7,17 +7,20 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "ModulesBuilder.h"
+-#include "ModuleValidationCache.h"
+ #include "Compiler.h"
++#include "ModuleValidationCache.h"
+ #include "SourceCode.h"
+-#include "support/Logger.h"
+ #include "support/Cancellation.h"
++#include "support/Context.h"
++#include "support/Logger.h"
+ #include "clang/Frontend/FrontendAction.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+ #include "clang/Serialization/ModuleCache.h"
+-#include "llvm/ADT/ScopeExit.h"
++#include <atomic>
++
+ #include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/ADT/StringSet.h"
+ #include "llvm/Support/CommandLine.h"
+@@ -26,6 +29,7 @@
+ #include "llvm/Support/MemoryBuffer.h"
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/Process.h"
++#include "llvm/Support/ThreadPool.h"
+ 
+ #ifdef _WIN32
+ #include <windows.h>
+@@ -47,8 +51,8 @@ llvm::cl::opt<bool> DebugModulesBuilder(
+ 
+ llvm::cl::opt<unsigned> VersionedModuleFileGCThresholdSeconds(
+     "modules-builder-versioned-gc-threshold-seconds",
+-    llvm::cl::desc("Delete versioned copy-on-read module files whose last "
+-                   "access time is older than this many seconds."),
++    llvm::cl::desc("Legacy compatibility option; copy-on-read GC now uses "
++                   "owner leases rather than access time."),
+     llvm::cl::init(3 * 24 * 60 * 60));
+ 
+ llvm::cl::opt<unsigned> ModuleLockStaleBreakSeconds(
+@@ -57,6 +61,19 @@ llvm::cl::opt<unsigned> ModuleLockStaleBreakSeconds(
+                    "after waiting this many seconds (0 disables breaking)."),
+     llvm::cl::init(60));
+ 
++llvm::cl::opt<unsigned> ModuleBuildWorkers(
++    "modules-builder-workers",
++    llvm::cl::desc("Maximum simultaneous prerequisite module compilations "
++                   "(1-4, limited to physical cores)."),
++    llvm::cl::init(2));
++
++llvm::ThreadPoolStrategy moduleBuildStrategy() {
++  auto Strategy = llvm::heavyweight_hardware_concurrency(
++      (std::max)(1u, (std::min)(4u, unsigned(ModuleBuildWorkers))));
++  Strategy.Limit = true;
++  return Strategy;
++}
++
+ //===----------------------------------------------------------------------===//
+ // Persistent Module Cache Layout.
+ //
+@@ -389,6 +406,26 @@ public:
+   llvm::StringSet<> getRequiredModuleNames() const override { return {}; }
+ };
+ 
++/// Identifies a module whose unit source the project cannot supply, e.g. a
++/// toolchain std module seen through a foreign compiler profile. Its import
++/// stays textual instead of poisoning the whole prerequisite set.
++class ModuleUnitNotFound : public llvm::ErrorInfo<ModuleUnitNotFound> {
++public:
++  static char ID;
++  std::string ModuleName;
++  std::string Reason;
++  ModuleUnitNotFound(std::string Name, std::string Why)
++      : ModuleName(std::move(Name)), Reason(std::move(Why)) {}
++  void log(llvm::raw_ostream &OS) const override {
++    OS << "Don't get the module unit for module " << ModuleName << ": "
++       << Reason;
++  }
++  std::error_code convertToErrorCode() const override {
++    return llvm::inconvertibleErrorCode();
++  }
++};
++char ModuleUnitNotFound::ID = 0;
++
+ /// Represents a reference to a module file (*.pcm).
+ class ModuleFile {
+ protected:
+@@ -518,18 +555,46 @@ public:
+   }
+ };
+ 
++// fcntl locks are process-scoped on POSIX: opening and closing another FD
++// for a live lease can release its lock. Serialize local ownership/GC and
++// skip our live paths before opening them. Other processes are excluded by
++// the kernel lease; PID reuse and wall-clock age do not establish ownership.
++std::mutex ModuleReadLeasesMutex;
++llvm::StringSet<> ActiveModuleReadLeases;
++
++class ModuleReadLease {
++  int FD;
++  std::string Path;
++
++public:
++  ModuleReadLease(int FD, PathRef Path) : FD(FD), Path(Path) {}
++  ~ModuleReadLease() {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    ActiveModuleReadLeases.erase(Path);
++    llvm::sys::fs::unlockFile(FD);
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    // If Windows could not remove a still-mapped copy, leave its lease
++    // behind so a later process can safely collect it after the mapping dies.
++    StringRef Copy = StringRef(Path).drop_back(StringRef(".lease").size());
++    if (!llvm::sys::fs::exists(Copy))
++      llvm::sys::fs::remove(Path);
++  }
++};
++
+ /// Represents a versioned copy of a published BMI handed to clangd readers.
+ /// The copy is removed when the last reader releases it.
+ class CopyOnReadModuleFile final : public ModuleFile {
+ private:
+   struct CtorTag {};
+   std::optional<ModuleValidationCache::FileIdentity> PublishedSourceIdentity;
++  std::unique_ptr<ModuleReadLease> Lease;
+ 
+ public:
+   CopyOnReadModuleFile(StringRef ModuleName, PathRef PublishedModuleFilePath,
+-                       PathRef CopyOnReadModuleFilePath, CtorTag)
++                       PathRef CopyOnReadModuleFilePath,
++                       std::unique_ptr<ModuleReadLease> Lease, CtorTag)
+       : ModuleFile(ModuleName, CopyOnReadModuleFilePath,
+-                   PublishedModuleFilePath) {
++                   PublishedModuleFilePath), Lease(std::move(Lease)) {
+     // The published file is a stable path on disk; record its identity at
+     // copy time so later readers can tell when it was replaced.
+     if (auto ID = ModuleValidationCache::identityOf(PublishedModuleFilePath))
+@@ -550,10 +615,11 @@ public:
+ 
+   static std::shared_ptr<CopyOnReadModuleFile>
+   make(StringRef ModuleName, PathRef PublishedModuleFilePath,
+-       PathRef CopyOnReadModuleFilePath) {
++       PathRef CopyOnReadModuleFilePath,
++       std::unique_ptr<ModuleReadLease> Lease) {
+     return std::make_shared<CopyOnReadModuleFile>(
+         ModuleName, PublishedModuleFilePath, CopyOnReadModuleFilePath,
+-        CtorTag{});
++        std::move(Lease), CtorTag{});
+   }
+ };
+ 
+@@ -632,6 +698,12 @@ public:
+     DirectModuleNames.insert_range(Names);
+   }
+ 
++  void
++  setCommandGeneration(const std::atomic<uint64_t> *Source, uint64_t AtBuild) {
++    CommandGenerationSource = Source;
++    CommandGenerationAtBuild = AtBuild;
++  }
++
+   llvm::StringSet<> getRequiredModuleNames() const override {
+     return DirectModuleNames;
+   }
+@@ -642,6 +714,10 @@ private:
+   llvm::StringSet<> BuiltModuleNames;
+   // The directly required module names as scanned from the source file.
+   llvm::StringSet<> DirectModuleNames;
++  // Compile-command generation this set was resolved against; a mismatch
++  // means the resolution itself may be stale, regardless of BMI freshness.
++  const std::atomic<uint64_t> *CommandGenerationSource = nullptr;
++  uint64_t CommandGenerationAtBuild = 0;
+ };
+ 
+ /// Records the (size, mtime) identity of every user input file a successful
+@@ -773,6 +849,8 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                 const ReusablePrerequisiteModules &BuiltModuleFiles,
+                 bool &PublishedExistingModuleFile) {
+   PublishedExistingModuleFile = false;
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+   llvm::SmallString<256> ModuleFilesPrefix(ModuleFilePath);
+   llvm::sys::path::remove_filename(ModuleFilesPrefix);
+   if (std::error_code EC = llvm::sys::fs::create_directories(ModuleFilesPrefix))
+@@ -804,6 +882,9 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   if (!Buf)
+     return llvm::createStringError("Failed to create buffer");
+ 
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
++
+   // In clang's driver, we will suppress the check for ODR violation in GMF.
+   // See the implementation of RenderModulesOptions in Clang.cpp.
+   CI->getLangOpts().SkipODRCheckInGMF = true;
+@@ -822,8 +903,15 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   if (!Clang)
+     return llvm::createStringError("Failed to prepare compiler instance");
+ 
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+   GenerateReducedModuleInterfaceAction Action;
+   Clang->ExecuteAction(Action);
++  // ExecuteAction is synchronous and cannot be interrupted here. If its
++  // request was cancelled while compiling, discard the staged BMI rather
++  // than publishing it or letting dependent module builds consume it.
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+ 
+   if (Clang->getDiagnostics().hasErrorOccurred()) {
+     std::string Cmds;
+@@ -871,20 +959,44 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+ llvm::Expected<std::shared_ptr<CopyOnReadModuleFile>>
+ copyModuleFileForRead(llvm::StringRef ModuleName,
+                       PathRef PublishedModuleFilePath) {
+-  llvm::SmallString<256> VersionedModuleFilePath =
+-      getCopyOnReadModuleFilePath(PublishedModuleFilePath);
++  // Claim a unique generation and lock it before publishing any copy. The
++  // sidecar keeps Windows byte-range locks away from Clang's actual BMI reads.
++  llvm::SmallString<256> LeasePath;
++  int LeaseFD = -1;
++  std::unique_ptr<ModuleReadLease> Lease;
++  {
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    auto Model = getCopyOnReadModuleFilePath(PublishedModuleFilePath);
++    llvm::sys::path::replace_extension(Model, "-%%%%%%.pcm.lease");
++    if (auto EC = llvm::sys::fs::createUniqueFile(Model, LeaseFD, LeasePath))
++      return llvm::createStringError(EC, "Failed to create BMI read lease");
++    if (auto EC = llvm::sys::fs::tryLockFile(LeaseFD)) {
++      llvm::sys::Process::SafelyCloseFileDescriptor(LeaseFD);
++      llvm::sys::fs::remove(LeasePath);
++      return llvm::createStringError(EC, "Failed to lock BMI read lease");
++    }
++    ActiveModuleReadLeases.insert(LeasePath);
++    Lease = std::make_unique<ModuleReadLease>(LeaseFD, LeasePath);
++  }
++  llvm::SmallString<256> VersionedModuleFilePath(
++      StringRef(LeasePath).drop_back(StringRef(".lease").size()));
+   if (std::error_code EC = llvm::sys::fs::copy_file(PublishedModuleFilePath,
+                                                     VersionedModuleFilePath))
+     return llvm::createStringError(llvm::formatv(
+         "Failed to copy module file {0} to {1}: {2}", PublishedModuleFilePath,
+         VersionedModuleFilePath, EC.message()));
+   return CopyOnReadModuleFile::make(ModuleName, PublishedModuleFilePath,
+-                                    VersionedModuleFilePath);
++                                    VersionedModuleFilePath, std::move(Lease));
+ }
+ 
+ bool ReusablePrerequisiteModules::canReuse(
+     const CompilerInvocation &CI,
+     llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) const {
++  // An empty set is only valid for the command generation that could not
++  // resolve any unit: a new generation may make an import buildable.
++  if (CommandGenerationSource &&
++      CommandGenerationSource->load() != CommandGenerationAtBuild)
++    return false;
+   if (RequiredModules.empty())
+     return true;
+ 
+@@ -1133,28 +1245,67 @@ private:
+   ModuleNameToSourceCache &Cache;
+ };
+ 
+-/// Collect the directly and indirectly required module names for \param
+-/// ModuleName in topological order. The \param ModuleName is guaranteed to
+-/// be the last element in \param ModuleNames.
+-llvm::SmallVector<std::string> getAllRequiredModules(PathRef RequiredSource,
+-                                                     CachingProjectModules &MDB,
+-                                                     StringRef ModuleName) {
+-  llvm::SmallVector<std::string> ModuleNames;
+-  llvm::StringSet<> ModuleNamesSet;
+-
+-  auto VisitDeps = [&](StringRef ModuleName, auto Visitor) -> void {
+-    ModuleNamesSet.insert(ModuleName);
+-
+-    for (StringRef RequiredModuleName : MDB.getRequiredModules(
+-             MDB.getSourceForModuleName(ModuleName, RequiredSource)))
+-      if (ModuleNamesSet.insert(RequiredModuleName).second)
+-        Visitor(RequiredModuleName, Visitor);
++struct ModuleBuildNode {
++  std::string Name;
++  std::string Source;
++  unsigned Depth;
++};
+ 
+-    ModuleNames.push_back(ModuleName.str());
++/// Plan the entire forest before dispatching work. A completed shared
++/// dependency is visited once; an active dependency reports a real cycle.
++/// All scanner/provider access happens on this thread, never in build workers.
++llvm::Expected<llvm::SmallVector<ModuleBuildNode>>
++getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
++                   llvm::ArrayRef<std::string> Roots,
++                   const ReusablePrerequisiteModules &AlreadyBuilt) {
++  llvm::SmallVector<ModuleBuildNode> Plan;
++  llvm::StringMap<unsigned> Completed;
++  llvm::StringSet<> Active;
++  auto Visit = [&](StringRef Name, auto Visitor) -> llvm::Error {
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
++    if (Completed.contains(Name))
++      return llvm::Error::success();
++    // Validated prebuilt BMIs may have no provider command/source in this
++    // project. Their already-validated dependency chain is a ready leaf.
++    if (AlreadyBuilt.isModuleUnitBuilt(Name)) {
++      Completed.insert({Name, 0});
++      return llvm::Error::success();
++    }
++    if (!Active.insert(Name).second)
++      return llvm::createStringError(
++          llvm::formatv("Cyclic module dependency involving {0}", Name));
++    llvm::scope_exit RemoveActive([&] { Active.erase(Name); });
++    std::string Source = MDB.getSourceForModuleName(Name, RequiredSource);
++    if (Source.empty())
++      return llvm::make_error<ModuleUnitNotFound>(
++          Name.str(), "no unit source in this project");
++    unsigned Depth = 0;
++    for (StringRef Dependency : MDB.getRequiredModules(Source)) {
++      if (llvm::Error Err = Visitor(Dependency, Visitor))
++        return Err;
++      Depth = (std::max)(Depth, Completed.find(Dependency)->second + 1);
++    }
++    Completed.insert({Name, Depth});
++    Plan.push_back({Name.str(), std::move(Source), Depth});
++    return llvm::Error::success();
+   };
+-  VisitDeps(ModuleName, VisitDeps);
+-
+-  return ModuleNames;
++  for (StringRef Root : Roots) {
++    if (llvm::Error Err = Visit(Root, Visit)) {
++      // A root depending on an unavailable toolchain module cannot load a
++      // BMI here either. Keep that import textual, without discarding other
++      // roots which did resolve. Compilation, cycle and cancellation errors
++      // remain hard failures.
++      Err = llvm::handleErrors(
++          std::move(Err), [&](const ModuleUnitNotFound &NotFound) {
++            elog("Keeping import of third-party module {0} textual; no module "
++                 "unit for it in this project", NotFound.ModuleName);
++          });
++      if (Err)
++        return std::move(Err);
++    }
++  }
++  return Plan;
+ }
+ 
+ /// Collects cache roots to scan during constructor-time GC.
+@@ -1177,34 +1328,33 @@ std::vector<std::string> collectModuleFiles(PathRef CacheRoot) {
+ /// Performs one GC pass over a persistent module cache root.
+ void garbageCollectModuleCache(PathRef CacheRoot) {
+   for (const auto &ModuleFilePath : collectModuleFiles(CacheRoot)) {
+-    llvm::sys::fs::file_status Status;
+-    if (std::error_code EC = llvm::sys::fs::status(ModuleFilePath, Status)) {
+-      log("Failed to stat cached module file {0} for GC: {1}", ModuleFilePath,
+-          EC.message());
+-      continue;
+-    }
+-
+-    llvm::sys::TimePoint<> LastAccess = Status.getLastAccessedTime();
+-    llvm::sys::TimePoint<> Now = std::chrono::system_clock::now();
+-    if (LastAccess > Now)
++    const std::string LeasePath = ModuleFilePath + ".lease";
++    std::lock_guard<std::mutex> Lock(ModuleReadLeasesMutex);
++    if (ActiveModuleReadLeases.contains(LeasePath))
+       continue;
+-    auto Age =
+-        std::chrono::duration_cast<std::chrono::seconds>(Now - LastAccess);
+-    auto Threshold =
+-        std::chrono::seconds(VersionedModuleFileGCThresholdSeconds);
+-    if (Age <= Threshold)
++    // Published BMIs and legacy copies have no verifiable owner lease.
++    // Leave them untouched; atime alone never proves that a reader is dead.
++    int FD = -1;
++    if (llvm::sys::fs::openFileForReadWrite(
++            LeasePath, FD, llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None))
+       continue;
+-
+-    if (!llvm::sys::fs::exists(ModuleFilePath))
++    auto Close = llvm::scope_exit([&] {
++      llvm::sys::fs::unlockFile(FD);
++      llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    });
++    if (llvm::sys::fs::tryLockFile(FD))
+       continue;
+-
+-    constexpr llvm::StringLiteral Reason = "file older than GC threshold";
+-    if (std::error_code EC = llvm::sys::fs::remove(ModuleFilePath)) {
+-      log("Failed to remove cached module file {0} ({1}): {2}", ModuleFilePath,
+-          Reason, EC.message());
++    if (auto EC = llvm::sys::fs::remove(ModuleFilePath)) {
++      vlog("Failed to reclaim unowned BMI copy {0}: {1}", ModuleFilePath,
++           EC.message());
+       continue;
+     }
+-    log("Removed cached module file {0} ({1})", ModuleFilePath, Reason);
++    // Closing happens first on Windows, where open sidecars cannot be removed.
++    Close.release();
++    llvm::sys::fs::unlockFile(FD);
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    llvm::sys::fs::remove(LeasePath);
++    log("Removed unowned copy-on-read module file {0}", ModuleFilePath);
+   }
+ }
+ 
+@@ -1212,19 +1362,94 @@ void garbageCollectModuleCache(PathRef CacheRoot) {
+ 
+ class ModulesBuilder::ModulesBuilderImpl {
+ public:
+-  ModulesBuilderImpl(const GlobalCompilationDatabase &CDB) : Cache(CDB) {}
++  ModulesBuilderImpl(const GlobalCompilationDatabase &CDB)
++      : Cache(CDB), BuildPool(moduleBuildStrategy()) {
++    // A compile-command change is what can turn a textual third-party import
++    // into a buildable module unit (or the reverse), so the per-file
++    // preamble-safety verdicts die with it.
++    CommandWatcher = getCDB().watch(
++        [this](const std::vector<std::string> &) {
++          {
++            std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++            BuildableRequiredModulesVerdicts.clear();
++          }
++          // A command change may make a previously textual import buildable
++          // (or break a built one), so reusable prerequisite sets die with
++          // their generation instead of serving stale emptiness forever.
++          ++CommandGeneration;
++        });
++  }
+ 
+   ModuleNameToSourceCache &getProjectModulesCache() {
+     return ProjectModulesCache;
+   }
++  std::atomic<uint64_t> &commandGeneration() { return CommandGeneration; }
+   const GlobalCompilationDatabase &getCDB() const { return Cache.getCDB(); }
+ 
++  /// Whether any directly imported module of \p File can produce a BMI here.
++  /// The verdict is cached per (file, import-name set): the name resolution
++  /// runs a global project scan whose failure paths dominate real projects
++  /// with toolchain modules, and a changed import list must re-derive the
++  /// verdict before any preamble is attached while BMIs load.
++  bool hasBuildableRequiredModulesCached(PathRef File) {
++    // The verdict depends on the file's imports and the project's compile
++    // commands. Keying the cache by the file's precise on-disk identity
++    // keeps keystrokes (draft edits never touch the disk file) at one stat,
++    // while a saved edit or a command change forces a full re-derivation.
++    auto Disk = ModuleValidationCache::identityOf(File);
++    {
++      std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++      auto It = BuildableRequiredModulesVerdicts.find(File);
++      if (It != BuildableRequiredModulesVerdicts.end() &&
++          It->second.DiskIdentity == Disk)
++        return It->second.Verdict;
++    }
++    auto MDB = getCDB().getProjectModules(File);
++    if (!MDB) {
++      std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++      BuildableRequiredModulesVerdicts.insert_or_assign(
++          File, FileBuildability{Disk, {}, false});
++      return false;
++    }
++    CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
++    std::vector<std::string> Names = CachedMDB.getRequiredModules(File);
++    llvm::sort(Names);
++    bool Verdict = false;
++    // Mirrors the third-party bail-outs in getOrBuildModuleFile so the
++    // two never disagree about which imports stay textual.
++    for (llvm::StringRef ModuleName : Names) {
++      std::string UnitFileName =
++          CachedMDB.getSourceForModuleName(ModuleName, File);
++      if (UnitFileName.empty())
++        continue;
++      if (getCDB().getCompileCommand(UnitFileName)) {
++        Verdict = true;
++        break;
++      }
++      auto PI = getCDB().getProjectInfo(UnitFileName);
++      if (PI && !PI->SourceRoot.empty()) {
++        Verdict = true;
++        break;
++      }
++    }
++    std::lock_guard<std::mutex> Lock(BuildableVerdictsMutex);
++    BuildableRequiredModulesVerdicts.insert_or_assign(
++        File, FileBuildability{Disk, std::move(Names), Verdict});
++    return Verdict;
++  }
++
+   llvm::Error
+-  getOrBuildModuleFile(PathRef RequiredSource, StringRef ModuleName,
+-                       const ThreadsafeFS &TFS, CachingProjectModules &MDB,
+-                       ReusablePrerequisiteModules &BuiltModuleFiles);
++  getOrBuildModuleFiles(PathRef RequiredSource,
++                        llvm::ArrayRef<std::string> ModuleNames,
++                        const ThreadsafeFS &TFS, CachingProjectModules &MDB,
++                        ReusablePrerequisiteModules &BuiltModuleFiles);
+ 
+ private:
++  llvm::Expected<std::shared_ptr<const ModuleFile>>
++  getOrBuildSingleModule(StringRef ModuleName, PathRef ModuleSource,
++                         tooling::CompileCommand Cmd, const ThreadsafeFS &TFS,
++                         const ReusablePrerequisiteModules &Prerequisites);
++
+   /// Try to get prebuilt module files from the compilation database.
+   void getPrebuiltModuleFile(StringRef ModuleName, PathRef ModuleUnitFileName,
+                              const ThreadsafeFS &TFS,
+@@ -1237,6 +1462,19 @@ private:
+   ModuleNameToSourceCache ProjectModulesCache;
+   std::mutex GarbageCollectedProjectRootsMutex;
+   llvm::StringSet<> GarbageCollectedProjectRoots;
++  struct FileBuildability {
++    std::optional<ModuleValidationCache::FileIdentity> DiskIdentity;
++    std::vector<std::string> ImportNames;
++    bool Verdict = false;
++  };
++  std::mutex BuildableVerdictsMutex;
++  llvm::StringMap<FileBuildability> BuildableRequiredModulesVerdicts;
++  std::atomic<uint64_t> CommandGeneration{1};
++  GlobalCompilationDatabase::CommandChanged::Subscription CommandWatcher;
++  // Shared by all document builds. Per-document pools would multiply memory
++  // use and allow a fan-out edit to spawn an unbounded compilation storm.
++  std::atomic<unsigned> ActiveBuildTasks{0};
++  llvm::DefaultThreadPool BuildPool;
+ };
+ 
+ void ModulesBuilder::ModulesBuilderImpl::
+@@ -1307,120 +1545,188 @@ void ModulesBuilder::ModulesBuilderImpl::getPrebuiltModuleFile(
+   }
+ }
+ 
+-llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFile(
+-    PathRef RequiredSource, StringRef ModuleName, const ThreadsafeFS &TFS,
+-    CachingProjectModules &MDB, ReusablePrerequisiteModules &BuiltModuleFiles) {
+-  if (BuiltModuleFiles.isModuleUnitBuilt(ModuleName))
+-    return llvm::Error::success();
++llvm::Expected<std::shared_ptr<const ModuleFile>>
++ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
++    StringRef ModuleName, PathRef ModuleSource, tooling::CompileCommand Cmd,
++    const ThreadsafeFS &TFS, const ReusablePrerequisiteModules &Prerequisites) {
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
++  unsigned Active = ++ActiveBuildTasks;
++  vlog("Module build task {0} started (active={1}, limit={2})", ModuleName,
++       Active, BuildPool.getMaxConcurrency());
++  llvm::scope_exit Finished([&] {
++    unsigned Remaining = --ActiveBuildTasks;
++    vlog("Module build task {0} finished (active={1})", ModuleName, Remaining);
++  });
++  const std::string CommandHash = getCompileCommandStringHash(Cmd);
++  const std::string PublishedModuleFilePath = getPublishedModuleFilePath(
++      ModuleName, getModuleFilesDirectory(ModuleSource, Cmd, getCDB()));
++
++  // Keep the source-scoped lock while probing and validating cached BMIs so
++  // stale-file replacement and final publication stay serialized.
++  auto SourceLock = ScopedModuleSourceLock::acquire(ModuleSource, getCDB());
++  if (!SourceLock)
++    return SourceLock.takeError();
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
++
++  std::shared_ptr<const ModuleFile> Cached =
++      Cache.getModule(ModuleName, ModuleSource, CommandHash);
++
++  if (Cached) {
++    if (IsModuleFileUpToDate(Cached->getModuleFilePath(), Prerequisites,
++                             TFS.view(std::nullopt))) {
++      log("Reusing module {0} from {1}", ModuleName,
++          Cached->getModuleFilePath());
++      return Cached;
++    }
++    Cache.remove(ModuleName, ModuleSource, CommandHash);
++  }
+ 
+-  std::string ModuleUnitFileName =
+-      MDB.getSourceForModuleName(ModuleName, RequiredSource);
+-  /// It is possible that we're meeting third party modules (modules whose
+-  /// source are not in the project. e.g, the std module may be a third-party
+-  /// module for most project) or something wrong with the implementation of
+-  /// ProjectModules.
+-  /// FIXME: How should we treat third party modules here? If we want to ignore
+-  /// third party modules, we should return true instead of false here.
+-  /// Currently we simply bail out.
+-  if (ModuleUnitFileName.empty())
++  if (llvm::sys::fs::exists(PublishedModuleFilePath)) {
++    if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
++                             TFS.view(std::nullopt))) {
++      log("Reusing persistent module {0} from {1}", ModuleName,
++          PublishedModuleFilePath);
++      auto Materialized =
++          copyModuleFileForRead(ModuleName, PublishedModuleFilePath);
++      if (llvm::Error Err = Materialized.takeError())
++        return Err;
++      Cache.add(ModuleName, ModuleSource, CommandHash, *Materialized);
++      return std::shared_ptr<const ModuleFile>(std::move(*Materialized));
++    }
++
++    // The persistent module file is stale. Remove it and build a new one.
++    std::error_code EC = llvm::sys::fs::remove(PublishedModuleFilePath);
++    if (EC)
++      return llvm::createStringError(
++          llvm::formatv("Failed to remove stale module file {0}: {1}",
++                        PublishedModuleFilePath, EC.message()));
++  }
++
++  bool PublishedExistingModuleFile = false;
++  llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
++      ModuleName, ModuleSource, std::move(Cmd), PublishedModuleFilePath, TFS,
++      Prerequisites, PublishedExistingModuleFile);
++  if (llvm::Error Err = MF.takeError())
++    return Err;
++
++  if (PublishedExistingModuleFile &&
++      !IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
++                            TFS.view(std::nullopt))) {
+     return llvm::createStringError(
+-        llvm::formatv("Don't get the module unit for module {0}", ModuleName));
++        llvm::formatv("Published module file {0} is stale after lock wait",
++                      PublishedModuleFilePath));
++  }
++
++  auto Materialized =
++      copyModuleFileForRead(ModuleName, PublishedModuleFilePath);
++  if (llvm::Error Err = Materialized.takeError())
++    return Err;
+ 
+-  /// Try to get prebuilt module files from the compilation database first. This
+-  /// helps to avoid building the module files that are already built by the
+-  /// compiler.
+-  getPrebuiltModuleFile(ModuleName, ModuleUnitFileName, TFS, BuiltModuleFiles);
++  log("Built module {0} to {1}", ModuleName,
++      (*Materialized)->getModuleFilePath());
++  Cache.add(ModuleName, ModuleSource, CommandHash, *Materialized);
++  return std::shared_ptr<const ModuleFile>(std::move(*Materialized));
++}
+ 
+-  // Get Required modules in topological order.
+-  auto ReqModuleNames = getAllRequiredModules(RequiredSource, MDB, ModuleName);
+-  for (llvm::StringRef ReqModuleName : ReqModuleNames) {
++llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
++    PathRef RequiredSource, llvm::ArrayRef<std::string> ModuleNames,
++    const ThreadsafeFS &TFS, CachingProjectModules &MDB,
++    ReusablePrerequisiteModules &BuiltModuleFiles) {
++  llvm::SmallVector<std::string> Roots;
++  for (StringRef Name : ModuleNames) {
++    if (BuiltModuleFiles.isModuleUnitBuilt(Name))
++      continue;
++    std::string Source = MDB.getSourceForModuleName(Name, RequiredSource);
++    bool Buildable = !Source.empty();
++    if (Buildable && !getCDB().getCompileCommand(Source)) {
++      auto PI = getCDB().getProjectInfo(Source);
++      Buildable = PI && !PI->SourceRoot.empty();
++    }
++    if (!Buildable) {
++      elog("Keeping import of third-party module {0} textual; no module "
++           "unit for it in this project",
++           Name);
++      continue;
++    }
++    getPrebuiltModuleFile(Name, Source, TFS, BuiltModuleFiles);
++    Roots.push_back(Name.str());
++  }
++  auto Plan = getModuleBuildPlan(RequiredSource, MDB, Roots, BuiltModuleFiles);
++  if (!Plan)
++    return Plan.takeError();
++  llvm::stable_sort(*Plan,
++                    [](const ModuleBuildNode &L, const ModuleBuildNode &R) {
++                      return L.Depth < R.Depth;
++                    });
++  using Result = llvm::Expected<std::shared_ptr<const ModuleFile>>;
++  for (size_t Begin = 0; Begin < Plan->size();) {
+     if (int Reason = isCancelled())
+       return llvm::make_error<CancelledError>(Reason);
+-    if (BuiltModuleFiles.isModuleUnitBuilt(ReqModuleName))
+-      continue;
+-
+-    std::string ReqFileName =
+-        MDB.getSourceForModuleName(ReqModuleName, RequiredSource);
+-    auto Cmd = getCDB().getCompileCommand(ReqFileName);
+-    if (!Cmd)
+-      return llvm::createStringError(
+-          llvm::formatv("No compile command for {0}", ReqFileName));
+-    if (auto PI = getCDB().getProjectInfo(ReqFileName);
+-        PI && !PI->SourceRoot.empty())
+-      garbageCollectModuleCacheForProjectRoot(PI->SourceRoot);
+-
+-    const std::string CommandHash = getCompileCommandStringHash(*Cmd);
+-    const std::string PublishedModuleFilePath = getPublishedModuleFilePath(
+-        ReqModuleName, getModuleFilesDirectory(ReqFileName, *Cmd, getCDB()));
+-
+-    // Keep the source-scoped lock while probing and validating cached BMIs so
+-    // stale-file replacement and final publication stay serialized.
+-    auto SourceLock = ScopedModuleSourceLock::acquire(ReqFileName, getCDB());
+-    if (!SourceLock)
+-      return SourceLock.takeError();
+-
+-    std::shared_ptr<const ModuleFile> Cached =
+-        Cache.getModule(ReqModuleName, ReqFileName, CommandHash);
+-
+-    if (Cached) {
+-      if (IsModuleFileUpToDate(Cached->getModuleFilePath(), BuiltModuleFiles,
+-                               TFS.view(std::nullopt))) {
+-        log("Reusing module {0} from {1}", ReqModuleName,
+-            Cached->getModuleFilePath());
+-        BuiltModuleFiles.addModuleFile(std::move(Cached));
+-        continue;
++    size_t End = Begin;
++    while (End < Plan->size() && (*Plan)[End].Depth == (*Plan)[Begin].Depth)
++      ++End;
++    // Bound queued work as well as active compilation. Every wave sees one
++    // immutable prerequisite snapshot; workers never wait on peer tasks.
++    for (size_t Batch = Begin; Batch < End;) {
++      size_t BatchEnd = (std::min)(End, Batch + BuildPool.getMaxConcurrency());
++      auto Snapshot =
++          std::make_shared<const ReusablePrerequisiteModules>(BuiltModuleFiles);
++      std::vector<std::optional<Result>> Results(BatchEnd - Batch);
++      llvm::SmallVector<std::future<void>> Futures;
++      llvm::Error PreparationError = llvm::Error::success();
++      for (size_t Index = Batch; Index < BatchEnd; ++Index) {
++        const auto &Node = (*Plan)[Index];
++        if (BuiltModuleFiles.isModuleUnitBuilt(Node.Name))
++          continue;
++        auto Cmd = getCDB().getCompileCommand(Node.Source);
++        if (!Cmd) {
++          PreparationError = llvm::createStringError(
++              llvm::formatv("No compile command for {0}", Node.Source));
++          break;
++        }
++        if (auto PI = getCDB().getProjectInfo(Node.Source);
++            PI && !PI->SourceRoot.empty())
++          garbageCollectModuleCacheForProjectRoot(PI->SourceRoot);
++        // ThreadPool's returned future is deferred: waiting on it may run
++        // the compilation on this caller, bypassing the pool's global limit.
++        // Wait instead on a separate promise set only by the pool worker.
++        std::promise<void> Completed;
++        Futures.push_back(Completed.get_future());
++        BuildPool.async([this, Name = Node.Name, Source = Node.Source,
++                         Cmd = std::move(*Cmd), &TFS, Snapshot,
++                         &ResultSlot = Results[Index - Batch],
++                         Completed = std::move(Completed),
++                         Ctx = Context::current().clone()]() mutable {
++          WithContext ContextScope(std::move(Ctx));
++          ResultSlot.emplace(getOrBuildSingleModule(
++              Name, Source, std::move(Cmd), TFS, *Snapshot));
++          Completed.set_value();
++        });
+       }
+-      Cache.remove(ReqModuleName, ReqFileName, CommandHash);
+-    }
+-
+-    if (llvm::sys::fs::exists(PublishedModuleFilePath)) {
+-      if (IsModuleFileUpToDate(PublishedModuleFilePath, BuiltModuleFiles,
+-                               TFS.view(std::nullopt))) {
+-        log("Reusing persistent module {0} from {1}", ReqModuleName,
+-            PublishedModuleFilePath);
+-        auto Materialized =
+-            copyModuleFileForRead(ReqModuleName, PublishedModuleFilePath);
+-        if (llvm::Error Err = Materialized.takeError())
+-          return Err;
+-        Cache.add(ReqModuleName, ReqFileName, CommandHash, *Materialized);
+-        BuiltModuleFiles.addModuleFile(std::move(*Materialized));
+-        continue;
++      // Drain all jobs even after an error, so referenced request state and
++      // read leases cannot be destroyed while a worker still uses them.
++      // A no-threads LLVM build queues work until the caller drains it.
++      if (!llvm::llvm_is_multithreaded())
++        BuildPool.wait();
++      for (auto &Future : Futures)
++        Future.wait();
++      llvm::Error Errors = std::move(PreparationError);
++      for (auto &ResultSlot : Results) {
++        if (!ResultSlot)
++          continue;
++        if (llvm::Error Err = ResultSlot->takeError())
++          Errors = llvm::joinErrors(std::move(Errors), std::move(Err));
++        else
++          BuiltModuleFiles.addModuleFile(std::move(**ResultSlot));
+       }
+-
+-      // The persistent module file is stale. Remove it and build a new one.
+-      std::error_code EC = llvm::sys::fs::remove(PublishedModuleFilePath);
+-      if (EC)
+-        return llvm::createStringError(
+-            llvm::formatv("Failed to remove stale module file {0}: {1}",
+-                          PublishedModuleFilePath, EC.message()));
+-    }
+-
+-    bool PublishedExistingModuleFile = false;
+-    llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
+-        ReqModuleName, ReqFileName, std::move(*Cmd), PublishedModuleFilePath,
+-        TFS, BuiltModuleFiles, PublishedExistingModuleFile);
+-    if (llvm::Error Err = MF.takeError())
+-      return Err;
+-
+-    if (PublishedExistingModuleFile &&
+-        !IsModuleFileUpToDate(PublishedModuleFilePath, BuiltModuleFiles,
+-                              TFS.view(std::nullopt))) {
+-      return llvm::createStringError(
+-          llvm::formatv("Published module file {0} is stale after lock wait",
+-                        PublishedModuleFilePath));
++      if (Errors)
++        return Errors;
++      Batch = BatchEnd;
+     }
+-
+-    auto Materialized =
+-        copyModuleFileForRead(ReqModuleName, PublishedModuleFilePath);
+-    if (llvm::Error Err = Materialized.takeError())
+-      return Err;
+-
+-    log("Built module {0} to {1}", ReqModuleName,
+-        (*Materialized)->getModuleFilePath());
+-    Cache.add(ReqModuleName, ReqFileName, CommandHash, *Materialized);
+-    BuiltModuleFiles.addModuleFile(std::move(*Materialized));
++    Begin = End;
+   }
+-
+   return llvm::Error::success();
+ }
+ 
+@@ -1434,6 +1740,10 @@ bool ModulesBuilder::hasRequiredModules(PathRef File) {
+   return !CachedMDB.getRequiredModules(File).empty();
+ }
+ 
++bool ModulesBuilder::hasBuildableRequiredModules(PathRef File) {
++  return Impl->hasBuildableRequiredModulesCached(File);
++}
++
+ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
+   if (!MDB)
+@@ -1462,14 +1772,13 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+ 
+   auto RequiredModules = std::make_unique<ReusablePrerequisiteModules>();
+   RequiredModules->setDirectModuleNames(RequiredModuleNames);
+-  for (llvm::StringRef RequiredModuleName : RequiredModuleNames) {
+-    // Return early if there is any error.
+-    if (llvm::Error Err = Impl->getOrBuildModuleFile(
+-            File, RequiredModuleName, TFS, CachedMDB, *RequiredModules.get())) {
+-      elog("Failed to build module {0}; due to {1}", RequiredModuleName,
+-           toString(std::move(Err)));
+-      return std::make_unique<FailedPrerequisiteModules>();
+-    }
++  RequiredModules->setCommandGeneration(&Impl->commandGeneration(),
++                                        Impl->commandGeneration().load());
++  if (llvm::Error Err = Impl->getOrBuildModuleFiles(
++          File, RequiredModuleNames, TFS, CachedMDB, *RequiredModules)) {
++    elog("Failed to build module prerequisites for {0}; due to {1}", File,
++         toString(std::move(Err)));
++    return std::make_unique<FailedPrerequisiteModules>();
+   }
+ 
+   return std::move(RequiredModules);
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
+index f44226c..9bc448b 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.h
++++ b/clang-tools-extra/clangd/ModulesBuilder.h
+@@ -118,6 +118,12 @@ public:
+ 
+   bool hasRequiredModules(PathRef File);
+ 
++  /// Whether any directly imported module of \p File can actually produce a
++  /// BMI in this project. Files whose imports are all third-party (no unit
++  /// source, or a source outside the project without a compile command)
++  /// never load named-module BMIs, so their parse may safely keep a preamble.
++  bool hasBuildableRequiredModules(PathRef File);
++
+   /// Returns the list of directly required module names
+   std::vector<std::string> getRequiredModuleNames(PathRef File);
+ 
+diff --git a/clang-tools-extra/clangd/test/modules-bounded-dag.test b/clang-tools-extra/clangd/test/modules-bounded-dag.test
+new file mode 100644
+index 0000000..8d9ff8e
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/modules-bounded-dag.test
+@@ -0,0 +1,63 @@
++# UNSUPPORTED: system-windows
++# RUN: rm -rf %t
++# RUN: split-file %s %t
++# RUN: sed -e "s|DIR|%/t|g" -e "s|CLANG_CC|%clang|g" %t/compile_commands.json.tmpl > %t/compile_commands.json
++# RUN: sed -e "s|DIR|%/t|g" %t/input.jsonrpc.tmpl > %t/input.jsonrpc
++# RUN: clangd -experimental-modules-support -modules-builder-workers=4 -log=verbose -lit-test < %t/input.jsonrpc > %t/reply 2> %t/log
++# RUN: FileCheck %s --check-prefix=LOG < %t/log
++# RUN: FileCheck %s --check-prefix=REPLY < %t/reply
++
++# A shared D is planned once. Parent A cannot enter a worker until both B and
++# C have completed. The portable e2e stress test additionally measures actual
++# overlap and bounds jobs across simultaneous documents.
++# LOG: Module build task D started (active=1, limit={{[1-4]}})
++# LOG: Module build task D finished
++# LOG-DAG: Module build task B started
++# LOG-DAG: Module build task C started
++# LOG-DAG: Module build task B finished
++# LOG-DAG: Module build task C finished
++# LOG: Module build task A started
++# LOG: Module build task A finished
++# LOG-NOT: Failed to build
++# REPLY-DAG: "filterText": "fnA"
++# REPLY-DAG: "filterText": "fnB"
++# REPLY-DAG: "filterText": "fnC"
++# REPLY-DAG: "filterText": "fnD"
++
++#--- D.cppm
++export module D;
++export int fnD();
++#--- B.cppm
++export module B;
++export import D;
++export int fnB();
++#--- C.cppm
++export module C;
++export import D;
++export int fnC();
++#--- A.cppm
++export module A;
++export import B;
++export import C;
++export int fnA();
++#--- Use.cpp
++import A;
++void caller() { fn }
++#--- compile_commands.json.tmpl
++[
++{"directory":"DIR","file":"DIR/D.cppm","command":"CLANG_CC -std=c++20 -c DIR/D.cppm"},
++{"directory":"DIR","file":"DIR/B.cppm","command":"CLANG_CC -std=c++20 -c DIR/B.cppm"},
++{"directory":"DIR","file":"DIR/C.cppm","command":"CLANG_CC -std=c++20 -c DIR/C.cppm"},
++{"directory":"DIR","file":"DIR/A.cppm","command":"CLANG_CC -std=c++20 -c DIR/A.cppm"},
++{"directory":"DIR","file":"DIR/Use.cpp","command":"CLANG_CC -std=c++20 -c DIR/Use.cpp"}
++]
++#--- input.jsonrpc.tmpl
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootUri":"file://DIR","capabilities":{}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://DIR/Use.cpp","languageId":"cpp","version":1,"text":"import A;\nvoid caller() { fn }\n"}}}
++---
++{"jsonrpc":"2.0","id":1,"method":"textDocument/completion","params":{"textDocument":{"uri":"file://DIR/Use.cpp"},"position":{"line":1,"character":18}}}
++---
++{"jsonrpc":"2.0","id":2,"method":"shutdown","params":null}
++---
++{"jsonrpc":"2.0","method":"exit"}
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index f163e24..7cc2657 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -18,6 +18,7 @@
+ #include "Preamble.h"
+ #include "ProjectModules.h"
+ #include "TestTU.h"
++#include "support/Cancellation.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
+ #include "clang/Tooling/Tooling.h"
+@@ -282,6 +283,111 @@ public:
+   DiagnosticConsumer DiagConsumer;
+ };
+ 
++// Keep dependency discovery separate from compiler IO so cancellation can be
++// triggered specifically at the main-file read or inside ExecuteAction.
++class CancellationModulesCDB : public MockDirectoryCompilationDatabase {
++public:
++  using MockDirectoryCompilationDatabase::MockDirectoryCompilationDatabase;
++  std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
++    class Modules : public ProjectModules {
++    public:
++      explicit Modules(std::string Source) : Source(std::move(Source)) {}
++      std::vector<std::string> getRequiredModules(PathRef File) override {
++        return File == Source ? std::vector<std::string>{}
++                              : std::vector<std::string>{"M"};
++      }
++      std::string getModuleNameForSource(PathRef File) override {
++        return File == Source ? "M" : "";
++      }
++      std::string getSourceForModuleName(StringRef Name, PathRef) override {
++        return Name == "M" ? Source : "";
++      }
++
++    private:
++      std::string Source;
++    };
++    return std::make_unique<Modules>((Directory + "/M.cppm").str());
++  }
++};
++
++class CancelOnReadFS : public ThreadsafeFS {
++public:
++  CancelOnReadFS(const ThreadsafeFS &Base, std::string Target, Canceler Cancel)
++      : Base(Base), Target(std::move(Target)), Cancel(std::move(Cancel)) {}
++  mutable std::atomic<unsigned> Triggered{0};
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    class View : public llvm::vfs::ProxyFileSystem {
++    public:
++      View(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
++           const CancelOnReadFS &Owner)
++          : ProxyFileSystem(std::move(FS)), Owner(Owner) {}
++      llvm::ErrorOr<std::unique_ptr<llvm::vfs::File>>
++      openFileForRead(const llvm::Twine &Path) override {
++        auto File = ProxyFileSystem::openFileForRead(Path);
++        if (File && llvm::sys::path::filename(Path.str()) ==
++                        llvm::sys::path::filename(Owner.Target)) {
++          ++Owner.Triggered;
++          Owner.Cancel();
++        }
++        return File;
++      }
++
++    private:
++      const CancelOnReadFS &Owner;
++    };
++    return llvm::makeIntrusiveRefCnt<View>(Base.view(std::nullopt), *this);
++  }
++  const ThreadsafeFS &Base;
++  const std::string Target;
++  const Canceler Cancel;
++};
++
++TEST_F(PrerequisiteModulesTests, CancellationAtCompilerBoundaries) {
++  CancellationModulesCDB CDB(TestDir, FS);
++  CDB.addFile("cancel.h", "inline int value() { return 42; }");
++  CDB.addFile("M.cppm", R"cpp(module;
++#include "cancel.h"
++export module M;
++)cpp");
++  CDB.addFile("Use.cpp", "import M;\n");
++  for (StringRef Target : {"M.cppm", "cancel.h"}) {
++    SCOPED_TRACE(Target);
++    ModulesBuilder Builder(CDB);
++    auto Task = cancelableTask();
++    CancelOnReadFS RequestFS(FS, getFullPath(Target), Task.second);
++    std::unique_ptr<PrerequisiteModules> Result;
++    {
++      WithContext Context(std::move(Task.first));
++      Result = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"),
++                                                   RequestFS);
++    }
++    ASSERT_GT(RequestFS.Triggered.load(), 0u);
++    EXPECT_FALSE(Result->canReuse(CompilerInvocation(), FS.view(TestDir)));
++    HeaderSearchOptions HS;
++    Result->adjustHeaderSearchOptions(HS);
++    EXPECT_TRUE(HS.PrebuiltModuleFiles.empty());
++    std::error_code EC;
++    for (llvm::sys::fs::recursive_directory_iterator I(TestDir, EC), End;
++         I != End && !EC; I.increment(EC))
++      EXPECT_FALSE(StringRef(I->path()).contains(".pcm")) << I->path();
++    ASSERT_FALSE(EC);
++    // The cancelled attempt did not poison the builder or its persistent cache.
++    auto Retry =
++        Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++    Retry->adjustHeaderSearchOptions(HS);
++    EXPECT_EQ(HS.PrebuiltModuleFiles.count("M"), 1u);
++    // Use a fresh cache for the second cancellation point.
++    HS.PrebuiltModuleFiles.clear();
++    Retry.reset();
++    Result.reset();
++    llvm::SmallString<256> CacheDir(TestDir);
++    llvm::sys::path::append(CacheDir, ".cache");
++    ASSERT_FALSE(llvm::sys::fs::remove_directories(CacheDir));
++  }
++}
++
+ TEST_F(PrerequisiteModulesTests, NonModularTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

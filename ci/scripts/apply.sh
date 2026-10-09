@@ -4,9 +4,14 @@
 # A re-run on an already-applied tree is a no-op.
 source "$(dirname "$0")/env.sh"
 
+IDENTITY="$(python3 "$REPO_DIR/ci/series_identity.py")"
 MARKER="$LLVM_DIR/.mcppls-clangd-patched"
 if [[ -f "$MARKER" ]]; then
-  echo "apply.sh: series already applied"
+  [[ "$(cat "$MARKER")" = "$IDENTITY" ]] || {
+    echo "apply.sh: stale patched tree; use a fresh LLVM_DIR for the changed series" >&2
+    exit 1
+  }
+  echo "apply.sh: identical series already applied"
   exit 0
 fi
 
@@ -41,5 +46,5 @@ if [[ -d "$REPO_DIR/overlay" ]]; then
   cp -a "$REPO_DIR/overlay/." "$LLVM_DIR/"
 fi
 
-touch "$MARKER"
+printf "%s\n" "$IDENTITY" > "$MARKER"
 echo "apply.sh: $applied patches applied + overlay copied"

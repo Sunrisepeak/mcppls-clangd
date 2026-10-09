@@ -1,0 +1,66 @@
+name: win-historical-crash-capture
+
+# Stock binary/PDB investigation only: no LLVM source checkout or fork build.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: win-historical-crash-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Locate native debugger and LLVM symbol readers
+        shell: pwsh
+        run: |
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) {
+            # Add only the debugger feature using the signed, cached SDK installer.
+            $sdk = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+              Where-Object { $_.DisplayName -match "Windows Software Development Kit" } |
+              Sort-Object DisplayVersion -Descending | Select-Object -First 1
+            if (-not $sdk.BundleCachePath) { throw "No cached Windows SDK installer for CDB" }
+            $signature = Get-AuthenticodeSignature $sdk.BundleCachePath
+            if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+              throw "Windows SDK installer signature is not valid Microsoft code"
+            }
+            $installation = Start-Process -FilePath $sdk.BundleCachePath `
+              -ArgumentList "/features", "OptionId.WindowsDesktopDebuggers", "/q", "/norestart" -Wait -PassThru
+            if ($installation.ExitCode -notin @(0, 3010)) { throw "SDK debugger install failed: $($installation.ExitCode)" }
+          }
+          $readobj = "C:\Program Files\LLVM\bin\llvm-readobj.exe"
+          $pdbutil = "C:\Program Files\LLVM\bin\llvm-pdbutil.exe"
+          $sevenzip = "C:\Program Files\7-Zip\7z.exe"
+          foreach ($tool in @($cdb, $readobj, $pdbutil, $sevenzip)) {
+            if (-not (Test-Path $tool)) { throw "Required native capture tool missing: $tool" }
+          }
+          "CDB=$cdb" >> $env:GITHUB_ENV
+          "READOBJ=$readobj" >> $env:GITHUB_ENV
+          "PDBUTIL=$pdbutil" >> $env:GITHUB_ENV
+          "SEVENZIP=$sevenzip" >> $env:GITHUB_ENV
+      - uses: actions/cache@v4
+        with:
+          path: stock-windows
+          key: stock-clangd-23.1.0-windows-23412a24-symbols-63ed8692
+      - name: Capture the historical missing-BMI exception with matching upstream symbols
+        shell: pwsh
+        run: |
+          python ci/windows_crash_capture.py --stock-directory stock-windows `
+            --sevenzip "$env:SEVENZIP" --cdb "$env:CDB" `
+            --readobj "$env:READOBJ" --pdbutil "$env:PDBUTIL" `
+            --case tests/crash/candidates/up12-galtranslpp.json --output dist/historical-capture
+          if ($LASTEXITCODE -ne 0) { throw "Matching symbols plus a genuine second-chance crash were not captured" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-up12-historical-symbolized-capture
+          path: dist/historical-capture
+          if-no-files-found: error

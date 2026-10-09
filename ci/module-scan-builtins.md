@@ -1,0 +1,13 @@
+# Actual preprocessor inputs for scan reuse (0029)
+
+Patch 0029 follows 0028 and replaces its conservative lexical rejection with a dependency collector attached to the scan preprocessor. PPCallbacks::MacroExpands sees actual builtin definitions before expansion. Expanding __DATE__, __TIME__ or __TIMESTAMP__ makes the manifest incomplete; this also covers names created by token pasting. Comments, strings, inactive branches, ordinary token pasting and macro-heavy standard headers can now reuse verified scans.
+
+DependencyScanningTool preserves the existing out-of-line five-argument P1689 API and delegates it to an overload accepting a DependencyActionController. Existing callers retain the default controller and consumer behavior. clangd supplies a controller that attaches the collector, without changing P1689 output. Plugin-loading commands also decline admission.
+
+All 0028 guarantees remain: exact request bytes, current filesystem replay, environment and compile-command identity, response provenance, bounded metadata ownership, Linux host/effective GNU/Linux target admission, native CPU and driver config restrictions. A present driver .cfg file still declines. No Windows registry, Darwin discovery, total RSS, compiler admission, deadline or response-file reload proof is claimed.
+
+The raw fixture tests ordinary token pasting, <vector>, inactive/literal time names, a pasted actual time builtin and a direct actual time builtin. Each case requests an AST before completion and verifies fn_m for three document versions plus clean shutdown. Positive cases must record warm hits on Linux; actual builtin cases must record no stores or hits. It checks warm reuse, not first-open latency or cold completion. --allow-no-hits is an explicit baseline comparison mode and is not used for the Linux candidate gate.
+
+The matched earlier 0028 baseline declines all five fixtures. The initial isolated 0029 link admitted the first three (12 hits and one store each) and declined the two actual builtin cases (zero hits/stores and 13 declines each), with semantic results and normal exit in all cases. Final integrated evidence is tracked separately and identifies its binary; private link evidence is not a release package claim.
+
+Integrated Linux development evidence: [module-scan-memo-and-builtins.json](../tests/evidence/module-scan-memo-and-builtins.json). All 32 related units passed in 151 ms. Input replay recorded 79 hits and four correct invalidations; all five builtin fixtures passed with the expected 12/1/0 or 0/0/13 hit/store/decline counts. Independent application matched all 62 touched source paths and three overlays. The report identifies the source and binary and explicitly excludes final release claims.

@@ -1,7 +1,7 @@
-From 2f58350d7004a2c334800b26d289122580c4f643 Mon Sep 17 00:00:00 2001
+From 88f4e3bc07d9acfd4f44e1e76329fd06f8a15b4b Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Tue, 6 Oct 2026 08:30:30 +0900
-Subject: [PATCH] [clangd] Implement textDocument/semanticTokens/range
+Subject: [clangd] Implement textDocument/semanticTokens/range
 
 The semanticTokens provider advertises full and delta requests only;
 editors that ask for the range form get a method-not-found and fall
@@ -20,7 +20,7 @@ absolute whenever the line changes), so no re-encoding is needed.
  create mode 100644 clang-tools-extra/clangd/test/semantic-tokens-range.test
 
 diff --git a/clang-tools-extra/clangd/ClangdLSPServer.cpp b/clang-tools-extra/clangd/ClangdLSPServer.cpp
-index 43e8b35e4..d1b764bcf 100644
+index 43e8b35..d1b764b 100644
 --- a/clang-tools-extra/clangd/ClangdLSPServer.cpp
 +++ b/clang-tools-extra/clangd/ClangdLSPServer.cpp
 @@ -613,7 +613,7 @@ void ClangdLSPServer::onInitialize(const InitializeParams &Params,
@@ -79,7 +79,7 @@ index 43e8b35e4..d1b764bcf 100644
    Bind.method("clangd/inlayHints", this, &ClangdLSPServer::onClangdInlayHints);
    Bind.method("textDocument/inlayHint", this, &ClangdLSPServer::onInlayHint);
 diff --git a/clang-tools-extra/clangd/ClangdLSPServer.h b/clang-tools-extra/clangd/ClangdLSPServer.h
-index 6ada3fd9e..d688d6ca5 100644
+index 6ada3fd..d688d6c 100644
 --- a/clang-tools-extra/clangd/ClangdLSPServer.h
 +++ b/clang-tools-extra/clangd/ClangdLSPServer.h
 @@ -175,6 +175,8 @@ private:
@@ -92,7 +92,7 @@ index 6ada3fd9e..d688d6ca5 100644
                               Callback<SemanticTokensOrDelta>);
    /// This is a clangd extension. Provides a json tree representing memory usage
 diff --git a/clang-tools-extra/clangd/Protocol.cpp b/clang-tools-extra/clangd/Protocol.cpp
-index d5c50cc1c..9df93a74d 100644
+index d5c50cc..9df93a7 100644
 --- a/clang-tools-extra/clangd/Protocol.cpp
 +++ b/clang-tools-extra/clangd/Protocol.cpp
 @@ -1351,6 +1351,12 @@ bool fromJSON(const llvm::json::Value &Params, SemanticTokensParams &R,
@@ -109,7 +109,7 @@ index d5c50cc1c..9df93a74d 100644
                llvm::json::Path P) {
    llvm::json::ObjectMapper O(Params, P);
 diff --git a/clang-tools-extra/clangd/Protocol.h b/clang-tools-extra/clangd/Protocol.h
-index b511ca495..72f41a60e 100644
+index b511ca4..72f41a6 100644
 --- a/clang-tools-extra/clangd/Protocol.h
 +++ b/clang-tools-extra/clangd/Protocol.h
 @@ -1918,6 +1918,16 @@ struct SemanticTokensParams {
@@ -131,7 +131,7 @@ index b511ca495..72f41a60e 100644
  struct SemanticTokensDeltaParams {
 diff --git a/clang-tools-extra/clangd/test/semantic-tokens-range.test b/clang-tools-extra/clangd/test/semantic-tokens-range.test
 new file mode 100644
-index 000000000..eb05d9dfe
+index 0000000..eb05d9d
 --- /dev/null
 +++ b/clang-tools-extra/clangd/test/semantic-tokens-range.test
 @@ -0,0 +1,38 @@
@@ -174,5 +174,5 @@ index 000000000..eb05d9dfe
 +---
 +{"jsonrpc":"2.0","method":"exit"}
 -- 
-2.43.0
+2.53.0
 

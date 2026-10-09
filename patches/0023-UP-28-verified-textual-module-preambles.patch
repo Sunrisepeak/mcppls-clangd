@@ -1,0 +1,1167 @@
+From 236696f73b03f4cfaa04f7be5ba119e9e3e8b179 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 20:34:48 +0900
+Subject: clangd: admit fully verified import-free textual module preambles
+
+Preserve the default textual fallback for module imports while admitting an
+ordinary translation unit prefix proven import-free by canonical dependency
+scanning. Bind the preamble to current command, generation, environment and
+complete filesystem observations, and audit actual PCH reads and imports.
+
+Audit original live compiler file objects before publication. Retry rejected
+audits and failed candidate construction once with a zero prefix; keep fresh
+prerequisite validation and late completion compatibility checks.
+---
+ clang-tools-extra/clangd/CodeComplete.cpp     |  10 +
+ .../clangd/ModuleDependencyScanCache.h        | 169 ++++++++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  36 ++
+ clang-tools-extra/clangd/ModulesBuilder.h     |   8 +
+ clang-tools-extra/clangd/Preamble.cpp         | 119 ++++++-
+ clang-tools-extra/clangd/Preamble.h           |   2 +
+ clang-tools-extra/clangd/ProjectModules.cpp   |  19 +-
+ clang-tools-extra/clangd/ProjectModules.h     |  13 +
+ clang-tools-extra/clangd/TUScheduler.cpp      |  32 +-
+ .../unittests/PrerequisiteModulesTest.cpp     | 333 ++++++++++++++++++
+ 10 files changed, 702 insertions(+), 39 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 82e5c38..c6f4728 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1413,6 +1413,16 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+       ReusePreamble = false;
+     }
+   }
++  if (Input.Preamble.TextualModuleInputs) {
++    auto Current = Input.ParseInput.ModulesManager
++                       ? Input.ParseInput.ModulesManager->getTextualPreambleInputs(
++                             Input.FileName, *Input.ParseInput.TFS,
++                             Input.ParseInput.Contents,
++                             Input.ParseInput.CompileCommand, *CI)
++                       : std::nullopt;
++    if (!Current || !(*Current == *Input.Preamble.TextualModuleInputs))
++      ReusePreamble = false;
++  }
+   auto &FrontendOpts = CI->getFrontendOpts();
+   FrontendOpts.SkipFunctionBodies = true;
+   // Disable typo correction in Sema.
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index 920db33..169ddf1 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -49,6 +49,8 @@ struct ModuleScanResult {
+   std::vector<std::string> RequiredModules;
+   // An observed semantic failure is reusable, but is never a provider result.
+   std::optional<std::string> FailureDiagnostic;
++  // Set only after complete manifest replay and successful publication.
++  std::string VerifiedInputsKey;
+   static constexpr size_t FailureDiagnosticByteLimit = 64 * 1024;
+ };
+ 
+@@ -170,6 +172,8 @@ public:
+   std::string WorkingDirectory;
+   bool Complete = true;
+   uint64_t NextDirectory = 0;
++  size_t OpenFiles = 0;
++  size_t AuxiliaryBytes = 0;
+   size_t RepeatedFacts = 0;
+ 
+   llvm::ArrayRef<Observation> observations() const { return Observations; }
+@@ -199,7 +203,7 @@ public:
+             : std::min(ProbeLimit,
+                        std::max(size_t(32), Observations.capacity() * 2));
+     const size_t Strings = stringBytes(O);
+-    size_t Projected = sizeof(*this) + WorkingDirectory.capacity() + 32 +
++    size_t Projected = sizeof(*this) + AuxiliaryBytes + WorkingDirectory.capacity() + 32 +
+                        RecordedStringBytes + Strings +
+                        FactCapacity * sizeof(Observation) +
+                        IndexCapacity * sizeof(uint32_t);
+@@ -237,7 +241,7 @@ public:
+   }
+ 
+   size_t ownedBytes() const {
+-    size_t Size = sizeof(*this) + WorkingDirectory.capacity() + 32 +
++    size_t Size = sizeof(*this) + AuxiliaryBytes + WorkingDirectory.capacity() + 32 +
+                   Observations.capacity() * sizeof(Observation) +
+                   FactIndex.capacity() * sizeof(uint32_t);
+     for (const auto &O : Observations)
+@@ -246,6 +250,67 @@ public:
+     return Size;
+   }
+ 
++  Digest inputKey(const tooling::CompileCommand &Command, Digest MainBytes,
++                  Digest Environment) const {
++    llvm::SHA256 Hash;
++    auto Integer = [&](uint64_t V) {
++      uint8_t Bytes[8];
++      for (unsigned I = 0; I != 8; ++I)
++        Bytes[I] = uint8_t(V >> (I * 8));
++      Hash.update(llvm::ArrayRef<uint8_t>(Bytes));
++    };
++    auto String = [&](llvm::StringRef S) {
++      Integer(S.size());
++      Hash.update(S);
++    };
++    String(Command.Directory);
++    String(Command.Filename);
++    String(Command.Output);
++    String(Command.Heuristic);
++    Integer(Command.CommandLine.size());
++    for (const auto &Arg : Command.CommandLine)
++      String(Arg);
++    Hash.update(MainBytes);
++    Hash.update(Environment);
++    String(WorkingDirectory);
++    // Replay preserves the alias partition, not ephemeral overlay IDs.
++    std::map<std::pair<uint64_t, uint64_t>, uint64_t> Aliases;
++    Integer(Observations.size());
++    for (const auto &O : Observations) {
++      Integer(O.Operation);
++      String(O.Path);
++      Integer(O.Error.value());
++      String(O.Error.category().name());
++      // error_code equality includes category identity, even if two custom
++      // categories happen to have the same name and numeric values.
++      Integer(reinterpret_cast<uintptr_t>(&O.Error.category()));
++      Integer(O.Info.has_value());
++      if (O.Info) {
++        const auto &S = *O.Info;
++        String(S.Name);
++        Integer(S.MTime.time_since_epoch().count());
++        Integer(S.Size);
++        Integer(S.User);
++        Integer(S.Group);
++        Integer(static_cast<uint64_t>(S.Type));
++        Integer(S.Permissions);
++        Integer(S.External);
++        auto I = Aliases.try_emplace(
++            std::pair{S.ID.getDevice(), S.ID.getFile()}, Aliases.size()).first;
++        Integer(I->second);
++      }
++      String(O.Name);
++      Hash.update(O.Bytes);
++      Integer(O.Size);
++      Integer(O.RequestedSize);
++      Integer(O.NullTerminated);
++      Integer(O.Found);
++      Integer(O.Binary);
++      Integer(static_cast<uint64_t>(O.EntryType));
++    }
++    return Hash.final();
++  }
++
+   bool matches(llvm::vfs::FileSystem &FS) const {
+     if (!Complete || Observations.empty())
+       return false;
+@@ -363,10 +428,21 @@ private:
+ };
+ 
+ class ModuleScanRecordingFS : public llvm::vfs::ProxyFileSystem {
++  class ObservedFile;
++  struct LiveFiles {
++    std::array<ObservedFile *, ModuleScanManifest::ProbeLimit> Files{};
++    std::array<uint32_t, ModuleScanManifest::ProbeLimit> Free{};
++    size_t Next = 0, FreeCount = 0;
++  };
+ public:
+   ModuleScanRecordingFS(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> Base,
+-                        std::shared_ptr<ModuleScanManifest> Manifest)
++                        std::shared_ptr<ModuleScanManifest> Manifest,
++                        bool AuditLiveFiles = false)
+       : ProxyFileSystem(std::move(Base)), Manifest(std::move(Manifest)) {
++    if (AuditLiveFiles) {
++      Live = std::make_shared<LiveFiles>();
++      this->Manifest->AuxiliaryBytes += sizeof(LiveFiles) + 64;
++    }
+     auto CWD = getUnderlyingFS().getCurrentWorkingDirectory();
+     if (CWD)
+       this->Manifest->WorkingDirectory = *CWD;
+@@ -374,10 +450,27 @@ public:
+       this->Manifest->Complete = false;
+   }
+ 
++  // Call only after single-threaded frontend/PCH emission, before any captured
++  // AST callback runs. FileManager can keep successfully opened, unread files.
++  // Read those ORIGINAL objects fully without closing its cached descriptors.
++  bool auditOpenFiles() {
++    if (!Live || !Manifest->Complete || isCancelled())
++      return false;
++    size_t Remaining = ModuleScanManifest::ByteLimit;
++    for (size_t I = 0; I != Live->Next; ++I) {
++      if (isCancelled())
++        return false;
++      if (auto *File = Live->Files[I])
++        if (!File->auditContent(Remaining))
++          return false;
++    }
++    return Manifest->Complete && !isCancelled();
++  }
++
+   llvm::ErrorOr<llvm::vfs::Status> status(const llvm::Twine &Path) override {
+     auto Result = getUnderlyingFS().status(Path);
+-    // Returned names can expose the relative caller spelling. Replay the exact
+-    // query; WorkingDirectory is separately frozen and checked.
++    // status/open may expose the caller's relative spelling in returned names.
++    // Replay the exact query; WorkingDirectory is separately frozen/checked.
+     ModuleScanManifest::Observation O{ModuleScanManifest::Stat, Path.str()};
+     if (Result)
+       O.Info.emplace(*Result);
+@@ -530,17 +623,49 @@ private:
+     if (!Result)
+       return Result;
+     return std::make_unique<ObservedFile>(std::move(*Result), std::move(Name),
+-                                          Manifest, Binary);
++                                          Manifest, Binary, Live);
+   }
+   class ObservedFile : public llvm::vfs::File {
+   public:
+     ObservedFile(std::unique_ptr<llvm::vfs::File> Base, std::string Path,
+-                 std::shared_ptr<ModuleScanManifest> Manifest, bool Binary)
++                 std::shared_ptr<ModuleScanManifest> Manifest, bool Binary,
++                 std::shared_ptr<LiveFiles> Live)
+         : Base(std::move(Base)), Path(std::move(Path)),
+-          Manifest(std::move(Manifest)), Binary(Binary) {}
++          Manifest(std::move(Manifest)), Binary(Binary), Live(std::move(Live)) {
++      ++this->Manifest->OpenFiles;
++      if (this->Live) {
++        if (this->Live->FreeCount)
++          Slot = this->Live->Free[--this->Live->FreeCount];
++        else if (this->Live->Next < ModuleScanManifest::ProbeLimit)
++          Slot = this->Live->Next++;
++        else
++          this->Manifest->Complete = false;
++        if (Slot)
++          this->Live->Files[*Slot] = this;
++      }
++    }
+     ~ObservedFile() override {
+       if (!Closed)
+         close();
++      if (Slot) {
++        Live->Files[*Slot] = nullptr;
++        Live->Free[Live->FreeCount++] = *Slot;
++      }
++    }
++    bool auditContent(size_t &Remaining) {
++      if (Closed)
++        return true;
++      auto Status = status();
++      if (!Status || !Status->isRegularFile() || Status->getSize() > Remaining)
++        return false;
++      auto Name = getName();
++      if (!Name)
++        return false;
++      auto Buffer = getBuffer(*Name, -1, true, true);
++      if (!Buffer || (*Buffer)->getBufferSize() > Remaining)
++        return false;
++      Remaining -= (*Buffer)->getBufferSize();
++      return Manifest->Complete;
+     }
+     llvm::ErrorOr<llvm::vfs::Status> status() override {
+       auto Result = Base->status();
+@@ -587,6 +712,8 @@ private:
+     }
+     std::error_code close() override {
+       auto EC = Base->close();
++      if (!Closed)
++        --Manifest->OpenFiles;
+       Closed = true;
+       if (EC)
+         Manifest->Complete = false;
+@@ -599,8 +726,11 @@ private:
+     std::shared_ptr<ModuleScanManifest> Manifest;
+     bool Closed = false;
+     bool Binary;
++    std::shared_ptr<LiveFiles> Live;
++    std::optional<size_t> Slot;
+   };
+   std::shared_ptr<ModuleScanManifest> Manifest;
++  std::shared_ptr<LiveFiles> Live;
+ };
+ 
+ // Process-wide bounds also cover evicted entries borrowed by validators. CDB
+@@ -866,12 +996,12 @@ public:
+     return Candidate->Result;
+   }
+ 
+-  void store(const std::shared_ptr<const tooling::CompilationDatabase> &CDB,
++  std::string store(const std::shared_ptr<const tooling::CompilationDatabase> &CDB,
+              llvm::StringRef File, tooling::CompileCommand Command,
+              ModuleScanManifest::Digest MainBytes,
+              ModuleScanManifest::Digest Environment, ModuleScanManifest Inputs,
+              ModuleScanResult Result, llvm::vfs::FileSystem &FS) {
+-    if (isCancelled() ||
++    if (isCancelled() || Inputs.OpenFiles != 0 ||
+         (Result.FailureDiagnostic &&
+          Result.FailureDiagnostic->capacity() >
+              ModuleScanResult::FailureDiagnosticByteLimit) ||
+@@ -879,13 +1009,17 @@ public:
+         !Inputs.matches(FS) || isCancelled()) {
+       ++Declines;
+       vlog("Module dependency scan memo declined: {0}", File);
+-      return;
++      return {};
+     }
++    auto Key = Inputs.inputKey(Command, MainBytes, Environment);
++    Result.VerifiedInputsKey.assign(reinterpret_cast<const char *>(Key.data()),
++                                    Key.size());
+     size_t Bytes = Inputs.ownedBytes() + sizeof(Entry) + File.size() + 32 +
+                    Command.Directory.capacity() + Command.Filename.capacity() +
+                    Command.Output.capacity() + Command.Heuristic.capacity() +
+                    Command.CommandLine.capacity() * sizeof(std::string) + 160 +
+-                   Result.RequiredModules.capacity() * sizeof(std::string);
++                   Result.RequiredModules.capacity() * sizeof(std::string) +
++                   Result.VerifiedInputsKey.capacity() + 32;
+     for (const auto &Arg : Command.CommandLine)
+       Bytes += Arg.capacity() + 32;
+     for (const auto &Name : Result.RequiredModules)
+@@ -896,22 +1030,22 @@ public:
+       Bytes += Result.FailureDiagnostic->capacity() + 32;
+     if (Bytes > ModuleScanManifest::ByteLimit) {
+       ++Declines;
+-      return;
++      return {};
+     }
+     std::lock_guard<std::mutex> Lock(Mu);
+     if (isCancelled()) {
+       ++Declines;
+-      return;
++      return {};
+     }
+     while (!Owner->reserve(Bytes)) {
+       if (isCancelled()) {
+         ++Declines;
+-        return;
++        return {};
+       }
+       if (Entries.empty()) {
+         ++Declines;
+         vlog("Module dependency scan memo budget decline: {0}", File);
+-        return;
++        return {};
+       }
+       Entries.pop_back();
+       ++Evictions;
+@@ -928,12 +1062,13 @@ public:
+     Added->Bytes = Bytes;
+     if (isCancelled()) {
+       ++Declines;
+-      return;
++      return {};
+     }
+     Entries.push_front(std::move(Added));
+     ++Stores;
+     vlog("Module dependency scan memo stored: {0} (entries={1}, bytes={2})",
+          File, Owner->Entries.load(), Owner->Bytes.load());
++    return {reinterpret_cast<const char *>(Key.data()), Key.size()};
+   }
+ 
+ private:
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 046830e..cc23406 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -19,6 +19,8 @@
+ #include "support/Context.h"
+ #include "support/Logger.h"
+ #include "clang/Frontend/FrontendAction.h"
++#include "clang/Lex/Lexer.h"
++#include "clang/Lex/PreprocessorOptions.h"
+ #include "clang/Frontend/DependencyOutputOptions.h"
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+@@ -2329,6 +2331,40 @@ bool ModulesBuilder::hasRequiredModules(PathRef File) {
+   return !CachedMDB.getRequiredModules(File).empty();
+ }
+ 
++std::optional<ProjectModules::VerifiedInputs>
++ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
++                                        llvm::StringRef Contents,
++                                        const tooling::CompileCommand &Command,
++                                        const CompilerInvocation &CI) {
++  const auto &Lang = CI.getLangOpts();
++  const auto &HS = CI.getHeaderSearchOpts();
++  if (!Lang.CPlusPlus || !Lang.CPlusPlus20 || Lang.ObjC ||
++      HS.ImplicitModuleMaps || !CI.getFrontendOpts().ModuleMapFiles.empty() ||
++      !CI.getFrontendOpts().ModuleFiles.empty() ||
++      !CI.getPreprocessorOpts().ImplicitPCHInclude.empty())
++    return std::nullopt;
++  RequestModuleFS MainFS(TFS, File, Contents);
++  auto MDB = Impl->getCDB().getProjectModules(File);
++  if (!MDB)
++    return std::nullopt;
++  MDB->setFileSystem(MainFS);
++  auto ScanCommand = MDB->getCompileCommand(File);
++  if (!ScanCommand || ScanCommand->Directory != Command.Directory ||
++      ScanCommand->Filename != Command.Filename ||
++      ScanCommand->CommandLine != Command.CommandLine)
++    return std::nullopt;
++  // The main file itself must not be a module unit, even if its declaration
++  // lies beyond the prefix. Custom backends cannot infer this from an extension.
++  if (!MDB->getVerifiedInputs(File, /*ImportFree=*/false))
++    return std::nullopt;
++  auto Bounds = Lexer::ComputePreamble(Contents, Lang);
++  if (!Bounds.Size)
++    return std::nullopt;
++  RequestModuleFS PrefixFS(TFS, File, Contents.take_front(Bounds.Size));
++  MDB->setFileSystem(PrefixFS);
++  return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
++}
++
+ bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
+                                                  const ThreadsafeFS &TFS,
+                                                  llvm::StringRef Contents) {
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
+index f98a505..a616687 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.h
++++ b/clang-tools-extra/clangd/ModulesBuilder.h
+@@ -132,6 +132,14 @@ public:
+   bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS,
+                                    llvm::StringRef Contents);
+ 
++  /// Prove an ordinary TU's exact textual prefix imports no named modules.
++  /// Implicit maps, unknown scanner inputs and preprocessing errors decline.
++  std::optional<ProjectModules::VerifiedInputs>
++  getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
++                          llvm::StringRef Contents,
++                          const tooling::CompileCommand &Command,
++                          const CompilerInvocation &CI);
++
+   /// Returns the list of directly required module names
+   std::vector<std::string> getRequiredModuleNames(PathRef File);
+   std::vector<std::string> getRequiredModuleNames(PathRef File,
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index f43471e..b70c6b1 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -18,6 +18,7 @@
+ #include "Protocol.h"
+ #include "SourceCode.h"
+ #include "clang-include-cleaner/Record.h"
++#include "ModuleDependencyScanCache.h"
+ #include "support/Logger.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
+@@ -42,6 +43,7 @@
+ #include "clang/Lex/Preprocessor.h"
+ #include "clang/Lex/PreprocessorOptions.h"
+ #include "clang/Serialization/ASTReader.h"
++#include "clang/Serialization/ASTWriter.h"
+ #include "clang/Tooling/CompilationDatabase.h"
+ #include "llvm/ADT/ArrayRef.h"
+ #include "llvm/ADT/DenseMap.h"
+@@ -108,6 +110,14 @@ public:
+   std::optional<CapturedASTCtx> takeLife() { return std::move(CapturedCtx); }
+ 
+   bool isMainFileIncludeGuarded() const { return IsMainFileIncludeGuarded; }
++  bool hasImportedASTs() const { return HasImportedASTs; }
++  bool emittedImportFreePCH() const { return PCHEmitted && !SerializedImports; }
++  void AfterPCHEmitted(ASTWriter &Writer) override {
++    // ASTWriter::WriteControlBlock emits its IMPORTS record from this chain.
++    PCHEmitted = true;
++    SerializedImports = Writer.getChain() &&
++                        Writer.getChain()->getModuleManager().size() != 0;
++  }
+ 
+   void AfterExecute(CompilerInstance &CI) override {
+     // As part of the Preamble compilation, ASTConsumer
+@@ -115,6 +125,7 @@ public:
+     // when Preamble consists of modules. Therefore while capturing AST context,
+     // we have to reset ast consumer and ASTMutationListener.
+     if (CI.getASTReader()) {
++      HasImportedASTs = CI.getASTReader()->getModuleManager().size() != 0;
+       CI.getASTReader()->setDeserializationListener(nullptr);
+       // This just sets consumer to null when DeserializationListener is null.
+       CI.getASTReader()->StartTranslationUnit(nullptr);
+@@ -205,6 +216,9 @@ private:
+   PreambleBuildStats *Stats;
+   bool ParseForwardingFunctions;
+   std::function<void(CompilerInstance &)> BeforeExecuteCallback;
++  bool HasImportedASTs = false;
++  bool PCHEmitted = false;
++  bool SerializedImports = true;
+   std::optional<CapturedASTCtx> CapturedCtx;
+ };
+ 
+@@ -581,6 +595,20 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+   auto Bounds = computePreambleBounds(CI.getLangOpts(), *ContentsBuffer,
+                                       Inputs.Opts.SkipPreambleBuild);
+ 
++  std::optional<ProjectModules::VerifiedInputs> TextualInputs;
++  if (!Inputs.Opts.SkipPreambleBuild && Inputs.ModulesManager &&
++      Inputs.ModulesManager->hasBuildableRequiredModules(
++          FileName, *Inputs.TFS, Inputs.Contents)) {
++    TextualInputs = Inputs.ModulesManager->getTextualPreambleInputs(
++        FileName, *Inputs.TFS, Inputs.Contents, Inputs.CompileCommand, CI);
++  }
++
++  // Retain the unmodified invocation only for a candidate that may fall back.
++  // A skipped build never enters this candidate path, so retry depth is one.
++  std::optional<CompilerInvocation> TextualFallbackCI;
++  if (TextualInputs)
++    TextualFallbackCI.emplace(CI);
++
+   trace::Span Tracer("BuildPreamble");
+   // Asynchronous callbacks can retain this span beyond the filename owner.
+   SPAN_ATTACH(Tracer, "File", FileName.str());
+@@ -633,12 +661,23 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+   VFS->makeAbsolute(AbsFileName);
+   auto StatCache = std::make_shared<PreambleFileStatusCache>(AbsFileName);
+   auto StatCacheFS = StatCache->getProducingFS(VFS);
+-  llvm::IntrusiveRefCntPtr<TimerFS> TimedFS(new TimerFS(StatCacheFS));
++  std::shared_ptr<ModuleScanManifest> BuiltInputs;
++  llvm::IntrusiveRefCntPtr<ModuleScanRecordingFS> RecordedBuildFS;
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> BuildFS = StatCacheFS;
++  if (TextualInputs) {
++    // Audit the compiler's actual reads too: a transient change during PCH
++    // construction must not publish mixed bytes, even if a later scan reverts.
++    BuiltInputs = std::make_shared<ModuleScanManifest>();
++    RecordedBuildFS = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(
++        BuildFS, BuiltInputs, /*AuditLiveFiles=*/true);
++    BuildFS = RecordedBuildFS;
++  }
++  llvm::IntrusiveRefCntPtr<TimerFS> TimedFS(new TimerFS(BuildFS));
+ 
+   // Resolve and lease prerequisites before parsing. The earlier update policy
+-  // may have observed a header before an import became visible. Named imports
+-  // must remain textual: attaching successful modules after PCH creation can
+-  // make a PCH with a failed import appear reusable on subsequent completions.
++  // may have observed a header before an import became visible. Imports in
++  // the prefix must remain textual; body-only imports permit a PCH solely with
++  // the verified prefix proof and actual compiler-read/import audit below.
+   std::unique_ptr<PrerequisiteModules> RequiredModules;
+   bool SkipPreambleBuild = Inputs.Opts.SkipPreambleBuild;
+   if (Inputs.ModulesManager) {
+@@ -652,18 +691,21 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+     if (RequiredModules) {
+       HeaderSearchOptions ModuleOptions;
+       RequiredModules->adjustHeaderSearchOptions(ModuleOptions);
+-      SkipPreambleBuild |= !ModuleOptions.PrebuiltModuleFiles.empty();
++      SkipPreambleBuild |= !ModuleOptions.PrebuiltModuleFiles.empty() &&
++                           !TextualInputs;
+       RequiredModules->adjustHeaderSearchOptions(CI.getHeaderSearchOpts());
+     }
+   }
+   Bounds = computePreambleBounds(CI.getLangOpts(), *ContentsBuffer,
+                                  SkipPreambleBuild);
++  SPAN_ATTACH(Tracer, "SkipPreambleBuild", SkipPreambleBuild);
++  SPAN_ATTACH(Tracer, "PreamblePrefixBytes", int64_t(Bounds.Size));
+ 
+   WallTimer PreambleTimer;
+   PreambleTimer.startTimer();
+   auto BuiltPreamble = PrecompiledPreamble::Build(
+       CI, ContentsBuffer.get(), Bounds, PreambleDiagsEngine,
+-      Stats ? TimedFS : StatCacheFS, std::make_shared<PCHContainerOperations>(),
++      Stats ? TimedFS : BuildFS, std::make_shared<PCHContainerOperations>(),
+       StoreInMemory, /*StoragePath=*/"", CapturedInfo);
+ 
+   PreambleTimer.stopTimer();
+@@ -685,6 +727,62 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+     Stats->SerializedSize = BuiltPreamble ? BuiltPreamble->getSize() : 0;
+   }
+ 
++  auto RetryWithZeroPrefix = [&] {
++    ParseInputs FallbackInputs = Inputs;
++    FallbackInputs.Opts.SkipPreambleBuild = true;
++    // Neither a failed construction nor a rejected audit publishes a PCH or
++    // proof. SkipPreambleBuild prevents another candidate and limits retries
++    // to one, while the original invocation retains prerequisite validation.
++    BuiltPreamble = std::make_error_code(std::errc::operation_not_permitted);
++    RequiredModules.reset();
++    return buildPreamble(FileName, std::move(*TextualFallbackCI), FallbackInputs,
++                         StoreInMemory, std::move(PreambleCallback), Stats);
++  };
++  if (!BuiltPreamble && TextualInputs) {
++    vlog("Textual module preamble construction failed: {0}: {1}; "
++         "retrying with zero prefix", FileName, BuiltPreamble.getError().message());
++    SPAN_ATTACH(Tracer, "TextualModulePreamble", false);
++    SPAN_ATTACH(Tracer, "TextualCandidateDeclined", true);
++    SPAN_ATTACH(Tracer, "PCHConstructed", false);
++    SPAN_ATTACH(Tracer, "PCHConstructionError", BuiltPreamble.getError().message());
++    return RetryWithZeroPrefix();
++  }
++  if (BuiltPreamble && TextualInputs) {
++    SPAN_ATTACH(Tracer, "PCHConstructed", true);
++    bool AuditedOpenFiles = RecordedBuildFS->auditOpenFiles();
++    auto Current = Inputs.TFS->view(Inputs.CompileCommand.Directory);
++    auto CurrentInputs = Inputs.ModulesManager->getTextualPreambleInputs(
++        FileName, *Inputs.TFS, Inputs.Contents, Inputs.CompileCommand, CI);
++    bool BuiltMatches = BuiltInputs->matches(*Current);
++    vlog("Textual module preamble audit: imports={0}, emittedFree={1}, "
++         "complete={2}, facts={3}, replay={4}, current={5}, same={6}",
++         CapturedInfo.hasImportedASTs(), CapturedInfo.emittedImportFreePCH(),
++         BuiltInputs->Complete, BuiltInputs->observations().size(), BuiltMatches,
++         bool(CurrentInputs), CurrentInputs && *CurrentInputs == *TextualInputs);
++    if (CapturedInfo.hasImportedASTs() || !CapturedInfo.emittedImportFreePCH() ||
++        !BuiltMatches || !AuditedOpenFiles || !CurrentInputs ||
++        !(*CurrentInputs == *TextualInputs)) {
++      vlog("Textual module preamble input/import audit declined: {0}; "
++           "retrying with zero prefix", FileName);
++      SPAN_ATTACH(Tracer, "TextualModulePreamble", false);
++      SPAN_ATTACH(Tracer, "TextualCandidateDeclined", true);
++      SPAN_ATTACH(Tracer, "PCHImportsFree", CapturedInfo.emittedImportFreePCH() &&
++                                              !CapturedInfo.hasImportedASTs());
++      SPAN_ATTACH(Tracer, "PCHInputsComplete", BuiltInputs->Complete);
++      SPAN_ATTACH(Tracer, "PCHInputsReplayed", BuiltMatches);
++      SPAN_ATTACH(Tracer, "PCHOpenFilesAudited", AuditedOpenFiles);
++      SPAN_ATTACH(Tracer, "PCHCurrentProofMatches",
++                  CurrentInputs && *CurrentInputs == *TextualInputs);
++      return RetryWithZeroPrefix();
++    }
++    vlog("Textual module preamble input/import audit passed: {0}", FileName);
++    SPAN_ATTACH(Tracer, "TextualModulePreamble", true);
++    SPAN_ATTACH(Tracer, "PCHImportsFree", CapturedInfo.emittedImportFreePCH());
++    SPAN_ATTACH(Tracer, "PCHInputsComplete", BuiltInputs->Complete);
++    SPAN_ATTACH(Tracer, "PCHOpenFilesAudited", AuditedOpenFiles);
++    SPAN_ATTACH(Tracer, "PCHAuditedLiveFiles", int64_t(BuiltInputs->OpenFiles));
++    SPAN_ATTACH(Tracer, "PCHInputFacts", int64_t(BuiltInputs->observations().size()));
++  }
+   if (BuiltPreamble) {
+     log("Built preamble of size {0} for file {1} version {2} in {3} seconds",
+         BuiltPreamble->getSize(), FileName, Inputs.Version,
+@@ -694,6 +792,7 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+     Result->Version = Inputs.Version;
+     Result->CompileCommand = Inputs.CompileCommand;
+     Result->SkipPreambleBuild = SkipPreambleBuild;
++    Result->TextualModuleInputs = std::move(TextualInputs);
+     Result->Diags = std::move(Diags);
+     Result->Includes = CapturedInfo.takeIncludes();
+     Result->Pragmas = std::make_shared<const include_cleaner::PragmaIncludes>(
+@@ -760,6 +859,14 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+     return NewNameSet == Preamble.RequiredModules->getRequiredModuleNames();
+   };
+ 
++  if (Preamble.TextualModuleInputs) {
++    if (!Inputs.ModulesManager)
++      return false;
++    auto Current = Inputs.ModulesManager->getTextualPreambleInputs(
++        FileName, *Inputs.TFS, Inputs.Contents, Inputs.CompileCommand, CI);
++    if (!Current || !(*Current == *Preamble.TextualModuleInputs))
++      return false;
++  }
+   return compileCommandsAreEqual(Inputs.CompileCommand,
+                                  Preamble.CompileCommand) &&
+          Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS) &&
+diff --git a/clang-tools-extra/clangd/Preamble.h b/clang-tools-extra/clangd/Preamble.h
+index d16b14f..ed3fa45 100644
+--- a/clang-tools-extra/clangd/Preamble.h
++++ b/clang-tools-extra/clangd/Preamble.h
+@@ -131,6 +131,8 @@ struct PreambleData {
+   // Policy used to construct this preamble. Consumers patching a stale
+   // preamble must preserve its mode; dependency freshness is checked separately.
+   bool SkipPreambleBuild = false;
++  // Exact verified prefix inputs permitting a PCH alongside body-only imports.
++  std::optional<ProjectModules::VerifiedInputs> TextualModuleInputs;
+ };
+ 
+ using PreambleParsedCallback =
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 47d993a..0ce4e54 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -484,7 +484,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+         Result->RequiredModules.push_back(Required.ModuleName);
+     if (Cacheable) {
+       auto Current = TFS.view(Cmd->Directory);
+-      getModuleDependencyScanCache().store(CDB, FilePath, *Cmd, MainBytes,
++      Result->VerifiedInputsKey = getModuleDependencyScanCache().store(CDB, FilePath, *Cmd, MainBytes,
+                                            *Environment, std::move(*Manifest),
+                                            *Result, *Current);
+     }
+@@ -559,7 +559,7 @@ public:
+   ScanningAllProjectModules(
+       std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
+       const ThreadsafeFS &TFS, bool ScanInputsKnown)
+-      : Scanner(CDB, TFS, ScanInputsKnown) {}
++      : CDB(CDB), Scanner(CDB, TFS, ScanInputsKnown) {}
+ 
+   ~ScanningAllProjectModules() override = default;
+ 
+@@ -567,6 +567,15 @@ public:
+     return Scanner.getRequiredModules(File, Mangler);
+   }
+ 
++  std::optional<VerifiedInputs>
++  getVerifiedInputs(PathRef File, bool ImportFree) override {
++    auto Result = Scanner.scan(File, Mangler);
++    if (!Result || Result->ModuleName || Result->VerifiedInputsKey.empty() ||
++        (ImportFree && !Result->RequiredModules.empty()))
++      return std::nullopt;
++    return VerifiedInputs{CDB, std::move(Result->VerifiedInputsKey)};
++  }
++
+   void setCommandMangler(CommandMangler Mangler) override {
+     this->Mangler = std::move(Mangler);
+   }
+@@ -595,6 +604,7 @@ public:
+   }
+ 
+ private:
++  std::shared_ptr<const tooling::CompilationDatabase> CDB;
+   ModuleDependencyScanner Scanner;
+   CommandMangler Mangler;
+ };
+@@ -816,6 +826,11 @@ public:
+     return Scanning->getRequiredModules(File);
+   }
+ 
++  std::optional<VerifiedInputs>
++  getVerifiedInputs(PathRef File, bool ImportFree) override {
++    return Scanning->getVerifiedInputs(File, ImportFree);
++  }
++
+   std::optional<tooling::CompileCommand>
+   getCompileCommand(PathRef File) override {
+     return getCompileCommandForFile(*CDB, File, Mangler);
+diff --git a/clang-tools-extra/clangd/ProjectModules.h b/clang-tools-extra/clangd/ProjectModules.h
+index 7bc33cc..c5cd3e9 100644
+--- a/clang-tools-extra/clangd/ProjectModules.h
++++ b/clang-tools-extra/clangd/ProjectModules.h
+@@ -39,6 +39,14 @@ namespace clangd {
+ /// `<primary-module-name>[:partition-name]`. So module names covers partitions.
+ class ProjectModules {
+ public:
++  struct VerifiedInputs {
++    // Retain this immutable generation, preventing address reuse.
++    std::shared_ptr<const void> Generation;
++    std::string Key;
++    bool operator==(const VerifiedInputs &Other) const {
++      return Generation == Other.Generation && Key == Other.Key;
++    }
++  };
+   enum class ModuleNameState {
+     Unknown,
+     Unique,
+@@ -50,6 +58,11 @@ public:
+ 
+   virtual std::vector<std::string> getRequiredModules(PathRef File) = 0;
+   virtual std::string getModuleNameForSource(PathRef File) = 0;
++  /// A successful canonical scan of an ordinary TU with every input replayed
++  /// against the current request. Backends lacking this proof must decline.
++  /// ImportFree additionally rejects named imports from included headers.
++  virtual std::optional<VerifiedInputs>
++  getVerifiedInputs(PathRef File, bool ImportFree) { return std::nullopt; }
+   virtual std::string getSourceForModuleName(llvm::StringRef ModuleName,
+                                              PathRef RequiredSrcFile) = 0;
+   virtual ModuleNameState getModuleNameState(llvm::StringRef ModuleName) {
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 15e64ee..36aea5d 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -899,14 +899,27 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags,
+     else
+       Inputs.CompileCommand = CDB.getFallbackCommand(FileName);
+ 
+-    // A preamble may only be mixed with imports that remain textual. Resolve
+-    // this from current request bytes/VFS before constructing the preamble,
++    StoreDiags CompilerInvocationDiagConsumer;
++    std::vector<std::string> CC1Args;
++    std::unique_ptr<CompilerInvocation> Invocation = buildCompilerInvocation(
++        Inputs, CompilerInvocationDiagConsumer, &CC1Args);
++    // Log cc1 args even (especially!) if creating invocation failed.
++    if (!CC1Args.empty())
++      vlog("Driver produced command: cc1 {0}", printArgv(CC1Args));
++    std::vector<Diag> CompilerInvocationDiags =
++        CompilerInvocationDiagConsumer.take();
++
++    // Keep prefix imports textual. Body-only imports permit a preamble only
++    // after exact current request bytes/VFS certify its import-free prefix,
+     // under the same file configuration context as command lookup. Keep this
+     // potentially expensive inventory work off the document-update caller.
+-    if (Inputs.ModulesManager && !Inputs.Opts.SkipPreambleBuild)
++    if (Inputs.ModulesManager && !Inputs.Opts.SkipPreambleBuild &&
++        Inputs.ModulesManager->hasBuildableRequiredModules(
++            FileName, *Inputs.TFS, Inputs.Contents))
+       Inputs.Opts.SkipPreambleBuild =
+-          Inputs.ModulesManager->hasBuildableRequiredModules(
+-              FileName, *Inputs.TFS, Inputs.Contents);
++          !Invocation || !Inputs.ModulesManager->getTextualPreambleInputs(
++                             FileName, *Inputs.TFS, Inputs.Contents,
++                             Inputs.CompileCommand, *Invocation);
+ 
+     bool InputsAreTheSame =
+         std::tie(FileInputs.CompileCommand, FileInputs.Contents,
+@@ -930,15 +943,6 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags,
+         Inputs.CompileCommand.Directory,
+         printArgv(Inputs.CompileCommand.CommandLine));
+ 
+-    StoreDiags CompilerInvocationDiagConsumer;
+-    std::vector<std::string> CC1Args;
+-    std::unique_ptr<CompilerInvocation> Invocation = buildCompilerInvocation(
+-        Inputs, CompilerInvocationDiagConsumer, &CC1Args);
+-    // Log cc1 args even (especially!) if creating invocation failed.
+-    if (!CC1Args.empty())
+-      vlog("Driver produced command: cc1 {0}", printArgv(CC1Args));
+-    std::vector<Diag> CompilerInvocationDiags =
+-        CompilerInvocationDiagConsumer.take();
+     if (!Invocation) {
+       elog("Could not build CompilerInvocation for file {0}", FileName);
+       // Remove the old AST if it's still in cache.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index ae9d44e..03c7fc2 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -22,6 +22,9 @@
+ #endif
+ #include "CodeComplete.h"
+ #include "Compiler.h"
++#include "FeatureModule.h"
++#include "clang/Frontend/CompilerInstance.h"
++#include "clang/Lex/Preprocessor.h"
+ #include "ModuleBuildMemoryBudget.h"
+ #include "ModuleBuildWorker.h"
+ #include "ModuleBuildWorkerOutput.h"
+@@ -192,6 +195,20 @@ private:
+   std::shared_ptr<IndexedCompilationDatabase> ToolingCDB;
+ };
+ 
++// Explicit immutable-input provenance for the verified-scan opt-in tests.
++class VerifiedScanCompilationDatabase : public PerFileModulesCompilationDatabase {
++public:
++  VerifiedScanCompilationDatabase(StringRef Directory, const ThreadsafeFS &FS)
++      : PerFileModulesCompilationDatabase(Directory, FS), FS(FS),
++        Commands(createProjectModulesCommandCache(toolingCDB(), true)) {}
++  std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
++    return clang::clangd::getProjectModules(toolingCDB(), FS, Commands);
++  }
++private:
++  const ThreadsafeFS &FS;
++  std::shared_ptr<ProjectModulesCommandCache> Commands;
++};
++
+ class ModuleUnitRootCompilationDatabase
+     : public PerFileModulesCompilationDatabase {
+ public:
+@@ -3465,6 +3482,249 @@ export int BValue = MValue;
+   EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixPreservesFreshHeaderBytes) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { text_^; }\n");
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
++  CDB.addFile("Header.hpp", "int text_before;\n");
++  CDB.addFile("Use.cpp", Use.code());
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Proof = Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI);
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux()) {
++    EXPECT_FALSE(Proof); // Unsupported driver observations must decline.
++    return;
++  }
++  ASSERT_TRUE(Proof);
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(Preamble);
++  ASSERT_TRUE(Preamble->TextualModuleInputs);
++  EXPECT_FALSE(Preamble->SkipPreambleBuild);
++  EXPECT_GT(Preamble->Preamble.getBounds().Size, 0u);
++  ASSERT_TRUE(Preamble->RequiredModules);
++  HeaderSearchOptions Modules;
++  Preamble->RequiredModules->adjustHeaderSearchOptions(Modules);
++  ASSERT_EQ(Modules.PrebuiltModuleFiles.count("M"), 1u);
++  EXPECT_TRUE(isPreambleCompatible(*Preamble, Inputs, getFullPath("Use.cpp"), *CI));
++  auto Complete = [&] {
++    return codeComplete(getFullPath("Use.cpp"), Use.point(), Preamble.get(),
++                        Inputs, {});
++  };
++  EXPECT_THAT(Complete().Completions, testing::Contains(named("text_before")));
++  auto Header = getFullPath("Header.hpp");
++  llvm::sys::fs::file_status Before;
++  ASSERT_FALSE(llvm::sys::fs::status(Header, Before));
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Header, EC);
++    ASSERT_FALSE(EC);
++    Out << "int text_after_;\n";
++  }
++  ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++      Header, Before.getLastAccessedTime(), Before.getLastModificationTime()));
++  llvm::sys::fs::file_status After;
++  ASSERT_FALSE(llvm::sys::fs::status(Header, After));
++  ASSERT_EQ(Before.getSize(), After.getSize());
++  ASSERT_EQ(Before.getLastModificationTime(), After.getLastModificationTime());
++  EXPECT_FALSE(isPreambleCompatible(*Preamble, Inputs, getFullPath("Use.cpp"), *CI));
++  EXPECT_THAT(Complete().Completions, testing::Contains(named("text_after_")));
++  EXPECT_THAT(Complete().Completions,
++              testing::Not(testing::Contains(named("text_before"))));
++  MockFS DraftFS;
++  DraftFS.OverlayRealFileSystemForModules = true;
++  DraftFS.Files[Header] = "int text_draft_;\n";
++  Inputs.TFS = &DraftFS;
++  EXPECT_FALSE(isPreambleCompatible(*Preamble, Inputs, getFullPath("Use.cpp"), *CI));
++  EXPECT_THAT(Complete().Completions, testing::Contains(named("text_draft_")));
++}
++
++// An extension can use a filesystem operation the input recorder cannot prove.
++// Declining the candidate PCH must retain actual module-aware Sema completion.
++TEST_F(PrerequisiteModulesTests, TextualPreambleAuditDeclinesToSemanticFallback) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
++  CDB.addFile("Header.hpp", "int header_value;\n");
++  Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { fn_^; }\n");
++  CDB.addFile("Use.cpp", Use.code());
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux()) {
++    EXPECT_FALSE(Builder.getTextualPreambleInputs(
++        getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI));
++    return;
++  }
++  ASSERT_TRUE(Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI));
++  unsigned BeforeExecutions = 0;
++  class UnobservableExtension final : public FeatureModule {
++  public:
++    explicit UnobservableExtension(unsigned &Calls) : Calls(Calls) {}
++    std::unique_ptr<ASTListener> astListeners() override {
++      struct Listener : ASTListener {
++        explicit Listener(unsigned &Calls) : Calls(Calls) {}
++        void beforeExecute(CompilerInstance &CI) override {
++          ++Calls;
++          CI.getFileManager().getVirtualFileSystem().visitChildFileSystems(
++              [](llvm::vfs::FileSystem &) {});
++        }
++        unsigned &Calls;
++      };
++      return std::make_unique<Listener>(Calls);
++    }
++    unsigned &Calls;
++  };
++  FeatureModuleSet Extensions;
++  Extensions.add(std::make_unique<UnobservableExtension>(BeforeExecutions));
++  Inputs.FeatureModules = &Extensions;
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(Preamble);
++  EXPECT_EQ(BeforeExecutions, 2u); // Candidate and exactly one zero-prefix retry.
++  EXPECT_TRUE(Preamble->SkipPreambleBuild);
++  EXPECT_EQ(Preamble->Preamble.getBounds().Size, 0u);
++  EXPECT_FALSE(Preamble->TextualModuleInputs);
++  ASSERT_TRUE(Preamble->RequiredModules);
++  auto Result = codeComplete(getFullPath("Use.cpp"), Use.point(), Preamble.get(),
++                             Inputs, {});
++  EXPECT_THAT(Result.Completions, testing::Contains(named("fn_m")));
++  auto Found = llvm::find_if(Result.Completions,
++                            [](const auto &C) { return C.Name == "fn_m"; });
++  ASSERT_NE(Found, Result.Completions.end());
++  EXPECT_NE(Found->Kind, CompletionItemKind::Text);
++}
++
++TEST_F(PrerequisiteModulesTests, TextualPreambleConstructionFailureUsesSemanticFallback) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
++  CDB.addFile("Header.hpp", "int header_value;\n");
++  Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { fn_^; }\n");
++  CDB.addFile("Use.cpp", Use.code());
++  auto BrokenPCM = (llvm::Twine(TestDir) + "/Broken.pcm").str();
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(BrokenPCM, EC);
++    ASSERT_FALSE(EC);
++    Out << "not a Clang AST file";
++  }
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux()) {
++    EXPECT_FALSE(Builder.getTextualPreambleInputs(
++        getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI));
++    return;
++  }
++  ASSERT_TRUE(Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI));
++  unsigned BeforeExecutions = 0;
++  bool FatalModuleLoad = false;
++  class FailingModuleLoad final : public FeatureModule {
++  public:
++    FailingModuleLoad(std::string Path, unsigned &Calls, bool &Fatal)
++        : Path(std::move(Path)), Calls(Calls), Fatal(Fatal) {}
++    std::unique_ptr<ASTListener> astListeners() override {
++      struct Listener : ASTListener {
++        Listener(std::string Path, unsigned &Calls, bool &Fatal)
++            : Path(std::move(Path)), Calls(Calls), Fatal(Fatal) {}
++        void beforeExecute(CompilerInstance &CI) override {
++          if (++Calls != 1)
++            return;
++          // Exercise the real ASTReader failure, not the audit's decline path.
++          // PCHGenerator refuses to emit after a fatal module loading error.
++          CI.getHeaderSearchOpts().PrebuiltModuleFiles["Broken"] = Path;
++          IdentifierLoc ID(SourceLocation(),
++                           CI.getPreprocessor().getIdentifierInfo("Broken"));
++          CI.loadModule(SourceLocation(), {ID}, Module::AllVisible, false);
++          Fatal = CI.HadFatalFailure;
++        }
++        std::string Path;
++        unsigned &Calls;
++        bool &Fatal;
++      };
++      return std::make_unique<Listener>(Path, Calls, Fatal);
++    }
++    std::string Path;
++    unsigned &Calls;
++    bool &Fatal;
++  };
++  FeatureModuleSet Extensions;
++  Extensions.add(std::make_unique<FailingModuleLoad>(
++      BrokenPCM, BeforeExecutions, FatalModuleLoad));
++  Inputs.FeatureModules = &Extensions;
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(FatalModuleLoad);
++  ASSERT_TRUE(Preamble);
++  EXPECT_EQ(BeforeExecutions, 2u);
++  EXPECT_TRUE(Preamble->SkipPreambleBuild);
++  EXPECT_EQ(Preamble->Preamble.getBounds().Size, 0u);
++  EXPECT_FALSE(Preamble->TextualModuleInputs);
++  ASSERT_TRUE(Preamble->RequiredModules);
++  auto Result = codeComplete(getFullPath("Use.cpp"), Use.point(), Preamble.get(),
++                             Inputs, {});
++  auto Found = llvm::find_if(Result.Completions,
++                            [](const auto &C) { return C.Name == "fn_m"; });
++  ASSERT_NE(Found, Result.Completions.end());
++  EXPECT_NE(Found->Kind, CompletionItemKind::Text);
++  // Explicit skip cannot re-enter candidate admission or recurse on failure.
++  BeforeExecutions = 0;
++  FatalModuleLoad = false;
++  Inputs.Opts.SkipPreambleBuild = true;
++  EXPECT_FALSE(buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr));
++  EXPECT_TRUE(FatalModuleLoad);
++  EXPECT_EQ(BeforeExecutions, 1u);
++  // Ordinary no-candidate failure preserves the prior nullptr/error path.
++  BeforeExecutions = 0;
++  FatalModuleLoad = false;
++  Inputs.Opts.SkipPreambleBuild = false;
++  Inputs.ModulesManager = nullptr;
++  EXPECT_FALSE(buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr));
++  EXPECT_TRUE(FatalModuleLoad);
++  EXPECT_EQ(BeforeExecutions, 1u);
++}
++
++TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixDeclinesHeaderImportsAndUnknowns) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
++  CDB.addFile("Header.hpp", "import M;\n");
++  CDB.addFile("Use.cpp", "#include \"Header.hpp\"\nvoid use() {}\n");
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  EXPECT_FALSE(Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI));
++  // Header-import visibility/crash exclusions (#181770/#203799) stay textual.
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(Preamble);
++  EXPECT_TRUE(Preamble->SkipPreambleBuild);
++  EXPECT_EQ(Preamble->Preamble.getBounds().Size, 0u);
++  EXPECT_FALSE(Preamble->TextualModuleInputs);
++  auto Header = getFullPath("Header.hpp");
++  MockFS Shadow;
++  Shadow.OverlayRealFileSystemForModules = true;
++  for (llvm::StringRef Text : {"#error broken\n", "const char *t = __TIME__;\n",
++                               "import <stddef.h>;\n"}) {
++    Shadow.Files[Header] = Text.str();
++    EXPECT_FALSE(Builder.getTextualPreambleInputs(
++        getFullPath("Use.cpp"), Shadow, Inputs.Contents, Inputs.CompileCommand, *CI));
++  }
++  Shadow.Files[Header] = "int safe;\n";
++  auto Unknown = clang::clangd::getProjectModules(CDB.toolingCDB(), Shadow);
++  EXPECT_FALSE(Unknown->getVerifiedInputs(getFullPath("Use.cpp"), true));
++  CI->getHeaderSearchOpts().ImplicitModuleMaps = true;
++  EXPECT_FALSE(Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI));
++}
++
+ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
+   PerFileModulesCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("relative.hpp", "int relative_value = 1;\n");
+@@ -3502,6 +3762,79 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
+   EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestCommand) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
++  CDB.addFile("Header.hpp", "#if IMPORT_IN_HEADER\nimport M;\n#else\nint safe;\n#endif\n");
++  CDB.addFile("Use.cpp", "#include \"Header.hpp\"\nimport M;\nvoid use() {}\n");
++  auto Inputs = getInputs("Use.cpp", CDB);
++  ModulesBuilder Builder(CDB);
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Original = Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand, *CI);
++  if (llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    ASSERT_TRUE(Original);
++  else
++    EXPECT_FALSE(Original);
++  // An explicit global override may differ from the project inventory command.
++  // Do not certify its header under the inventory's old macro configuration.
++  OverlayCDB Overlay(&CDB);
++  auto Changed = Inputs.CompileCommand;
++  Changed.CommandLine.insert(Changed.CommandLine.begin() + 1,
++                             "-DIMPORT_IN_HEADER=1");
++  ASSERT_TRUE(Overlay.setCompileCommand(getFullPath("Use.cpp"), Changed));
++  ModulesBuilder OverlayBuilder(Overlay);
++  Inputs.CompileCommand = *Overlay.getCompileCommand(getFullPath("Use.cpp"));
++  auto ChangedCI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(ChangedCI);
++  EXPECT_FALSE(OverlayBuilder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand,
++      *ChangedCI));
++  // A real project command transition must also expose the newly active import.
++  CDB.addFile("Use.cpp", Inputs.Contents, {"-DIMPORT_IN_HEADER=1"});
++  Inputs.CompileCommand = *CDB.getCompileCommand(getFullPath("Use.cpp"));
++  ChangedCI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(ChangedCI);
++  EXPECT_FALSE(Builder.getTextualPreambleInputs(
++      getFullPath("Use.cpp"), FS, Inputs.Contents, Inputs.CompileCommand,
++      *ChangedCI));
++}
++
++TEST_F(PrerequisiteModulesTests, PreambleAuditReadsOriginalUnusedFileObjects) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Header.hpp", "int old_header;\n");
++  auto View = FS.view(TestDir);
++  auto Inputs = std::make_shared<ModuleScanManifest>();
++  auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(
++      View, Inputs, /*AuditLiveFiles=*/true);
++  auto File = Recording->openFileForRead("Header.hpp");
++  ASSERT_TRUE(File);
++  ASSERT_EQ(Inputs->OpenFiles, 1u);
++  ASSERT_TRUE(Recording->auditOpenFiles());
++  EXPECT_THAT(Inputs->observations(), testing::Contains(testing::Field(
++      &ModuleScanManifest::Observation::Operation, ModuleScanManifest::Read)));
++  EXPECT_TRUE(Inputs->matches(*FS.view(TestDir)));
++  EXPECT_GE(Inputs->AuxiliaryBytes, ModuleScanManifest::ProbeLimit * sizeof(void *));
++  // Do not close FileManager's descriptor as an audit shortcut. It remains
++  // usable, and auditing it again observes the original inode after retargeting.
++  auto Header = getFullPath("Header.hpp");
++  llvm::sys::fs::file_status Before;
++  ASSERT_FALSE(llvm::sys::fs::status(Header, Before));
++  CDB.addFile("Replacement.hpp", "int new_header;\n");
++  auto Replacement = getFullPath("Replacement.hpp");
++  ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++      Replacement, Before.getLastAccessedTime(), Before.getLastModificationTime()));
++  ASSERT_FALSE(llvm::sys::fs::rename(Replacement, Header));
++  ASSERT_TRUE(Recording->auditOpenFiles());
++  auto Buffer = (*File)->getBuffer("Header.hpp", -1, true, true);
++  ASSERT_TRUE(Buffer);
++  EXPECT_EQ((*Buffer)->getBuffer(), "int old_header;\n");
++  EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
++  ASSERT_FALSE((*File)->close());
++  EXPECT_EQ(Inputs->OpenFiles, 0u);
++}
++
+ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+   Annotations UseCpp("#include \"Header.hpp\"\nvoid use() { fn_^; }\n");
+-- 
+2.53.0
+
