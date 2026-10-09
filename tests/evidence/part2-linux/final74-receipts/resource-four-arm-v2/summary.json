@@ -1,0 +1,539 @@
+{
+  "latency_qualification": false,
+  "resource_observation_scope": "Separate three-start resource replay, all elapsed times excluded; stable tree CPU/RSS/PSS/private comparison. Not physical cache budget or full child escape/long-soak proof.",
+  "scope": "Matched headers/modules x baseline/candidate, each3starts x30rounds, original URI/CDB, no added trace instrumentation. Selected raw insertions reused only after every replay draft and complete item fields matches qualified raw; no new resource replay compilation. Header macros/declaration exposure differs from module exports. Final74 versus final72 Clang12 Ubuntu20 portable packages, same upstream pin and producer inputs, with exact executables on the same data disk. This isolates admission73/dependency-closure74 relative to72; historical67 gain remains separately recorded.",
+  "arms": {
+    "baseline-headers": {
+      "engine_sha256": "696e8caa5246525669583eb0f999f23cb21a87191f3b1be59a0c3952a5d1a0b1",
+      "draft_source_sha256": "0effbd431dbdab4d29eb04cc8c6310c279154175cac85894380d4d51f962ab7f",
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 93,
+          "passed": 93,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 90,
+          "passed": 90,
+          "failed": 0
+        }
+      },
+      "stable_observed_tree_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2659418,
+              14053555
+            ],
+            "cpu_lower_ms": 8810.0,
+            "cpu_upper_ms": 8900.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 570620,
+                "observed_max": 601724,
+                "observations": 167
+              },
+              "tree_pss_kib": {
+                "p95": 568020,
+                "observed_max": 568116,
+                "observations": 167
+              },
+              "tree_private_kib": {
+                "p95": 567960,
+                "observed_max": 568000,
+                "observations": 167
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 570620,
+            "pss_p95_kib": 568020,
+            "private_p95_kib": 567960
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2659601,
+              14054826
+            ],
+            "cpu_lower_ms": 8940.0,
+            "cpu_upper_ms": 9030.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 568300,
+                "observed_max": 598968,
+                "observations": 168
+              },
+              "tree_pss_kib": {
+                "p95": 565656,
+                "observed_max": 565698,
+                "observations": 168
+              },
+              "tree_private_kib": {
+                "p95": 565608,
+                "observed_max": 565648,
+                "observations": 168
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 568300,
+            "pss_p95_kib": 565656,
+            "private_p95_kib": 565608
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2659782,
+              14056106
+            ],
+            "cpu_lower_ms": 8840.0,
+            "cpu_upper_ms": 8930.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 571060,
+                "observed_max": 599952,
+                "observations": 167
+              },
+              "tree_pss_kib": {
+                "p95": 568470,
+                "observed_max": 568510,
+                "observations": 167
+              },
+              "tree_private_kib": {
+                "p95": 568432,
+                "observed_max": 568472,
+                "observations": 167
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 571060,
+            "pss_p95_kib": 568470,
+            "private_p95_kib": 568432
+          }
+        ],
+        "cpu_lower_ms": 26590.0,
+        "cpu_upper_ms": 26860.0,
+        "rss_p95_max_kib": 571060,
+        "pss_p95_max_kib": 568470,
+        "private_p95_max_kib": 568432,
+        "scope": "Observed root and descendants only; RSS sum counts shared pages repeatedly; PSS proportional. No latency or physical cache budget claim."
+      },
+      "reused_raw_selected_insertions": {
+        "count": 21,
+        "proof_sha256": "9c851779bcf2fb2be07e9c8c2fb78e74cb8c1a31e4b01aa8d755938139a8160f",
+        "raw_report_sha256": "039003c41ca41ae91302647f1f443a956cd48a486a8824916dace03fcb8b8aed",
+        "all_replay_drafts_full_edit_documentation_multisets_match": true,
+        "scope": "Previously compiled raw first/last/slowest replies. No new resource replay insertions compiled."
+      }
+    },
+    "candidate-modules": {
+      "engine_sha256": "54fad6acab66d45f07ea1f080db56571b0ec4e3527496d0b10620fb0e522ace5",
+      "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 93,
+          "passed": 93,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 90,
+          "passed": 90,
+          "failed": 0
+        }
+      },
+      "stable_observed_tree_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2659962,
+              14057408
+            ],
+            "cpu_lower_ms": 13400.0,
+            "cpu_upper_ms": 13490.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 612416,
+                "observed_max": 685992,
+                "observations": 185
+              },
+              "tree_pss_kib": {
+                "p95": 609136,
+                "observed_max": 609244,
+                "observations": 185
+              },
+              "tree_private_kib": {
+                "p95": 609100,
+                "observed_max": 609208,
+                "observations": 185
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 612416,
+            "pss_p95_kib": 609136,
+            "private_p95_kib": 609100
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2660213,
+              14059340
+            ],
+            "cpu_lower_ms": 13050.0,
+            "cpu_upper_ms": 13140.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 613992,
+                "observed_max": 688580,
+                "observations": 183
+              },
+              "tree_pss_kib": {
+                "p95": 611344,
+                "observed_max": 611496,
+                "observations": 183
+              },
+              "tree_private_kib": {
+                "p95": 611264,
+                "observed_max": 611328,
+                "observations": 183
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 613992,
+            "pss_p95_kib": 611344,
+            "private_p95_kib": 611264
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2660396,
+              14061059
+            ],
+            "cpu_lower_ms": 12930.0,
+            "cpu_upper_ms": 13020.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 597316,
+                "observed_max": 597424,
+                "observations": 182
+              },
+              "tree_pss_kib": {
+                "p95": 594697,
+                "observed_max": 594805,
+                "observations": 182
+              },
+              "tree_private_kib": {
+                "p95": 594648,
+                "observed_max": 594756,
+                "observations": 182
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 597316,
+            "pss_p95_kib": 594697,
+            "private_p95_kib": 594648
+          }
+        ],
+        "cpu_lower_ms": 39380.0,
+        "cpu_upper_ms": 39650.0,
+        "rss_p95_max_kib": 613992,
+        "pss_p95_max_kib": 611344,
+        "private_p95_max_kib": 611264,
+        "scope": "Observed root and descendants only; RSS sum counts shared pages repeatedly; PSS proportional. No latency or physical cache budget claim."
+      },
+      "reused_raw_selected_insertions": {
+        "count": 21,
+        "proof_sha256": "e40cc24a8ffd0502e48951cfa1a7df578a95c8b38554410a4b433aba825834aa",
+        "raw_report_sha256": "82430f3e66e6c7a8f6bb7ebde896ba36c2abee569b39adea1aa64332595cf334",
+        "all_replay_drafts_full_edit_documentation_multisets_match": true,
+        "scope": "Previously compiled raw first/last/slowest replies. No new resource replay insertions compiled."
+      }
+    },
+    "baseline-modules": {
+      "engine_sha256": "696e8caa5246525669583eb0f999f23cb21a87191f3b1be59a0c3952a5d1a0b1",
+      "draft_source_sha256": "bac3d5a798671ba51db0640ccfd63a7b7a72750b9561503565697c420f61a871",
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 93,
+          "passed": 93,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 90,
+          "passed": 90,
+          "failed": 0
+        }
+      },
+      "stable_observed_tree_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2660583,
+              14062782
+            ],
+            "cpu_lower_ms": 13190.0,
+            "cpu_upper_ms": 13280.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 663252,
+                "observed_max": 667548,
+                "observations": 183
+              },
+              "tree_pss_kib": {
+                "p95": 590916,
+                "observed_max": 591064,
+                "observations": 183
+              },
+              "tree_private_kib": {
+                "p95": 590868,
+                "observed_max": 591016,
+                "observations": 183
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 663252,
+            "pss_p95_kib": 590916,
+            "private_p95_kib": 590868
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2661063,
+              14064682
+            ],
+            "cpu_lower_ms": 13350.0,
+            "cpu_upper_ms": 13440.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 670292,
+                "observed_max": 688292,
+                "observations": 184
+              },
+              "tree_pss_kib": {
+                "p95": 612378,
+                "observed_max": 612538,
+                "observations": 184
+              },
+              "tree_private_kib": {
+                "p95": 612332,
+                "observed_max": 612372,
+                "observations": 184
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 670292,
+            "pss_p95_kib": 612378,
+            "private_p95_kib": 612332
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2661279,
+              14066426
+            ],
+            "cpu_lower_ms": 13420.0,
+            "cpu_upper_ms": 13510.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 640992,
+                "observed_max": 664220,
+                "observations": 184
+              },
+              "tree_pss_kib": {
+                "p95": 587473,
+                "observed_max": 587569,
+                "observations": 184
+              },
+              "tree_private_kib": {
+                "p95": 587416,
+                "observed_max": 587476,
+                "observations": 184
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 640992,
+            "pss_p95_kib": 587473,
+            "private_p95_kib": 587416
+          }
+        ],
+        "cpu_lower_ms": 39960.0,
+        "cpu_upper_ms": 40230.0,
+        "rss_p95_max_kib": 670292,
+        "pss_p95_max_kib": 612378,
+        "private_p95_max_kib": 612332,
+        "scope": "Observed root and descendants only; RSS sum counts shared pages repeatedly; PSS proportional. No latency or physical cache budget claim."
+      },
+      "reused_raw_selected_insertions": {
+        "count": 20,
+        "proof_sha256": "7353248575d60f24ae725fbed5a51e222b03ed78973d5ed91bca98b79afdf5aa",
+        "raw_report_sha256": "e5dde20e587ab2497318d4965f40d66acb95754dd9eb8209337348980f8f91ad",
+        "all_replay_drafts_full_edit_documentation_multisets_match": true,
+        "scope": "Previously compiled raw first/last/slowest replies. No new resource replay insertions compiled."
+      }
+    },
+    "candidate-headers": {
+      "engine_sha256": "54fad6acab66d45f07ea1f080db56571b0ec4e3527496d0b10620fb0e522ace5",
+      "draft_source_sha256": "0effbd431dbdab4d29eb04cc8c6310c279154175cac85894380d4d51f962ab7f",
+      "semantic_counts": {
+        "cold-open": {
+          "answered": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "settled-warm": {
+          "answered": 93,
+          "passed": 93,
+          "failed": 0
+        },
+        "edited": {
+          "answered": 90,
+          "passed": 90,
+          "failed": 0
+        }
+      },
+      "stable_observed_tree_resources": {
+        "windows": [
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2661496,
+              14068192
+            ],
+            "cpu_lower_ms": 8840.0,
+            "cpu_upper_ms": 8930.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 567920,
+                "observed_max": 586116,
+                "observations": 167
+              },
+              "tree_pss_kib": {
+                "p95": 565368,
+                "observed_max": 567248,
+                "observations": 167
+              },
+              "tree_private_kib": {
+                "p95": 565336,
+                "observed_max": 567216,
+                "observations": 167
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 567920,
+            "pss_p95_kib": 565368,
+            "private_p95_kib": 565336
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2661674,
+              14069466
+            ],
+            "cpu_lower_ms": 8980.0,
+            "cpu_upper_ms": 9070.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 568828,
+                "observed_max": 593288,
+                "observations": 167
+              },
+              "tree_pss_kib": {
+                "p95": 566278,
+                "observed_max": 566734,
+                "observations": 167
+              },
+              "tree_private_kib": {
+                "p95": 566248,
+                "observed_max": 566704,
+                "observations": 167
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 568828,
+            "pss_p95_kib": 566278,
+            "private_p95_kib": 566248
+          },
+          {
+            "stable_requests": 61,
+            "root_identity": [
+              2661885,
+              14070744
+            ],
+            "cpu_lower_ms": 9060.0,
+            "cpu_upper_ms": 9160.0,
+            "memory": {
+              "tree_rss_sum_kib": {
+                "p95": 568464,
+                "observed_max": 598472,
+                "observations": 167
+              },
+              "tree_pss_kib": {
+                "p95": 565775,
+                "observed_max": 565815,
+                "observations": 167
+              },
+              "tree_private_kib": {
+                "p95": 565728,
+                "observed_max": 565768,
+                "observations": 167
+              }
+            },
+            "scope": "Resource-only stable root plus observed descendants. CPU quantization and read interval bounds; PSS apportioning, RSS sum counts shared pages more than once. Periodic observation cannot prove fast unsampled child escape or physical cache allocation. All elapsed times excluded.",
+            "rss_p95_kib": 568464,
+            "pss_p95_kib": 565775,
+            "private_p95_kib": 565728
+          }
+        ],
+        "cpu_lower_ms": 26880.0,
+        "cpu_upper_ms": 27160.0,
+        "rss_p95_max_kib": 568828,
+        "pss_p95_max_kib": 566278,
+        "private_p95_max_kib": 566248,
+        "scope": "Observed root and descendants only; RSS sum counts shared pages repeatedly; PSS proportional. No latency or physical cache budget claim."
+      },
+      "reused_raw_selected_insertions": {
+        "count": 21,
+        "proof_sha256": "ed20dea27e8fd9000e39ffb2e4668d3ef4adeae77bea1f6e1b28a3dcd3b10b2c",
+        "raw_report_sha256": "5efd11ff2d5ec4290824a2cb38218e0680dda8a4f146946d738948e143e0e372",
+        "all_replay_drafts_full_edit_documentation_multisets_match": true,
+        "scope": "Previously compiled raw first/last/slowest replies. No new resource replay insertions compiled."
+      }
+    }
+  },
+  "within_mode_distinct_edit_and_documentation_fields_equal": true,
+  "all_edit_documentation_multiplicities_equal": true,
+  "resource_comparisons": {
+    "headers": {
+      "cpu_ratio_conservative": 1.0214366303121474,
+      "rss_observed_p95_max_ratio": 0.9960914790039576,
+      "pss_observed_p95_max_ratio": 0.9961440357450702,
+      "private_observed_p95_max_ratio": 0.9961578517747066
+    },
+    "modules": {
+      "cpu_ratio_conservative": 0.9922422422422422,
+      "rss_observed_p95_max_ratio": 0.9160067552648696,
+      "pss_observed_p95_max_ratio": 0.9983115004131435,
+      "private_observed_p95_max_ratio": 0.998255848134672
+    }
+  },
+  "explicit_performance_checks": {
+    "observed_tree_cpu_rss_pss_private_no_20_percent_regression": true
+  },
+  "all_explicit_performance_checks_pass": true
+}
