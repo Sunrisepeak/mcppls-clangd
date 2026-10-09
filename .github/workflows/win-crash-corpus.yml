@@ -1,10 +1,6 @@
 name: win-crash-corpus
 
-# C1 of the windows-crash plan: replay the crash corpus against the PDB
-# build under a debugger and with WER LocalDumps enabled. The run fails
-# while any corpus entry still crashes - that failing state is the
-# register row's status. With an empty corpus it validates the
-# infrastructure (build + cdb presence + save-loop soak).
+# Empty or invalid corpora fail: infrastructure smoke is not crash evidence.
 
 on:
   workflow_dispatch:
@@ -24,57 +20,86 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Qualify reduced real inputs against the pinned Windows baseline
+        run: python ci/qualify_crash_candidates.py --download-windows-baseline baseline-engine --candidates tests/crash/candidates --output candidate-baseline.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-candidate-baseline
+          path: candidate-baseline.json
+          if-no-files-found: error
       - run: pip install ninja
       - uses: ilammy/msvc-dev-cmd@v1
 
-      - uses: actions/cache@v4
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba
         with:
-          path: .ccache
-          key: ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
-          restore-keys: |
-            ccache-win32-x64-${{ hashFiles('UPSTREAM') }}-
+          version: v0.18.0
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-win32-x64-
+          key: llvm-tree-win32-x64-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
+
+      - name: Ensure the native debugger is installed
+        shell: pwsh
+        run: |
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) {
+            # Add only the debugger feature using the signed, cached SDK installer.
+            $sdk = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+              Where-Object { $_.DisplayName -match "Windows Software Development Kit" } |
+              Sort-Object DisplayVersion -Descending | Select-Object -First 1
+            if (-not $sdk.BundleCachePath) { throw "No cached Windows SDK installer for CDB" }
+            $signature = Get-AuthenticodeSignature $sdk.BundleCachePath
+            if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+              throw "Windows SDK installer signature is not valid Microsoft code"
+            }
+            $installation = Start-Process -FilePath $sdk.BundleCachePath `
+              -ArgumentList "/features", "OptionId.WindowsDesktopDebuggers", "/q", "/norestart" -Wait -PassThru
+            if ($installation.ExitCode -notin @(0, 3010)) { throw "SDK debugger install failed: $($installation.ExitCode)" }
+          }
+          if (-not (Test-Path $cdb)) { throw "cdb is required for crash corpus evidence" }
+          Write-Host "cdb: $cdb"
 
       - name: Build fork clangd with PDBs and dump capture
         shell: bash
         env:
           PLATFORM: win32-x64
           JOBS: 4
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-          CMAKE_EXTRA: -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase
+          SYMBOLS: "1"
+          SCCACHE_GHA_ENABLED: "true"
+          SCCACHE_IDLE_TIMEOUT: "0"
+          CMAKE_EXTRA: -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
         run: ./ci/ci_build.sh
 
-      - name: Locate debugger
+      - name: Verify linked PDB identity and debugger symbol lookup
         shell: pwsh
         run: |
-          $cdb = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue
-          if (-not $cdb) { Write-Host "::warning::cdb not found - dumps-only mode" } else { Write-Host "cdb: $($cdb.FullName)" }
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          python ci/windows_symbols.py --engine build-win32-x64/bin/clangd.exe --pdb build-win32-x64/bin/clangd.pdb --readobj build-win32-x64/bin/llvm-readobj.exe --pdbutil build-win32-x64/bin/llvm-pdbutil.exe --cdb "$cdb" --output dist/symbols
+          if ($LASTEXITCODE -ne 0) { throw "linked PDB verification failed" }
+          Copy-Item build-win32-x64/engine-build.json dist/symbols/engine-build.json
 
       - name: Enable WER LocalDumps for clangd
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path "D:\a\clangd-dumps" -Force | Out-Null
           $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\clangd.exe"
           New-Item -Path $key -Force | Out-Null
           Set-ItemProperty -Path $key -Name DumpFolder -Value "D:\a\clangd-dumps" -Type ExpandString
           Set-ItemProperty -Path $key -Name DumpType -Value 2 -Type DWord
           Set-ItemProperty -Path $key -Name DumpCount -Value 10 -Type DWord
 
+      - name: Replay qualified candidates against the symbol-bearing fork
+        shell: bash
+        run: |
+          python3 tests/crash/replay.py --engine build-win32-x64/bin/clangd.exe \
+            --corpus tests/crash/candidates --output candidate-fork.json
+
       - name: Replay corpus (fail while any entry crashes)
         shell: bash
         run: |
-          count=$(ls tests/crash/windows/*.json 2>/dev/null | wc -l)
-          echo "corpus entries: $count"
-          if [ "$count" -eq 0 ]; then
-            echo "corpus empty - running the save-loop stability scenario only"
-            BENCH_CLANG="$BUILD_DIR/bin/clang" python3 tests/probes/gen_bench_project.py /tmp/corpus_proj 8
-            python3 tests/soak_loop.py "$BUILD_DIR/bin/clangd.exe" /tmp/corpus_proj --cycles 20
-          else
-            echo "replay per manifest (implemented with C0 corpus landing)"
-          fi
+          python3 tests/crash/replay.py --engine "$BUILD_DIR/bin/clangd.exe" \
+            --corpus tests/crash/windows --output crash-outcomes.json
         env:
           BUILD_DIR: ${{ github.workspace }}/build-win32-x64
 
@@ -83,6 +108,9 @@ jobs:
         with:
           name: windows-crash-dumps
           path: |
+            dist/symbols/**
+            candidate-fork.json
+            crash-outcomes.json
             /d/a/clangd-dumps/**
             D:\a\clangd-dumps\**
           if-no-files-found: ignore

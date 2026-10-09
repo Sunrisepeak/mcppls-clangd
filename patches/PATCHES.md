@@ -1,20 +1,54 @@
 # Patch ledger
 
-One entry per carried patch: the register row it carries, its state, its test
+One entry per carried patch: the register rows it carries, its state, its test
 map, and its drop condition. `ci/check_ledger.py` enforces this file against
 `patches/series` (plan doc §3, layout principle 3; verification map:
 fix-register doc §1).
 
 States: `draft` → `stabilizing` → `steady` → `upstream-submitted` → `landed (dropped)`.
 Only `steady` rides a release. Row ids never appear inside patch code or tests —
-they live here and in patch *filenames* only.
+they live here and in patch *filenames* only; a filename carries the patch's
+primary row, the `rows` column every row it serves.
 
-| patch | row | state | tests | drop condition |
-|-------|-----|-------|-------|----------------|
-| 0001-UP-05-backport-handling-merging-predefined-decls-from-std.patch | UP-05 | stabilizing | clang/test/Modules/pr218152.cppm (in-patch, upstream's own) | upstream landed it in 23.1.1 (52774473867e); drop when the bundled base is bumped past 23.1.0 |
-| 0002-UP-25-memoize-module-file-validation-across-requests.patch | UP-25 | stabilizing | clangd/test/modules-validation-cache.test (in-patch); bench gate: warm completion p95 (tests/probes) | drop when upstream memoizes BMI validation for the preamble-reuse path |
-| 0003-UP-18-break-module-cache-locks-whose-owner-died.patch | UP-18 | stabilizing | clangd/test/modules-stale-lock.test (in-patch); soak covers kill -9 cycles | drop when upstream breaks dead-owner module locks on Windows |
-| 0004-UP-09-semantic-tokens-range.patch | UP-09 | stabilizing | clangd/test/semantic-tokens-range.test (in-patch) | drop when upstream implements textDocument/semanticTokens/range |
-| 0005-UP-22-const-correctness-ranges-pipeline.patch | UP-22 | draft | clang-tidy/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp (in-patch); verified on the issue #37 shape (piped filter_view no longer flagged); follow-up: teach ExprMutationAnalyzer the by-value range-for case (transform_view still flagged) | drop when upstream stops suggesting const for ranges forwarded into pipes |
-| 0006-UP-25-completion-index-fast-path.patch | UP-25 | stabilizing | clangd/test/modules*.test (fallback when no index); bench: qt-demo identifier/qualified completion p95 (measured 81 ms, was ~1000 ms; gate < 200 ms); item-set verified against the Sema path (nlohmann::j → 12 correct members) | drop when upstream serves module completion without re-deserializing BMIs per request (S2-B tables or equivalent) |
-| 0007-UP-13-windows-crash-dumps.patch | UP-13 | draft | win-crash-corpus job (save-loop scenario; per-row entries land with C0 corpus); gives every Windows crash a symbolized dump, unblocking UP-12/13/20 stacks | drop when upstream gains native crash-dump diagnostics for the LSP server |
+A patch is **steady** when the series it belongs to, applied to the pinned
+tarball, builds on every release platform (`build-test`), every test its row
+maps passes in that run, the Ubuntu 20.04 floor package passes its runtime
+controls, and no known negative remains open against it. A change to a steady
+patch returns it to `stabilizing` until the same run passes again.
+
+## The 0.0.12 series
+
+The 0.0.12 series carries 25 topic patches. They were regrouped from 74
+incremental patches without changing the patched tree (both apply to
+`a2e92ba00e6666eaa5d1f975a4bd65b80537dbab`); each multi-change patch lists the
+changes it combines in its message. The incremental history and the raw
+evidence it produced are in the `archive/0.0.12-joint` branch and the
+`evidence-0.0.12` release (`tests/evidence/README.md`).
+
+| patch | rows | state | tests | drop condition |
+|-------|------|-------|-------|----------------|
+| 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
+| 0002-UP-25-module-validation-memo.patch | UP-25 | steady | clangd/test/modules-validation-cache.test; clangd/test/modules-validation-overlay.test; tests/e2e/completion_quality.py | upstream memoizes BMI validation for preamble reuse, keyed by precise input identity and verified against the request filesystem |
+| 0003-UP-18-module-cache-locks.patch | UP-18, UP-21 | steady | clangd/test/modules-stale-lock.test; tests/e2e/module_lock_close.py | upstream breaks dead-owner module locks (Windows included) and cancels lock waits when the document closes |
+| 0004-UP-09-semantic-tokens-range.patch | UP-09 | steady | clangd/test/semantic-tokens-range.test | upstream implements textDocument/semanticTokens/range |
+| 0005-UP-22-const-correctness-ranges.patch | UP-22 | steady | clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp; clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp; tests/e2e/const_correctness.py | upstream validates const range consumption with instantiated constraints |
+| 0006-UP-25-module-index-completion.patch | UP-25 | steady | tests/e2e/completion_quality.py (the opt-in index path stays off; the semantic default is asserted) | upstream serves module completion without re-deserializing BMIs per request; the opt-in flag goes with it |
+| 0007-UP-13-windows-crash-dumps.patch | UP-13 | steady | ci/test_windows_crash_capture.py; .github/workflows/win-crash-corpus.yml | upstream gains native crash-dump diagnostics for the LSP server |
+| 0008-UP-25-module-importer-semantic-completion.patch | UP-25 | steady | tests/e2e/completion_quality.py; tests/e2e/module_cold_completion.py; clangd/unittests/PreambleTests.cpp | upstream completion keeps semantic results on module importers, refreshes stale BMI views and waits for the resolved command |
+| 0009-FEATURE-43-mcpp-format-style.patch | FEATURE-43 | steady | clangd/test/mcpp-format-style.test; clangd/test/mcpp-format-fallback.test | upstream supports the pinned mcpp preset or an equivalent explicit fallback configuration |
+| 0010-FEATURE-44-compiler-extension-completion.patch | FEATURE-44 | steady | tests/e2e/compiler_extensions.py | upstream offers attribute introducers, cleanup references and target-aware SEH without index-only keyword pollution |
+| 0011-UP-01-module-directive-recovery.patch | UP-01, UP-12, UP-15 | steady | clangd/test/module-directive-recovery.test; clangd/test/missing-bmi-token-recovery.test; clang/test/Modules/missing-module-semicolon-location.cpp; tests/e2e/module_directive_recovery.py; tests/e2e/module_directive_diagnostics.py | upstream token collection, missing-BMI keyword handling and separator diagnostics recover in place |
+| 0012-UP-03-module-prerequisite-dag.patch | UP-03, UP-24, UP-25 | steady | clangd/test/modules-bounded-dag.test; tests/e2e/module_dag.py; tests/e2e/module_cycle.py; tests/e2e/third_party_import.py; tests/e2e/module_cache_lease.py | upstream schedules prerequisite builds as a bounded cancellable DAG with cycle rejection, third-party import fallback and reader leases |
+| 0013-UP-03-module-provider-command-cache.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_provider_cache.py | upstream reuses provider command facts across equivalent CDB generations |
+| 0014-UP-03-module-dependency-scan-memo.patch | UP-03, UP-23 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py; tests/e2e/module_scan_builtins.py; tests/e2e/module_request_inputs.py | upstream reuses dependency scans only after replaying every observed input |
+| 0015-UP-03-module-compile-command-inputs.patch | UP-03, UP-23, UP-27 | steady | clangd/unittests/GlobalCompilationDatabaseTests.cpp; clangd/unittests/CompileCommandsTests.cpp; tests/e2e/module_response_inputs.py | upstream reloads response-file generations, resolves external module commands per project and preserves the GCC mapper dialect |
+| 0016-UP-24-module-cache-gc-ownership-test.patch | UP-24 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | the owned cache divergence (0017, 0019) is dropped |
+| 0017-UP-03-module-compiler-workers.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_worker_default.py; tests/e2e/module_worker_failure.py; tests/e2e/module_worker_diagnostics.py | upstream isolates module compilation in supervised, budgeted workers |
+| 0018-UP-24-module-read-copy-maintenance.patch | UP-24 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_cache_lease.py | upstream maintains copy-on-read orphans outside requests with bounded traversal |
+| 0019-UP-03-owned-module-payloads.patch | UP-03, UP-24 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_worker_default.py | upstream owns module payloads through admission and kernel leases with cancellable bounded waits |
+| 0020-UP-23-module-preamble-policy.patch | UP-23, UP-26 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_preamble_mode.py | upstream resolves the module preamble policy from the attached prerequisites |
+| 0021-UP-20-published-prerequisite-generations.patch | UP-20, UP-03, UP-23 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_cycle.py; tests/e2e/module_dag.py | upstream binds consumers to published dependency generations and limits producer snapshots to their closure |
+| 0022-UP-03-module-scan-exact-queries.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py | upstream scan recording preserves relative query spelling |
+| 0023-UP-28-verified-textual-module-preambles.patch | UP-28 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/completion_quality.py | upstream proves textual-prefix reuse with complete PCH input and import audits |
+| 0024-UP-29-gnu-standard-module-producers.patch | UP-29 | steady | clangd/unittests/CompileCommandsTests.cpp; tests/e2e/module_request_inputs.py | upstream dependency scanning recognizes installed GNU standard module producers |
+| 0025-UP-25-selective-completion-loading.patch | UP-25 | steady | clangd/unittests/CodeCompleteTests.cpp; clang/unittests/Serialization/NamespaceLookupTest.cpp; tests/e2e/frontend_completion_consumers.py | upstream completion loads only names that can match the typed prefix and emits each constructor overload once |

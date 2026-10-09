@@ -14,8 +14,31 @@ case "$PLATFORM" in
     # recipe: old-glibc container is the compat floor; static libgcc + deps.
     # The static-deps part needs static system libs (CI container installs
     # them); local dev boxes opt in with FORCE_STATIC_DEPS=1.
-    EXTRA+=(-DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -Wl,--compress-debug-sections=zlib")
+    EXTRA+=(-DCMAKE_EXE_LINKER_FLAGS_RELEASE="-static-libgcc -static-libstdc++ -Wl,--compress-debug-sections=zlib")
     [[ "${FORCE_STATIC_DEPS:-0}" = "1" ]] && EXTRA+=(-DCMAKE_FIND_LIBRARY_SUFFIXES=".a")
+    ;;
+  darwin-x64)
+    EXTRA+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=x86_64
+            -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF)
+    ;;
+  darwin-arm64)
+    EXTRA+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_OSX_ARCHITECTURES=arm64
+            -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF)
+    ;;
+  win32-x64)
+    # Avoid a separately installed Visual C++ runtime on a clean Windows host.
+    EXTRA+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+            -DLLVM_USE_CRT_RELEASE=MT -DLLVM_ENABLE_ZSTD=OFF
+            -DLLVM_ENABLE_LIBXML2=OFF)
+    if [[ "${SYMBOLS:-0}" = "1" ]]; then
+      # sccache requires per-object debug information: /Zi's shared compiler
+      # PDB fails under parallel cached CL invocations even with /FS. /Z7
+      # embeds it in each object; /DEBUG still produces the linked PDB.
+      EXTRA+=(-DCMAKE_POLICY_DEFAULT_CMP0141=NEW
+              -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded
+              -DLLVM_ENABLE_PDB=OFF
+              "-DCMAKE_EXE_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF")
+    fi
     ;;
 esac
 

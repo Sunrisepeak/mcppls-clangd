@@ -1,5 +1,7 @@
 # UP-25 completion latency: root-cause layers and the fix plan (for review)
 
+> 2026-10-07 review update: see the [joint release contract](2026-10-07-joint-0.0.12-release-plan.md). The implemented 0006 loses member semantics and the candidate fails module-export update C7. Its latency is not proof of a valid fix. S2-B below is an unproven design candidate, not a guaranteed durable fix or delivery estimate; scope/visibility, templates, invalidation and serialization must be proved before adoption.
+
 2026-10-06. Companion to [2026-10-06-clangd-fix-register-plan.md](2026-10-06-clangd-fix-register-plan.md)
 §2.5 (measurements) and the PR1 plan §7. This document commits to actually
 closing the remaining gap — "module-project completion at header-project

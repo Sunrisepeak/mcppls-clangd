@@ -1,5 +1,7 @@
 # mcppls-clangd: overall plan and architecture (v1, for review)
 
+> 2026-10-07 review update: the [joint 0.0.12 release contract](2026-10-07-joint-0.0.12-release-plan.md) supersedes this draft's release sequencing and unproven cache/performance assumptions. Current patches are not release-ready. Correctness, root-cause evidence and four-platform product acceptance are mandatory; general mcppls containment is retained.
+
 2026-10-06. First PR. Everything here is a proposal to review — nothing is
 built yet.
 

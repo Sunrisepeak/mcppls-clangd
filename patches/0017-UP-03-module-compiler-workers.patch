@@ -1,0 +1,3890 @@
+From 5baec6678745a3709a834f70c47d69b45e0a4f7f Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 11:35:02 +0900
+Subject: [clangd] Prerequisite modules compile in supervised worker processes
+
+Module compilation can run in an isolated worker that receives the request's captured inputs and drafts through an internal protocol. Workers stop when their parent dies, are admitted against a shared checked memory budget and address-space limit, have bounded output and diagnostics, and leave units that are collected only after both owners release their leases. On Linux this is the default for prerequisite builds; in-process fixtures choose their policy explicitly.
+
+* Add an internal module compiler worker request protocol
+
+  Serialize finalized CC1 arguments and explicit captured filesystem inputs, using binary snapshot files for main contents and ordered YAML overlays. Unsupported filesystem export is the default and process-local remapped buffers are rejected. The internal clangd worker mode reconstructs the invocation and request view before compiling a staged BMI, and discards failed output.
+
+  This foundation is not enabled in ModulesBuilder. The parent must still supervise cancellation and deadlines, terminate and reap the specific child, retain prerequisite read leases, capture the entire filesystem view, and clean up killed-worker outputs and caches. It provides no hard runtime or RSS guarantee by itself.
+
+* Supervise isolated module compilation and capture request drafts
+
+* Stop isolated module workers when their parent owner dies
+
+* clangd: add explicit shared cgroup memory admission for module workers
+
+* Collect orphan module worker units only after both owners release leases
+
+* Apply checked address-space limits before worker frontend allocation
+
+* Supervise prerequisite module compilers by default on Linux
+
+  Finalize the invocation before exporting request overlays and explicit prerequisite paths. Keep publication locks and prerequisite leases through specific-child reap, then recheck cancellation before publishing.
+
+  Share a deadline and per-pool address-space policy across jobs, with optional verified aggregate cgroup admission. Configuration failures reject compilation rather than falling back. Keep leased-unit maintenance on a separate bounded thread and drain workers before releasing their shared budget.
+
+* Preserve relative compiler inputs and explicit in-process fixture policy
+
+  Resolve the captured main path against its working directory while keeping the original cc1 source spelling and rejecting a different captured main. Existing compiler-hook unit fixtures explicitly select in-process execution and restore the prior policy; real LSP coverage separately exercises production worker defaults.
+
+* Collect verified orphan module worker memory budgets under owner leases
+
+  Consolidated patch43 includes original aa84f27 and retry/retirement follow-up aaf00bb. Revalidate actual group identity before every name-based removal retry; preserve locked leases through sidecar retirement.
+
+* Bound Linux module worker diagnostics with owned nonblocking FIFOs
+
+  Redirect worker stderr into a private FIFO instead of an unbounded regular file. The specific-child supervisor drains at most sixteen 4 KiB reads per poll, retains a 64 KiB prefix and discards excess bytes. Read, cancellation and timeout failures reap the actual child before closing the transport and deleting its unit. Other platforms retain their existing bounded parent read and require separate disk-bound qualification.
+
+* Bound worker output payloads and captured request inputs before writes
+
+  Compiler output budgets cover reduced BMI, implicit cache, global index and configured output backends. Captured inputs are checked before snapshot payload writes. Resource-ceiling requests use protocol version 2 so older workers cannot ignore the bound. These optional limits do not claim aggregate cache or filesystem quota enforcement.
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |   4 +
+ clang-tools-extra/clangd/ClangdServer.cpp     |  19 +-
+ clang-tools-extra/clangd/Compiler.cpp         |  15 +-
+ clang-tools-extra/clangd/Compiler.h           |   8 +
+ clang-tools-extra/clangd/DraftStore.cpp       |  63 +-
+ clang-tools-extra/clangd/DraftStore.h         |  16 +
+ .../clangd/ModuleBuildMemoryBudget.cpp        | 613 +++++++++++++
+ .../clangd/ModuleBuildMemoryBudget.h          |  51 ++
+ .../clangd/ModuleBuildWorker.cpp              | 855 ++++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildWorker.h  | 111 +++
+ .../clangd/ModuleBuildWorkerOutput.cpp        | 320 +++++++
+ .../clangd/ModuleBuildWorkerOutput.h          |  36 +
+ .../clangd/ModuleBuildWorkerStorage.cpp       | 319 +++++++
+ .../clangd/ModuleBuildWorkerStorage.h         |  72 ++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 305 ++++++-
+ .../clangd/support/ThreadsafeFS.h             |  30 +
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  |  13 +
+ .../clangd/unittests/DraftStoreTests.cpp      |  26 +
+ .../unittests/PrerequisiteModulesTest.cpp     | 365 ++++++++
+ .../clang/Serialization/GlobalModuleIndex.h   |  10 +
+ clang/lib/Frontend/CompilerInstance.cpp       |  40 +-
+ clang/lib/Frontend/FrontendAction.cpp         |   4 +-
+ clang/lib/Serialization/GlobalModuleIndex.cpp |  21 +-
+ 23 files changed, 3248 insertions(+), 68 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorker.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorker.h
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorkerOutput.h
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index 890562d..80bb747 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -96,6 +96,10 @@ add_clang_library(clangDaemon STATIC
+   IncludeFixer.cpp
+   InlayHints.cpp
+   JSONTransport.cpp
++  ModuleBuildMemoryBudget.cpp
++  ModuleBuildWorker.cpp
++  ModuleBuildWorkerOutput.cpp
++  ModuleBuildWorkerStorage.cpp
+   ModulesBuilder.cpp
+   PathMapping.cpp
+   ProjectModules.cpp
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index 5f3dbb7..fcf9bd4 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -173,23 +173,6 @@ private:
+   bool CollectInactiveRegions;
+ };
+ 
+-class DraftStoreFS : public ThreadsafeFS {
+-public:
+-  DraftStoreFS(const ThreadsafeFS &Base, const DraftStore &Drafts)
+-      : Base(Base), DirtyFiles(Drafts) {}
+-
+-private:
+-  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
+-    auto OFS = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+-        Base.view(std::nullopt));
+-    OFS->pushOverlay(DirtyFiles.asVFS());
+-    return OFS;
+-  }
+-
+-  const ThreadsafeFS &Base;
+-  const DraftStore &DirtyFiles;
+-};
+-
+ } // namespace
+ 
+ ClangdServer::Options ClangdServer::optsForTest() {
+@@ -229,7 +212,7 @@ ClangdServer::ClangdServer(const GlobalCompilationDatabase &CDB,
+       WorkspaceRoot(Opts.WorkspaceRoot),
+       Transient(Opts.ImplicitCancellation ? TUScheduler::InvalidateOnUpdate
+                                           : TUScheduler::NoInvalidation),
+-      DirtyFS(std::make_unique<DraftStoreFS>(TFS, DraftMgr)),
++      DirtyFS(createDraftStoreFS(TFS, DraftMgr)),
+       ContextProvider(Opts.ContextProvider) {
+   if (Opts.AsyncThreadsCount != 0)
+     IndexTasks.emplace();
+diff --git a/clang-tools-extra/clangd/Compiler.cpp b/clang-tools-extra/clangd/Compiler.cpp
+index 4644cd7..0ccc2b0 100644
+--- a/clang-tools-extra/clangd/Compiler.cpp
++++ b/clang-tools-extra/clangd/Compiler.cpp
+@@ -133,6 +133,17 @@ prepareCompilerInstance(std::unique_ptr<clang::CompilerInvocation> CI,
+                         std::unique_ptr<llvm::MemoryBuffer> Buffer,
+                         llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS,
+                         DiagnosticConsumer &DiagsClient) {
++  return prepareCompilerInstance(std::move(CI), Preamble, std::move(Buffer),
++                                 std::move(VFS), DiagsClient, nullptr);
++}
++
++std::unique_ptr<CompilerInstance>
++prepareCompilerInstance(std::unique_ptr<clang::CompilerInvocation> CI,
++                        const PrecompiledPreamble *Preamble,
++                        std::unique_ptr<llvm::MemoryBuffer> Buffer,
++                        llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS,
++                        DiagnosticConsumer &DiagsClient,
++                        std::shared_ptr<ModuleCache> Cache) {
+   assert(VFS && "VFS is null");
+   assert(!CI->getPreprocessorOpts().RetainRemappedFileBuffers &&
+          "Setting RetainRemappedFileBuffers to true will cause a memory leak "
+@@ -147,7 +158,9 @@ prepareCompilerInstance(std::unique_ptr<clang::CompilerInvocation> CI,
+         CI->getFrontendOpts().Inputs[0].getFile(), Buffer.get());
+   }
+ 
+-  auto Clang = std::make_unique<CompilerInstance>(std::move(CI));
++  auto Clang = std::make_unique<CompilerInstance>(
++      std::move(CI), std::make_shared<PCHContainerOperations>(),
++      std::move(Cache));
+   Clang->createVirtualFileSystem(VFS, &DiagsClient);
+   Clang->createDiagnostics(&DiagsClient, false);
+   Clang->createFileManager();
+diff --git a/clang-tools-extra/clangd/Compiler.h b/clang-tools-extra/clangd/Compiler.h
+index 5e5e23d..17da858 100644
+--- a/clang-tools-extra/clangd/Compiler.h
++++ b/clang-tools-extra/clangd/Compiler.h
+@@ -93,6 +93,14 @@ std::unique_ptr<CompilerInstance> prepareCompilerInstance(
+     std::unique_ptr<llvm::MemoryBuffer> MainFile,
+     IntrusiveRefCntPtr<llvm::vfs::FileSystem>, DiagnosticConsumer &);
+ 
++// Worker variant retains its shared bounded implicit-module cache.
++std::unique_ptr<CompilerInstance>
++prepareCompilerInstance(std::unique_ptr<clang::CompilerInvocation>,
++                        const PrecompiledPreamble *,
++                        std::unique_ptr<llvm::MemoryBuffer> MainFile,
++                        IntrusiveRefCntPtr<llvm::vfs::FileSystem>,
++                        DiagnosticConsumer &, std::shared_ptr<ModuleCache>);
++
+ /// Respect `#pragma clang __debug crash` etc, which are usually disabled.
+ /// This may only be called before threads are spawned.
+ void allowCrashPragmasForTest();
+diff --git a/clang-tools-extra/clangd/DraftStore.cpp b/clang-tools-extra/clangd/DraftStore.cpp
+index 66e45b0..fac4dd9 100644
+--- a/clang-tools-extra/clangd/DraftStore.cpp
++++ b/clang-tools-extra/clangd/DraftStore.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "DraftStore.h"
+ #include "support/Logger.h"
++#include "support/ThreadsafeFS.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include <memory>
+@@ -91,6 +92,36 @@ void DraftStore::removeDraft(PathRef File) {
+ 
+ namespace {
+ 
++class DraftStoreFS : public ThreadsafeFS {
++public:
++  DraftStoreFS(const ThreadsafeFS &Base, const DraftStore &Drafts)
++      : Base(Base), DirtyFiles(Drafts) {}
++
++  std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const override {
++    auto Captured = Base.snapshotForModuleBuild();
++    if (!Captured)
++      return std::nullopt;
++    // The same atomic DraftStore snapshot used by asVFS(), never a sequence
++    // of getActiveFiles/getDraft calls that could combine different versions.
++    for (const auto &File : DirtyFiles.snapshot())
++      Captured->OverlayFiles.push_back(
++          {File.File, *File.Contents.Contents, File.MTime});
++    return Captured;
++  }
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    auto OFS = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
++        Base.view(std::nullopt));
++    OFS->pushOverlay(DirtyFiles.asVFS());
++    return OFS;
++  }
++
++  const ThreadsafeFS &Base;
++  const DraftStore &DirtyFiles;
++};
++
+ /// A read only MemoryBuffer shares ownership of a ref counted string. The
+ /// shared string object must not be modified while an owned by this buffer.
+ class SharedStringBuffer : public llvm::MemoryBuffer {
+@@ -114,14 +145,34 @@ public:
+ };
+ } // namespace
+ 
+-llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> DraftStore::asVFS() const {
+-  auto MemFS = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++std::unique_ptr<ThreadsafeFS> createDraftStoreFS(const ThreadsafeFS &Base,
++                                                 const DraftStore &Drafts) {
++  return std::make_unique<DraftStoreFS>(Base, Drafts);
++}
++
++DraftStore::Snapshot DraftStore::snapshot() const {
+   std::lock_guard<std::mutex> Guard(Mutex);
+-  for (const auto &Draft : Drafts)
+-    MemFS->addFile(Draft.getKey(), Draft.getValue().MTime,
+-                   std::make_unique<SharedStringBuffer>(
+-                       Draft.getValue().D.Contents, Draft.getKey()));
++  Snapshot Result;
++  Result.reserve(Drafts.size());
++  for (const auto &File : Drafts)
++    Result.push_back(
++        {File.getKey().str(), File.getValue().D, File.getValue().MTime});
++  return Result;
++}
++
++llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++DraftStore::asVFS(const Snapshot &Files) {
++  auto MemFS = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
++  for (const auto &File : Files)
++    MemFS->addFile(File.File, File.MTime,
++                   std::make_unique<SharedStringBuffer>(File.Contents.Contents,
++                                                        File.File));
+   return MemFS;
+ }
++
++llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> DraftStore::asVFS() const {
++  return asVFS(snapshot());
++}
++
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/DraftStore.h b/clang-tools-extra/clangd/DraftStore.h
+index 0d52042..56dd9b4 100644
+--- a/clang-tools-extra/clangd/DraftStore.h
++++ b/clang-tools-extra/clangd/DraftStore.h
+@@ -13,6 +13,7 @@
+ #include "clang/Basic/LLVM.h"
+ #include "llvm/ADT/StringMap.h"
+ #include "llvm/Support/VirtualFileSystem.h"
++#include <ctime>
+ #include <mutex>
+ #include <optional>
+ #include <string>
+@@ -20,6 +21,7 @@
+ 
+ namespace clang {
+ namespace clangd {
++class ThreadsafeFS;
+ 
+ /// A thread-safe container for files opened in a workspace, addressed by
+ /// filenames. The contents are owned by the DraftStore.
+@@ -48,6 +50,16 @@ public:
+   /// Remove the draft from the store.
+   void removeDraft(PathRef File);
+ 
++  struct SnapshotFile {
++    Path File;
++    Draft Contents;
++    std::time_t MTime;
++  };
++  using Snapshot = std::vector<SnapshotFile>;
++  // One atomic version of all drafts, retaining immutable buffer ownership.
++  Snapshot snapshot() const;
++  static llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++  asVFS(const Snapshot &);
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> asVFS() const;
+ 
+ private:
+@@ -59,6 +71,10 @@ private:
+   llvm::StringMap<DraftAndTime> Drafts;
+ };
+ 
++// The server's dirty-header view, also exportable to an isolated compiler.
++std::unique_ptr<ThreadsafeFS> createDraftStoreFS(const ThreadsafeFS &Base,
++                                                 const DraftStore &Drafts);
++
+ } // namespace clangd
+ } // namespace clang
+ 
+diff --git a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+new file mode 100644
+index 0000000..90b9c24
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
+@@ -0,0 +1,613 @@
++//===--- ModuleBuildMemoryBudget.cpp --------------------------------------===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#include "ModuleBuildMemoryBudget.h"
++#include "support/Logger.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/FormatVariadic.h"
++#include "llvm/Support/JSON.h"
++#include "llvm/Support/Path.h"
++#include <atomic>
++#include <chrono>
++#include <condition_variable>
++#include <mutex>
++#include <thread>
++#ifdef __linux__
++#include <cerrno>
++#include <dirent.h>
++#include <fcntl.h>
++#include <linux/magic.h>
++#include <sys/file.h>
++#include <sys/stat.h>
++#include <sys/statfs.h>
++#include <unistd.h>
++#endif
++namespace clang::clangd {
++struct ModuleBuildWorkerMemoryBudget::Impl {
++  std::string Path, Name;
++  uint64_t Bytes = 0, Device = 0, Inode = 0;
++#ifdef __linux__
++  int Root = -1, Group = -1, Lease = -1;
++  std::string RecordDirectory, RecordRoot;
++  std::mutex MaintenanceMutex;
++  std::condition_variable MaintenanceCV;
++  bool StopMaintenance = false;
++  std::thread Maintenance;
++  ~Impl();
++#endif
++};
++namespace {
++#ifdef __linux__
++llvm::Error failure(llvm::StringRef What) {
++  return llvm::createStringError(
++      std::error_code(errno, std::generic_category()),
++      "module worker cgroup: " + What);
++}
++llvm::Expected<std::string> readControl(int Group, const char *Name) {
++  int FD = openat(Group, Name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure(Name);
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  std::string Text;
++  char Buffer[4096];
++  for (;;) {
++    ssize_t N = read(FD, Buffer, sizeof(Buffer));
++    if (N < 0 && errno == EINTR)
++      continue;
++    if (N < 0)
++      return failure(Name);
++    if (!N)
++      return Text;
++    if (Text.size() + N > 1024 * 1024)
++      return llvm::createStringError(
++          "module worker cgroup control is too large");
++    Text.append(Buffer, N);
++  }
++}
++llvm::Error writeControl(int Group, const char *Name, llvm::StringRef Text) {
++  int FD = openat(Group, Name, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure(Name);
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  ssize_t N;
++  do {
++    N = write(FD, Text.data(), Text.size());
++  } while (N < 0 && errno == EINTR);
++  if (N < 0)
++    return failure(Name);
++  if (size_t(N) != Text.size())
++    return llvm::createStringError("short module worker cgroup control write");
++  return llvm::Error::success();
++}
++llvm::Error verifyControl(int Group, const char *Name, uint64_t Expected) {
++  auto Text = readControl(Group, Name);
++  if (!Text)
++    return Text.takeError();
++  uint64_t Value;
++  if (llvm::StringRef(*Text).trim().getAsInteger(10, Value) ||
++      Value != Expected)
++    return llvm::createStringError(
++        "module worker cgroup limit verification failed: " +
++        llvm::StringRef(Name));
++  return llvm::Error::success();
++}
++llvm::Error verifyGroup(int FD) {
++  struct statfs Stat;
++  if (fstatfs(FD, &Stat))
++    return failure("filesystem identity");
++  if (Stat.f_type != CGROUP2_SUPER_MAGIC)
++    return llvm::createStringError("module worker budget requires cgroup v2");
++  auto Type = readControl(FD, "cgroup.type");
++  if (!Type)
++    return Type.takeError();
++  if (llvm::StringRef(*Type).trim() != "domain")
++    return llvm::createStringError(
++        "module worker budget requires a domain cgroup");
++  return llvm::Error::success();
++}
++llvm::Error verifyLimits(int FD, uint64_t Bytes) {
++  if (auto Err = verifyControl(FD, "memory.max", Bytes))
++    return Err;
++  if (auto Err = verifyControl(FD, "memory.swap.max", 0))
++    return Err;
++  return verifyControl(FD, "memory.oom.group", 1);
++}
++
++// Records live outside cgroupfs, which cannot contain ordinary lease files.
++// This versioned root is private to the effective user; nothing scans /tmp or
++// the delegated controller tree looking for names that merely resemble ours.
++llvm::Expected<std::string> recordRoot() {
++  llvm::SmallString<256> Path;
++  llvm::sys::path::system_temp_directory(false, Path);
++  llvm::sys::path::append(
++      Path,
++      llvm::formatv("clangd-module-worker-budgets-v1-{0}", geteuid()).str());
++  if (mkdir(Path.c_str(), 0700) && errno != EEXIST)
++    return failure("create ownership root");
++  return Path.str().str();
++}
++llvm::Expected<int> openPrivateDirectory(llvm::StringRef Path) {
++  int FD =
++      open(Path.str().c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure("open ownership directory");
++  struct stat Stat;
++  if (fstat(FD, &Stat) || !S_ISDIR(Stat.st_mode) || Stat.st_uid != geteuid() ||
++      (Stat.st_mode & 0777) != 0700) {
++    close(FD);
++    return llvm::createStringError("invalid module worker ownership directory");
++  }
++  return FD;
++}
++bool sameGroup(int Root, const std::string &Name, uint64_t Device,
++               uint64_t Inode) {
++  struct stat Stat;
++  return !fstatat(Root, Name.c_str(), &Stat, AT_SYMLINK_NOFOLLOW) &&
++         S_ISDIR(Stat.st_mode) && uint64_t(Stat.st_dev) == Device &&
++         uint64_t(Stat.st_ino) == Inode;
++}
++llvm::Expected<int> openLease(int Unit, bool Create) {
++  int FD = openat(
++      Unit, "owner.lease",
++      O_RDWR | O_CLOEXEC | O_NOFOLLOW | (Create ? O_CREAT | O_EXCL : 0), 0600);
++  if (FD < 0)
++    return failure("ownership lease");
++  struct stat Stat;
++  if (fstat(FD, &Stat) || !S_ISREG(Stat.st_mode) || Stat.st_uid != geteuid() ||
++      (Stat.st_mode & 0777) != 0600 || Stat.st_nlink != 1) {
++    close(FD);
++    return llvm::createStringError("invalid module worker ownership lease");
++  }
++  return FD;
++}
++llvm::Expected<std::string> readRecord(int Unit) {
++  int FD = openat(Unit, "owned.json", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure("ownership record");
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  struct stat Stat;
++  if (fstat(FD, &Stat) || !S_ISREG(Stat.st_mode) || Stat.st_uid != geteuid() ||
++      (Stat.st_mode & 0777) != 0600 || Stat.st_nlink != 1 || Stat.st_size < 0 ||
++      Stat.st_size > 4096)
++    return llvm::createStringError("invalid module worker ownership record");
++  std::string Text;
++  char Buffer[4096];
++  for (;;) {
++    ssize_t N = read(FD, Buffer, sizeof(Buffer));
++    if (N < 0 && errno == EINTR)
++      continue;
++    if (N < 0)
++      return failure("read ownership record");
++    if (!N)
++      return Text;
++    if (Text.size() + N > 4096)
++      return llvm::createStringError(
++          "module worker ownership record too large");
++    Text.append(Buffer, N);
++  }
++}
++
++// Each maintenance thread owns its directory cursor. Scan a finite number of
++// entries per wake; live entries cannot starve later orphan records.
++void collectRecords(int Records, DIR *Cursor, llvm::StringRef DelegatedRoot) {
++  for (unsigned I = 0; I < 32; ++I) {
++    errno = 0;
++    auto *Entry = readdir(Cursor);
++    if (!Entry) {
++      rewinddir(Cursor);
++      return;
++    }
++    llvm::StringRef Name(Entry->d_name);
++    if (!Name.starts_with("budget-"))
++      continue;
++    int Unit = openat(Records, Entry->d_name,
++                      O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (Unit < 0)
++      continue;
++    auto CloseUnit = llvm::scope_exit([&] { close(Unit); });
++    struct stat UnitStat;
++    if (fstat(Unit, &UnitStat) || UnitStat.st_uid != geteuid() ||
++        (UnitStat.st_mode & 0777) != 0700)
++      continue;
++    auto Lease = openLease(Unit, false);
++    if (!Lease) {
++      vlog("Retaining unrecognized budget record: {0}",
++           llvm::toString(Lease.takeError()));
++      continue;
++    }
++    auto CloseLease = llvm::scope_exit([&] { close(*Lease); });
++    // flock uses independent open file descriptions, including for two
++    // budgets in this same process. Never wait for an active owner.
++    if (flock(*Lease, LOCK_EX | LOCK_NB))
++      continue;
++    auto Text = readRecord(Unit);
++    if (!Text) {
++      vlog("Retaining unrecognized budget record: {0}",
++           llvm::toString(Text.takeError()));
++      continue;
++    }
++    auto Record = llvm::json::parse(*Text);
++    if (!Record) {
++      llvm::consumeError(Record.takeError());
++      continue;
++    }
++    auto *Object = Record->getAsObject();
++    if (!Object)
++      continue;
++    auto Version = Object->getInteger("version");
++    auto RootPath = Object->getString("root");
++    auto GroupName = Object->getString("name");
++    auto RootDevice = Object->getInteger("rootDevice");
++    auto RootInode = Object->getInteger("rootInode");
++    auto Device = Object->getInteger("device");
++    auto Inode = Object->getInteger("inode");
++    auto Bytes = Object->getInteger("bytes");
++    auto LeaseDevice = Object->getInteger("leaseDevice");
++    auto LeaseInode = Object->getInteger("leaseInode");
++    if (!Version || *Version != 1 || !RootPath || *RootPath != DelegatedRoot ||
++        !GroupName || !GroupName->starts_with("clangd-module-workers-") ||
++        GroupName->contains('/') || GroupName->contains('\0') || !RootDevice ||
++        !RootInode || !Device || !Inode || !Bytes || *Bytes <= 0 ||
++        !LeaseDevice || !LeaseInode) {
++      vlog("Retaining invalid module worker budget record {0}", Name);
++      continue;
++    }
++    struct stat LeaseStat;
++    if (fstat(*Lease, &LeaseStat) ||
++        uint64_t(LeaseStat.st_dev) != uint64_t(*LeaseDevice) ||
++        uint64_t(LeaseStat.st_ino) != uint64_t(*LeaseInode)) {
++      vlog("Retaining changed module worker budget lease {0}", Name);
++      continue;
++    }
++    int Root = open(RootPath->str().c_str(),
++                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (Root < 0)
++      continue;
++    auto CloseRoot = llvm::scope_exit([&] { close(Root); });
++    struct stat RootStat;
++    if (fstat(Root, &RootStat) ||
++        uint64_t(RootStat.st_dev) != uint64_t(*RootDevice) ||
++        uint64_t(RootStat.st_ino) != uint64_t(*RootInode)) {
++      vlog("Retaining changed module worker budget root {0}", Name);
++      continue;
++    }
++    if (auto Err = verifyGroup(Root)) {
++      vlog("Retaining invalid budget scope: {0}",
++           llvm::toString(std::move(Err)));
++      continue;
++    }
++    std::string Group = GroupName->str();
++    int FD = openat(Root, Group.c_str(),
++                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (FD < 0) {
++      // A successfully removed group can leave a record if its collector died
++      // before sidecar cleanup. Retire only a still-identical ownership record.
++      if (errno != ENOENT)
++        continue;
++    } else {
++      auto CloseGroup = llvm::scope_exit([&] { close(FD); });
++      struct stat Stat;
++      if (fstat(FD, &Stat) || uint64_t(Stat.st_dev) != uint64_t(*Device) ||
++          uint64_t(Stat.st_ino) != uint64_t(*Inode) ||
++          !sameGroup(Root, Group, *Device, *Inode)) {
++        vlog("Retaining changed module worker budget identity {0}", Name);
++        continue;
++      }
++      if (auto Err = verifyGroup(FD)) {
++        llvm::consumeError(std::move(Err));
++        continue;
++      }
++      if (auto Err = verifyLimits(FD, *Bytes)) {
++        vlog("Retaining changed module worker budget limits: {0}",
++             llvm::toString(std::move(Err)));
++        continue;
++      }
++      auto Current = readRecord(Unit);
++      struct stat CurrentLease;
++      if (!Current || *Current != *Text ||
++          fstatat(Unit, "owner.lease", &CurrentLease, AT_SYMLINK_NOFOLLOW) ||
++          CurrentLease.st_dev != LeaseStat.st_dev ||
++          CurrentLease.st_ino != LeaseStat.st_ino) {
++        if (!Current)
++          llvm::consumeError(Current.takeError());
++        continue;
++      }
++      if (auto Err = writeControl(FD, "cgroup.kill", "1")) {
++        vlog("Retaining orphan budget: {0}", llvm::toString(std::move(Err)));
++        continue;
++      }
++      // Do not wait for descendants on this maintenance pass. Busy groups and
++      // their complete records remain eligible for a later bounded sweep.
++      if (!sameGroup(Root, Group, *Device, *Inode) ||
++          (unlinkat(Root, Group.c_str(), AT_REMOVEDIR) && errno != ENOENT))
++        continue;
++    }
++    auto Current = readRecord(Unit);
++    struct stat CurrentUnit, CurrentLease;
++    if (!Current || *Current != *Text ||
++        fstatat(Unit, "owner.lease", &CurrentLease, AT_SYMLINK_NOFOLLOW) ||
++        CurrentLease.st_dev != LeaseStat.st_dev ||
++        CurrentLease.st_ino != LeaseStat.st_ino ||
++        fstatat(Records, Entry->d_name, &CurrentUnit, AT_SYMLINK_NOFOLLOW) ||
++        CurrentUnit.st_dev != UnitStat.st_dev ||
++        CurrentUnit.st_ino != UnitStat.st_ino) {
++      if (!Current)
++        llvm::consumeError(Current.takeError());
++      continue;
++    }
++    // Keep the locked lease open through record retirement. Factory owners
++    // always create fresh directories; no valid owner may reactivate this unit.
++    // A second collector's independently opened lease conflicts with this one.
++    unlinkat(Unit, "owned.json", 0);
++    unlinkat(Unit, "owner.lease", 0);
++    unlinkat(Records, Entry->d_name, AT_REMOVEDIR);
++  }
++}
++#endif
++} // namespace
++#ifdef __linux__
++ModuleBuildWorkerMemoryBudget::Impl::~Impl() {
++  {
++    std::lock_guard<std::mutex> Lock(MaintenanceMutex);
++    StopMaintenance = true;
++  }
++  MaintenanceCV.notify_one();
++  if (Maintenance.joinable())
++    Maintenance.join();
++  bool GroupRemoved = Name.empty();
++  if (Group >= 0) {
++    // All top-level worker leases have been released after specific-child reap.
++    // Kill any remaining descendants in OUR private group before removal.
++    if (auto Err = writeControl(Group, "cgroup.kill", "1"))
++      elog("{0}", llvm::toString(std::move(Err)));
++    // Retain the opened group identity until all name-based removal attempts
++    // finish, rather than dropping the reference before a retry.
++  }
++  if (Root >= 0) {
++    bool Removed = Name.empty();
++    for (unsigned I = 0; !Removed && I < 100; ++I) {
++      // Another actor can replace the path between busy retries. Revalidate
++      // each time; never apply a previous iteration's identity to a new group.
++      errno = 0;
++      if (!Inode || !sameGroup(Root, Name, Device, Inode)) {
++        if (Inode && errno == ENOENT) {
++          Removed = true;
++          break;
++        }
++        elog("Retaining changed or unverifiable owned module worker cgroup {0}",
++             Path);
++        break;
++      }
++      if (unlinkat(Root, Name.c_str(), AT_REMOVEDIR) == 0 || errno == ENOENT)
++        Removed = true;
++      else if (errno == EBUSY || errno == ENOTEMPTY)
++        std::this_thread::sleep_for(std::chrono::milliseconds(10));
++      else
++        break;
++    }
++    if (!Removed)
++      elog("Failed to remove owned module worker cgroup {0}", Path);
++    GroupRemoved = Removed;
++    close(Root);
++  }
++  if (Group >= 0)
++    close(Group);
++  // Failed cgroup cleanup must preserve its ownership proof for later sweeps.
++  if (GroupRemoved && !RecordDirectory.empty()) {
++    unlink((RecordDirectory + "/owned.json").c_str());
++    unlink((RecordDirectory + "/owner.lease").c_str());
++    unlink((RecordDirectory + "/owned.tmp").c_str());
++    rmdir(RecordDirectory.c_str());
++  }
++  if (Lease >= 0)
++    close(Lease);
++}
++#endif
++ModuleBuildWorkerMemoryBudget::ModuleBuildWorkerMemoryBudget(
++    std::unique_ptr<Impl> State)
++    : State(std::move(State)) {}
++ModuleBuildWorkerMemoryBudget::~ModuleBuildWorkerMemoryBudget() = default;
++llvm::StringRef ModuleBuildWorkerMemoryBudget::directory() const {
++  return State->Path;
++}
++std::string ModuleBuildWorkerMemoryBudget::bootstrapToken() const {
++  return llvm::formatv("{0}:{1}:{2}:{3}", State->Bytes, State->Device,
++                       State->Inode, State->Path)
++      .str();
++}
++llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
++createModuleBuildWorkerMemoryBudget(PathRef Root, uint64_t Bytes) {
++  if (!Bytes || Bytes > uint64_t(INT64_MAX) ||
++      !llvm::sys::path::is_absolute(Root) || Root.contains('\0'))
++    return llvm::createStringError(
++        "module worker budget needs an absolute root and positive bytes");
++#ifndef __linux__
++  return llvm::createStringError(
++      "module worker cgroup budget is unavailable on this platform");
++#else
++  auto State = std::make_unique<ModuleBuildWorkerMemoryBudget::Impl>();
++  State->Bytes = Bytes;
++  State->Root =
++      open(Root.str().c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (State->Root < 0)
++    return failure("delegated root");
++  if (auto Err = verifyGroup(State->Root))
++    return std::move(Err);
++  static std::atomic<uint64_t> Counter{0};
++  for (unsigned I = 0; I < 128; ++I) {
++    auto Name =
++        llvm::formatv("clangd-module-workers-{0}-{1}", getpid(), Counter++)
++            .str();
++    if (mkdirat(State->Root, Name.c_str(), 0700) == 0) {
++      State->Name = std::move(Name);
++      break;
++    }
++    if (errno != EEXIST)
++      return failure("create private group");
++  }
++  if (State->Name.empty())
++    return llvm::createStringError("no unique module worker cgroup name");
++  State->Path = (Root + "/" + State->Name).str();
++  State->Group = openat(State->Root, State->Name.c_str(),
++                        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (State->Group < 0)
++    return failure("open private group");
++  if (auto Err = verifyGroup(State->Group))
++    return std::move(Err);
++  struct stat Stat;
++  if (fstat(State->Group, &Stat))
++    return failure("private group identity");
++  State->Device = Stat.st_dev;
++  State->Inode = Stat.st_ino;
++  auto Limit = std::to_string(Bytes);
++  if (auto Err = writeControl(State->Group, "memory.max", Limit))
++    return std::move(Err);
++  if (auto Err = writeControl(State->Group, "memory.swap.max", "0"))
++    return std::move(Err);
++  if (auto Err = writeControl(State->Group, "memory.oom.group", "1"))
++    return std::move(Err);
++  if (auto Err = verifyLimits(State->Group, Bytes))
++    return std::move(Err);
++  // Require owned-tree termination support before admitting any process.
++  if (auto Err = writeControl(State->Group, "cgroup.kill", "1"))
++    return std::move(Err);
++  auto RecordsPath = recordRoot();
++  if (!RecordsPath)
++    return RecordsPath.takeError();
++  State->RecordRoot = *RecordsPath;
++  auto RecordsFD = openPrivateDirectory(State->RecordRoot);
++  if (!RecordsFD)
++    return RecordsFD.takeError();
++  auto CloseRecords = llvm::scope_exit([&] { close(*RecordsFD); });
++  std::string Model = State->RecordRoot + "/budget-XXXXXX";
++  if (!mkdtemp(Model.data()))
++    return failure("create ownership directory");
++  State->RecordDirectory = Model;
++  auto Unit = openPrivateDirectory(Model);
++  if (!Unit)
++    return Unit.takeError();
++  auto CloseUnit = llvm::scope_exit([&] { close(*Unit); });
++  auto Lease = openLease(*Unit, true);
++  if (!Lease)
++    return Lease.takeError();
++  State->Lease = *Lease;
++  if (flock(State->Lease, LOCK_EX | LOCK_NB))
++    return failure("lock ownership lease");
++  struct stat RootStat;
++  if (fstat(State->Root, &RootStat))
++    return failure("delegated root identity");
++  struct stat LeaseStat;
++  if (fstat(State->Lease, &LeaseStat))
++    return failure("ownership lease identity");
++  std::string Record =
++      llvm::formatv("{0}", llvm::json::Value(llvm::json::Object{
++                               {"leaseDevice", int64_t(LeaseStat.st_dev)},
++                               {"leaseInode", int64_t(LeaseStat.st_ino)},
++                               {"version", 1},
++                               {"root", Root},
++                               {"name", State->Name},
++                               {"rootDevice", int64_t(RootStat.st_dev)},
++                               {"rootInode", int64_t(RootStat.st_ino)},
++                               {"device", int64_t(State->Device)},
++                               {"inode", int64_t(State->Inode)},
++                               {"bytes", int64_t(Bytes)}}))
++          .str();
++  if (Record.size() > 4096)
++    return llvm::createStringError(
++        "module worker ownership record exceeds its bound");
++  int RecordFD =
++      openat(*Unit, "owned.tmp",
++             O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
++  if (RecordFD < 0)
++    return failure("create ownership record");
++  ssize_t Written;
++  do {
++    Written = write(RecordFD, Record.data(), Record.size());
++  } while (Written < 0 && errno == EINTR);
++  close(RecordFD);
++  if (Written != ssize_t(Record.size()) ||
++      renameat(*Unit, "owned.tmp", *Unit, "owned.json"))
++    return failure("publish ownership record");
++  auto *Live = State.get();
++  std::string DelegatedRoot = Root.str();
++  State->Maintenance = std::thread([Live, DelegatedRoot] {
++    auto FD = openPrivateDirectory(Live->RecordRoot);
++    if (!FD) {
++      elog("{0}", llvm::toString(FD.takeError()));
++      return;
++    }
++    DIR *Cursor = fdopendir(*FD);
++    if (!Cursor) {
++      close(*FD);
++      return;
++    }
++    auto Close = llvm::scope_exit([&] { closedir(Cursor); });
++    for (;;) {
++      collectRecords(dirfd(Cursor), Cursor, DelegatedRoot);
++      std::unique_lock<std::mutex> Lock(Live->MaintenanceMutex);
++      if (Live->MaintenanceCV.wait_for(Lock, std::chrono::seconds(30),
++                                       [&] { return Live->StopMaintenance; }))
++        return;
++    }
++  });
++  return std::shared_ptr<ModuleBuildWorkerMemoryBudget>(
++      new ModuleBuildWorkerMemoryBudget(std::move(State)));
++#endif
++}
++llvm::Error enterModuleBuildWorkerMemoryBudget(llvm::StringRef Token) {
++  if (Token.empty())
++    return llvm::Error::success();
++#ifndef __linux__
++  return llvm::createStringError(
++      "module worker cgroup budget is unavailable on this platform");
++#else
++  uint64_t Bytes, Device, Inode;
++  auto Take = [&](uint64_t &Value) {
++    auto Pair = Token.split(':');
++    if (Pair.first.getAsInteger(10, Value) || Pair.second.empty())
++      return false;
++    Token = Pair.second;
++    return true;
++  };
++  if (!Take(Bytes) || !Bytes || !Take(Device) || !Take(Inode) ||
++      !llvm::sys::path::is_absolute(Token) || Token.contains('\0'))
++    return llvm::createStringError(
++        "invalid module worker cgroup bootstrap token");
++  int FD = open(Token.str().c_str(),
++                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++  if (FD < 0)
++    return failure("bootstrap directory");
++  auto Close = llvm::scope_exit([&] { close(FD); });
++  if (auto Err = verifyGroup(FD))
++    return Err;
++  struct stat Stat;
++  if (fstat(FD, &Stat))
++    return failure("bootstrap identity");
++  if (Device != uint64_t(Stat.st_dev) || Inode != uint64_t(Stat.st_ino))
++    return llvm::createStringError(
++        "module worker cgroup owner identity changed");
++  if (auto Err = verifyLimits(FD, Bytes))
++    return Err;
++  if (auto Err = writeControl(FD, "cgroup.procs", std::to_string(getpid())))
++    return Err;
++  auto PIDs = readControl(FD, "cgroup.procs");
++  if (!PIDs)
++    return PIDs.takeError();
++  llvm::SmallVector<llvm::StringRef> Lines;
++  llvm::StringRef(*PIDs).split(Lines, '\n');
++  bool Found = false;
++  for (auto PID : Lines) {
++    uint64_t Value;
++    if (!PID.getAsInteger(10, Value) && Value == uint64_t(getpid()))
++      Found = true;
++  }
++  if (!Found)
++    return llvm::createStringError(
++        "module worker cgroup membership verification failed");
++  return verifyLimits(FD, Bytes);
++#endif
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+new file mode 100644
+index 0000000..362b29d
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
+@@ -0,0 +1,51 @@
++//===--- ModuleBuildMemoryBudget.h -------------------------------*- C++
++//-*-===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDMEMORYBUDGET_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDMEMORYBUDGET_H
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include <cstdint>
++#include <memory>
++#include <string>
++namespace clang::clangd {
++// Explicit Linux cgroup-v2 admission. Share ONE owner across all worker calls
++// covered by an aggregate budget. It never enables controllers, moves the
++// parent, or changes a caller's delegated root. No in-process compiler/scanner
++// or parent RSS limit is implied. Kernel memory.max permits temporary
++// overshoot; memory charges made before bootstrap migration are not moved into
++// this group.
++class ModuleBuildWorkerMemoryBudget {
++public:
++  ~ModuleBuildWorkerMemoryBudget();
++  std::string bootstrapToken() const;
++  llvm::StringRef directory() const;
++
++private:
++  struct Impl;
++  std::unique_ptr<Impl> State;
++  explicit ModuleBuildWorkerMemoryBudget(std::unique_ptr<Impl> State);
++  friend llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
++  createModuleBuildWorkerMemoryBudget(PathRef, uint64_t);
++};
++// Requires a caller-provisioned delegated root with its memory controller
++// already enabled for children. Creates an owned private child and verifies
++// memory.max, zero swap, group OOM and group-kill support before returning.
++// Unavailable platforms, permissions, limits and controller state are errors.
++// Each budget owns a CLOEXEC kernel lease in a versioned private filesystem
++// sidecar root. Its independent maintenance thread scans at most 32 records
++// per 30s wake (also at startup), retaining live, invalid, changed, and unmarked
++// records. Only a closed owner lease plus matching delegated-root/group kernel
++// identity and limits authorizes orphan termination/removal. Failed cleanup
++// preserves ownership proof for a later sweep. No PID or age inference and no
++// scan of arbitrary cgroups is used. A crash before ownership publication is
++// deliberately uncollectable; existing unmarked budgets remain untouched.
++llvm::Expected<std::shared_ptr<ModuleBuildWorkerMemoryBudget>>
++createModuleBuildWorkerMemoryBudget(PathRef DelegatedRoot, uint64_t Bytes);
++// Internal worker bootstrap, after the owner monitor and before request reads
++// or frontend work. Empty token selects the existing unbounded protocol.
++llvm::Error enterModuleBuildWorkerMemoryBudget(llvm::StringRef Token);
++} // namespace clang::clangd
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+new file mode 100644
+index 0000000..bf26775
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -0,0 +1,855 @@
++//===--- ModuleBuildWorker.cpp - isolated compiler protocol
++//----------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#include "ModuleBuildWorker.h"
++#include "Compiler.h"
++#include "ModuleBuildMemoryBudget.h"
++#include "ModuleBuildWorkerOutput.h"
++#include "ModuleBuildWorkerStorage.h"
++#include "clang/Frontend/FrontendActions.h"
++#include "clang/Frontend/TextDiagnosticPrinter.h"
++#include "clang/Lex/PreprocessorOptions.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringMap.h"
++#include "llvm/Config/llvm-config.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/Process.h"
++#include <array>
++#include <atomic>
++#include <cstdlib>
++#include <limits>
++#include <thread>
++#ifdef _WIN32
++#include <windows.h>
++#else
++#include <cerrno>
++#include <csignal>
++#include <fcntl.h>
++#include <sys/resource.h>
++#include <sys/stat.h>
++#include <sys/wait.h>
++#include <unistd.h>
++#endif
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/JSON.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/VirtualFileSystem.h"
++
++namespace clang::clangd {
++namespace {
++constexpr int ProtocolVersion = 1;
++// Version 1 workers ignore unknown resource fields. A bounded parent must not
++// launch one and mistake its successful response for enforcement.
++constexpr int BoundedProtocolVersion = 2;
++constexpr llvm::StringLiteral CapturedFileSystem =
++    "disk-with-captured-overlays";
++
++llvm::Error applyAddressSpaceLimit(uint64_t Bytes) {
++  if (!Bytes)
++    return llvm::Error::success();
++#if defined(RLIMIT_AS) && !defined(_WIN32)
++  struct rlimit Previous;
++  if (getrlimit(RLIMIT_AS, &Previous))
++    return llvm::errorCodeToError(
++        std::error_code(errno, std::generic_category()));
++  if (Bytes > (std::numeric_limits<rlim_t>::max)())
++    return llvm::createStringError("module worker address limit is too large");
++  const rlim_t Limit = (std::min)(static_cast<rlim_t>(Bytes), Previous.rlim_max);
++  struct rlimit Requested { Limit, Limit };
++  if (setrlimit(RLIMIT_AS, &Requested))
++    return llvm::errorCodeToError(
++        std::error_code(errno, std::generic_category()));
++  struct rlimit Actual;
++  if (getrlimit(RLIMIT_AS, &Actual))
++    return llvm::errorCodeToError(
++        std::error_code(errno, std::generic_category()));
++  if (Actual.rlim_cur != Limit || Actual.rlim_max != Limit)
++    return llvm::createStringError("module worker address limit did not apply");
++  // LLVM's ordinary allocation failure path may allocate while printing a
++  // stack, recursively exhaust this deliberately bounded process and hang.
++  // This internal worker cannot publish its staged output; the parent owns
++  // cleanup after this immediate, allocation-free failure exit.
++  llvm::install_bad_alloc_error_handler(
++      [](void *, const char *, bool) { std::_Exit(1); }, nullptr);
++  return llvm::Error::success();
++#else
++  return llvm::createStringError(
++      "module worker address-space limits are unsupported on this platform");
++#endif
++}
++
++llvm::Error validateInputs(const ModuleBuildWorkerInputs &Inputs) {
++  if (Inputs.FileSystem !=
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays)
++    return llvm::createStringError(
++        "module worker requires a captured request filesystem");
++  for (StringRef Path :
++       {StringRef(Inputs.WorkingDirectory), StringRef(Inputs.MainFile),
++        StringRef(Inputs.MainContentsFile)})
++    if (!llvm::sys::path::is_absolute(Path) || Path.contains('\0'))
++      return llvm::createStringError(
++          "module worker input paths must be absolute");
++  for (StringRef Path : Inputs.OverlayFiles)
++    if (!llvm::sys::path::is_absolute(Path) || Path.contains('\0'))
++      return llvm::createStringError(
++          "module worker overlay paths must be absolute");
++  return llvm::Error::success();
++}
++
++std::string capturedMainPath(PathRef File, PathRef WorkingDirectory) {
++  if (llvm::sys::path::is_absolute(File))
++    return File.str();
++  llvm::SmallString<256> Resolved(WorkingDirectory);
++  llvm::sys::path::append(Resolved, File);
++  // Preserve component spelling and symlink semantics. The invocation keeps
++  // its original relative input and the worker installs this working directory.
++  return Resolved.str().str();
++}
++
++llvm::Error validateInvocation(const CompilerInvocation &Invocation,
++                               const ModuleBuildWorkerInputs &Inputs) {
++  const auto &Frontend = Invocation.getFrontendOpts();
++  if (Frontend.Inputs.size() != 1 || !Frontend.Inputs[0].isFile() ||
++      capturedMainPath(Frontend.Inputs[0].getFile(), Inputs.WorkingDirectory) !=
++          Inputs.MainFile)
++    return llvm::createStringError(
++        "module worker requires exactly its captured main file");
++  if (!llvm::sys::path::is_absolute(Frontend.OutputFile) ||
++      StringRef(Frontend.OutputFile).contains('\0') ||
++      Frontend.OutputFile == Inputs.MainFile ||
++      Frontend.OutputFile == Inputs.MainContentsFile)
++    return llvm::createStringError(
++        "module worker requires a separate staged output path");
++  if (!Invocation.getPreprocessorOpts().RemappedFileBuffers.empty())
++    return llvm::createStringError(
++        "module worker cannot serialize remapped buffer pointers");
++  return llvm::Error::success();
++}
++
++// The child inherits only the read side on POSIX. Keeping another write side
++// in the child would hide owner death forever. Windows inherits a handle to
++// the actual parent process object, which remains the same object after PID
++// reuse. This object is not a replacement for the supervisor's kill/reap.
++class WorkerOwner {
++public:
++  static llvm::Expected<std::unique_ptr<WorkerOwner>> create(PathRef PipePath) {
++    auto Owner = std::unique_ptr<WorkerOwner>(new WorkerOwner);
++#ifdef _WIN32
++    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(),
++                         GetCurrentProcess(), &Owner->Handle, SYNCHRONIZE, TRUE,
++                         0))
++      return llvm::createStringError(
++          "failed creating module worker owner handle");
++#else
++    // Opening the writer with O_CLOEXEC is atomic. A pipe()+fcntl() pair
++    // would allow another concurrent spawn to inherit the writer in between
++    // and keep the worker alive after this parent dies.
++    if (mkfifo(PipePath.str().c_str(), 0600))
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Owner->PipePath = PipePath.str();
++    Owner->Pipe[0] =
++        open(PipePath.str().c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++    if (Owner->Pipe[0] < 0)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Owner->Pipe[1] =
++        open(PipePath.str().c_str(), O_WRONLY | O_NONBLOCK | O_CLOEXEC);
++    // The read end must reach the worker. Extra inherited readers are harmless
++    // because EOF is determined solely by the non-inherited parent writer.
++    if (Owner->Pipe[1] < 0 || fcntl(Owner->Pipe[0], F_SETFD, 0) < 0)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++#endif
++    return std::move(Owner);
++  }
++  std::string token() const {
++#ifdef _WIN32
++    return std::to_string(reinterpret_cast<uintptr_t>(Handle));
++#else
++    return std::to_string(Pipe[0]);
++#endif
++  }
++  ~WorkerOwner() {
++#ifdef _WIN32
++    if (Handle)
++      CloseHandle(Handle);
++#else
++    for (int FD : Pipe)
++      if (FD >= 0)
++        close(FD);
++    if (!PipePath.empty())
++      unlink(PipePath.c_str()); // remove_directories() skips FIFO entries.
++#endif
++  }
++
++private:
++  WorkerOwner() = default;
++#ifdef _WIN32
++  HANDLE Handle = nullptr;
++#else
++  int Pipe[2] = {-1, -1};
++  std::string PipePath;
++#endif
++};
++
++class WorkerOwnerMonitor {
++public:
++  static llvm::Expected<std::unique_ptr<WorkerOwnerMonitor>>
++  create(StringRef Token) {
++    uint64_t Value = 0;
++    if (Token.getAsInteger(10, Value) || !Value)
++      return llvm::createStringError("invalid module worker owner token");
++    auto Monitor = std::unique_ptr<WorkerOwnerMonitor>(new WorkerOwnerMonitor);
++#ifdef _WIN32
++    if (Value > (std::numeric_limits<uintptr_t>::max)())
++      return llvm::createStringError("invalid module worker owner handle");
++    Monitor->Handle = reinterpret_cast<HANDLE>(static_cast<uintptr_t>(Value));
++    DWORD Flags = 0;
++    if (!GetHandleInformation(Monitor->Handle, &Flags)) {
++      Monitor->Handle = nullptr;
++      return llvm::createStringError("missing inherited module worker owner");
++    }
++#else
++    if (Value <= 2 || Value > (std::numeric_limits<int>::max)())
++      return llvm::createStringError("invalid module worker owner descriptor");
++    int FD = static_cast<int>(Value);
++    int Flags = fcntl(FD, F_GETFL);
++    if (Flags < 0 || fcntl(FD, F_SETFL, Flags | O_NONBLOCK) < 0)
++      return llvm::createStringError("missing inherited module worker owner");
++    Monitor->FD = FD;
++#endif
++    auto *Self = Monitor.get();
++    Monitor->Thread = std::thread([Self] {
++      while (!Self->Stopped.load(std::memory_order_relaxed)) {
++#ifdef _WIN32
++        if (WaitForSingleObject(Self->Handle, 0) != WAIT_TIMEOUT)
++          std::_Exit(1);
++#else
++        char Byte;
++        ssize_t Result = read(Self->FD, &Byte, 1);
++        if (Result == 0 || (Result < 0 && errno != EAGAIN &&
++                            errno != EWOULDBLOCK && errno != EINTR))
++          std::_Exit(1);
++#endif
++        std::this_thread::sleep_for(std::chrono::milliseconds(10));
++      }
++    });
++    return std::move(Monitor);
++  }
++  ~WorkerOwnerMonitor() {
++    Stopped.store(true, std::memory_order_relaxed);
++    if (Thread.joinable())
++      Thread.join();
++#ifdef _WIN32
++    if (Handle)
++      CloseHandle(Handle);
++#else
++    if (FD >= 0)
++      close(FD);
++#endif
++  }
++
++private:
++  WorkerOwnerMonitor() = default;
++  std::atomic<bool> Stopped{false};
++  std::thread Thread;
++#ifdef _WIN32
++  HANDLE Handle = nullptr;
++#else
++  int FD = -1;
++#endif
++};
++// This deliberately avoids Program.cpp's process-global SIGALRM timeout.
++class WorkerProcess {
++public:
++  explicit WorkerProcess(llvm::sys::ProcessInfo Process) : Process(Process) {}
++  ~WorkerProcess() {
++    if (Active) {
++      terminate();
++      auto Reaped = reap(/*Blocking=*/true);
++      if (!Reaped)
++        llvm::consumeError(Reaped.takeError());
++    }
++  }
++  llvm::Expected<std::optional<int>> reap(bool Blocking) {
++#ifdef _WIN32
++    DWORD State = WaitForSingleObject(Process.Process, Blocking ? INFINITE : 0);
++    if (State == WAIT_TIMEOUT)
++      return std::optional<int>{};
++    if (State != WAIT_OBJECT_0)
++      return llvm::createStringError("failed waiting for module worker");
++    DWORD Code = 1;
++    if (!GetExitCodeProcess(Process.Process, &Code))
++      return llvm::createStringError(
++          "failed reading module worker exit status");
++    CloseHandle(Process.Process);
++    Active = false;
++    return std::optional<int>(static_cast<int>(Code));
++#else
++    int Status = 0;
++    struct rusage Usage;
++    pid_t Result;
++    do {
++      Result = wait4(Process.Pid, &Status, Blocking ? 0 : WNOHANG, &Usage);
++    } while (Result < 0 && errno == EINTR);
++    if (Result == 0)
++      return std::optional<int>{};
++    if (Result < 0) {
++      if (errno == ECHILD)
++        Active = false; // Never signal a PID already reaped elsewhere.
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    }
++    Active = false;
++    llvm::sys::ProcessStatistics Stats;
++    auto Micros = [](const timeval &Time) {
++      return std::chrono::seconds(Time.tv_sec) +
++             std::chrono::microseconds(Time.tv_usec);
++    };
++    Stats.UserTime = Micros(Usage.ru_utime);
++    Stats.TotalTime = Stats.UserTime + Micros(Usage.ru_stime);
++#ifdef __APPLE__
++    Stats.PeakMemory = Usage.ru_maxrss / 1024;
++#else
++    Stats.PeakMemory = Usage.ru_maxrss;
++#endif
++    Statistics = Stats;
++    return std::optional<int>(WIFEXITED(Status) ? WEXITSTATUS(Status) : -1);
++#endif
++  }
++  void terminate() {
++#ifdef _WIN32
++    TerminateProcess(Process.Process, 1);
++#else
++    kill(Process.Pid, SIGKILL);
++#endif
++  }
++  std::optional<llvm::sys::ProcessStatistics> Statistics;
++
++private:
++  llvm::sys::ProcessInfo Process;
++  bool Active = true;
++};
++
++llvm::Error writeSnapshot(PathRef Path, StringRef Contents,
++                          std::optional<int64_t> MTime = std::nullopt) {
++  int FD = -1;
++  if (auto EC = llvm::sys::fs::openFileForWrite(Path, FD))
++    return llvm::errorCodeToError(EC);
++  llvm::raw_fd_ostream Out(FD, true);
++  Out << Contents;
++  Out.flush();
++  if (Out.has_error()) {
++    auto EC = Out.error();
++    Out.clear_error();
++    return llvm::errorCodeToError(EC);
++  }
++  if (MTime) {
++    llvm::sys::TimePoint<> Time{std::chrono::seconds(*MTime)};
++    if (auto EC = llvm::sys::fs::setLastAccessAndModificationTime(FD, Time))
++      return llvm::errorCodeToError(EC);
++  }
++  return llvm::Error::success();
++}
++
++#ifndef __linux__
++std::string workerDiagnostics(PathRef Path) {
++  // A diagnostic file cannot force an unbounded parent allocation.
++  uint64_t Size = 0;
++  if (llvm::sys::fs::file_size(Path, Size))
++    return {};
++  auto Text = llvm::MemoryBuffer::getFileSlice(
++      Path, (std::min<uint64_t>)(Size, 64 * 1024), 0);
++  return Text ? (*Text)->getBuffer().str() : std::string{};
++}
++
++#endif
++
++// A bounded read of a regular diagnostic file only bounds parent memory: the
++// child could fill the disk before returning. Linux redirects into an owned
++// FIFO instead. Polling drains a finite batch and retains a bounded prefix;
++// excess bytes are discarded, with pipe backpressure bounding queued output.
++// No diagnostic reader thread may outlive the owned child or block shutdown.
++class WorkerDiagnostics {
++public:
++  static llvm::Expected<std::unique_ptr<WorkerDiagnostics>>
++  create(PathRef Path) {
++    auto Result =
++        std::unique_ptr<WorkerDiagnostics>(new WorkerDiagnostics(Path));
++#ifdef __linux__
++    if (mkfifo(Result->Path.c_str(), 0600))
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Result->OwnsFIFO = true;
++    Result->FD = open(Result->Path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++    if (Result->FD < 0)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++    Result->Prefix.reserve(Limit);
++#endif
++    return Result;
++  }
++  ~WorkerDiagnostics() {
++#ifdef __linux__
++    if (FD >= 0)
++      close(FD);
++    if (OwnsFIFO)
++      unlink(Path.c_str());
++#endif
++  }
++  llvm::Error drain() {
++#ifdef __linux__
++    char Buffer[4096];
++    // Count even interrupted reads: noisy output and signals cannot postpone
++    // the next cancellation/deadline or specific-child reap check indefinitely.
++    for (unsigned I = 0; I < 16; ++I) {
++      ssize_t N = read(FD, Buffer, sizeof(Buffer));
++      if (N < 0) {
++        if (errno == EINTR)
++          continue;
++        if (errno == EAGAIN || errno == EWOULDBLOCK)
++          break;
++        return llvm::errorCodeToError(
++            std::error_code(errno, std::generic_category()));
++      }
++      // EOF before the child opens its writer is harmless; after launch every
++      // poll checks again. We never wait for another writer or an inherited FD.
++      if (!N)
++        break;
++      size_t Keep = (std::min)(size_t(N), Limit - Prefix.size());
++      Prefix.append(Buffer, Keep);
++      Truncated |= Keep != size_t(N);
++    }
++#endif
++    return llvm::Error::success();
++  }
++  std::string text() const {
++#ifdef __linux__
++    return Prefix +
++           (Truncated ? "\n[module worker diagnostics truncated]\n" : "");
++#else
++    return workerDiagnostics(Path);
++#endif
++  }
++
++private:
++  explicit WorkerDiagnostics(PathRef Path) : Path(Path.str()) {}
++  const std::string Path;
++#ifdef __linux__
++  static constexpr size_t Limit = 64 * 1024;
++  int FD = -1;
++  bool OwnsFIFO = false, Truncated = false;
++  std::string Prefix;
++#endif
++};
++
++} // namespace
++
++llvm::Expected<std::string>
++serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
++                                  const ModuleBuildWorkerInputs &Inputs) {
++  if (auto Err = validateInputs(Inputs))
++    return std::move(Err);
++  if (auto Err = validateInvocation(Invocation, Inputs))
++    return std::move(Err);
++  if (Inputs.OutputLimitBytes >
++      static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
++    return llvm::createStringError("module worker output limit is too large");
++  if (Inputs.OutputLimitBytes)
++    if (auto Error = validateBoundedModuleBuildOutputs(Invocation))
++      return std::move(Error);
++  if (Inputs.AddressSpaceLimitBytes >
++      static_cast<uint64_t>((std::numeric_limits<int64_t>::max)()))
++    return llvm::createStringError("module worker address limit is too large");
++  llvm::json::Object Request{
++      {"version", Inputs.OutputLimitBytes || Inputs.AddressSpaceLimitBytes
++                      ? BoundedProtocolVersion
++                      : ProtocolVersion},
++      {"filesystem", CapturedFileSystem},
++      {"directory", Inputs.WorkingDirectory},
++      {"mainFile", Inputs.MainFile},
++      {"mainContentsFile", Inputs.MainContentsFile},
++      {"overlays", llvm::json::Array(Inputs.OverlayFiles)},
++      {"addressSpaceLimitBytes",
++       static_cast<int64_t>(Inputs.AddressSpaceLimitBytes)},
++      {"outputLimitBytes", static_cast<int64_t>(Inputs.OutputLimitBytes)},
++      {"cc1Arguments", llvm::json::Array(Invocation.getCC1CommandLine())}};
++  return llvm::formatv("{0}", llvm::json::Value(std::move(Request))).str();
++}
++
++llvm::Expected<std::optional<ModuleBuildWorkerResult>>
++buildModuleInWorker(const CompilerInvocation &Invocation,
++                    StringRef MainContents, const ThreadsafeFS &FS,
++                    PathRef WorkingDirectory,
++                    const ModuleBuildWorkerOptions &Options) {
++  // This lease outlives the specific-child guard below: all workers sharing the
++  // owner remain charged to one group until their final reap/cleanup completes.
++  auto MemoryBudget = Options.MemoryBudget;
++  const bool PayloadBound =
++      Options.OutputLimitBytes || Options.CaptureLimitBytes;
++  if (PayloadBound)
++    if (auto Error = validateBoundedModuleBuildOutputs(Invocation))
++      return std::move(Error);
++  if (Options.Isolation == ModuleBuildWorkerOptions::Policy::InProcess) {
++    if (MemoryBudget || PayloadBound)
++      return llvm::createStringError(
++          "module worker resource budget forbids in-process fallback");
++    return std::optional<ModuleBuildWorkerResult>{};
++  }
++  const auto Started = std::chrono::steady_clock::now();
++  auto Snapshot = FS.snapshotForModuleBuild();
++  if (!Snapshot) {
++    if (Options.Isolation == ModuleBuildWorkerOptions::Policy::WhenSupported &&
++        !MemoryBudget && !PayloadBound)
++      return std::optional<ModuleBuildWorkerResult>{};
++    return llvm::createStringError(
++        "required module worker cannot export request filesystem");
++  }
++  if (Options.Timeout <= std::chrono::milliseconds::zero() ||
++      !llvm::sys::path::is_absolute(Options.Executable))
++    return llvm::createStringError(
++        "module worker requires an executable and positive timeout");
++  const auto Deadline = Started + Options.Timeout;
++  auto Cancelled = [&] { return Options.Cancelled && Options.Cancelled(); };
++  if (Cancelled())
++    return llvm::createStringError("module worker was cancelled before launch");
++  const std::string Output = Invocation.getFrontendOpts().OutputFile;
++  if (!llvm::sys::path::is_absolute(Output) || StringRef(Output).contains('\0'))
++    return llvm::createStringError(
++        "module worker staged output must be absolute");
++  if (llvm::sys::fs::exists(Output))
++    return llvm::createStringError(
++        "module worker staged output already exists");
++  auto Unit = ModuleBuildWorkerUnit::create(Output, Options.UnitRoot);
++  if (!Unit)
++    return Unit.takeError();
++  bool Success = false;
++  auto Cleanup = llvm::scope_exit([&] {
++    if (!Success)
++      llvm::sys::fs::remove(Output);
++  });
++  auto Path = [&](StringRef Name) { return (*Unit)->file(Name); };
++  ModuleBuildWorkerInputs Inputs;
++  Inputs.AddressSpaceLimitBytes = Options.AddressSpaceLimitBytes;
++  Inputs.OutputLimitBytes = Options.OutputLimitBytes;
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  Inputs.WorkingDirectory = WorkingDirectory.str();
++  if (Invocation.getFrontendOpts().Inputs.size() != 1 ||
++      !Invocation.getFrontendOpts().Inputs[0].isFile())
++    return llvm::createStringError("module worker requires a single main file");
++  Inputs.MainFile = capturedMainPath(
++      Invocation.getFrontendOpts().Inputs[0].getFile(), WorkingDirectory);
++  Inputs.MainContentsFile = Path("main.snapshot");
++  // Flatten repeated paths with last-overlay-wins semantics.
++  llvm::StringMap<const ModuleBuildFileSystemSnapshot::File *> Files;
++  for (const auto &File : Snapshot->OverlayFiles)
++    Files[File.Path] = &File;
++  llvm::vfs::YAMLVFSWriter Writer;
++  Writer.setUseExternalNames(false);
++  unsigned Index = 0;
++  for (const auto &Entry : Files) {
++    const auto &File = *Entry.getValue();
++    if (!llvm::sys::path::is_absolute(File.Path))
++      return llvm::createStringError(
++          "captured module worker paths must be absolute");
++    std::string ContentsPath = Path("overlay-" + std::to_string(Index++));
++    Writer.addFileMapping(File.Path, ContentsPath);
++  }
++  std::string YAML;
++  llvm::raw_string_ostream YAMLStream(YAML);
++  Writer.write(YAMLStream);
++  Inputs.OverlayFiles = {Path("filesystem.yaml")};
++  CompilerInvocation WorkerInvocation(Invocation);
++  const std::string WorkerOutput = Path("output.pcm");
++  WorkerInvocation.getFrontendOpts().OutputFile = WorkerOutput;
++  WorkerInvocation.getHeaderSearchOpts().ModuleCachePath = Path("module-cache");
++  auto Request = serializeModuleBuildWorkerRequest(WorkerInvocation, Inputs);
++  if (!Request)
++    return Request.takeError();
++  const std::string RequestPath = Path("request.json");
++  // Serialize and count every snapshot before the first payload write. Main
++  // bytes also appear in a top overlay and must be charged twice when present.
++  uint64_t CaptureBytes = 0;
++  auto Count = [&](uint64_t Bytes) {
++    if (Bytes > UINT64_MAX - CaptureBytes)
++      return false;
++    CaptureBytes += Bytes;
++    return !Options.CaptureLimitBytes ||
++           CaptureBytes <= Options.CaptureLimitBytes;
++  };
++  if ((PayloadBound && Files.size() + 3 > Options.CaptureLimitFiles) ||
++      !Count(MainContents.size()) || !Count(YAML.size()) ||
++      !Count(Request->size()))
++    return llvm::createStringError(
++        "module worker capture payload or file limit exceeded");
++  for (const auto &Entry : Files)
++    if (!Count(Entry.getValue()->Contents.size()))
++      return llvm::createStringError(
++          "module worker capture payload limit exceeded");
++  if (auto Error = writeSnapshot(Inputs.MainContentsFile, MainContents))
++    return std::move(Error);
++  Index = 0;
++  for (const auto &Entry : Files) {
++    const auto &File = *Entry.getValue();
++    if (auto Error = writeSnapshot(Path("overlay-" + std::to_string(Index++)),
++                                   File.Contents, File.ModificationTime))
++      return std::move(Error);
++  }
++  if (auto Error = writeSnapshot(Inputs.OverlayFiles.front(), YAML))
++    return std::move(Error);
++  if (auto Error = writeSnapshot(RequestPath, *Request))
++    return std::move(Error);
++  if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
++    return llvm::createStringError(
++        "module worker was cancelled or timed out during capture");
++  const std::string DiagnosticsPath = Path("stderr.log");
++  auto Diagnostics = WorkerDiagnostics::create(DiagnosticsPath);
++  if (!Diagnostics)
++    return Diagnostics.takeError();
++  auto Owner = WorkerOwner::create(Path("owner.pipe"));
++  if (!Owner)
++    return Owner.takeError();
++  const std::string OwnerToken = (*Owner)->token();
++  if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
++    return llvm::createStringError(
++        "module worker cancelled or timed out during owner setup");
++  std::array<std::optional<StringRef>, 3> Redirects{
++      StringRef(""), StringRef(""), StringRef(DiagnosticsPath)};
++  const std::string MemoryToken =
++      MemoryBudget ? MemoryBudget->bootstrapToken() : "";
++  std::array<StringRef, 5> Args{Options.Executable, "--module-build-worker",
++                                RequestPath, OwnerToken, MemoryToken};
++  std::string LaunchError;
++  bool Failed = false;
++  auto Process =
++      llvm::sys::ExecuteNoWait(Options.Executable, Args, std::nullopt,
++                               Redirects, 0, &LaunchError, &Failed);
++  if (Failed || Process.Pid == llvm::sys::ProcessInfo::InvalidPid)
++    return llvm::createStringError("failed to launch module worker: " +
++                                   LaunchError);
++  // Declared after Cleanup: destruction always terminates/reaps before files
++  // and any caller-owned source locks/prerequisite leases can be released.
++  WorkerProcess Child(Process);
++  for (;;) {
++    if (auto Err = (*Diagnostics)->drain())
++      return std::move(Err);
++    auto Status = Child.reap(/*Blocking=*/false);
++    if (!Status)
++      return Status.takeError();
++    if (*Status) {
++      if (auto Err = (*Diagnostics)->drain())
++        return std::move(Err);
++      if (**Status != 0)
++        return llvm::createStringError("module worker failed: " +
++                                       (*Diagnostics)->text());
++      break;
++    }
++    const bool WasCancelled = Cancelled();
++    if (WasCancelled || std::chrono::steady_clock::now() >= Deadline) {
++      Child.terminate();
++      auto Reaped = Child.reap(/*Blocking=*/true);
++      if (!Reaped)
++        return Reaped.takeError();
++      if (auto Err = (*Diagnostics)->drain())
++        return std::move(Err);
++      return llvm::createStringError(
++          llvm::formatv("module worker {0} (pid {1}): {2}",
++                        WasCancelled ? "cancelled" : "timed out", Process.Pid,
++                        (*Diagnostics)->text())
++              .str());
++    }
++    std::this_thread::sleep_for(std::chrono::milliseconds(10));
++  }
++  if (Cancelled() || std::chrono::steady_clock::now() >= Deadline)
++    return llvm::createStringError(
++        "module worker cancelled or timed out before accepting output");
++  // A BMI must not reference prerequisites about to disappear with this
++  // worker's private cache. Explicit prerequisite copies remain parent-owned.
++  std::error_code EC;
++  for (llvm::sys::fs::recursive_directory_iterator I(Path("module-cache"), EC),
++       End;
++       I != End && !EC; I.increment(EC))
++    if (llvm::sys::path::extension(I->path()) == ".pcm")
++      return llvm::createStringError(
++          "module worker built uncaptured implicit prerequisites");
++  if (EC && EC != std::errc::no_such_file_or_directory)
++    return llvm::errorCodeToError(EC);
++  if (!llvm::sys::fs::exists(WorkerOutput))
++    return llvm::createStringError("module worker produced no staged output");
++  if (auto EC = llvm::sys::fs::rename(WorkerOutput, Output))
++    return llvm::errorCodeToError(EC);
++  Success = true;
++  return std::optional<ModuleBuildWorkerResult>(
++      {std::chrono::duration_cast<std::chrono::milliseconds>(
++           std::chrono::steady_clock::now() - Started),
++       Child.Statistics});
++}
++
++llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken) {
++  return runModuleBuildWorker(RequestFile, OwnerToken, {});
++}
++
++llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
++                                 StringRef MemoryBudgetToken) {
++  std::unique_ptr<WorkerOwnerMonitor> Owner;
++  if (!OwnerToken.empty()) {
++    auto Monitor = WorkerOwnerMonitor::create(OwnerToken);
++    if (!Monitor)
++      return Monitor.takeError();
++    Owner = std::move(*Monitor);
++  }
++  if (auto Err = enterModuleBuildWorkerMemoryBudget(MemoryBudgetToken))
++    return Err;
++  std::unique_ptr<ModuleBuildWorkerLease> WorkerLease;
++  const auto UnitDirectory = llvm::sys::path::parent_path(RequestFile);
++  llvm::SmallString<256> RootMarker(
++      llvm::sys::path::parent_path(UnitDirectory));
++  llvm::sys::path::append(RootMarker, "owned.root");
++  // Direct protocol probes remain supported outside owned roots. A replay
++  // inside an owned root must retain its worker lease even without an owner
++  // token, and a retired unit must never restart through that debug path.
++  if (!OwnerToken.empty() || llvm::sys::fs::exists(RootMarker)) {
++    auto Lease = ModuleBuildWorkerLease::acquire(UnitDirectory, true);
++    if (!Lease)
++      return Lease.takeError();
++    WorkerLease = std::move(*Lease);
++  }
++  auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
++  if (!Buffer)
++    return llvm::errorCodeToError(Buffer.getError());
++  auto Request = llvm::json::parse((*Buffer)->getBuffer());
++  if (!Request)
++    return Request.takeError();
++  const auto *Object = Request->getAsObject();
++  if (!Object ||
++      (Object->getInteger("version") != ProtocolVersion &&
++       Object->getInteger("version") != BoundedProtocolVersion) ||
++      Object->getString("filesystem") != CapturedFileSystem)
++    return llvm::createStringError(
++        "unsupported module worker request protocol");
++  if (Object->getInteger("version") == ProtocolVersion &&
++      (Object->getInteger("outputLimitBytes").value_or(0) > 0 ||
++       Object->getInteger("addressSpaceLimitBytes").value_or(0) > 0))
++    return llvm::createStringError(
++        "bounded module worker requires protocol version 2");
++  if (Object->getInteger("version") == BoundedProtocolVersion &&
++      Object->getInteger("outputLimitBytes").value_or(0) <= 0 &&
++      Object->getInteger("addressSpaceLimitBytes").value_or(0) <= 0)
++    return llvm::createStringError(
++        "bounded module worker protocol requires a resource ceiling");
++  if (Object->get("addressSpaceLimitBytes")) {
++    auto Limit = Object->getInteger("addressSpaceLimitBytes");
++    if (!Limit || *Limit < 0)
++      return llvm::createStringError("invalid module worker address limit");
++    // The small request JSON is already loaded. Apply/read back the ceiling
++    // before loading the captured main, overlays or invoking the frontend.
++    if (auto Err = applyAddressSpaceLimit(static_cast<uint64_t>(*Limit)))
++      return Err;
++  }
++  uint64_t OutputLimit = 0;
++  if (Object->get("outputLimitBytes")) {
++    auto Limit = Object->getInteger("outputLimitBytes");
++    if (!Limit || *Limit < 0)
++      return llvm::createStringError("invalid module worker output limit");
++    OutputLimit = static_cast<uint64_t>(*Limit);
++  }
++  ModuleBuildWorkerInputs Inputs;
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  std::vector<std::string> Arguments;
++  llvm::json::Path::Root Root;
++  llvm::json::ObjectMapper Mapper(*Request, Root);
++  if (!Mapper.map("directory", Inputs.WorkingDirectory) ||
++      !Mapper.map("mainFile", Inputs.MainFile) ||
++      !Mapper.map("mainContentsFile", Inputs.MainContentsFile) ||
++      !Mapper.map("overlays", Inputs.OverlayFiles) ||
++      !Mapper.map("cc1Arguments", Arguments))
++    return Root.getError();
++  if (auto Err = validateInputs(Inputs))
++    return Err;
++
++  DiagnosticOptions DiagnosticOpts;
++  TextDiagnosticPrinter Printer(llvm::errs(), DiagnosticOpts);
++  DiagnosticsEngine Diags(new DiagnosticIDs(), DiagnosticOpts, &Printer, false);
++  std::vector<const char *> ArgumentRefs;
++  for (const auto &Arg : Arguments) {
++    if (StringRef(Arg).contains('\0'))
++      return llvm::createStringError(
++          "module worker arguments cannot contain NUL");
++    ArgumentRefs.push_back(Arg.c_str());
++  }
++  auto Invocation = std::make_unique<CompilerInvocation>();
++  if (!CompilerInvocation::CreateFromArgs(*Invocation, ArgumentRefs, Diags))
++    return llvm::createStringError("invalid module worker compiler invocation");
++  if (auto Err = validateInvocation(*Invocation, Inputs))
++    return Err;
++  if (OutputLimit)
++    if (auto Error = validateBoundedModuleBuildOutputs(*Invocation))
++      return Error;
++
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS(
++      llvm::vfs::createPhysicalFileSystem().release());
++  if (auto EC = VFS->setCurrentWorkingDirectory(Inputs.WorkingDirectory))
++    return llvm::errorCodeToError(EC);
++  for (StringRef Path : Inputs.OverlayFiles) {
++    auto YAML = llvm::MemoryBuffer::getFile(Path);
++    if (!YAML)
++      return llvm::errorCodeToError(YAML.getError());
++    auto Overlay = llvm::vfs::getVFSFromYAML(std::move(*YAML), nullptr, Path,
++                                             nullptr, VFS);
++    if (!Overlay)
++      return llvm::createStringError(
++          "invalid captured module worker filesystem overlay");
++    VFS = llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>(Overlay.release());
++  }
++  auto Main = llvm::MemoryBuffer::getFile(Inputs.MainContentsFile);
++  if (!Main)
++    return llvm::errorCodeToError(Main.getError());
++  const std::string Output = Invocation->getFrontendOpts().OutputFile;
++  bool Success = false;
++  auto Cleanup = llvm::scope_exit([&] {
++    if (!Success)
++      llvm::sys::fs::remove(Output);
++  });
++  ModuleBuildWorkerOutput Outputs;
++  if (OutputLimit) {
++    StringRef UnitRoot = llvm::sys::path::parent_path(Inputs.MainContentsFile);
++    // Supervised requests put the sole output directly in their private unit.
++    if (llvm::sys::path::parent_path(Output) != UnitRoot ||
++        Invocation->getHeaderSearchOpts().ModuleCachePath !=
++            (UnitRoot + "/module-cache").str())
++      return llvm::createStringError(
++          "bounded worker outputs require its private unit");
++    Outputs = createModuleBuildWorkerOutput(UnitRoot, OutputLimit);
++  }
++  auto Clang =
++      prepareCompilerInstance(std::move(Invocation), nullptr, std::move(*Main),
++                              std::move(VFS), Printer, Outputs.Cache);
++  if (!Clang)
++    return llvm::createStringError("failed to prepare module worker compiler");
++  std::unique_ptr<FrontendAction> Action;
++  if (OutputLimit) {
++    Clang->setOutputManager(std::move(Outputs.Backend));
++    Action = createBoundedReducedModuleAction();
++  } else {
++    Action = std::make_unique<GenerateReducedModuleInterfaceAction>();
++  }
++  if (!Clang->ExecuteAction(*Action) ||
++      Clang->getDiagnostics().hasErrorOccurred() ||
++      !llvm::sys::fs::exists(Output))
++    return llvm::createStringError("module worker compilation failed");
++  if (Outputs.Check)
++    if (auto Error = Outputs.Check())
++      return Error;
++  Success = true;
++  return llvm::Error::success();
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+new file mode 100644
+index 0000000..22cea85
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -0,0 +1,111 @@
++//===--- ModuleBuildWorker.h - isolated compiler protocol --------*- C++
++//-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKER_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKER_H
++
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include "llvm/Support/Program.h"
++#include <chrono>
++#include <cstdint>
++#include <functional>
++#include <memory>
++#include <optional>
++#include <string>
++#include <vector>
++
++namespace clang {
++class CompilerInvocation;
++namespace clangd {
++class ThreadsafeFS;
++class ModuleBuildWorkerMemoryBudget;
++
++// These files belong to the parent until the child has been reaped. The main
++// buffer and every virtual overlay backing file must contain the exact request
++// bytes, including unsaved drafts. Keep prerequisite ModuleFile owners alive
++// too: their copy-on-read leases are not transferred to the child.
++struct ModuleBuildWorkerInputs {
++  enum class FileSystemKind { Unsupported, DiskWithCapturedOverlays };
++  FileSystemKind FileSystem = FileSystemKind::Unsupported;
++  std::string WorkingDirectory;
++  std::string MainFile;
++  std::string MainContentsFile;
++  std::vector<std::string> OverlayFiles;
++  // Optional checked address-space ceiling for this child, distinct from
++  // kernel-accounted group memory. Zero preserves direct protocol probes.
++  uint64_t AddressSpaceLimitBytes = 0;
++  // Zero preserves the unbounded direct protocol. A positive ceiling controls
++  // all known compiler outputs within this worker unit before payload writes.
++  uint64_t OutputLimitBytes = 0;
++};
++
++// Only opt into DiskWithCapturedOverlays if it reproduces the entire request
++// filesystem. Arbitrary ThreadsafeFS implementations cannot be serialized by
++// assuming disk contents. Serialize the finalized invocation before
++// prepareCompilerInstance adds its process-local remapped-buffer pointers.
++llvm::Expected<std::string>
++serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
++                                  const ModuleBuildWorkerInputs &Inputs);
++
++struct ModuleBuildWorkerOptions {
++  enum class Policy { InProcess, WhenSupported, Required };
++  Policy Isolation = Policy::InProcess;
++  std::string Executable;
++  std::chrono::milliseconds Timeout{60000};
++  std::string UnitRoot;
++  std::function<bool()> Cancelled;
++  // Explicit aggregate Linux worker budget; share the same owner across calls.
++  // Supplying a budget forbids every in-process/unsupported fallback.
++  std::shared_ptr<ModuleBuildWorkerMemoryBudget> MemoryBudget;
++  // Applies to launched workers; WhenSupported still selects in-process
++  // execution before launch for an unexportable filesystem.
++  uint64_t AddressSpaceLimitBytes = 0;
++  // Opt-in per-worker bounds, distinct from aggregate persistent-cache quota.
++  // Any positive bound forbids in-process/unsupported-filesystem fallback.
++  uint64_t OutputLimitBytes = 0;
++  uint64_t CaptureLimitBytes = 0;
++  unsigned CaptureLimitFiles = 4096;
++};
++struct ModuleBuildWorkerResult {
++  std::chrono::milliseconds WallTime;
++  std::optional<llvm::sys::ProcessStatistics> Statistics;
++};
++
++// nullopt selects the existing in-process implementation, either by explicit
++// default policy or because WhenSupported encountered an unexportable view.
++// Required never falls back. Once a worker has launched, every failure is an
++// error, regardless of policy: falling back could bypass its bound. This call
++// owns capture, specific-child termination/reap and temporary-directory
++// cleanup. The caller keeps its publication lock and prerequisite read leases
++// alive.
++llvm::Expected<std::optional<ModuleBuildWorkerResult>>
++buildModuleInWorker(const CompilerInvocation &Invocation,
++                    llvm::StringRef MainContents, const ThreadsafeFS &FS,
++                    PathRef WorkingDirectory,
++                    const ModuleBuildWorkerOptions &Options);
++
++// Internal clangd executable mode. Never publishes the staged output. Clang
++// may also write its configured implicit-module cache, which the parent must
++// redirect into the worker-owned temporary directory. Failed compilation
++// removes the staged output. The parent must
++// independently own launch, cancellation, timeout, termination, specific-child
++// reap, and cleanup after a crash/kill. This entry alone provides no hard
++// bound.
++// OwnerToken, when supplied by buildModuleInWorker, names an inherited OS
++// owner-lifetime object, never a PID looked up after launch. Direct protocol
++// probes may omit it; supervised production workers must retain it.
++llvm::Error runModuleBuildWorker(PathRef RequestFile,
++                                 llvm::StringRef OwnerToken = {});
++llvm::Error runModuleBuildWorker(PathRef RequestFile,
++                                 llvm::StringRef OwnerToken,
++                                 llvm::StringRef MemoryBudgetToken);
++
++} // namespace clangd
++} // namespace clang
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+new file mode 100644
+index 0000000..05afee5
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+@@ -0,0 +1,320 @@
++//===--- ModuleBuildWorkerOutput.cpp - bounded worker outputs
++//--------------===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#include "ModuleBuildWorkerOutput.h"
++#include "clang/Basic/DiagnosticFrontend.h"
++#include "clang/Frontend/CompilerInstance.h"
++#include "clang/Frontend/FrontendActions.h"
++#include "clang/Lex/Preprocessor.h"
++#include "clang/Serialization/ASTWriter.h"
++#include "clang/Serialization/InMemoryModuleCache.h"
++#include "clang/Serialization/ModuleCache.h"
++#include "llvm/ADT/StringMap.h"
++#include "llvm/Support/AdvisoryLock.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/VirtualOutputBackends.h"
++#include <mutex>
++namespace clang::clangd {
++namespace {
++class Budget {
++public:
++  Budget(PathRef Root, uint64_t Limit, unsigned Files)
++      : Root(Root.str()), Limit(Limit), MaxFiles(Files) {}
++  bool start(StringRef Path) {
++    // Units are private, newly created directories. Reject foreign outputs,
++    // traversal, reuse and pre-existing files instead of overwriting them.
++    if (!llvm::sys::path::is_absolute(Path) || Path.contains('\0'))
++      return reject();
++    for (auto I = llvm::sys::path::begin(Path), E = llvm::sys::path::end(Path);
++         I != E; ++I)
++      if (*I == "..")
++        return reject();
++    if (!Path.starts_with(Root + "/") || llvm::sys::fs::exists(Path))
++      return reject();
++    std::lock_guard<std::mutex> Lock(Mutex);
++    if (Paths.size() >= MaxFiles || Paths.contains(Path)) {
++      Failure = true;
++      return false;
++    }
++    Paths.insert({Path, 0});
++    return true;
++  }
++  bool grow(StringRef Path, uint64_t End) {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    auto I = Paths.find(Path);
++    if (I == Paths.end()) {
++      Failure = true;
++      return false;
++    }
++    if (End <= I->second)
++      return true;
++    uint64_t Growth = End - I->second;
++    if (Growth > Limit - Used) {
++      Failure = true;
++      return false;
++    }
++    Used += Growth;
++    I->second = End;
++    return true;
++  }
++
++  void markFailure() {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    Failure = true;
++  }
++  llvm::Error check() {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    return Failure ? llvm::createStringError(
++                         "module worker output payload or file limit rejected")
++                   : llvm::Error::success();
++  }
++
++private:
++  bool reject() {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    Failure = true;
++    return false;
++  }
++  bool Failure = false;
++  std::string Root;
++  uint64_t Limit, Used = 0;
++  unsigned MaxFiles;
++  std::mutex Mutex;
++  llvm::StringMap<uint64_t> Paths;
++};
++class BoundedStream : public llvm::raw_pwrite_stream {
++public:
++  BoundedStream(llvm::raw_pwrite_stream &OS, std::shared_ptr<Budget> B,
++                StringRef Path)
++      : OS(OS), B(std::move(B)), Path(Path.str()) {
++    SetUnbuffered();
++  }
++  bool failed() const { return Failed; }
++
++private:
++  void write_impl(const char *Data, size_t Size) override {
++    if (Size > UINT64_MAX - Position || !B->grow(Path, Position + Size)) {
++      B->markFailure();
++      Failed = true;
++      return;
++    }
++    if (!Failed) {
++      OS.write(Data, Size);
++      Position += Size;
++    }
++  }
++  void pwrite_impl(const char *Data, size_t Size, uint64_t Offset) override {
++    if (Size > UINT64_MAX - Offset || !B->grow(Path, Offset + Size)) {
++      B->markFailure();
++      Failed = true;
++      return;
++    }
++    if (!Failed)
++      OS.pwrite(Data, Size, Offset);
++  }
++  uint64_t current_pos() const override { return Position; }
++  llvm::raw_pwrite_stream &OS;
++  std::shared_ptr<Budget> B;
++  std::string Path;
++  uint64_t Position = 0;
++  bool Failed = false;
++};
++class BoundedFile : public llvm::vfs::OutputFileImpl {
++public:
++  BoundedFile(std::unique_ptr<llvm::vfs::OutputFileImpl> File,
++              std::shared_ptr<Budget> B, StringRef Path)
++      : File(std::move(File)), OS(this->File->getOS(), std::move(B), Path) {}
++  llvm::Error keep() override {
++    OS.flush();
++    if (OS.failed()) {
++      llvm::consumeError(File->discard());
++      return llvm::createStringError(
++          "module worker output payload limit exceeded");
++    }
++    return File->keep();
++  }
++  llvm::Error discard() override { return File->discard(); }
++  llvm::raw_pwrite_stream &getOS() override { return OS; }
++
++private:
++  std::unique_ptr<llvm::vfs::OutputFileImpl> File;
++  BoundedStream OS;
++};
++class BoundedBackend : public llvm::vfs::OutputBackend {
++public:
++  explicit BoundedBackend(std::shared_ptr<Budget> B) : B(std::move(B)) {}
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::OutputBackend>
++  cloneImpl() const override {
++    return llvm::makeIntrusiveRefCnt<BoundedBackend>(B);
++  }
++  llvm::Expected<std::unique_ptr<llvm::vfs::OutputFileImpl>>
++  createFileImpl(StringRef Path,
++                 std::optional<llvm::vfs::OutputConfig> Config) override {
++    if (!B->start(Path))
++      return llvm::createStringError(
++          "module worker output path or file limit rejected");
++    llvm::vfs::OnDiskOutputBackend Disk;
++    auto File = Disk.createFile(Path, Config);
++    if (!File)
++      return File.takeError();
++    return std::make_unique<BoundedFile>(File->takeImpl(), B, Path);
++  }
++  std::shared_ptr<Budget> B;
++};
++// This cache is private to one worker unit, never shared with another process.
++// Advisory locks and timestamps are process-local, so no uncontrolled lock,
++// timestamp or age-prune files are created alongside the bounded payloads.
++// LLVM permits concurrent duplicate compilation behind weak advisory locks;
++// InMemoryModuleCache remains shared across the complete compiler tree.
++class PrivateLock : public llvm::AdvisoryLock {
++public:
++  llvm::Expected<bool> tryLock() override { return true; }
++  llvm::WaitForUnlockResult waitForUnlockFor(std::chrono::seconds) override {
++    return llvm::WaitForUnlockResult::Success;
++  }
++  std::error_code unsafeUnlock() override { return {}; }
++};
++class BoundedCache : public ModuleCache {
++public:
++  BoundedCache(llvm::IntrusiveRefCntPtr<llvm::vfs::OutputBackend> Backend)
++      : Backend(std::move(Backend)) {}
++  std::unique_ptr<llvm::AdvisoryLock> getLock(StringRef) override {
++    return std::make_unique<PrivateLock>();
++  }
++  time_t getModuleTimestamp(StringRef Path) override {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    auto I = Timestamps.find(Path);
++    return I == Timestamps.end() ? 0 : I->second;
++  }
++  void updateModuleTimestamp(StringRef Path) override {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    // A timestamp is only meaningful for an output that this cache wrote.
++    auto I = Timestamps.find(Path);
++    if (I != Timestamps.end())
++      I->second = std::time(nullptr);
++  }
++  void maybePrune(StringRef, time_t, time_t) override {}
++  InMemoryModuleCache &getInMemoryModuleCache() override { return InMemory; }
++  const InMemoryModuleCache &getInMemoryModuleCache() const override {
++    return InMemory;
++  }
++  std::error_code write(StringRef Path, llvm::MemoryBufferRef Buffer,
++                        off_t &Size, time_t &ModTime) override {
++    auto File = Backend->createFile(Path);
++    if (!File) {
++      llvm::consumeError(File.takeError());
++      return std::make_error_code(std::errc::no_space_on_device);
++    }
++    // The stream checks the complete buffer before its first disk write.
++    File->getOS().write(Buffer.getBufferStart(), Buffer.getBufferSize());
++    if (auto Error = File->keep()) {
++      llvm::consumeError(std::move(Error));
++      return std::make_error_code(std::errc::no_space_on_device);
++    }
++    llvm::sys::fs::file_status Status;
++    if (auto Error = llvm::sys::fs::status(Path, Status))
++      return Error;
++    Size = Status.getSize();
++    ModTime = llvm::sys::toTimeT(Status.getLastModificationTime());
++    std::lock_guard<std::mutex> Lock(Mutex);
++    Timestamps.insert({Path, ModTime});
++    return {};
++  }
++  llvm::Expected<std::unique_ptr<llvm::MemoryBuffer>>
++  read(StringRef Path, off_t &Size, time_t &ModTime) override {
++    return readImpl(Path, Size, ModTime);
++  }
++
++private:
++  llvm::IntrusiveRefCntPtr<llvm::vfs::OutputBackend> Backend;
++  InMemoryModuleCache InMemory;
++  std::mutex Mutex;
++  llvm::StringMap<time_t> Timestamps;
++};
++class BoundedReducedGenerator : public ReducedBMIGenerator {
++public:
++  explicit BoundedReducedGenerator(CompilerInstance &CI)
++      : ReducedBMIGenerator(CI.getPreprocessor(), CI.getModuleCache(),
++                            CI.getFrontendOpts().OutputFile,
++                            CI.getCodeGenOpts()),
++        Backend(CI.getOutputManager()) {}
++  void HandleTranslationUnit(ASTContext &Ctx) override {
++    // Preserve the reduced-BMI serializer and named-module selection. The
++    // upstream CXX20ModulesGenerator bypasses OutputBackend with
++    // raw_fd_ostream.
++    PCHGenerator::HandleTranslationUnit(Ctx);
++    if (!isComplete())
++      return;
++    auto File = Backend.createFile(getOutputFile());
++    if (!File) {
++      fail(llvm::toString(File.takeError()));
++      return;
++    }
++    File->getOS() << getBufferPtr()->Data;
++    if (auto Error = File->keep())
++      fail(llvm::toString(std::move(Error)));
++  }
++
++private:
++  void fail(StringRef Message) {
++    getDiagnostics().Report(diag::err_fe_unable_to_open_output)
++        << getOutputFile() << Message;
++  }
++  llvm::vfs::OutputBackend &Backend;
++};
++class BoundedReducedAction : public GenerateReducedModuleInterfaceAction {
++  std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
++                                                 StringRef) override {
++    return std::make_unique<BoundedReducedGenerator>(CI);
++  }
++};
++} // namespace
++llvm::Error validateBoundedModuleBuildOutputs(const CompilerInvocation &CI) {
++  const auto &F = CI.getFrontendOpts();
++  const auto &D = CI.getDependencyOutputOpts();
++  const auto &Diag = CI.getDiagnosticOpts();
++  // ModuleOutputPath is inactive for GenerateReducedModuleInterfaceAction:
++  // unlike the full interface action, it always emits only OutputFile. Keep
++  // this driver-derived field unchanged instead of stripping an option.
++  const std::pair<bool, StringRef> Unsupported[] = {
++      {!F.Plugins.empty(), "Plugins"},
++      {!F.ActionName.empty() || F.ProgramAction == frontend::PluginAction,
++       "PluginAction"},
++      {!F.AddPluginActions.empty(), "AddPluginActions"},
++      {!F.PluginArgs.empty(), "PluginArgs"},
++      {!F.StatsFile.empty(), "StatsFile"},
++      {!F.TimeTracePath.empty(), "TimeTracePath"},
++      {!F.DumpMinimizationHintsPath.empty(), "DumpMinimizationHintsPath"},
++      {bool(F.EmitSymbolGraph), "EmitSymbolGraph"},
++      {!F.SymbolGraphOutputDir.empty(), "SymbolGraphOutputDir"},
++      {!F.ModuleFileExtensions.empty(), "ModuleFileExtensions"},
++      {!D.OutputFile.empty(), "DependencyOutputFile"},
++      {!D.HeaderIncludeOutputFile.empty(), "HeaderIncludeOutputFile"},
++      {!D.DOTOutputFile.empty(), "DOTOutputFile"},
++      {!D.ModuleDependencyOutputDir.empty(), "ModuleDependencyOutputDir"},
++      {!Diag.DiagnosticLogFile.empty(), "DiagnosticLogFile"},
++      {!Diag.DiagnosticSerializationFile.empty(),
++       "DiagnosticSerializationFile"}};
++  for (auto [Present, Name] : Unsupported)
++    if (Present)
++      return llvm::createStringError(
++          "bounded module worker rejects uncontrolled plugin or side output: " +
++          Name);
++  return llvm::Error::success();
++}
++ModuleBuildWorkerOutput
++createModuleBuildWorkerOutput(PathRef Root, uint64_t Bytes, unsigned MaxFiles) {
++  auto B = std::make_shared<Budget>(Root, Bytes, MaxFiles);
++  auto Backend = llvm::makeIntrusiveRefCnt<BoundedBackend>(B);
++  auto Cache = std::make_shared<BoundedCache>(Backend);
++  return {std::move(Backend), std::move(Cache), [B] { return B->check(); }};
++}
++std::unique_ptr<FrontendAction> createBoundedReducedModuleAction() {
++  return std::make_unique<BoundedReducedAction>();
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h
+new file mode 100644
+index 0000000..c6b3201
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h
+@@ -0,0 +1,36 @@
++//===--- ModuleBuildWorkerOutput.h - bounded worker outputs -------*- C++
++//-*-===//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKEROUTPUT_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKEROUTPUT_H
++#include "support/Path.h"
++#include "llvm/ADT/IntrusiveRefCntPtr.h"
++#include "llvm/Support/Error.h"
++#include "llvm/Support/VirtualOutputBackend.h"
++#include <cstdint>
++#include <functional>
++#include <memory>
++namespace clang {
++class CompilerInvocation;
++class FrontendAction;
++class ModuleCache;
++namespace clangd {
++// Shared by the root compiler and its implicit-module clones. Charges are
++// conservative: discarding an output does not restore capacity during a unit.
++// This bounds payload writes, not filesystem blocks or persistent cache size.
++struct ModuleBuildWorkerOutput {
++  llvm::IntrusiveRefCntPtr<llvm::vfs::OutputBackend> Backend;
++  std::shared_ptr<ModuleCache> Cache;
++  // Optional-output errors can be swallowed by frontend helpers. Check the
++  // shared sticky failure before reporting worker compilation as successful.
++  std::function<llvm::Error()> Check;
++};
++llvm::Error validateBoundedModuleBuildOutputs(const CompilerInvocation &);
++ModuleBuildWorkerOutput createModuleBuildWorkerOutput(PathRef UnitRoot,
++                                                      uint64_t Bytes,
++                                                      unsigned MaxFiles = 64);
++std::unique_ptr<FrontendAction> createBoundedReducedModuleAction();
++} // namespace clangd
++} // namespace clang
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+new file mode 100644
+index 0000000..aa4fb05
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+@@ -0,0 +1,319 @@
++//===--- ModuleBuildWorkerStorage.cpp - compiler worker ownership ---------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#include "ModuleBuildWorkerStorage.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringMap.h"
++#include "llvm/ADT/StringSet.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/Process.h"
++#include "llvm/Support/raw_ostream.h"
++#include <algorithm>
++#include <chrono>
++#include <mutex>
++#ifndef _WIN32
++#include <cerrno>
++#include <unistd.h>
++#endif
++
++namespace clang::clangd {
++using llvm::StringRef;
++namespace {
++constexpr llvm::StringLiteral RootMarker = "clangd-worker-root-v1\n";
++constexpr llvm::StringLiteral UnitMarker = "clangd-worker-unit-v1\n";
++std::mutex ActiveUnitsMutex;
++// POSIX record locks do not exclude another thread in the same process, and
++// closing its second descriptor could release the first descriptor's lock.
++llvm::StringMap<unsigned> ActiveUnits;
++llvm::StringSet<> CollectingUnits;
++
++llvm::Expected<std::string> ownershipKey(PathRef Unit) {
++  llvm::sys::fs::UniqueID ID;
++  if (auto EC = llvm::sys::fs::getUniqueID(Unit, ID))
++    return llvm::errorCodeToError(EC);
++  // Physical directory identity also covers case aliases on filesystems
++  // where real_path() can preserve the caller's component spelling.
++  return std::to_string(ID.getDevice()) + ":" + std::to_string(ID.getFile());
++}
++
++std::string unitPath(PathRef Unit, StringRef Name) {
++  llvm::SmallString<256> Path(Unit);
++  llvm::sys::path::append(Path, Name);
++  return Path.str().str();
++}
++bool hasMarker(PathRef Path, StringRef Marker) {
++  uint64_t Size = 0;
++  if (llvm::sys::fs::file_size(Path, Size) || Size != Marker.size())
++    return false;
++  auto Contents = llvm::MemoryBuffer::getFile(Path);
++  return Contents && (*Contents)->getBuffer() == Marker;
++}
++llvm::Error writeMarker(PathRef Path, StringRef Marker) {
++  std::error_code EC;
++  llvm::raw_fd_ostream Out(Path, EC);
++  if (EC)
++    return llvm::errorCodeToError(EC);
++  Out << Marker;
++  Out.flush();
++  if (Out.has_error()) {
++    EC = Out.error();
++    Out.clear_error();
++    return llvm::errorCodeToError(EC);
++  }
++  return llvm::Error::success();
++}
++std::error_code removeOwnerPipe(PathRef Unit) {
++  const std::string Path = unitPath(Unit, "owner.pipe");
++#ifdef _WIN32
++  return llvm::sys::fs::remove(Path);
++#else
++  // LLVM's remove()/remove_directories() intentionally skip FIFO files.
++  if (unlink(Path.c_str()) && errno != ENOENT)
++    return std::error_code(errno, std::generic_category());
++  return {};
++#endif
++}
++llvm::Error prepareRoot(PathRef Root) {
++  if (!llvm::sys::path::is_absolute(Root) || Root.contains('\0'))
++    return llvm::createStringError("worker unit root must be absolute");
++  if (auto EC = llvm::sys::fs::create_directories(Root))
++    return llvm::errorCodeToError(EC);
++  const std::string MarkerPath = unitPath(Root, "owned.root");
++  if (!llvm::sys::fs::exists(MarkerPath)) {
++    int FD = -1;
++    llvm::SmallString<256> Temporary;
++    if (auto EC = llvm::sys::fs::createUniqueFile(
++            unitPath(Root, "root-marker-%%%%%%"), FD, Temporary))
++      return llvm::errorCodeToError(EC);
++    auto Cleanup = llvm::scope_exit([&] { llvm::sys::fs::remove(Temporary); });
++    llvm::raw_fd_ostream Out(FD, true);
++    Out << RootMarker;
++    Out.flush();
++    if (Out.has_error()) {
++      auto EC = Out.error();
++      Out.clear_error();
++      return llvm::errorCodeToError(EC);
++    }
++    // Publish complete contents without replacing another root marker.
++    if (auto EC = llvm::sys::fs::create_hard_link(Temporary, MarkerPath))
++      if (EC != std::errc::file_exists)
++        return llvm::errorCodeToError(EC);
++  }
++  if (!hasMarker(MarkerPath, RootMarker))
++    return llvm::createStringError("unrecognized worker unit root");
++  return llvm::Error::success();
++}
++} // namespace
++
++std::string defaultModuleBuildWorkerRoot(PathRef Output) {
++  return unitPath(llvm::sys::path::parent_path(Output),
++                  ".clangd-module-workers-v1");
++}
++
++ModuleBuildWorkerLease::ModuleBuildWorkerLease(PathRef Unit, StringRef Key)
++    : Unit(Unit), OwnershipKey(Key) {
++  // acquire() owns ActiveUnitsMutex until this registration is complete.
++  ++ActiveUnits[OwnershipKey];
++}
++ModuleBuildWorkerLease::~ModuleBuildWorkerLease() {
++  if (FD >= 0) {
++    llvm::sys::fs::unlockFile(FD);
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++  }
++  std::lock_guard<std::mutex> Guard(ActiveUnitsMutex);
++  auto I = ActiveUnits.find(OwnershipKey);
++  if (--I->second == 0)
++    ActiveUnits.erase(I);
++}
++llvm::Expected<std::unique_ptr<ModuleBuildWorkerLease>>
++ModuleBuildWorkerLease::acquire(PathRef Unit, bool Worker) {
++  llvm::SmallString<256> Canonical;
++  if (auto EC = llvm::sys::fs::real_path(Unit, Canonical))
++    return llvm::errorCodeToError(EC);
++  Unit = Canonical;
++  auto Key = ownershipKey(Unit);
++  if (!Key)
++    return Key.takeError();
++  std::unique_ptr<ModuleBuildWorkerLease> Lease;
++  {
++    std::lock_guard<std::mutex> Guard(ActiveUnitsMutex);
++    if (CollectingUnits.contains(*Key))
++      return llvm::createStringError("worker unit is being collected");
++    Lease.reset(new ModuleBuildWorkerLease(Unit, *Key));
++  }
++  if (auto EC = llvm::sys::fs::openFileForReadWrite(
++          unitPath(Unit, Worker ? "worker.lease" : "parent.lease"), Lease->FD,
++          Worker ? llvm::sys::fs::CD_OpenExisting : llvm::sys::fs::CD_CreateNew,
++          llvm::sys::fs::OF_None))
++    return llvm::errorCodeToError(EC);
++  if (auto EC = llvm::sys::fs::tryLockFile(Lease->FD))
++    return llvm::errorCodeToError(EC);
++  // Check after acquiring, not before: a collector retires this marker while
++  // owning both leases, then closes handles to permit Windows deletion.
++  if (Worker && !hasMarker(unitPath(Unit, "owned.unit"), UnitMarker))
++    return llvm::createStringError("worker unit was retired before startup");
++  return std::move(Lease);
++}
++
++llvm::Expected<std::unique_ptr<ModuleBuildWorkerUnit>>
++ModuleBuildWorkerUnit::create(PathRef Output, PathRef ConfiguredRoot) {
++  std::string Root = ConfiguredRoot.empty()
++                         ? defaultModuleBuildWorkerRoot(Output)
++                         : ConfiguredRoot.str();
++  if (auto Err = prepareRoot(Root))
++    return std::move(Err);
++  auto Unit = std::unique_ptr<ModuleBuildWorkerUnit>(new ModuleBuildWorkerUnit);
++  llvm::SmallString<256> Directory;
++  if (auto EC = llvm::sys::fs::createUniqueDirectory(unitPath(Root, "unit"),
++                                                     Directory))
++    return llvm::errorCodeToError(EC);
++  Unit->Directory = Directory.str().str();
++  auto Lease = ModuleBuildWorkerLease::acquire(Unit->Directory, false);
++  if (!Lease)
++    return Lease.takeError();
++  Unit->ParentLease = std::move(*Lease);
++  if (auto Err = writeMarker(Unit->file("worker.lease"), ""))
++    return std::move(Err);
++  // Only fully initialized, leased units advertise collector ownership.
++  if (auto Err = writeMarker(Unit->file("owned.unit"), UnitMarker))
++    return std::move(Err);
++  return std::move(Unit);
++}
++std::string ModuleBuildWorkerUnit::file(StringRef Name) const {
++  return unitPath(Directory, Name);
++}
++ModuleBuildWorkerUnit::~ModuleBuildWorkerUnit() {
++  if (Directory.empty())
++    return;
++  // Parent lease is still held while retiring the marker. Delayed child
++  // startup must not begin compilation after normal failure cleanup either.
++  llvm::sys::fs::remove(file("owned.unit"));
++  // Windows cannot unlink open lease files. The worker has been reaped by
++  // the caller before this object is destroyed.
++  ParentLease.reset();
++  removeOwnerPipe(Directory);
++  llvm::sys::fs::remove_directories(Directory);
++}
++
++class ModuleBuildWorkerCollector::Impl {
++public:
++  explicit Impl(PathRef Root) : Root(Root) {}
++  std::string Root;
++  std::mutex Mutex;
++  std::chrono::steady_clock::time_point NextSweep{};
++  llvm::sys::fs::directory_iterator Cursor;
++};
++ModuleBuildWorkerCollector::ModuleBuildWorkerCollector(PathRef Root)
++    : State(std::make_unique<Impl>(Root)) {}
++ModuleBuildWorkerCollector::~ModuleBuildWorkerCollector() = default;
++
++llvm::Expected<ModuleBuildWorkerSweepResult>
++ModuleBuildWorkerCollector::collect(unsigned MaxEntries) {
++  ModuleBuildWorkerSweepResult Result;
++  std::unique_lock<std::mutex> SweepGuard(State->Mutex, std::try_to_lock);
++  if (!SweepGuard.owns_lock() ||
++      std::chrono::steady_clock::now() < State->NextSweep) {
++    Result.Deferred = true;
++    return Result;
++  }
++  State->NextSweep =
++      std::chrono::steady_clock::now() + std::chrono::seconds(30);
++  if (!llvm::sys::path::is_absolute(State->Root) ||
++      StringRef(State->Root).contains('\0'))
++    return llvm::createStringError("worker collection root must be absolute");
++  if (!hasMarker(unitPath(State->Root, "owned.root"), RootMarker))
++    return llvm::createStringError("unrecognized worker collection root");
++  std::error_code EC;
++  const llvm::sys::fs::directory_iterator End;
++  if (State->Cursor == End)
++    State->Cursor = llvm::sys::fs::directory_iterator(State->Root, EC, false);
++  if (EC)
++    return llvm::errorCodeToError(EC);
++  const unsigned Limit = (std::min)(MaxEntries, 128u);
++  while (State->Cursor != End && Result.Examined < Limit) {
++    const auto Entry = *State->Cursor;
++    State->Cursor.increment(EC);
++    if (EC)
++      return llvm::errorCodeToError(EC);
++    ++Result.Examined;
++    llvm::SmallString<256> Canonical;
++    if (llvm::sys::fs::real_path(Entry.path(), Canonical))
++      continue;
++    const std::string Unit = Canonical.str().str();
++    auto Key = ownershipKey(Unit);
++    if (!Key) {
++      llvm::consumeError(Key.takeError());
++      continue;
++    }
++    const bool Retired = hasMarker(unitPath(Unit, "retired.unit"), UnitMarker);
++    if (Entry.type() != llvm::sys::fs::file_type::directory_file ||
++        (!Retired && !hasMarker(unitPath(Unit, "owned.unit"), UnitMarker)))
++      continue;
++    // Same-process ownership must be checked before opening either sidecar.
++    // Reserve collection under the mutex, then release before all filesystem
++    // I/O. Requests never wait behind a collector's opens/removals.
++    std::unique_lock<std::mutex> ActiveGuard(ActiveUnitsMutex,
++                                             std::try_to_lock);
++    if (!ActiveGuard.owns_lock() || ActiveUnits.contains(*Key) ||
++        CollectingUnits.contains(*Key))
++      continue;
++    CollectingUnits.insert(*Key);
++    ActiveGuard.unlock();
++    auto ReleaseCollection = llvm::scope_exit([&] {
++      std::lock_guard<std::mutex> Guard(ActiveUnitsMutex);
++      CollectingUnits.erase(*Key);
++    });
++    int ParentFD = -1, WorkerFD = -1;
++    auto Close = llvm::scope_exit([&] {
++      for (int FD : {ParentFD, WorkerFD})
++        if (FD >= 0) {
++          llvm::sys::fs::unlockFile(FD);
++          llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++        }
++    });
++    if (llvm::sys::fs::openFileForReadWrite(
++            unitPath(Unit, "parent.lease"), ParentFD,
++            llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None) ||
++        llvm::sys::fs::tryLockFile(ParentFD) ||
++        llvm::sys::fs::openFileForReadWrite(
++            unitPath(Unit, "worker.lease"), WorkerFD,
++            llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None) ||
++        llvm::sys::fs::tryLockFile(WorkerFD))
++      continue;
++    // Retire under BOTH leases. A worker starting after we close them must
++    // fail its post-lock marker check, even before deletion has completed.
++    if (!Retired && llvm::sys::fs::rename(unitPath(Unit, "owned.unit"),
++                                          unitPath(Unit, "retired.unit")))
++      continue;
++    // Close before deletion on Windows. No startup can cross retired.unit.
++    Close.release();
++    for (int FD : {ParentFD, WorkerFD}) {
++      llvm::sys::fs::unlockFile(FD);
++      llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    }
++    if (removeOwnerPipe(Unit))
++      continue;
++    llvm::sys::fs::remove_directories(Unit);
++    if (!llvm::sys::fs::exists(Unit))
++      ++Result.Removed;
++    else {
++      // Keep failed removals eligible for a later sweep. The retired marker
++      // permanently forbids frontend startup, even if recursive deletion
++      // already removed one of the sidecars before encountering an IO error.
++      for (StringRef Name :
++           {StringRef("parent.lease"), StringRef("worker.lease")})
++        if (!llvm::sys::fs::exists(unitPath(Unit, Name)))
++          llvm::consumeError(writeMarker(unitPath(Unit, Name), ""));
++      llvm::consumeError(
++          writeMarker(unitPath(Unit, "retired.unit"), UnitMarker));
++    }
++  }
++  return Result;
++}
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+new file mode 100644
+index 0000000..80684a0
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.h
+@@ -0,0 +1,72 @@
++//===--- ModuleBuildWorkerStorage.h - compiler worker ownership ---*- C++
++//-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKERSTORAGE_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEBUILDWORKERSTORAGE_H
++
++#include "support/Path.h"
++#include "llvm/Support/Error.h"
++#include <memory>
++#include <string>
++
++namespace clang::clangd {
++
++// Empty configured roots default to a versioned root beside the caller's
++// staged output, keeping final rename on the same filesystem.
++std::string defaultModuleBuildWorkerRoot(PathRef StagedOutput);
++
++class ModuleBuildWorkerLease {
++public:
++  static llvm::Expected<std::unique_ptr<ModuleBuildWorkerLease>>
++  acquire(PathRef Unit, bool Worker);
++  ~ModuleBuildWorkerLease();
++
++private:
++  ModuleBuildWorkerLease(PathRef Unit, llvm::StringRef OwnershipKey);
++  std::string Unit;
++  std::string OwnershipKey;
++  int FD = -1;
++};
++
++class ModuleBuildWorkerUnit {
++public:
++  static llvm::Expected<std::unique_ptr<ModuleBuildWorkerUnit>>
++  create(PathRef StagedOutput, PathRef ConfiguredRoot = {});
++  ~ModuleBuildWorkerUnit();
++  std::string file(llvm::StringRef Name) const;
++  const std::string &directory() const { return Directory; }
++
++private:
++  ModuleBuildWorkerUnit() = default;
++  std::string Directory;
++  std::unique_ptr<ModuleBuildWorkerLease> ParentLease;
++};
++
++struct ModuleBuildWorkerSweepResult {
++  unsigned Examined = 0;
++  unsigned Removed = 0;
++  bool Deferred = false;
++};
++
++// Maintenance-only: never called by buildModuleInWorker. One collector owns
++// its directory cursor and a 30s cadence. Calls do not wait for another sweep
++// or any lease. Each call examines at most min(MaxEntries, 128) root entries.
++// Unit removal can perform filesystem I/O, so call from a maintenance thread.
++class ModuleBuildWorkerCollector {
++public:
++  explicit ModuleBuildWorkerCollector(PathRef Root);
++  ~ModuleBuildWorkerCollector();
++  llvm::Expected<ModuleBuildWorkerSweepResult>
++  collect(unsigned MaxEntries = 32);
++
++private:
++  class Impl;
++  std::unique_ptr<Impl> State;
++};
++} // namespace clang::clangd
++#endif
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index cac0014..c7be791 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -9,6 +9,10 @@
+ #include "ModulesBuilder.h"
+ #include "Compiler.h"
+ #include "ModuleValidationCache.h"
++#include "ModuleBuildMemoryBudget.h"
++#include "ModuleBuildWorker.h"
++#include "ModuleBuildWorkerOutput.h"
++#include "ModuleBuildWorkerStorage.h"
+ #include "SourceCode.h"
+ #include "support/Cancellation.h"
+ #include "support/Context.h"
+@@ -37,6 +41,8 @@
+ 
+ #include <chrono>
+ #include <ctime>
++#include <condition_variable>
++#include <thread>
+ 
+ namespace clang {
+ namespace clangd {
+@@ -52,6 +58,16 @@ public:
+                   llvm::StringRef Contents)
+       : Base(Base), MainFile(MainFile), Contents(Contents) {}
+ 
++  std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const override {
++    auto Snapshot = Base.snapshotForModuleBuild();
++    if (!Snapshot)
++      return std::nullopt;
++    // Match InMemoryFileSystem's zero timestamp and top-overlay precedence.
++    Snapshot->OverlayFiles.push_back({MainFile, Contents, 0});
++    return Snapshot;
++  }
++
+ private:
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
+     auto Overlay = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+@@ -94,6 +110,56 @@ llvm::cl::opt<unsigned> ModuleBuildWorkers(
+                    "(1-4, limited to physical cores)."),
+     llvm::cl::init(2));
+ 
++using WorkerPolicy = ModuleBuildWorkerOptions::Policy;
++llvm::cl::opt<WorkerPolicy> ModuleWorkerPolicy(
++    "modules-builder-worker-policy",
++    llvm::cl::desc("Prerequisite compiler isolation policy"),
++    llvm::cl::values(
++        clEnumValN(WorkerPolicy::InProcess, "in-process", "Compile in clangd"),
++        clEnumValN(WorkerPolicy::WhenSupported, "when-supported",
++                   "Use supervised workers for exportable filesystems"),
++        clEnumValN(WorkerPolicy::Required, "required",
++                   "Reject inputs that cannot use a supervised worker")),
++#ifdef __linux__
++    llvm::cl::init(WorkerPolicy::WhenSupported));
++#else
++    llvm::cl::init(WorkerPolicy::InProcess));
++#endif
++llvm::cl::opt<unsigned> ModuleWorkerTimeoutSeconds(
++    "modules-builder-worker-timeout-seconds",
++    llvm::cl::desc("Supervised compiler deadline in seconds (must be positive)"),
++    llvm::cl::init(60));
++llvm::cl::opt<unsigned> ModuleWorkerAggregateAddressSpaceMiB(
++    "modules-builder-worker-aggregate-address-space-mib",
++    llvm::cl::desc("Total worker virtual address space in MiB, divided by the "
++                   "build pool concurrency (not an RSS limit)"),
++    llvm::cl::init(4096));
++// These prototype bounds are opt-in: they do not imply a persistent-cache or
++// filesystem allocation quota, and an explicit bound forbids fallback.
++llvm::cl::opt<unsigned> ModuleWorkerOutputMiB(
++    "modules-builder-worker-output-mib",
++    llvm::cl::desc("Optional compiler output payload limit per worker in MiB; "
++                   "0 disables the bound (not an aggregate cache quota)"),
++    llvm::cl::init(0));
++llvm::cl::opt<unsigned> ModuleWorkerCaptureMiB(
++    "modules-builder-worker-capture-mib",
++    llvm::cl::desc("Optional request snapshot payload limit per worker in MiB; "
++                   "0 disables the bound; bounds also cap captured file count"),
++    llvm::cl::init(0));
++llvm::cl::opt<std::string> ModuleWorkerExecutable(
++    "modules-builder-worker-executable",
++    llvm::cl::desc("Worker-capable clangd executable (defaults to this executable)"),
++    llvm::cl::init(""));
++llvm::cl::opt<std::string> ModuleWorkerCgroupRoot(
++    "modules-builder-worker-cgroup-root",
++    llvm::cl::desc("Optional delegated cgroup-v2 root for aggregate compiler "
++                   "memory admission; configuration errors forbid fallback"),
++    llvm::cl::init(""));
++llvm::cl::opt<unsigned> ModuleWorkerAggregateMemoryMiB(
++    "modules-builder-worker-aggregate-memory-mib",
++    llvm::cl::desc("Shared cgroup memory limit in MiB when a delegated root is set"),
++    llvm::cl::init(4096));
++
+ llvm::ThreadPoolStrategy moduleBuildStrategy() {
+   auto Strategy = llvm::heavyweight_hardware_concurrency(
+       (std::max)(1u, (std::min)(4u, unsigned(ModuleBuildWorkers))));
+@@ -874,6 +940,7 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                 tooling::CompileCommand Cmd, PathRef ModuleFilePath,
+                 const ThreadsafeFS &TFS,
+                 const ReusablePrerequisiteModules &BuiltModuleFiles,
++                const ModuleBuildWorkerOptions &WorkerOptions,
+                 bool &PublishedExistingModuleFile) {
+   PublishedExistingModuleFile = false;
+   if (int Reason = isCancelled())
+@@ -900,9 +967,29 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   Inputs.CompileCommand = std::move(Cmd);
+ 
+   IgnoreDiagnostics IgnoreDiags;
+-  auto CI = buildCompilerInvocation(Inputs, IgnoreDiags);
++  const bool PayloadBound =
++      WorkerOptions.OutputLimitBytes || WorkerOptions.CaptureLimitBytes;
++  std::vector<std::string> OriginalArguments;
++  auto CI = buildCompilerInvocation(
++      Inputs, IgnoreDiags, PayloadBound ? &OriginalArguments : nullptr);
+   if (!CI)
+     return llvm::createStringError("Failed to build compiler invocation");
++  if (PayloadBound) {
++    // Inspect the driver's actual cc1 options before clangd's existing
++    // disableUnsupportedOptions strips plugins and dependency outputs. Strict
++    // admission must reject an unsupported requested writer, not hide it.
++    std::vector<const char *> Args;
++    for (const auto &Arg : OriginalArguments)
++      Args.push_back(Arg.c_str());
++    CompilerInvocation Original;
++    DiagnosticOptions DiagOpts;
++    DiagnosticsEngine Diags(new DiagnosticIDs(), DiagOpts, &IgnoreDiags, false);
++    if (!CompilerInvocation::CreateFromArgs(Original, Args, Diags))
++      return llvm::createStringError(
++          "Failed to inspect bounded worker invocation");
++    if (auto Error = validateBoundedModuleBuildOutputs(Original))
++      return std::move(Error);
++  }
+ 
+   auto FS = Inputs.TFS->view(Inputs.CompileCommand.Directory);
+   auto Buf = FS->getBufferForFile(Inputs.CompileCommand.Filename);
+@@ -924,46 +1011,66 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   BuiltModuleFiles.adjustHeaderSearchOptions(CI->getHeaderSearchOpts());
+ 
+   CI->getFrontendOpts().OutputFile = Inputs.CompileCommand.Output;
+-  auto Clang =
+-      prepareCompilerInstance(std::move(CI), /*Preamble=*/nullptr,
+-                              std::move(*Buf), std::move(FS), IgnoreDiags);
+-  if (!Clang)
+-    return llvm::createStringError("Failed to prepare compiler instance");
++  // The finalized invocation includes prerequisite BMI paths and the request
++  // filesystem snapshot. The caller retains its source lock and read leases
++  // until this synchronous supervisor has reaped the specific child.
++  auto Worker = buildModuleInWorker(*CI, (*Buf)->getBuffer(), TFS,
++                                   Inputs.CompileCommand.Directory,
++                                   WorkerOptions);
++  if (!Worker) {
++    auto Error = Worker.takeError();
++    if (int Reason = isCancelled()) {
++      llvm::consumeError(std::move(Error));
++      return llvm::make_error<CancelledError>(Reason);
++    }
++    return std::move(Error);
++  }
++  if (!*Worker) {
++    auto Clang =
++        prepareCompilerInstance(std::move(CI), /*Preamble=*/nullptr,
++                                std::move(*Buf), std::move(FS), IgnoreDiags);
++    if (!Clang)
++      return llvm::createStringError("Failed to prepare compiler instance");
+ 
+-  if (int Reason = isCancelled())
+-    return llvm::make_error<CancelledError>(Reason);
+-  GenerateReducedModuleInterfaceAction Action;
+-  Clang->ExecuteAction(Action);
+-  // ExecuteAction is synchronous and cannot be interrupted here. If its
+-  // request was cancelled while compiling, discard the staged BMI rather
+-  // than publishing it or letting dependent module builds consume it.
+-  if (int Reason = isCancelled())
+-    return llvm::make_error<CancelledError>(Reason);
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
++    GenerateReducedModuleInterfaceAction Action;
++    Clang->ExecuteAction(Action);
++    // ExecuteAction is synchronous and cannot be interrupted here. If its
++    // request was cancelled while compiling, discard the staged BMI rather
++    // than publishing it or letting dependent module builds consume it.
++    if (int Reason = isCancelled())
++      return llvm::make_error<CancelledError>(Reason);
+ 
+-  if (Clang->getDiagnostics().hasErrorOccurred()) {
+-    std::string Cmds;
+-    for (const auto &Arg : Inputs.CompileCommand.CommandLine) {
+-      if (!Cmds.empty())
+-        Cmds += " ";
+-      Cmds += Arg;
+-    }
++    if (Clang->getDiagnostics().hasErrorOccurred()) {
++      std::string Cmds;
++      for (const auto &Arg : Inputs.CompileCommand.CommandLine) {
++        if (!Cmds.empty())
++          Cmds += " ";
++        Cmds += Arg;
++      }
+ 
+-    clangd::vlog("Failed to compile {0} with command: {1}", ModuleUnitFileName,
+-                 Cmds);
++      clangd::vlog("Failed to compile {0} with command: {1}", ModuleUnitFileName,
++                   Cmds);
+ 
+-    std::string BuiltModuleFilesStr = BuiltModuleFiles.getAsString();
+-    if (!BuiltModuleFilesStr.empty())
+-      clangd::vlog("The actual used module files built by clangd is {0}",
+-                   BuiltModuleFilesStr);
++      std::string BuiltModuleFilesStr = BuiltModuleFiles.getAsString();
++      if (!BuiltModuleFilesStr.empty())
++        clangd::vlog("The actual used module files built by clangd is {0}",
++                     BuiltModuleFilesStr);
+ 
+-    return llvm::createStringError(
+-        llvm::formatv("Failed to compile {0}. Use '--log=verbose' to view "
+-                      "detailed failure reasons. It is helpful to use "
+-                      "'--debug-modules-builder' flag to keep the clangd's "
+-                      "built module files to reproduce the failure for "
+-                      "debugging. Remember to remove them after debugging.",
+-                      ModuleUnitFileName));
++      return llvm::createStringError(
++          llvm::formatv("Failed to compile {0}. Use '--log=verbose' to view "
++                        "detailed failure reasons. It is helpful to use "
++                        "'--debug-modules-builder' flag to keep the clangd's "
++                        "built module files to reproduce the failure for "
++                        "debugging. Remember to remove them after debugging.",
++                        ModuleUnitFileName));
++    }
+   }
++  // This boundary also covers cancellation after successful worker reaping;
++  // neither path may publish a result belonging to a cancelled request.
++  if (int Reason = isCancelled())
++    return llvm::make_error<CancelledError>(Reason);
+ 
+   if (std::error_code EC =
+           llvm::sys::fs::rename(TemporaryModuleFilePath, ModuleFilePath)) {
+@@ -1404,6 +1511,20 @@ public:
+       // their generation instead of serving stale emptiness forever.
+       ++CommandGeneration;
+     });
++    configureWorkers();
++    WorkerMaintenance = std::thread([this] { maintainWorkerUnits(); });
++  }
++
++  ~ModulesBuilderImpl() {
++    // Drain compilation while configuration, shared budget, and collectors
++    // still live. BuildPool is also declared last so it is destroyed first.
++    BuildPool.wait();
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      StopWorkerMaintenance = true;
++    }
++    WorkerMaintenanceCV.notify_one();
++    WorkerMaintenance.join();
+   }
+ 
+   ModuleNameToSourceCache &getProjectModulesCache() {
+@@ -1461,6 +1582,99 @@ public:
+                         ReusablePrerequisiteModules &BuiltModuleFiles);
+ 
+ private:
++  void configureWorkers() {
++    WorkerConfiguration.Isolation = ModuleWorkerPolicy;
++    WorkerConfiguration.Timeout =
++        std::chrono::seconds(unsigned(ModuleWorkerTimeoutSeconds));
++    WorkerConfiguration.Cancelled = [] { return isCancelled() != 0; };
++    constexpr uint64_t MiB = 1024ULL * 1024;
++    WorkerConfiguration.OutputLimitBytes =
++        uint64_t(ModuleWorkerOutputMiB) * MiB;
++    WorkerConfiguration.CaptureLimitBytes =
++        uint64_t(ModuleWorkerCaptureMiB) * MiB;
++    if (WorkerConfiguration.Isolation == WorkerPolicy::InProcess &&
++        (ModuleWorkerOutputMiB || ModuleWorkerCaptureMiB))
++      WorkerConfigurationError =
++          "Worker payload bounds require worker isolation";
++    WorkerConfiguration.AddressSpaceLimitBytes =
++        uint64_t(ModuleWorkerAggregateAddressSpaceMiB) * MiB /
++        (std::max)(1u, BuildPool.getMaxConcurrency());
++    static int ExecutableAnchor;
++    WorkerConfiguration.Executable = ModuleWorkerExecutable.empty()
++        ? llvm::sys::fs::getMainExecutable(nullptr, &ExecutableAnchor)
++        : std::string(ModuleWorkerExecutable);
++    if (WorkerConfiguration.Isolation != WorkerPolicy::InProcess &&
++        (!ModuleWorkerTimeoutSeconds ||
++         !WorkerConfiguration.AddressSpaceLimitBytes))
++      WorkerConfigurationError = "Worker timeout and address-space limit must be positive";
++    if (!ModuleWorkerCgroupRoot.empty()) {
++      if (WorkerConfiguration.Isolation == WorkerPolicy::InProcess ||
++          !ModuleWorkerAggregateMemoryMiB) {
++        WorkerConfigurationError = "Cgroup memory admission requires worker isolation and a positive memory limit";
++      } else {
++        auto Budget = createModuleBuildWorkerMemoryBudget(
++            ModuleWorkerCgroupRoot, uint64_t(ModuleWorkerAggregateMemoryMiB) * MiB);
++        if (!Budget)
++          WorkerConfigurationError = llvm::toString(Budget.takeError());
++        else
++          WorkerConfiguration.MemoryBudget = std::move(*Budget);
++      }
++    }
++    if (!WorkerConfigurationError.empty())
++      elog("Module worker configuration failed: {0}", WorkerConfigurationError);
++  }
++
++  void registerWorkerRoot(PathRef Root) {
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      if (!WorkerRoots.insert(Root).second)
++        return;
++      WorkerCollectors.emplace_back(
++          Root.str(), std::make_shared<ModuleBuildWorkerCollector>(Root));
++      ++WorkerRootsGeneration;
++    }
++    WorkerMaintenanceCV.notify_one();
++  }
++
++  void maintainWorkerUnits() {
++    uint64_t SeenGeneration = 0;
++    size_t Cursor = 0;
++    for (;;) {
++      std::vector<std::pair<std::string,
++                            std::shared_ptr<ModuleBuildWorkerCollector>>> Batch;
++      {
++        std::unique_lock<std::mutex> Lock(WorkerMaintenanceMutex);
++        WorkerMaintenanceCV.wait_for(Lock, std::chrono::seconds(5), [&] {
++          return StopWorkerMaintenance ||
++                 WorkerRootsGeneration != SeenGeneration;
++        });
++        if (StopWorkerMaintenance)
++          return;
++        SeenGeneration = WorkerRootsGeneration;
++        // Bound work per cycle even when one server serves many projects.
++        size_t Count = (std::min)(size_t(8), WorkerCollectors.size());
++        for (size_t I = 0; I < Count; ++I) {
++          Cursor %= WorkerCollectors.size();
++          Batch.push_back(WorkerCollectors[Cursor++]);
++        }
++      }
++      // No filesystem I/O under the registry mutex or on request threads.
++      for (const auto &Entry : Batch) {
++        llvm::SmallString<256> Marker(Entry.first);
++        llvm::sys::path::append(Marker, "owned.root");
++        if (!llvm::sys::fs::exists(Marker))
++          continue; // A registered cache may not have launched a worker yet.
++        auto Sweep = Entry.second->collect(32);
++        if (!Sweep)
++          vlog("Module worker collection failed: {0}",
++               llvm::toString(Sweep.takeError()));
++        else if (Sweep->Removed)
++          vlog("Collected {0} orphaned module worker units in {1}",
++               Sweep->Removed, Entry.first);
++      }
++    }
++  }
++
+   llvm::Expected<std::shared_ptr<const ModuleFile>>
+   getOrBuildSingleModule(StringRef ModuleName, PathRef ModuleSource,
+                          tooling::CompileCommand Cmd, const ThreadsafeFS &TFS,
+@@ -1484,6 +1698,17 @@ private:
+   // Shared by all document builds. Per-document pools would multiply memory
+   // use and allow a fan-out edit to spawn an unbounded compilation storm.
+   std::atomic<unsigned> ActiveBuildTasks{0};
++  ModuleBuildWorkerOptions WorkerConfiguration;
++  std::string WorkerConfigurationError;
++  std::mutex WorkerMaintenanceMutex;
++  std::condition_variable WorkerMaintenanceCV;
++  bool StopWorkerMaintenance = false;
++  uint64_t WorkerRootsGeneration = 0;
++  llvm::StringSet<> WorkerRoots;
++  std::vector<std::pair<std::string,
++                        std::shared_ptr<ModuleBuildWorkerCollector>>>
++      WorkerCollectors;
++  std::thread WorkerMaintenance;
+   llvm::DefaultThreadPool BuildPool;
+ };
+ 
+@@ -1562,6 +1787,14 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     const ThreadsafeFS &TFS, const ReusablePrerequisiteModules &Prerequisites) {
+   if (int Reason = isCancelled())
+     return llvm::make_error<CancelledError>(Reason);
++  if (!WorkerConfigurationError.empty())
++    return llvm::createStringError(WorkerConfigurationError);
++  auto WorkerOptions = WorkerConfiguration;
++  auto WorkerRoot = getModuleCacheRoot(ModuleSource, getCDB());
++  llvm::sys::path::append(WorkerRoot, ".workers-v1");
++  WorkerOptions.UnitRoot = WorkerRoot.str().str();
++  if (WorkerOptions.Isolation != WorkerPolicy::InProcess)
++    registerWorkerRoot(WorkerOptions.UnitRoot);
+   unsigned Active = ++ActiveBuildTasks;
+   vlog("Module build task {0} started (active={1}, limit={2})", ModuleName,
+        Active, BuildPool.getMaxConcurrency());
+@@ -1618,7 +1851,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+   bool PublishedExistingModuleFile = false;
+   llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
+       ModuleName, ModuleSource, std::move(Cmd), PublishedModuleFilePath, TFS,
+-      Prerequisites, PublishedExistingModuleFile);
++      Prerequisites, WorkerOptions, PublishedExistingModuleFile);
+   if (llvm::Error Err = MF.takeError())
+     return Err;
+ 
+diff --git a/clang-tools-extra/clangd/support/ThreadsafeFS.h b/clang-tools-extra/clangd/support/ThreadsafeFS.h
+index 26ca136..9397472 100644
+--- a/clang-tools-extra/clangd/support/ThreadsafeFS.h
++++ b/clang-tools-extra/clangd/support/ThreadsafeFS.h
+@@ -12,11 +12,27 @@
+ #include "Path.h"
+ #include "llvm/ADT/IntrusiveRefCntPtr.h"
+ #include "llvm/Support/VirtualFileSystem.h"
++#include <cstdint>
+ #include <memory>
++#include <optional>
++#include <string>
++#include <vector>
+ 
+ namespace clang {
+ namespace clangd {
+ 
++// A faithful disk-based view with immutable virtual-file overlays. Unknown
++// filesystem implementations must not advertise this capability. Snapshot
++// files preserve their request timestamp and virtual path in the child.
++struct ModuleBuildFileSystemSnapshot {
++  struct File {
++    std::string Path;
++    std::string Contents;
++    int64_t ModificationTime = 0; // seconds since the Unix epoch
++  };
++  std::vector<File> OverlayFiles;
++};
++
+ /// Wrapper for vfs::FileSystem for use in multithreaded programs like clangd.
+ /// As FileSystem is not threadsafe, concurrent threads must each obtain one.
+ /// Implementations may choose to depend on Context::current() e.g. to implement
+@@ -42,9 +58,23 @@ private:
+   /// Overridden by implementations to provide a vfs::FileSystem.
+   /// This is distinct from view(NoneType) to avoid GCC's -Woverloaded-virtual.
+   virtual llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const = 0;
++
++public:
++  // nullopt means this view cannot be faithfully exported to a disk-based
++  // compiler worker. It does not authorize replacing the view with real disk.
++  virtual std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const {
++    return std::nullopt;
++  }
+ };
+ 
+ class RealThreadsafeFS : public ThreadsafeFS {
++public:
++  std::optional<ModuleBuildFileSystemSnapshot>
++  snapshotForModuleBuild() const override {
++    return ModuleBuildFileSystemSnapshot{};
++  }
++
+ private:
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override;
+ };
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 51c3b01..753d6eb 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -15,6 +15,7 @@
+ #include "Feature.h"
+ #include "FeatureModule.h"
+ #include "IncludeCleaner.h"
++#include "ModuleBuildWorker.h"
+ #include "PathMapping.h"
+ #include "Protocol.h"
+ #include "TidyProvider.h"
+@@ -789,6 +790,18 @@ int clangdMain(int argc, char *argv[]) {
+   clang::noteBottomOfStack();
+   llvm::InitLLVM X(argc, argv);
+   llvm::InitializeAllTargetInfos();
++  // The internal compiler worker has no LSP transport or inherited clangd
++  // configuration. Inputs are the captured request and optional inherited
++  // owner-lifetime object; neither enters ordinary command-line parsing.
++  if ((argc == 3 || argc == 4 || argc == 5) &&
++      llvm::StringRef(argv[1]) == "--module-build-worker") {
++    if (auto Err = runModuleBuildWorker(argv[2], argc >= 4 ? argv[3] : "",
++                                        argc == 5 ? argv[4] : "")) {
++      llvm::errs() << llvm::toString(std::move(Err)) << "\n";
++      return 1;
++    }
++    return 0;
++  }
+   llvm::sys::AddSignalHandler(
+       [](void *) {
+         ThreadCrashReporter::runCrashHandlers();
+diff --git a/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp b/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp
+index 9d202e4..560da26 100644
+--- a/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp
++++ b/clang-tools-extra/clangd/unittests/DraftStoreTests.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "DraftStore.h"
++#include "support/ThreadsafeFS.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+ 
+@@ -14,6 +15,31 @@ namespace clang {
+ namespace clangd {
+ namespace {
+ 
++TEST(DraftStore, AtomicSnapshotRetainsVersionsAndExportsDirtyHeaders) {
++  RealThreadsafeFS Base;
++  DraftStore Store;
++  Store.addDraft("/header.h", "1", "old header");
++  Store.addDraft("/M.cppm", "1", "old module");
++  auto Captured = Store.snapshot();
++  auto FS = createDraftStoreFS(Base, Store);
++  auto Exported = FS->snapshotForModuleBuild();
++  ASSERT_TRUE(Exported);
++  ASSERT_EQ(Exported->OverlayFiles.size(), 2u);
++  Store.addDraft("/header.h", "2", "new header");
++  Store.removeDraft("/M.cppm");
++  auto View = DraftStore::asVFS(Captured);
++  auto Header = View->getBufferForFile("/header.h");
++  ASSERT_TRUE(Header);
++  EXPECT_EQ((*Header)->getBuffer(), "old header");
++  EXPECT_TRUE(View->exists("/M.cppm"));
++  for (const auto &File : Exported->OverlayFiles)
++    EXPECT_TRUE(File.Contents == "old header" || File.Contents == "old module");
++  auto Current = FS->snapshotForModuleBuild();
++  ASSERT_TRUE(Current);
++  ASSERT_EQ(Current->OverlayFiles.size(), 1u);
++  EXPECT_EQ(Current->OverlayFiles[0].Contents, "new header");
++}
++
+ TEST(DraftStore, Versions) {
+   DraftStore DS;
+   Path File = "foo.cpp";
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index f495966..972faf1 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -14,6 +14,10 @@
+ #include "Annotations.h"
+ #include "CodeComplete.h"
+ #include "Compiler.h"
++#include "ModuleBuildMemoryBudget.h"
++#include "ModuleBuildWorker.h"
++#include "ModuleBuildWorkerOutput.h"
++#include "ModuleBuildWorkerStorage.h"
+ #include "ModuleDependencyScanCache.h"
+ #include "ModulesBuilder.h"
+ #include "Preamble.h"
+@@ -23,9 +27,12 @@
+ #include "support/Cancellation.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
++#include "clang/Serialization/GlobalModuleIndex.h"
++#include "clang/Serialization/ModuleCache.h"
+ #include "clang/Tooling/Tooling.h"
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/StringRef.h"
++#include "llvm/Support/AdvisoryLock.h"
+ #include "llvm/Support/Chrono.h"
+ #include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/FileSystem.h"
+@@ -260,11 +267,25 @@ void MockDirectoryCompilationDatabase::addFile(llvm::StringRef Path,
+ class PrerequisiteModulesTests : public ::testing::Test {
+ protected:
+   void SetUp() override {
++    // These tests exercise module semantics and in-process compiler hooks
++    // (including cancellation triggered by filesystem reads). ClangdTests has
++    // no internal worker entry point. The real LSP module_worker_default.py
++    // fixture covers the production default with an actual clangd child.
++    auto &Options = llvm::cl::getRegisteredOptions();
++    auto It = Options.find("modules-builder-worker-policy");
++    ASSERT_NE(It, Options.end());
++    WorkerPolicyOption =
++        static_cast<llvm::cl::opt<ModuleBuildWorkerOptions::Policy> *>(
++            It->second);
++    OriginalWorkerPolicy = WorkerPolicyOption->getValue();
++    *WorkerPolicyOption = ModuleBuildWorkerOptions::Policy::InProcess;
+     ASSERT_FALSE(llvm::sys::fs::current_path(OriginalWorkingDirectory));
+     ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("modules-test", TestDir));
+   }
+ 
+   void TearDown() override {
++    if (WorkerPolicyOption)
++      *WorkerPolicyOption = OriginalWorkerPolicy;
+     // MockFS overlays the process-wide real filesystem; its scanner changes
+     // the process CWD. Restore it before deleting this request's directory.
+     ASSERT_FALSE(llvm::sys::fs::set_current_path(OriginalWorkingDirectory));
+@@ -298,6 +319,9 @@ public:
+     return Inputs;
+   }
+ 
++  llvm::cl::opt<ModuleBuildWorkerOptions::Policy> *WorkerPolicyOption = nullptr;
++  ModuleBuildWorkerOptions::Policy OriginalWorkerPolicy =
++      ModuleBuildWorkerOptions::Policy::InProcess;
+   SmallString<256> TestDir;
+   SmallString<256> OriginalWorkingDirectory;
+   // FIXME: It will be better to use the MockFS if the scanning process and
+@@ -631,6 +655,347 @@ export module M;
+   }
+ }
+ 
++TEST_F(PrerequisiteModulesTests,
++       ModuleWorkerOutputBudgetPrecedesPayloadWrites) {
++  auto Outputs = createModuleBuildWorkerOutput(TestDir, 16, 2);
++  auto Clone = Outputs.Backend->clone();
++  std::string First = (TestDir + "/first.pcm").str();
++  auto A = Outputs.Backend->createFile(First);
++  ASSERT_TRUE(bool(A));
++  A->getOS() << "12345678";
++  ASSERT_FALSE(bool(A->keep()));
++  auto B = Clone->createFile((TestDir + "/second.pcm").str());
++  ASSERT_TRUE(bool(B));
++  B->getOS() << "123456789";
++  auto Error = B->keep();
++  ASSERT_TRUE(bool(Error));
++  EXPECT_THAT(llvm::toString(std::move(Error)),
++              testing::HasSubstr("payload limit"));
++  EXPECT_FALSE(llvm::sys::fs::exists((TestDir + "/second.pcm").str()));
++  auto Contents = llvm::MemoryBuffer::getFile(First);
++  ASSERT_TRUE(bool(Contents));
++  EXPECT_EQ((*Contents)->getBuffer(), "12345678");
++  auto Extra = Clone->createFile((TestDir + "/third.pcm").str());
++  ASSERT_FALSE(bool(Extra));
++  llvm::consumeError(Extra.takeError());
++  // A failed file stays conservatively charged; overwriting a kept output or
++  // writing outside the private unit never restores/bypasses the reservation.
++  auto Reused = Outputs.Backend->createFile(First);
++  ASSERT_FALSE(bool(Reused));
++  llvm::consumeError(Reused.takeError());
++  auto Foreign = Clone->createFile((TestDir + "/../foreign.pcm").str());
++  ASSERT_FALSE(bool(Foreign));
++  llvm::consumeError(Foreign.takeError());
++}
++
++TEST_F(PrerequisiteModulesTests,
++       ModuleWorkerPwriteAndImplicitCacheShareBudget) {
++  auto Outputs = createModuleBuildWorkerOutput(TestDir, 16);
++  auto File = Outputs.Backend->createFile((TestDir + "/sparse.pcm").str());
++  ASSERT_TRUE(bool(File));
++  File->getOS() << "1234";
++  // Pwrite changes already-reserved bytes without double-charging them.
++  // raw_pwrite_stream requires this write to remain within tell().
++  File->getOS().pwrite("xx", 2, 2);
++  ASSERT_FALSE(bool(File->keep()));
++  auto Contents = llvm::MemoryBuffer::getFile((TestDir + "/sparse.pcm").str());
++  ASSERT_TRUE(bool(Contents));
++  EXPECT_EQ((*Contents)->getBuffer(), "12xx");
++  Contents->reset();
++  ASSERT_FALSE(llvm::sys::fs::remove((TestDir + "/sparse.pcm").str()));
++  const std::string CachePath = (TestDir + "/implicit.pcm").str();
++  off_t Size = 0;
++  time_t Time = 0;
++  auto Buffer = llvm::MemoryBuffer::getMemBuffer("1234567890123");
++  // The stream already charged four bytes. Deleting its payload does not
++  // restore this unit's conservative reservation. The implicit cache must
++  // reject a thirteen-byte buffer before its underlying temp receives bytes.
++  EXPECT_EQ(
++      Outputs.Cache->write(CachePath, Buffer->getMemBufferRef(), Size, Time),
++      std::make_error_code(std::errc::no_space_on_device));
++  EXPECT_FALSE(llvm::sys::fs::exists(CachePath));
++  Outputs.Cache->updateModuleTimestamp(CachePath);
++  auto Lock = Outputs.Cache->getLock(CachePath);
++  auto Owned = Lock->tryLock();
++  ASSERT_TRUE(bool(Owned));
++  EXPECT_TRUE(*Owned);
++  Outputs.Cache->maybePrune(TestDir, 1, 1);
++  // Auxiliary operations create no uncontrolled timestamp/lock/prune files.
++  std::error_code EC;
++  EXPECT_EQ(llvm::sys::fs::directory_iterator(TestDir, EC),
++            llvm::sys::fs::directory_iterator());
++  EXPECT_FALSE(EC);
++}
++
++TEST_F(PrerequisiteModulesTests, ModuleWorkerIndexLimitRemainsSticky) {
++  auto Outputs = createModuleBuildWorkerOutput(TestDir, 1);
++  FileSystemOptions Options;
++  FileManager Files(Options, FS.view(TestDir));
++  PCHContainerOperations Containers;
++  auto Error =
++      GlobalModuleIndex::writeIndex(Files, Containers.getRawReader(), TestDir,
++                                    Outputs.Backend.get(), Outputs.Cache.get());
++  ASSERT_TRUE(bool(Error));
++  EXPECT_THAT(llvm::toString(std::move(Error)),
++              testing::HasSubstr("payload limit"));
++  // FrontendAction intentionally consumes optional index errors. The worker
++  // must still notice the budget rejection and decline publication.
++  auto Sticky = Outputs.Check();
++  ASSERT_TRUE(bool(Sticky));
++  llvm::consumeError(std::move(Sticky));
++  std::error_code EC;
++  EXPECT_EQ(llvm::sys::fs::directory_iterator(TestDir, EC),
++            llvm::sys::fs::directory_iterator());
++  EXPECT_FALSE(EC);
++}
++
++TEST_F(PrerequisiteModulesTests, ModuleWorkerBoundedProtocolCannotBeDowngraded) {
++  const std::string RequestPath = (TestDir + "/request.json").str();
++  std::error_code EC;
++  {
++    llvm::raw_fd_ostream Request(RequestPath, EC);
++    ASSERT_FALSE(EC);
++    Request << R"json({"version":1,"filesystem":"disk-with-captured-overlays",
++                        "outputLimitBytes":16})json";
++  }
++  auto Error = runModuleBuildWorker(RequestPath);
++  ASSERT_TRUE(bool(Error));
++  EXPECT_THAT(llvm::toString(std::move(Error)),
++              testing::HasSubstr("requires protocol version 2"));
++}
++
++TEST_F(PrerequisiteModulesTests, ModuleWorkerCaptureLimitFailsBeforeLaunch) {
++  CompilerInvocation CI;
++  const std::string Main = (TestDir + "/M.cppm").str();
++  const std::string Output = (TestDir + "/staged.pcm").str();
++  IgnoreDiagnostics Consumer;
++  DiagnosticOptions DiagOpts;
++  DiagnosticsEngine Diags(new DiagnosticIDs(), DiagOpts, &Consumer, false);
++  const char *Args[] = {"-std=c++20", "-x", "c++",
++                        Main.c_str(), "-o", Output.c_str()};
++  ASSERT_TRUE(CompilerInvocation::CreateFromArgs(CI, Args, Diags));
++  RealThreadsafeFS Real;
++  ModuleBuildWorkerOptions Options;
++  Options.Isolation = ModuleBuildWorkerOptions::Policy::Required;
++  Options.Executable = "/nonexistent-worker-must-not-launch";
++  Options.UnitRoot = (TestDir + "/workers").str();
++  Options.CaptureLimitBytes = 16;
++  auto Result = buildModuleInWorker(
++      CI, "export module M; export int value = 42;", Real, TestDir, Options);
++  ASSERT_FALSE(bool(Result));
++  EXPECT_THAT(llvm::toString(Result.takeError()),
++              testing::HasSubstr("capture payload"));
++  // Request/captured payloads and the staged output were never written.
++  std::error_code EC;
++  for (llvm::sys::fs::recursive_directory_iterator I(TestDir, EC), E;
++       I != E && !EC; I.increment(EC)) {
++    EXPECT_FALSE(StringRef(I->path()).ends_with("main.snapshot"));
++    EXPECT_FALSE(StringRef(I->path()).ends_with("filesystem.yaml"));
++    EXPECT_FALSE(StringRef(I->path()).ends_with("request.json"));
++    EXPECT_FALSE(StringRef(I->path()).ends_with(".pcm"));
++  }
++  EXPECT_FALSE(EC);
++  Options.Isolation = ModuleBuildWorkerOptions::Policy::InProcess;
++  Result = buildModuleInWorker(CI, "", Real, TestDir, Options);
++  ASSERT_FALSE(bool(Result));
++  EXPECT_THAT(llvm::toString(Result.takeError()),
++              testing::HasSubstr("forbids"));
++  CI.getFrontendOpts().DumpMinimizationHintsPath = (TestDir + "/unowned").str();
++  auto Invalid = validateBoundedModuleBuildOutputs(CI);
++  ASSERT_TRUE(bool(Invalid));
++  EXPECT_THAT(llvm::toString(std::move(Invalid)),
++              testing::HasSubstr("side output"));
++  CI.getFrontendOpts().DumpMinimizationHintsPath.clear();
++  CI.getFrontendOpts().ActionName = "unsupported-plugin";
++  Invalid = validateBoundedModuleBuildOutputs(CI);
++  ASSERT_TRUE(bool(Invalid));
++  EXPECT_THAT(llvm::toString(std::move(Invalid)),
++              testing::HasSubstr("PluginAction"));
++}
++
++TEST_F(PrerequisiteModulesTests, ModuleWorkerPolicyDoesNotInventDiskSemantics) {
++  class UnknownFS : public ThreadsafeFS {
++    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++      return llvm::vfs::getRealFileSystem();
++    }
++  } FS;
++  CompilerInvocation Invocation;
++  ModuleBuildWorkerOptions Options;
++  auto Result = buildModuleInWorker(Invocation, "", FS, TestDir, Options);
++  ASSERT_TRUE(static_cast<bool>(Result));
++  EXPECT_FALSE(*Result);
++  Options.Isolation = ModuleBuildWorkerOptions::Policy::WhenSupported;
++  Result = buildModuleInWorker(Invocation, "", FS, TestDir, Options);
++  ASSERT_TRUE(static_cast<bool>(Result));
++  EXPECT_FALSE(*Result);
++  Options.Isolation = ModuleBuildWorkerOptions::Policy::Required;
++  Result = buildModuleInWorker(Invocation, "", FS, TestDir, Options);
++  ASSERT_FALSE(static_cast<bool>(Result));
++  EXPECT_THAT(llvm::toString(Result.takeError()),
++              testing::HasSubstr("cannot export"));
++}
++
++TEST_F(PrerequisiteModulesTests,
++       ModuleWorkerBudgetFailsClosedBeforeRequestRead) {
++  // Ordinary files named like controls are never evidence of a kernel bound.
++  auto Budget = createModuleBuildWorkerMemoryBudget(TestDir, 64 * 1024 * 1024);
++  ASSERT_FALSE(static_cast<bool>(Budget));
++#ifdef __linux__
++  EXPECT_THAT(llvm::toString(Budget.takeError()),
++              testing::HasSubstr("cgroup v2"));
++#else
++  EXPECT_THAT(llvm::toString(Budget.takeError()),
++              testing::HasSubstr("unavailable"));
++#endif
++  auto Err = runModuleBuildWorker((TestDir + "/nonexistent-request.json").str(), "",
++                                  "67108864:0:0:" + TestDir.str().str());
++  ASSERT_TRUE(static_cast<bool>(Err));
++#ifdef __linux__
++  EXPECT_THAT(llvm::toString(std::move(Err)), testing::HasSubstr("cgroup v2"));
++#else
++  EXPECT_THAT(llvm::toString(std::move(Err)),
++              testing::HasSubstr("unavailable"));
++#endif
++  Budget = createModuleBuildWorkerMemoryBudget("relative", 1);
++  ASSERT_FALSE(static_cast<bool>(Budget));
++  llvm::consumeError(Budget.takeError());
++  Budget = createModuleBuildWorkerMemoryBudget(TestDir, 0);
++  ASSERT_FALSE(static_cast<bool>(Budget));
++  llvm::consumeError(Budget.takeError());
++  Err = enterModuleBuildWorkerMemoryBudget("bad-token");
++  ASSERT_TRUE(static_cast<bool>(Err));
++  llvm::consumeError(std::move(Err));
++}
++
++TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
++  const std::string Root = (TestDir + "/owned-workers").str();
++  auto Parent = ModuleBuildWorkerUnit::create(
++      (TestDir + "/staged.pcm").str(), Root);
++  ASSERT_TRUE(static_cast<bool>(Parent));
++  auto Write = [&](StringRef Path, StringRef Text) {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Path, EC);
++    ASSERT_FALSE(EC);
++    Out << Text;
++  };
++  auto Fixture = [&](StringRef Name, bool Marked) {
++    std::string Directory = (Root + "/" + Name).str();
++    EXPECT_FALSE(llvm::sys::fs::create_directories(Directory));
++    Write(Directory + "/parent.lease", "");
++    Write(Directory + "/worker.lease", "");
++    if (Marked)
++      Write(Directory + "/owned.unit", "clangd-worker-unit-v1\n");
++    Write(Directory + "/output.pcm", "owned partial output");
++    return Directory;
++  };
++  const std::string Orphan = Fixture("orphan", true);
++  const std::string Worker = Fixture("worker-only", true);
++  auto WorkerLease = ModuleBuildWorkerLease::acquire(Worker, true);
++  ASSERT_TRUE(static_cast<bool>(WorkerLease));
++  const std::string Legacy = Fixture("legacy", false);
++  const std::string Retired = Fixture("retired", true);
++  ASSERT_FALSE(llvm::sys::fs::rename(Retired + "/owned.unit",
++                                      Retired + "/retired.unit"));
++  auto LateWorker = ModuleBuildWorkerLease::acquire(Retired, true);
++  ASSERT_FALSE(static_cast<bool>(LateWorker));
++  EXPECT_THAT(llvm::toString(LateWorker.takeError()),
++              testing::HasSubstr("retired before startup"));
++  Write(Retired + "/request.json", "invalid request must not be read");
++  EXPECT_THAT(llvm::toString(runModuleBuildWorker(Retired + "/request.json")),
++              testing::HasSubstr("retired before startup"));
++
++  // A lexical alias must not bypass same-process lease ownership: merely
++  // opening/closing a second POSIX descriptor can release the owner's lock.
++  ModuleBuildWorkerCollector Collector(Root + "/../owned-workers");
++  auto Swept = Collector.collect();
++  ASSERT_TRUE(static_cast<bool>(Swept));
++  EXPECT_EQ(Swept->Removed, 2u);
++  EXPECT_FALSE(llvm::sys::fs::exists(Orphan));
++  EXPECT_FALSE(llvm::sys::fs::exists(Retired));
++  EXPECT_TRUE(llvm::sys::fs::exists((*Parent)->directory()));
++  EXPECT_TRUE(llvm::sys::fs::exists(Worker + "/output.pcm"));
++  EXPECT_TRUE(llvm::sys::fs::exists(Legacy + "/output.pcm"));
++  auto Throttled = Collector.collect();
++  ASSERT_TRUE(static_cast<bool>(Throttled));
++  EXPECT_TRUE(Throttled->Deferred);
++  EXPECT_EQ(Throttled->Examined, 0u);
++  ModuleBuildWorkerCollector SmallBatch(Root);
++  auto Limited = SmallBatch.collect(2);
++  ASSERT_TRUE(static_cast<bool>(Limited));
++  EXPECT_LE(Limited->Examined, 2u);
++}
++
++TEST_F(PrerequisiteModulesTests, ModuleWorkerPreservesCapturedInputs) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "#error disk main must not be read\n");
++  CDB.addFile("header.h", "#error disk header must not be read\n");
++  CDB.addFile("header.snapshot", "inline constexpr int Captured = 42;\n");
++  CDB.addFile("main.snapshot", R"cpp(module;
++#include "header.h"
++export module M;
++static_assert(Captured == 42);
++export int value() { return Captured; }
++)cpp");
++  CDB.addFile("staged.pcm", "");
++  llvm::vfs::YAMLVFSWriter Writer;
++  Writer.setUseExternalNames(false);
++  Writer.addFileMapping(getFullPath("header.h"),
++                        getFullPath("header.snapshot"));
++  std::string YAML;
++  llvm::raw_string_ostream OS(YAML);
++  Writer.write(OS);
++  CDB.addFile("snapshot.yaml", YAML);
++
++  auto Invocation =
++      buildCompilerInvocation(getInputs("M.cppm", CDB), DiagConsumer);
++  ASSERT_TRUE(Invocation);
++  Invocation->getFrontendOpts().OutputFile = getFullPath("staged.pcm");
++  ModuleBuildWorkerInputs Inputs;
++  auto Unsupported = serializeModuleBuildWorkerRequest(*Invocation, Inputs);
++  ASSERT_FALSE(static_cast<bool>(Unsupported));
++  EXPECT_THAT(llvm::toString(Unsupported.takeError()),
++              testing::HasSubstr("captured request filesystem"));
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  Inputs.WorkingDirectory = TestDir.str().str();
++  Inputs.MainFile = getFullPath("M.cppm");
++  Inputs.MainContentsFile = getFullPath("main.snapshot");
++  Inputs.OverlayFiles = {getFullPath("snapshot.yaml")};
++  auto Request = serializeModuleBuildWorkerRequest(*Invocation, Inputs);
++  ASSERT_TRUE(static_cast<bool>(Request))
++      << llvm::toString(Request.takeError());
++  CDB.addFile("request.json", *Request);
++  auto Err = runModuleBuildWorker(getFullPath("request.json"), "invalid");
++  EXPECT_THAT(llvm::toString(std::move(Err)),
++              testing::HasSubstr("invalid module worker owner token"));
++  Err = runModuleBuildWorker(getFullPath("request.json"));
++  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
++  EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++  // Legal relative cc1 inputs keep their spelling and resolve against the
++  // captured working directory, rather than the supervisor's current directory.
++  CompilerInvocation Relative(*Invocation);
++  const auto Kind = Relative.getFrontendOpts().Inputs[0].getKind();
++  Relative.getFrontendOpts().Inputs[0] = FrontendInputFile("M.cppm", Kind);
++  auto RelativeRequest = serializeModuleBuildWorkerRequest(Relative, Inputs);
++  ASSERT_TRUE(static_cast<bool>(RelativeRequest))
++      << llvm::toString(RelativeRequest.takeError());
++  CDB.addFile("request.json", *RelativeRequest);
++  Err = runModuleBuildWorker(getFullPath("request.json"));
++  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
++  EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++  Relative.getFrontendOpts().Inputs[0] = FrontendInputFile("Other.cppm", Kind);
++  auto Mismatch = serializeModuleBuildWorkerRequest(Relative, Inputs);
++  ASSERT_FALSE(static_cast<bool>(Mismatch));
++  EXPECT_THAT(llvm::toString(Mismatch.takeError()),
++              testing::HasSubstr("exactly its captured main file"));
++  // A failed attempt must not leave the earlier output looking successful.
++  CDB.addFile("main.snapshot", "#error captured failure\n");
++  Err = runModuleBuildWorker(getFullPath("request.json"));
++  ASSERT_TRUE(static_cast<bool>(Err));
++  llvm::consumeError(std::move(Err));
++  EXPECT_FALSE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++}
++
+ TEST_F(PrerequisiteModulesTests, NonModularTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+diff --git a/clang/include/clang/Serialization/GlobalModuleIndex.h b/clang/include/clang/Serialization/GlobalModuleIndex.h
+index 93d674e..ff47a17 100644
+--- a/clang/include/clang/Serialization/GlobalModuleIndex.h
++++ b/clang/include/clang/Serialization/GlobalModuleIndex.h
+@@ -25,6 +25,9 @@
+ #include <utility>
+ 
+ namespace llvm {
++namespace vfs {
++class OutputBackend;
++}
+ class BitstreamCursor;
+ class MemoryBuffer;
+ }
+@@ -32,6 +35,7 @@ class MemoryBuffer;
+ namespace clang {
+ 
+ class FileManager;
++class ModuleCache;
+ class IdentifierIterator;
+ class PCHContainerOperations;
+ class PCHContainerReader;
+@@ -177,6 +181,12 @@ public:
+   static llvm::Error writeIndex(FileManager &FileMgr,
+                                 const PCHContainerReader &PCHContainerRdr,
+                                 llvm::StringRef Path);
++  // Explicit output routing preserves the legacy entry point and lock policy.
++  static llvm::Error writeIndex(FileManager &FileMgr,
++                                const PCHContainerReader &PCHContainerRdr,
++                                llvm::StringRef Path,
++                                llvm::vfs::OutputBackend *Outputs,
++                                ModuleCache *Cache);
+ };
+ }
+ 
+diff --git a/clang/lib/Frontend/CompilerInstance.cpp b/clang/lib/Frontend/CompilerInstance.cpp
+index 941c9e4..f59db47 100644
+--- a/clang/lib/Frontend/CompilerInstance.cpp
++++ b/clang/lib/Frontend/CompilerInstance.cpp
+@@ -57,6 +57,7 @@
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/MemoryBuffer.h"
+ #include "llvm/Support/Path.h"
++#include "llvm/Support/Process.h"
+ #include "llvm/Support/Signals.h"
+ #include "llvm/Support/SmallVectorMemoryBuffer.h"
+ #include "llvm/Support/TimeProfiler.h"
+@@ -1204,6 +1205,10 @@ std::unique_ptr<CompilerInstance> CompilerInstance::cloneForModuleCompileImpl(
+   auto InstancePtr = std::make_unique<CompilerInstance>(
+       std::move(Invocation), getPCHContainerOperations(), std::move(ModCache));
+   auto &Instance = *InstancePtr;
++  // Preserve an explicitly configured output backend for implicit-module
++  // compilers. Clones share its destination and resource accounting.
++  if (OutputMgr)
++    Instance.setOutputManager(OutputMgr->clone());
+ 
+   auto &Inv = Instance.getInvocation();
+ 
+@@ -2284,6 +2289,22 @@ void CompilerInstance::createModuleFromSource(SourceLocation ImportLoc,
+         << ModuleFileName << EC.message();
+     return;
+   }
++  std::optional<llvm::vfs::OutputFile> ManagedOutput;
++  if (OutputMgr) {
++    // Module-from-source pragmas otherwise bypass virtual output backends.
++    // Close the allocation descriptor before handing its path to the backend.
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++    auto Output = OutputMgr->createFile(ModuleFileName);
++    if (!Output) {
++      llvm::sys::fs::remove(ModuleFileName);
++      getDiagnostics().Report(ImportLoc, diag::err_fe_unable_to_open_output)
++          << ModuleFileName << llvm::toString(Output.takeError());
++      return;
++    }
++    ManagedOutput = std::move(*Output);
++    ManagedOutput->discardOnDestroy(
++        [](llvm::Error E) { llvm::consumeError(std::move(E)); });
++  }
+   std::string ModuleMapFileName = (CleanModuleName + ".map").str();
+ 
+   FrontendInputFile Input(
+@@ -2312,9 +2333,18 @@ void CompilerInstance::createModuleFromSource(SourceLocation ImportLoc,
+   BuiltModules = std::move(Other->BuiltModules);
+ 
+   if (Buffer) {
+-    llvm::raw_fd_ostream OS(FD, /*shouldClose=*/true);
++    if (ManagedOutput) {
++      ManagedOutput->getOS() << Buffer->getBuffer();
++      if (auto Error = ManagedOutput->keep()) {
++        getDiagnostics().Report(ImportLoc, diag::err_fe_unable_to_open_output)
++            << ModuleFileName << llvm::toString(std::move(Error));
++        return;
++      }
++    } else {
++      llvm::raw_fd_ostream OS(FD, /*shouldClose=*/true);
++      OS << Buffer->getBuffer();
++    }
+     BuiltModules[std::string(ModuleName)] = std::string(ModuleFileName);
+-    OS << Buffer->getBuffer();
+     llvm::sys::RemoveFileOnSignal(ModuleFileName);
+   }
+ }
+@@ -2355,7 +2385,8 @@ GlobalModuleIndex *CompilerInstance::loadGlobalModuleIndex(
+             getFileManager(), getPCHContainerReader(),
+             getPreprocessor()
+                 .getHeaderSearchInfo()
+-                .getSpecificModuleCachePath())) {
++                .getSpecificModuleCachePath(),
++            OutputMgr.get(), ModCache.get())) {
+       // FIXME this drops the error on the floor. This code is only used for
+       // typo correction and drops more than just this one source of errors
+       // (such as the directory creation failure above). It should handle the
+@@ -2394,7 +2425,8 @@ GlobalModuleIndex *CompilerInstance::loadGlobalModuleIndex(
+               getFileManager(), getPCHContainerReader(),
+               getPreprocessor()
+                   .getHeaderSearchInfo()
+-                  .getSpecificModuleCachePath())) {
++                  .getSpecificModuleCachePath(),
++              OutputMgr.get(), ModCache.get())) {
+         // FIXME As above, this drops the error on the floor.
+         consumeError(std::move(Err));
+         return nullptr;
+diff --git a/clang/lib/Frontend/FrontendAction.cpp b/clang/lib/Frontend/FrontendAction.cpp
+index 3c4bc05..b3ef615 100644
+--- a/clang/lib/Frontend/FrontendAction.cpp
++++ b/clang/lib/Frontend/FrontendAction.cpp
+@@ -1351,7 +1351,9 @@ llvm::Error FrontendAction::Execute() {
+         CI.getPreprocessor().getHeaderSearchInfo().getSpecificModuleCachePath();
+     if (!Cache.empty()) {
+       if (llvm::Error Err = GlobalModuleIndex::writeIndex(
+-              CI.getFileManager(), CI.getPCHContainerReader(), Cache)) {
++              CI.getFileManager(), CI.getPCHContainerReader(), Cache,
++              CI.hasOutputManager() ? &CI.getOutputManager() : nullptr,
++              &CI.getModuleCache())) {
+         // FIXME this drops the error on the floor, but
+         // Index/pch-from-libclang.c seems to rely on dropping at least some of
+         // the error conditions!
+diff --git a/clang/lib/Serialization/GlobalModuleIndex.cpp b/clang/lib/Serialization/GlobalModuleIndex.cpp
+index 3f6b8e6..1e07e06 100644
+--- a/clang/lib/Serialization/GlobalModuleIndex.cpp
++++ b/clang/lib/Serialization/GlobalModuleIndex.cpp
+@@ -14,6 +14,7 @@
+ #include "ASTReaderInternals.h"
+ #include "clang/Basic/FileManager.h"
+ #include "clang/Serialization/ASTBitCodes.h"
++#include "clang/Serialization/ModuleCache.h"
+ #include "clang/Serialization/ModuleFile.h"
+ #include "clang/Serialization/PCHContainerOperations.h"
+ #include "llvm/ADT/DenseMap.h"
+@@ -30,6 +31,7 @@
+ #include "llvm/Support/OnDiskHashTable.h"
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/TimeProfiler.h"
++#include "llvm/Support/VirtualOutputBackend.h"
+ #include "llvm/Support/raw_ostream.h"
+ #include <cstdio>
+ using namespace clang;
+@@ -847,6 +849,12 @@ llvm::Error
+ GlobalModuleIndex::writeIndex(FileManager &FileMgr,
+                               const PCHContainerReader &PCHContainerRdr,
+                               StringRef Path) {
++  return writeIndex(FileMgr, PCHContainerRdr, Path, nullptr, nullptr);
++}
++
++llvm::Error GlobalModuleIndex::writeIndex(
++    FileManager &FileMgr, const PCHContainerReader &PCHContainerRdr,
++    StringRef Path, llvm::vfs::OutputBackend *Outputs, ModuleCache *Cache) {
+   // This is a compiler-internal input/output, let's bypass the sandbox.
+   auto BypassSandbox = llvm::sys::sandbox::scopedDisable();
+ 
+@@ -856,9 +864,11 @@ GlobalModuleIndex::writeIndex(FileManager &FileMgr,
+ 
+   // Coordinate building the global index file with other processes that might
+   // try to do the same.
+-  llvm::LockFileManager Lock(IndexPath);
++  std::unique_ptr<llvm::AdvisoryLock> Lock =
++      Cache ? Cache->getLock(IndexPath)
++            : std::make_unique<llvm::LockFileManager>(IndexPath);
+   bool Owned;
+-  if (llvm::Error Err = Lock.tryLock().moveInto(Owned)) {
++  if (llvm::Error Err = Lock->tryLock().moveInto(Owned)) {
+     llvm::consumeError(std::move(Err));
+     return llvm::createStringError(std::errc::io_error, "LFS error");
+   }
+@@ -910,6 +920,13 @@ GlobalModuleIndex::writeIndex(FileManager &FileMgr,
+                                      "failed writing index");
+   }
+ 
++  if (Outputs) {
++    auto File = Outputs->createFile(IndexPath);
++    if (!File)
++      return File.takeError();
++    File->getOS() << OutputBuffer;
++    return File->keep();
++  }
+   return llvm::writeToOutput(IndexPath, [&OutputBuffer](llvm::raw_ostream &OS) {
+     OS << OutputBuffer;
+     return llvm::Error::success();
+-- 
+2.53.0
+

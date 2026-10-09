@@ -1,5 +1,7 @@
 # UP-12/13/20 Windows crashes: from "no stack" to fixes (for review)
 
+> 2026-10-07 review update: [joint release contract](2026-10-07-joint-0.0.12-release-plan.md) controls acceptance. UP-20 has Linux observations and is not established as Windows-only. The corpus is currently empty and the nonempty workflow branch does not replay entries, so its green result is not crash-fix evidence.
+
 2026-10-06. Companion to the fix-register plan. These three rows are the
 crash class mcppls keeps containing on the outside:
 
@@ -12,8 +14,8 @@ crash class mcppls keeps containing on the outside:
   partial stack may already exist for this one.
 
 This plan turns the fork's Windows builds from "packaging target" into the
-crash-analysis instrument, then fixes each crash at its root and retires the
-mcppls-side containment.
+crash-analysis instrument, then fixes each crash at its root. Feature-specific
+workarounds may retire after direct canaries; general mcppls containment stays.
 
 ## 1. Why no stack exists today (three separate gaps)
 
@@ -58,13 +60,14 @@ New job `win-crash-corpus` (windows-2022):
    while any corpus entry still crashes (that failing state IS the row's
    status).
 
-### C2 — the fork crash handler (1–2 days, carried patch 0006, Windows-only)
+### C2 — the fork crash handler (carried patch 0007, Windows-only)
 
 `PrintStackTrace` exists but shows nothing without symbols and catches only
 LLVM's registered signals. Add an SEH-based last-chance handler around clangd's
 main and the worker-thread entry: `__try/__except` → `MiniDumpWriteDump` into a
-flag-gated directory (`--crash-dumps-dir=`, default off upstream-side; mcppls
-enables it for its bundled builds) → process continues to terminate. Effects:
+flag-gated directory (`--crash-dumps-dir=`, default off; mcppls enables it only
+with explicit user opt-in and a dump size/count/retention budget) → process
+continues to terminate. This is capture infrastructure, not a crash fix. Effects:
 
 - every future field crash on Windows yields a .dmp analyzable with the public
   PDBs — UP-13's "prints none" blocker disappears **at the source**;
@@ -80,15 +83,16 @@ Working hypotheses to confirm/refute with the first stacks:
 |---|---|---|
 | UP-12 | null deref downstream of a failed prerequisite build (unresolved import path returns `FailedPrerequisiteModules` and a consumer assumes success), or clang modules code hitting an unimplemented Windows path | guard + diagnostic at the clangd module-builder boundary (upstreamable), else clang fix per stack |
 | UP-13 | same family as UP-12 with correct commands — points at clang core (serialization/Sema) on Windows; stack decides | clang fix per stack |
-| UP-20 | **stack overflow** is the prime suspect: a crash *loop* on rapid saves of one generated file smells like recursive parse/instantiation blowing the worker stack, then mcppls restarting into the same file. Also verify content: `mcpp.manifest.types` fan-out may present pathological macro/initializer depth | (a) raise clangd worker-thread stack (Linux default 8 MB; verify what the Windows threads get and set 32–64 MB in the fork), (b) recursion guard if a specific recursion shows, (c) upstream the stack-size finding |
+| UP-20 | unknown until symbolized stacks and a reduced fan-out save sequence exist; investigate lifetime/races, dependency failure and recursion based on evidence | fix the demonstrated cause; no blanket 32–64 MB worker-stack increase without a measured stack-exhaustion diagnosis and regression/resource tests |
 
 ### C4 — acceptance and retirement
 
-- `win-crash-corpus` green = every corpus entry survives (no crash, no hang)
+- `win-crash-corpus` green requires a nonempty real corpus, actual execution of every entry and usable matching symbols; every corpus entry survives (no crash, no hang)
   on the fork build; loop scenarios (UP-20) run 1000 iterations.
-- mcppls retires the corresponding containment (`-c` avoidance for UP-12,
-  backoff/bundle for UP-20) once the fix ships in a bundled fork; register
-  rows close with the stacks, repros, and fixes linked.
+- mcppls retires only a proven feature-specific workaround after its raw
+  canary and bundled-product tests pass. Correct `-c` compile commands and
+  general watchdog/backoff/isolation/bundle remain; external upstream clangd
+  keeps applicable protection. Register rows close with stacks, repros and fixes.
 - Every fix upstreamed (crashes in clang modules on Windows are upstream's
   bugs as much as ours); carried only until the upstream fix lands in a base
   we bump to.

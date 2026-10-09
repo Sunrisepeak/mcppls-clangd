@@ -14,3 +14,14 @@
 .idea/
 /llvm-src.tar.gz
 /llvm-src.tar.gz.sha256
+
+# Local Python caches and workflow reports
+__pycache__/
+/soak-outcomes.json
+
+# Generated module caches are not review evidence, including compressed copies.
+tests/evidence/**/.cache/
+tests/evidence/**/*.pcm
+tests/evidence/**/*.pcm.gz
+tests/evidence/**/*.pch
+tests/evidence/**/*.pch.gz

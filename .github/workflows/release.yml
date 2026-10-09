@@ -23,15 +23,23 @@ permissions:
   contents: write   # the publish job creates the release and uploads assets
 
 jobs:
+  eligibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject experimental patches
+        run: python3 ci/check_ledger.py --release
+
   package:
+    needs: eligibility
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux-x64
-            os: ubuntu-22.04
+            os: ubuntu-24.04
           - platform: linux-arm64
-            os: ubuntu-22.04-arm
+            os: ubuntu-24.04-arm
           - platform: darwin-arm64
             os: macos-14
           - platform: win32-x64
@@ -67,10 +75,24 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-${{ matrix.platform }}-
+          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
+
+      # The same ccache build-test's floor job keeps (its key, without the commit).
+      - uses: actions/cache@v4
+        if: startsWith(matrix.platform, 'linux-')
+        with:
+          path: .ccache-floor
+          key: ccache-floor-clang12${{ matrix.platform == 'linux-arm64' && '-linux-arm64' || '' }}-${{ hashFiles('UPSTREAM', matrix.platform == 'linux-arm64' && 'ci/linux-floor-rootfs-arm64.json' || 'ci/linux-floor-rootfs.json') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-floor-clang12${{ matrix.platform == 'linux-arm64' && '-linux-arm64' || '' }}-${{ hashFiles('UPSTREAM', matrix.platform == 'linux-arm64' && 'ci/linux-floor-rootfs-arm64.json' || 'ci/linux-floor-rootfs.json') }}-
+      # Linux packages are built and checked in the pinned Ubuntu 20.04 rootfs (glibc 2.31).
+      - uses: ./.github/actions/linux-floor
+        if: startsWith(matrix.platform, 'linux-')
+        with:
+          platform: ${{ matrix.platform }}
 
       - name: Build fork clangd
+        if: "!startsWith(matrix.platform, 'linux-')"
         shell: bash
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -79,6 +101,7 @@ jobs:
         run: ./ci/ci_build.sh
 
       - name: Package payload part
+        if: "!startsWith(matrix.platform, 'linux-')"
         shell: bash
         env:
           PLATFORM: ${{ matrix.platform }}

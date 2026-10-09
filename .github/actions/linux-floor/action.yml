@@ -1,0 +1,40 @@
+name: Linux floor package
+description: Build and execute the engine in the pinned Ubuntu 20.04 rootfs.
+inputs:
+  platform:
+    description: linux-x64 or linux-arm64, matching the runner's architecture
+    default: linux-x64
+runs:
+  using: composite
+  steps:
+    - name: Import verified Ubuntu rootfs
+      shell: bash
+      env:
+        MCPPLS_FLOOR_PLATFORM: ${{ inputs.platform }}
+      run: |
+        set -euo pipefail
+        python3 - <<'PYROOT'
+        import json, os
+        from pathlib import Path
+        platform = os.environ['MCPPLS_FLOOR_PLATFORM']
+        pins = {'linux-x64': 'ci/linux-floor-rootfs.json', 'linux-arm64': 'ci/linux-floor-rootfs-arm64.json'}
+        pin = json.loads(Path(pins[platform]).read_text())
+        with open(os.environ['GITHUB_ENV'], 'a') as out:
+            out.write('MCPPLS_ROOTFS_URL=' + pin['url'] + '\n')
+            out.write('MCPPLS_ROOTFS_SHA256=' + pin['sha256'] + '\n')
+        PYROOT
+    - name: Build and validate final Linux package
+      shell: bash
+      env:
+        MCPPLS_FLOOR_PLATFORM: ${{ inputs.platform }}
+      run: |
+        set -euo pipefail
+        rootfs="$RUNNER_TEMP/mcppls-ubuntu20-root.tar.gz"
+        curl -fL --retry 3 --retry-all-errors "$MCPPLS_ROOTFS_URL" -o "$rootfs"
+        echo "$MCPPLS_ROOTFS_SHA256  $rootfs" | sha256sum -c -
+        docker import "$rootfs" mcppls-linux-floor:20.04
+        docker run --rm -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" \
+          -e JOBS=4 -e DIST_DIR="$GITHUB_WORKSPACE/dist" -e PLATFORM="$MCPPLS_FLOOR_PLATFORM" \
+          -e CCACHE_DIR="$GITHUB_WORKSPACE/.ccache-floor" \
+          mcppls-linux-floor:20.04 bash ci/scripts/linux-floor.sh
+        sudo chown -R "$(id -u):$(id -g)" .ccache-floor dist "build-$MCPPLS_FLOOR_PLATFORM-ubuntu20"

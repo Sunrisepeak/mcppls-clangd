@@ -12,7 +12,9 @@ This is the probe behind the UP-25 gate: the module prerequisite validation
 runs on every preamble-compatibility check, so warm completion latency is
 what the validation memo buys.
 """
+import atexit
 import json
+from pathlib import Path
 import os
 import statistics
 import subprocess
@@ -23,11 +25,13 @@ import time
 clangd = os.path.abspath(sys.argv[1])
 project = os.path.abspath(sys.argv[2])
 rounds = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+if rounds < 2:
+    raise SystemExit("need cold and at least one warm request")
 out_path = sys.argv[4] if len(sys.argv) > 4 else None
 stderr_log = sys.argv[5] if len(sys.argv) > 5 else os.devnull
 
 use = os.path.join(project, "Use.cpp")
-uri = "file://" + use
+uri = Path(use).as_uri()
 base = open(use).read()
 # a body-only marker edit; the import block stays untouched
 edited = base.replace("int main() {", "int touched = 0;\nint main() {", 1)
@@ -38,6 +42,12 @@ proc = subprocess.Popen(
      "--background-index=false", "--header-insertion=never", "--pretty=false",
      "-j=4"],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=open(stderr_log, "w"))
+
+def cleanup():
+    if proc.poll() is None:
+        proc.kill()
+        proc.wait(timeout=10)
+atexit.register(cleanup)
 
 response_q = []
 def reader():
@@ -82,7 +92,7 @@ def wait_id(rid, timeout=120):
         time.sleep(0.005)
     raise SystemExit(f"completion_latency: timeout waiting for id {rid}")
 
-rid = send("initialize", {"processId": os.getpid(), "rootUri": "file://" + project,
+rid = send("initialize", {"processId": os.getpid(), "rootUri": Path(project).as_uri(),
                           "capabilities": {}})
 wait_id(rid)
 send("initialized", {}, notify=True)
@@ -100,8 +110,13 @@ for i in range(rounds):
     t0 = time.time()
     rid = send("textDocument/completion",
                {"textDocument": {"uri": uri},
-                "position": {"line": text.count("\n") - 2, "character": 4}})
-    wait_id(rid)
+                "position": {"line": next(n for n, line in enumerate(text.splitlines()) if line.strip() == "fn"), "character": 6}})
+    response = wait_id(rid)
+    items = response.get("result") or []
+    if isinstance(items, dict):
+        items = items.get("items", [])
+    if not any(item.get("filterText", item.get("label", "")).split("(")[0].strip() == "fn1" for item in items):
+        raise SystemExit(f"round {i}: completion lacks required module symbol fn1")
     latencies.append((time.time() - t0) * 1000.0)
 
 proc.stdin.close()

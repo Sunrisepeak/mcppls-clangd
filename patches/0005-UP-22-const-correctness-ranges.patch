@@ -1,0 +1,478 @@
+From e09296836f3e4615433dd893e4a64478b226d075 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 04:02:31 +0900
+Subject: [clang-tidy] misc-const-correctness respects ranges consumed by
+ pipelines
+
+A range fed into a pipeline or an adaptor is not suggested 'const' when the consumer needs it mutable. The final rule checks const iterator and adaptor overload viability with instantiated constraints, so ordinary pipes and const-capable ranges keep their suggestions.
+
+* [clang-tidy] Do not suggest 'const' for ranges fed into a pipeline
+
+  misc-const-correctness suggested 'const' for a variable whose only uses
+  were as the left-hand side of further ranges pipes (operator|). The pipe
+  forwards the range by reference through constrained adaptor templates,
+  so adding 'const' propagates into adaptors whose begin() is only
+  callable on a non-const object (filter, drop_while, chunk_by, split)
+  and the code stops compiling. The mutation analyzer cannot see this:
+  the forwarding happens inside the adaptor templates, which no concrete
+  non-const-reference parameter matches.
+
+  Skip the suggestion when the variable is an argument of operator| in
+  the analyzed scope. The pipe appears either as an overloaded-operator
+  node or as a plain call of a function named operator|, depending on the
+  standard library.
+
+  A range that is only iterated directly is unaffected: the loop's
+  internal non-const reference binding already makes the analyzer treat
+  such variables as mutated.
+
+* fix(tidy): const range fixes use semantic constraint checks
+
+  The mutation analyzer examines the instantiated non-const program. Const iterator declarations and forwarding adaptor templates can therefore appear read-only even when their const constraints are unavailable. The previous operator-pipe heuristic also hid valid ordinary user-pipe suggestions.
+
+  Provide the current Sema to tidy AST checks in both clang-tidy and clangd. Probe concrete member range iteration and free pipe consumption with an isolated const lvalue, in the original declaration context and an unevaluated scope. Preserve lookup qualifiers and explicit template arguments, and restore provisional diagnostic suppression with RAII. Detect errors from deduced-return body instantiation without leaking them into the original program. Regression cases cover unavailable and available dependent constraints, mutable references, ordinary pipes, private iteration and a failing provisional static assertion followed by a real warning.
+---
+ clang-tools-extra/clang-tidy/ClangTidy.cpp    |  18 ++-
+ clang-tools-extra/clang-tidy/ClangTidyCheck.h |   2 +
+ .../clang-tidy/ClangTidyDiagnosticConsumer.h  |   6 +
+ .../clang-tidy/misc/ConstCorrectnessCheck.cpp | 122 +++++++++++++++++
+ clang-tools-extra/clangd/ParsedAST.cpp        |   2 +
+ ...st-correctness-cxx20-range-constraints.cpp | 124 ++++++++++++++++++
+ .../misc/const-correctness-cxx20-ranges.cpp   |  37 ++++++
+ 7 files changed, 308 insertions(+), 3 deletions(-)
+ create mode 100644 clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp
+ create mode 100644 clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp
+
+diff --git a/clang-tools-extra/clang-tidy/ClangTidy.cpp b/clang-tools-extra/clang-tidy/ClangTidy.cpp
+index 24cbd09..9281125 100644
+--- a/clang-tools-extra/clang-tidy/ClangTidy.cpp
++++ b/clang-tools-extra/clang-tidy/ClangTidy.cpp
+@@ -330,15 +330,27 @@ private:
+ 
+ class ClangTidyASTConsumer : public MultiplexConsumer {
+ public:
+-  ClangTidyASTConsumer(std::vector<std::unique_ptr<ASTConsumer>> Consumers,
++  ClangTidyASTConsumer(ClangTidyContext &Context,
++                       std::vector<std::unique_ptr<ASTConsumer>> Consumers,
+                        std::unique_ptr<ClangTidyProfiling> Profiling,
+                        std::unique_ptr<ast_matchers::MatchFinder> Finder,
+                        std::vector<std::unique_ptr<ClangTidyCheck>> Checks)
+-      : MultiplexConsumer(std::move(Consumers)),
++      : MultiplexConsumer(std::move(Consumers)), Context(Context),
+         Profiling(std::move(Profiling)), Finder(std::move(Finder)),
+         Checks(std::move(Checks)) {}
+ 
++  void InitializeSema(Sema &S) override {
++    MultiplexConsumer::InitializeSema(S);
++    Context.setSema(&S);
++  }
++
++  void ForgetSema() override {
++    Context.setSema(nullptr);
++    MultiplexConsumer::ForgetSema();
++  }
++
+ private:
++  ClangTidyContext &Context;
+   // Destructor order matters! Profiling must be destructed last.
+   // Or at least after Finder.
+   std::unique_ptr<ClangTidyProfiling> Profiling;
+@@ -489,7 +501,7 @@ ClangTidyASTConsumerFactory::createASTConsumer(CompilerInstance &Compiler,
+   }
+ #endif // CLANG_TIDY_ENABLE_STATIC_ANALYZER
+   return std::make_unique<ClangTidyASTConsumer>(
+-      std::move(Consumers), std::move(Profiling), std::move(Finder),
++      Context, std::move(Consumers), std::move(Profiling), std::move(Finder),
+       std::move(Checks));
+ }
+ 
+diff --git a/clang-tools-extra/clang-tidy/ClangTidyCheck.h b/clang-tools-extra/clang-tidy/ClangTidyCheck.h
+index ec615e0..2d979d4 100644
+--- a/clang-tools-extra/clang-tidy/ClangTidyCheck.h
++++ b/clang-tools-extra/clang-tidy/ClangTidyCheck.h
+@@ -497,6 +497,8 @@ private:
+ 
+ protected:
+   OptionsView Options;
++  /// Returns semantic analysis for the current translation unit, if available.
++  Sema *getSema() const { return Context->getSema(); }
+   /// Returns the main file name of the current translation unit.
+   StringRef getCurrentMainFile() const { return Context->getCurrentFile(); }
+   /// Returns the language options from the context.
+diff --git a/clang-tools-extra/clang-tidy/ClangTidyDiagnosticConsumer.h b/clang-tools-extra/clang-tidy/ClangTidyDiagnosticConsumer.h
+index c76f58b..2d08229 100644
+--- a/clang-tools-extra/clang-tidy/ClangTidyDiagnosticConsumer.h
++++ b/clang-tools-extra/clang-tidy/ClangTidyDiagnosticConsumer.h
+@@ -25,6 +25,7 @@ namespace clang {
+ 
+ class ASTContext;
+ class SourceManager;
++class Sema;
+ 
+ namespace tidy {
+ class CachedGlobList;
+@@ -139,6 +140,10 @@ public:
+   /// Sets ASTContext for the current translation unit.
+   void setASTContext(ASTContext *Context);
+ 
++  /// Semantic analysis is available while the AST checks are running.
++  void setSema(Sema *Value) { SemanticAnalysis = Value; }
++  Sema *getSema() const { return SemanticAnalysis; }
++
+   /// Gets the language options from the AST context.
+   const LangOptions &getLangOpts() const { return LangOpts; }
+ 
+@@ -272,6 +277,7 @@ private:
+ 
+   NoLintDirectiveHandler NoLintHandler;
+   llvm::StringSet<> *OptionsCollector = nullptr;
++  Sema *SemanticAnalysis = nullptr;
+ };
+ 
+ /// Gets the Fix attached to \p Diagnostic.
+diff --git a/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp b/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp
+index 88ee9fd..0e4fc5e 100644
+--- a/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp
++++ b/clang-tools-extra/clang-tidy/misc/ConstCorrectnessCheck.cpp
+@@ -11,8 +11,13 @@
+ #include "../utils/Matchers.h"
+ #include "../utils/OptionsUtils.h"
+ #include "clang/AST/ASTContext.h"
++#include "clang/AST/ExprCXX.h"
++#include "clang/AST/UnresolvedSet.h"
+ #include "clang/ASTMatchers/ASTMatchFinder.h"
+ #include "clang/ASTMatchers/ASTMatchers.h"
++#include "clang/Sema/EnterExpressionEvaluationContext.h"
++#include "clang/Sema/Sema.h"
++#include "llvm/ADT/ScopeExit.h"
+ #include <cassert>
+ 
+ using namespace clang::ast_matchers;
+@@ -52,6 +57,7 @@ AST_MATCHER(FunctionDecl, isTemplate) {
+ AST_MATCHER(FunctionDecl, isFunctionTemplateSpecialization) {
+   return Node.isFunctionTemplateSpecialization();
+ }
++
+ } // namespace
+ 
+ ConstCorrectnessCheck::ConstCorrectnessCheck(StringRef Name,
+@@ -226,6 +232,120 @@ namespace {
+ /// Classify for a variable in what the Const-Check is interested.
+ enum class VariableCategory { Value, Reference, Pointer };
+ 
++/// Mutation analysis follows the instantiated program, but adding const can
++/// invalidate constraints that were satisfied by its non-const argument. Probe
++/// only actual range consumption, using the same semantic analysis as parsing.
++/// These provisional expressions are not inserted into the user's AST.
++bool requiresMutableRange(const VarDecl *Variable, const Stmt *Scope,
++                          ASTContext &Context, Sema *SemanticAnalysis) {
++  if (!SemanticAnalysis || !Variable->getType()->isRecordType())
++    return false;
++
++  const auto Reference =
++      ignoringParenImpCasts(declRefExpr(to(varDecl(equalsNode(Variable)))));
++  const auto Uses =
++      match(traverse(TK_AsIs,
++                     findAll(stmt(anyOf(
++                         cxxForRangeStmt(hasRangeInit(Reference)).bind("loop"),
++                         callExpr(callee(functionDecl(hasName("operator|"))),
++                                  hasAnyArgument(Reference))
++                             .bind("pipe"))))),
++            *Scope, Context);
++  for (const auto &Use : Uses) {
++    Sema &S = *SemanticAnalysis;
++    Sema::ContextRAII RestoreContext(
++        S, const_cast<DeclContext *>(Variable->getDeclContext()));
++    EnterExpressionEvaluationContext Unevaluated(
++        S, Sema::ExpressionEvaluationContext::Unevaluated);
++    Sema::TentativeAnalysisScope Tentative(S);
++    // A deduced return type can instantiate a body, whose diagnostics are
++    // outside the immediate SFINAE context. No provisional failure is a
++    // diagnostic in the original program.
++    DiagnosticsEngine &Diagnostics = S.getDiagnostics();
++    bool PreviouslySuppressed = Diagnostics.getSuppressAllDiagnostics();
++    Diagnostics.setSuppressAllDiagnostics(true);
++    DiagnosticErrorTrap ProbeErrors(Diagnostics);
++    llvm::scope_exit RestoreDiagnostics(
++        [&] { Diagnostics.setSuppressAllDiagnostics(PreviouslySuppressed); });
++    QualType ConstType = Context.getConstType(Variable->getType());
++    auto *ConstValue = new (Context)
++        OpaqueValueExpr(Variable->getLocation(), ConstType, VK_LValue);
++
++    if (const auto *Loop = Use.getNodeAs<CXXForRangeStmt>("loop")) {
++      // The range-for member lookup is selected only if both member names
++      // exist. ADL-only ranges remain the mutation analyzer's responsibility.
++      const auto *Record = Variable->getType()->getAsCXXRecordDecl();
++      auto HasMember = [&](StringRef Name) {
++        return !Record->lookup(&Context.Idents.get(Name)).empty();
++      };
++      if (!HasMember("begin") || !HasMember("end"))
++        continue;
++      for (StringRef Name : {"begin", "end"}) {
++        CXXScopeSpec SS;
++        auto Member = S.BuildMemberReferenceExpr(
++            ConstValue, ConstType, Loop->getBeginLoc(), false, SS,
++            SourceLocation(), nullptr,
++            DeclarationNameInfo(&Context.Idents.get(Name), Loop->getBeginLoc()),
++            nullptr, nullptr);
++        if (Member.isInvalid() ||
++            S.BuildCallExpr(nullptr, Member.get(), Loop->getBeginLoc(), {},
++                            Loop->getEndLoc())
++                .isInvalid() ||
++            ProbeErrors.hasErrorOccurred())
++          return true;
++      }
++    } else if (const auto *Pipe = Use.getNodeAs<CallExpr>("pipe")) {
++      const FunctionDecl *Function = Pipe->getDirectCallee();
++      // Member operators have an implicit object rather than an ordinary
++      // function argument; do not reconstruct them as free function calls.
++      if (!Function || isa<CXXMethodDecl>(Function))
++        continue;
++      UnresolvedSet<4> Candidates;
++      for (NamedDecl *Candidate :
++           Function->getDeclContext()->lookup(Function->getDeclName()))
++        Candidates.addDecl(Candidate);
++      // Hidden friends may not appear in ordinary lookup. Keep the original
++      // function/template as a candidate and let ADL find its peers.
++      NamedDecl *Original = Function->getPrimaryTemplate();
++      if (!Original)
++        Original = const_cast<FunctionDecl *>(Function);
++      Candidates.addDecl(Original);
++      const auto *OriginalCallee =
++          dyn_cast<DeclRefExpr>(Pipe->getCallee()->IgnoreParenImpCasts());
++      TemplateArgumentListInfo TemplateArgs;
++      if (OriginalCallee && OriginalCallee->hasExplicitTemplateArgs())
++        OriginalCallee->copyTemplateArgumentsInto(TemplateArgs);
++      bool RequiresADL = isa<CXXOperatorCallExpr>(Pipe) ||
++                         (OriginalCallee && !OriginalCallee->hasQualifier());
++      Expr *Callee = UnresolvedLookupExpr::Create(
++          Context, nullptr,
++          OriginalCallee ? OriginalCallee->getQualifierLoc()
++                         : NestedNameSpecifierLoc(),
++          SourceLocation(),
++          DeclarationNameInfo(Function->getDeclName(), Pipe->getExprLoc()),
++          RequiresADL,
++          OriginalCallee && OriginalCallee->hasExplicitTemplateArgs()
++              ? &TemplateArgs
++              : nullptr,
++          Candidates.begin(), Candidates.end(), false, false);
++      SmallVector<Expr *, 2> Arguments;
++      for (const Expr *Argument : Pipe->arguments()) {
++        const Expr *Bare = Argument->IgnoreParenImpCasts();
++        const auto *Ref = dyn_cast<DeclRefExpr>(Bare);
++        Arguments.push_back(Ref && Ref->getDecl() == Variable
++                                ? ConstValue
++                                : const_cast<Expr *>(Bare));
++      }
++      if (S.BuildCallExpr(nullptr, Callee, Pipe->getExprLoc(), Arguments,
++                          Pipe->getEndLoc())
++              .isInvalid() ||
++          ProbeErrors.hasErrorOccurred())
++        return true;
++    }
++  }
++  return false;
++}
++
+ } // namespace
+ 
+ void ConstCorrectnessCheck::check(const MatchFinder::MatchResult &Result) {
+@@ -268,6 +388,8 @@ void ConstCorrectnessCheck::check(const MatchFinder::MatchResult &Result) {
+     // Offload const-analysis to utility function.
+     if (isMutated(Variable, LocalScope, Function, Result.Context))
+       return;
++    if (requiresMutableRange(Variable, LocalScope, *Result.Context, getSema()))
++      return;
+ 
+     auto Diag = diag(Variable->getBeginLoc(),
+                      "variable %0 of type %1 can be declared 'const'")
+diff --git a/clang-tools-extra/clangd/ParsedAST.cpp b/clang-tools-extra/clangd/ParsedAST.cpp
+index df56420..7597564 100644
+--- a/clang-tools-extra/clangd/ParsedAST.cpp
++++ b/clang-tools-extra/clangd/ParsedAST.cpp
+@@ -749,7 +749,9 @@ ParsedAST::build(llvm::StringRef Filename, const ParseInputs &Inputs,
+     // Run the AST-dependent part of the clang-tidy checks.
+     // (The preprocessor part ran already, via PPCallbacks).
+     trace::Span Tracer("ClangTidyMatch");
++    CTContext->setSema(&Clang->getSema());
+     CTFinder.matchAST(Clang->getASTContext());
++    CTContext->setSema(nullptr);
+   }
+ 
+   // XXX: This is messy: clang-tidy checks flush some diagnostics at EOF.
+diff --git a/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp b/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp
+new file mode 100644
+index 0000000..5014dfd
+--- /dev/null
++++ b/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-range-constraints.cpp
+@@ -0,0 +1,124 @@
++// RUN: %check_clang_tidy -std=c++20 %s misc-const-correctness %t --
++// RUN: %clang_cc1 -std=c++20 -fsyntax-only %t.cpp
++
++struct MutableRange {
++  int *begin();
++  int *end();
++};
++
++struct ConstRange {
++  int *begin();
++  int *end();
++  const int *begin() const;
++  const int *end() const;
++};
++
++template <class R> struct View {
++  R Base;
++  auto begin() { return Base.begin(); }
++  auto end() { return Base.end(); }
++  auto begin() const requires requires(const R &Rng) { Rng.begin(); } {
++    return Base.begin();
++  }
++  auto end() const requires requires(const R &Rng) { Rng.end(); } {
++    return Base.end();
++  }
++};
++
++void constrainedUnavailableConstIteration() {
++  View<MutableRange> Range;
++  for (const int Value : Range)
++    (void)Value;
++}
++
++void constrainedAvailableConstIteration() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Range' of type 'View<ConstRange>' can be declared 'const'
++  View<ConstRange> Range;
++  for (const int Value : Range)
++    (void)Value;
++}
++
++void mutableReferenceIteration() {
++  ConstRange Range;
++  for (int &Value : Range)
++    Value = 1;
++}
++
++struct Number { int Value; };
++int operator|(const Number &N, int Mask) { return N.Value | Mask; }
++
++void ordinaryUserPipe() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Input' of type 'Number' can be declared 'const'
++  Number Input{3};
++  (void)(Input | 1);
++}
++
++void ordinaryReadOnlyValue() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Value' of type 'int' can be declared 'const'
++  int Value = 42;
++  (void)Value;
++}
++
++void unusedMutableRange() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Range' of type 'View<MutableRange>' can be declared 'const'
++  View<MutableRange> Range;
++  (void)Range;
++}
++
++namespace constrained_pipe {
++struct Adaptor {};
++template <class R>
++  requires requires(R &&Range) { Range.begin(); }
++int operator|(R &&, Adaptor) { return 0; }
++
++void unavailableConstPipe() {
++  View<MutableRange> Range;
++  (void)(Range | Adaptor{});
++}
++
++void availableConstPipe() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Range' of type 'View<ConstRange>' can be declared 'const'
++  View<ConstRange> Range;
++  (void)(Range | Adaptor{});
++}
++
++void explicitUnavailableConstPipe() {
++  View<MutableRange> Range;
++  (void)operator|(Range, Adaptor{});
++}
++} // namespace constrained_pipe
++
++class PrivateConstRange {
++  int *begin();
++  int *end();
++  const int *begin() const;
++  const int *end() const;
++
++public:
++  void iterate() {
++    // Access is checked in the original function context.
++    // CHECK-MESSAGES: :[[@LINE+1]]:5: warning: variable 'Range' of type 'PrivateConstRange' can be declared 'const'
++    PrivateConstRange Range;
++    for (const int Value : Range)
++      (void)Value;
++  }
++};
++
++namespace deduced_return {
++struct Adaptor {};
++template <class R> auto operator|(R &&, Adaptor) {
++  // Adding const makes this instantiation invalid, but its error must not
++  // escape the provisional analysis and poison later diagnostics.
++  static_assert(requires(R &Range) { Range.begin(); });
++  return 0;
++}
++void unavailableConstBody() {
++  MutableRange Range;
++  (void)(Range | Adaptor{});
++}
++void laterReadOnlyValue() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Value' of type 'int' can be declared 'const'
++  int Value = 42;
++  (void)Value;
++}
++} // namespace deduced_return
+diff --git a/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp b/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp
+new file mode 100644
+index 0000000..55b2e84
+--- /dev/null
++++ b/clang-tools-extra/test/clang-tidy/checkers/misc/const-correctness-cxx20-ranges.cpp
+@@ -0,0 +1,37 @@
++// A declared forwarding pipe without a visible body can require a mutable
++// reference. This range exposes only mutable iteration; direct iteration must
++// not receive a const suggestion either. Viable const pipes and constrained
++// const iteration are covered in const-correctness-cxx20-range-constraints.cpp.
++//
++// RUN: %check_clang_tidy %s misc-const-correctness %t --
++
++class Range {
++public:
++  int *begin();
++  int *end();
++};
++
++struct Adaptor {};
++
++template <typename R> Range operator|(R &&Range, Adaptor);
++
++void pipedRangeIsNotSuggested() {
++  Range Input;
++  Range Piped = Input | Adaptor{};
++  // The pipe reads 'Piped' by reference; 'const' would propagate.
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Again' of type 'Range' can be declared 'const'
++  Range Again = Piped | Adaptor{};
++  (void)Again;
++}
++
++void directlyIteratedRangeIsNeverSuggested() {
++  Range Iterated = Range{};
++  for (const int V : Iterated)
++    (void)V;
++}
++
++void ordinaryReadOnlyValuesAreStillSuggested() {
++  // CHECK-MESSAGES: :[[@LINE+1]]:3: warning: variable 'Answer' of type 'int' can be declared 'const'
++  int Answer = 42;
++  (void)Answer;
++}
+-- 
+2.53.0
+

@@ -1,0 +1,272 @@
+From da51e0e1f4a85b3fa3a35e054b857e8515ccf7d1 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 06:24:15 +0900
+Subject: [clang] Malformed and unresolved module directives recover in place
+
+Collected syntax tokens exclude module directive delimiters, a directive queued after a missing BMI still owns its keywords, and diagnostics for a missing module separator stay on the directive that lacks it.
+
+* Exclude module directive delimiters from collected C++ tokens
+
+* fix(modules): queued directives own their keywords after missing BMI recovery
+
+  An absent explicitly named BMI sets a sticky module-loader fatal flag. Recovery
+  continues later imports, but HandleIdentifier returned their original keywords
+  after queuing the same tokens in the directive suffix stream. TokenCollector
+  then received duplicate source locations and spun in the measured Release build.
+
+  Consume the original keyword whenever a C++ module directive stream was queued.
+  Keep the existing fatal return when no directive stream exists. Token-collector
+  and clangd regressions verify keyword counts, later symbols and edit recovery.
+  The normalized historical six-missing-BMI fixture now exits normally on Linux;
+  the historical Windows exception still requires native baseline qualification.
+
+* fix(diagnostics): missing module separators stay on their directive
+---
+ clang-tools-extra/clangd/Diagnostics.cpp      |  4 ++-
+ .../test/missing-bmi-token-recovery.test      | 19 +++++++++++
+ .../test/module-directive-recovery.test       | 33 +++++++++++++++++++
+ .../clangd/unittests/DiagnosticsTests.cpp     | 21 ++++++++++++
+ clang/lib/Lex/PPDirectives.cpp                | 19 +++++++++--
+ clang/lib/Lex/Preprocessor.cpp                |  7 ++++
+ clang/lib/Tooling/Syntax/Tokens.cpp           |  5 +++
+ .../missing-module-semicolon-location.cpp     |  7 ++++
+ clang/unittests/Tooling/Syntax/TokensTest.cpp | 32 ++++++++++++++++++
+ 9 files changed, 143 insertions(+), 4 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/test/missing-bmi-token-recovery.test
+ create mode 100644 clang-tools-extra/clangd/test/module-directive-recovery.test
+ create mode 100644 clang/test/Modules/missing-module-semicolon-location.cpp
+
+diff --git a/clang-tools-extra/clangd/Diagnostics.cpp b/clang-tools-extra/clangd/Diagnostics.cpp
+index d0baf02..bbfd241 100644
+--- a/clang-tools-extra/clangd/Diagnostics.cpp
++++ b/clang-tools-extra/clangd/Diagnostics.cpp
+@@ -139,7 +139,9 @@ std::optional<Range> diagnosticRange(const clang::Diagnostic &D,
+   // If we can't get the token at the location, fall back to using the location
+   auto R = CharSourceRange::getCharRange(Loc);
+   Token Tok;
+-  if (!Lexer::getRawToken(Loc, Tok, M, L, true) && Tok.isNot(tok::comment))
++  // Whitespace at the diagnostic location is an insertion position, not a
++  // request to highlight the next token (possibly on another line).
++  if (!Lexer::getRawToken(Loc, Tok, M, L, false) && Tok.isNot(tok::comment))
+     R = CharSourceRange::getTokenRange(Tok.getLocation(), Tok.getEndLoc());
+   return halfOpenToRange(M, PatchedRange(R));
+ }
+diff --git a/clang-tools-extra/clangd/test/missing-bmi-token-recovery.test b/clang-tools-extra/clangd/test/missing-bmi-token-recovery.test
+new file mode 100644
+index 0000000..3e96ef2
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/missing-bmi-token-recovery.test
+@@ -0,0 +1,19 @@
++# Later imports must not replay their keyword after a prior named BMI failed.
++# RUN: clangd -lit-test < %s | FileCheck %s
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootUri":"test:///","capabilities":{},"initializationOptions":{"fallbackFlags":["-std=c++20","-fmodule-file=Missing=missing.pcm","-fmodule-file=Another=another-missing.pcm"]}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///main.cppm","languageId":"cpp","version":1,"text":"export module Main;\nexport import Missing;\nexport import Another;\nexport int marker;\n"}}}
++---
++{"jsonrpc":"2.0","id":1,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///main.cppm"}}}
++# CHECK: "id": 1,
++# CHECK: "name": "marker"
++---
++{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///main.cppm","version":2},"contentChanges":[{"text":"export module Main;\nexport int recovered;\n"}]}}
++---
++{"jsonrpc":"2.0","id":2,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///main.cppm"}}}
++# CHECK: "id": 2,
++# CHECK: "name": "recovered"
++---
++{"jsonrpc":"2.0","id":3,"method":"shutdown","params":null}
++---
++{"jsonrpc":"2.0","method":"exit"}
+diff --git a/clang-tools-extra/clangd/test/module-directive-recovery.test b/clang-tools-extra/clangd/test/module-directive-recovery.test
+new file mode 100644
+index 0000000..a7c6590
+--- /dev/null
++++ b/clang-tools-extra/clangd/test/module-directive-recovery.test
+@@ -0,0 +1,33 @@
++# A malformed directive's logical eod delimiter must not enter TokenBuffer.
++# RUN: clangd -lit-test < %s | FileCheck %s
++{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"rootUri":"test:///","capabilities":{},"initializationOptions":{"fallbackFlags":["-std=c++20"]}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///use.cpp","languageId":"cpp","version":1,"text":"import hello.\nint marker;\n"}}}
++---
++{"jsonrpc":"2.0","id":1,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///use.cpp"}}}
++# CHECK: "id": 1,
++# CHECK: "result": []
++---
++{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///use.cpp","version":2},"contentChanges":[{"text":"int marker;\n"}]}}
++---
++{"jsonrpc":"2.0","id":2,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///use.cpp"}}}
++# CHECK: "id": 2,
++# CHECK: "name": "marker"
++---
++{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"test:///use.cpp"}}}
++---
++{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"test:///module.cppm","languageId":"cpp","version":1,"text":"export module hello.\n"}}}
++---
++{"jsonrpc":"2.0","id":3,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///module.cppm"}}}
++# CHECK: "id": 3,
++# CHECK: "result": []
++---
++{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"test:///module.cppm","version":2},"contentChanges":[{"text":"export module hello;\nexport int marker;\n"}]}}
++---
++{"jsonrpc":"2.0","id":4,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"test:///module.cppm"}}}
++# CHECK: "id": 4,
++# CHECK: "name": "marker"
++---
++{"jsonrpc":"2.0","id":5,"method":"shutdown","params":null}
++---
++{"jsonrpc":"2.0","method":"exit"}
+diff --git a/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp b/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp
+index 6d91ac1..3903981 100644
+--- a/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp
++++ b/clang-tools-extra/clangd/unittests/DiagnosticsTests.cpp
+@@ -211,6 +211,27 @@ o]]();
+                             "change 'fod' to 'foo'")))));
+ }
+ 
++TEST(DiagnosticsTest, ModuleDirectiveMissingSemicolonRange) {
++  for (const auto &Case : std::vector<std::pair<StringRef, StringRef>>{
++           {"expected_semi_after_module_or_import",
++            "import A[[]]\nimport B;\n"},
++           {"expected_semi_after_module_or_import",
++            "import \\\n  A[[]]\nimport B;\n"},
++           {"pp_unexpected_tok_after_module_name",
++            "export module M[[]] // pending\nint marker;\n"},
++           {"pp_unexpected_tok_after_module_name",
++            "export module \\\n  M[[]]\nint marker;\n"}}) {
++    Annotations Code(Case.second);
++    auto TU = TestTU::withCode(Code.code());
++    TU.Code += "\n// error-ok\n";
++    TU.ExtraArgs.push_back("-std=c++20");
++    EXPECT_THAT(TU.build().getDiagnostics(),
++                Contains(AllOf(diagName(Case.first), hasRange(Code.range()),
++                               withFix(Fix(Code.range(), ";", "insert ';'")))))
++        << Case.second;
++  }
++}
++
+ // Verify that the -Wswitch case-not-covered diagnostic range covers the
+ // whole expression. This is important because the "populate-switch" tweak
+ // fires for the full expression range (see tweaks/PopulateSwitchTests.cpp).
+diff --git a/clang/lib/Lex/PPDirectives.cpp b/clang/lib/Lex/PPDirectives.cpp
+index c161f6a..5e46355 100644
+--- a/clang/lib/Lex/PPDirectives.cpp
++++ b/clang/lib/Lex/PPDirectives.cpp
+@@ -4431,9 +4431,22 @@ void Preprocessor::HandleCXXModuleDirective(Token ModuleTok) {
+     if (NextPPTok->is(tok::raw_identifier))
+       LookUpIdentifierInfo(*NextPPTok);
+     if (!NextPPTok->isOneOf(tok::semi, tok::eod, tok::l_square,
+-                            tok::kw_private))
+-      Diag(*NextPPTok, diag::err_pp_unexpected_tok_after_module_name)
+-          << getSpelling(*NextPPTok);
++                          tok::kw_private)) {
++      if (DirToks.back().is(tok::eod)) {
++        // The unexpected token belongs to the following line. Diagnose the
++        // missing separator at the end of this directive, before any comment.
++        const Token &Last = DirToks[DirToks.size() - 2];
++        SourceLocation End = getLocForEndOfToken(
++            Last.isAnnotation() ? Last.getAnnotationEndLoc()
++                                : Last.getLocation());
++        Diag(End, diag::err_pp_unexpected_tok_after_module_name)
++            << getSpelling(*NextPPTok)
++            << FixItHint::CreateInsertion(End, ";");
++      } else {
++        Diag(*NextPPTok, diag::err_pp_unexpected_tok_after_module_name)
++            << getSpelling(*NextPPTok);
++      }
++    }
+   }
+ 
+   if (!DirToks.back().isOneOf(tok::semi, tok::eod)) {
+diff --git a/clang/lib/Lex/Preprocessor.cpp b/clang/lib/Lex/Preprocessor.cpp
+index 427a382..41c063b 100644
+--- a/clang/lib/Lex/Preprocessor.cpp
++++ b/clang/lib/Lex/Preprocessor.cpp
+@@ -919,6 +919,13 @@ bool Preprocessor::HandleIdentifier(Token &Identifier) {
+       Identifier.isModuleContextualKeyword() &&
+       HandleModuleContextualKeyword(Identifier)) {
+     HandleDirective(Identifier);
++    // A processed C++ module directive queues its keyword and suffix for the
++    // parser. Consume the original keyword even if a previous named import
++    // failed: returning it here would replay it again from that token stream.
++    // Fatal header/module-loader failures that did not queue a directive still
++    // return the current token so the parser can stop.
++    if (CurTokenLexer && CurTokenLexer->isLexingCXXModuleDirective())
++      return false;
+     // With a fatal failure in the module loader, we abort parsing.
+     return hadModuleLoaderFatalFailure();
+   }
+diff --git a/clang/lib/Tooling/Syntax/Tokens.cpp b/clang/lib/Tooling/Syntax/Tokens.cpp
+index 927333f..17430a3 100644
+--- a/clang/lib/Tooling/Syntax/Tokens.cpp
++++ b/clang/lib/Tooling/Syntax/Tokens.cpp
+@@ -681,6 +681,11 @@ private:
+ TokenCollector::TokenCollector(Preprocessor &PP) : PP(PP) {
+   // Collect the expanded token stream during preprocessing.
+   PP.setTokenWatcher([this](const clang::Token &T) {
++    // Error recovery in a module directive may replay its end-of-directive
++    // delimiter to the watcher. This logical newline is not a C++ source
++    // token and has no counterpart in the raw spelled-token stream.
++    if (T.is(tok::eod))
++      return;
+     if (T.is(tok::annot_module_name)) {
+       auto &SM = this->PP.getSourceManager();
+       StringRef Text = Lexer::getSourceText(
+diff --git a/clang/test/Modules/missing-module-semicolon-location.cpp b/clang/test/Modules/missing-module-semicolon-location.cpp
+new file mode 100644
+index 0000000..3c8f0f5
+--- /dev/null
++++ b/clang/test/Modules/missing-module-semicolon-location.cpp
+@@ -0,0 +1,7 @@
++// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %s
++
++// A physical continuation and trailing comment must not move the diagnostic
++// onto the next declaration. The insertion belongs immediately after M.
++export module \
++  M // expected-error {{unexpected preprocessing token 'int' after module name}}
++int marker;
+diff --git a/clang/unittests/Tooling/Syntax/TokensTest.cpp b/clang/unittests/Tooling/Syntax/TokensTest.cpp
+index 6418cc8..2bc51c2 100644
+--- a/clang/unittests/Tooling/Syntax/TokensTest.cpp
++++ b/clang/unittests/Tooling/Syntax/TokensTest.cpp
+@@ -1189,6 +1189,38 @@ TEST_F(TokenCollectorTest, CXX20ModuleImportModule) {
+                           Kind(tok::semi), Kind(tok::eof)));
+ }
+ 
++TEST_F(TokenCollectorTest, CXX20MalformedModuleDirectiveHasNoEodToken) {
++  LangStandard = "-std=c++20";
++  AllowErrors = true;
++
++  for (const char *Source : {"import Non.Existent.\n",
++                             "export module Non.Existent.\n",
++                             "module Non.Existent.\n"}) {
++    recordTokens(Source);
++    EXPECT_THAT(Buffer.expandedTokens(),
++                Not(Contains(Kind(tok::eod))));
++    ASSERT_FALSE(Buffer.expandedTokens().empty());
++    EXPECT_EQ(Buffer.expandedTokens().back().kind(), tok::eof);
++  }
++}
++
++TEST_F(TokenCollectorTest, CXX20MissingPrebuiltImportsDoNotRepeatKeywords) {
++  LangStandard = "-std=c++20";
++  AllowErrors = true;
++  recordTokens("export module Main;\n"
++               "export import Missing;\n"
++               "export import Another;\n"
++               "export int marker;\n",
++               {"-fmodule-file=Missing=missing.pcm",
++                "-fmodule-file=Another=another-missing.pcm"});
++  EXPECT_EQ(llvm::count_if(Buffer.expandedTokens(), [](const syntax::Token &T) {
++              return T.kind() == tok::kw_import;
++            }),
++            2);
++  ASSERT_FALSE(Buffer.expandedTokens().empty());
++  EXPECT_EQ(Buffer.expandedTokens().back().kind(), tok::eof);
++}
++
+ TEST_F(TokenCollectorTest, CXX20ModuleImportPartition) {
+   LangStandard = "-std=c++20";
+   AllowErrors = true;
+-- 
+2.53.0
+

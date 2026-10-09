@@ -4,20 +4,26 @@ tree (plan doc §3 layout principle 3; §4.3 job verify-series).
 
 Checks:
   1. every patch in `series` exists and every existing patch is in `series`;
-  2. every patch has a ledger row with: register row (UP-xx), state, tests,
-     drop condition;
+  2. every patch has a ledger row with: register rows (UP-xx, comma separated,
+     the filename's row first), state, tests, drop condition;
   3. states are from the lifecycle vocabulary;
   4. register row ids (UP-<n>) never appear in patch content or overlay code
      — the ledger (and patch filenames) are the only mapping (layout
      principle 1: a patch must read as an upstream contribution).
 """
+import argparse
 import re
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--release", action="store_true", help="reject patches without steady evidence")
+parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parent.parent)
+args = parser.parse_args()
+REPO = args.repo.resolve()
 STATES = {"draft", "stabilizing", "steady", "upstream-submitted", "landed (dropped)"}
 ROW_ID = re.compile(r"\bUP-\d+\b")
+REGISTER_ID = re.compile(r"(?:UP|FEATURE)-\d+")
 
 def fail(msg):
     print(f"check_ledger: FAIL {msg}")
@@ -34,6 +40,8 @@ if series_path.exists():
             series.append(line)
 
 # 1. series <-> files
+if len(series) != len(set(series)):
+    fail("duplicate entries in series")
 for entry in series:
     if not (REPO / "patches" / entry).exists():
         fail(f"series lists {entry} but the file does not exist")
@@ -51,6 +59,8 @@ if ledger_path.exists():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         if len(cells) < 5 or cells[0] in ("patch", "") or set(cells[0]) <= {"-", " ", ":"}:
             continue
+        if cells[0] in ledger_rows:
+            fail(f"duplicate ledger row: {cells[0]}")
         ledger_rows[cells[0]] = cells
 
 for entry in series:
@@ -59,12 +69,31 @@ for entry in series:
         fail(f"{name}: no ledger row in PATCHES.md")
     cells = ledger_rows[name]
     row_id, state, tests, drop = cells[1], cells[2], cells[3], cells[4]
-    if not ROW_ID.fullmatch(row_id):
-        fail(f"{name}: ledger row id {row_id!r} is not a UP-xx id")
+    row_ids = [part.strip() for part in row_id.split(",")]
+    if not all(REGISTER_ID.fullmatch(part) for part in row_ids):
+        fail(f"{name}: ledger rows {row_id!r} are not upstream defect or product feature ids")
+    if not name[5:].startswith(row_ids[0] + "-"):
+        fail(f"{name}: the filename names {name[5:].split('-')[0]}-..., the ledger's first row is {row_ids[0]}")
     if state not in STATES:
         fail(f"{name}: unknown state {state!r}")
     if state not in ("draft",) and not tests:
         fail(f"{name}: state {state} requires a test map")
+    if args.release:
+        if state != "steady":
+            fail(f"{name}: release requires steady, found {state}")
+        # Test paths in the ledger must name files carried by this patch or
+        # repository. Prose about a benchmark is not an executable test map.
+        paths = re.findall(r"[\w./-]+\.(?:cppm|cpp|test|py)", tests)
+        patch = (REPO / "patches" / entry).read_text()
+        if not paths:
+            fail(f"{name}: release requires executable test paths")
+        for path in paths:
+            llvm_path = path
+            for short, full in (("clangd/", "clang-tools-extra/clangd/"), ("clang-tidy/test/", "clang-tools-extra/test/clang-tidy/")):
+                if llvm_path.startswith(short):
+                    llvm_path = full + llvm_path[len(short):]
+            if not (REPO / path).is_file() and f"+++ b/{llvm_path}" not in patch:
+                fail(f"{name}: missing test {path}")
     if not drop:
         fail(f"{name}: missing drop condition")
 

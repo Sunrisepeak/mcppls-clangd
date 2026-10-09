@@ -1,0 +1,130 @@
+From d2ef8d9cb68d3ede8c14e9262987c1cee9073820 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 8 Oct 2026 07:54:03 +0900
+Subject: Test module cache GC against actual copy ownership
+
+The age-based orphan fixture predates owner leases and constructs an unleased PCM, which current GC correctly preserves as a published or legacy file. Exercise a real read copy with an acquired and then closed owner lease instead.
+
+Require GC to remove both the abandoned copy and sidecar immediately while retaining an aged live read copy, its active lease and the stable published BMI. Compare the published modification time so deleting and rebuilding that BMI cannot satisfy the preservation assertion. Production GC behavior and its safety rules are unchanged; persistent published-cache growth remains outside this test-only correction.
+---
+ .../unittests/PrerequisiteModulesTest.cpp     | 97 +++++++++++--------
+ 1 file changed, 56 insertions(+), 41 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 449d1a3..f495966 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -2410,54 +2410,69 @@ export int AValue = MValue;
+ }
+ 
+ TEST_F(PrerequisiteModulesTests,
+-       PersistentModuleCacheGCRemovesOldStablePublishedModule) {
++       PersistentModuleCacheGCReclaimsOnlyUnownedReadCopies) {
+   PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\nexport int MValue = 43;\n");
++  CDB.addFile("A.cppm",
++              "export module A;\nimport M;\nexport int AValue = MValue;\n");
+ 
+-  CDB.addFile("M.cppm", R"cpp(
+-export module M;
+-export int MValue = 43;
+-  )cpp");
+-  CDB.addFile("A.cppm", R"cpp(
+-export module A;
+-import M;
+-export int AValue = MValue;
+-  )cpp");
+-
+-  llvm::SmallString<256> OrphanPCMPath;
+-  {
+-    ModulesBuilder Builder(CDB);
+-    auto AInfo = Builder.buildPrerequisiteModulesFor(getFullPath("A.cppm"), FS);
+-    ASSERT_TRUE(AInfo);
+-    HeaderSearchOptions HS(TestDir);
+-    AInfo->adjustHeaderSearchOptions(HS);
+-    ASSERT_EQ(HS.PrebuiltModuleFiles.count("M"), 1u);
+-
+-    OrphanPCMPath = HS.PrebuiltModuleFiles["M"];
+-    llvm::sys::path::remove_filename(OrphanPCMPath);
+-    llvm::sys::path::append(OrphanPCMPath, "Orphan.pcm");
+-
+-    std::error_code EC;
+-    llvm::raw_fd_ostream OS(OrphanPCMPath, EC);
+-    ASSERT_FALSE(EC);
+-    OS << "orphan";
+-    OS.close();
+-    EXPECT_TRUE(llvm::sys::fs::exists(OrphanPCMPath));
+-
++  ModulesBuilder FirstBuilder(CDB);
++  auto AInfo =
++      FirstBuilder.buildPrerequisiteModulesFor(getFullPath("A.cppm"), FS);
++  ASSERT_TRUE(AInfo);
++  HeaderSearchOptions LiveHS(TestDir), PublishedHS(TestDir);
++  AInfo->adjustHeaderSearchOptions(LiveHS);
++  AInfo->adjustHeaderSearchOptionsForValidation(PublishedHS);
++  ASSERT_EQ(LiveHS.PrebuiltModuleFiles.count("M"), 1u);
++  ASSERT_EQ(PublishedHS.PrebuiltModuleFiles.count("M"), 1u);
++  const std::string LivePCM = LiveHS.PrebuiltModuleFiles["M"];
++  const std::string PublishedPCM = PublishedHS.PrebuiltModuleFiles["M"];
++  const std::string LiveLease = LivePCM + ".lease";
++  ASSERT_TRUE(llvm::sys::fs::exists(LiveLease));
++  ASSERT_FALSE(llvm::sys::fs::exists(PublishedPCM + ".lease"));
++
++  // Age does not prove ownership: even old published BMIs and live read copies
++  // must survive GC. Only a copy whose owner lease has ended may be reclaimed.
++  for (StringRef Path : {StringRef(LivePCM), StringRef(PublishedPCM)}) {
+     int FD = -1;
+-    ASSERT_FALSE(llvm::sys::fs::openFileForWrite(OrphanPCMPath, FD,
+-                                                 llvm::sys::fs::CD_OpenExisting,
+-                                                 llvm::sys::fs::OF_None));
++    ASSERT_FALSE(llvm::sys::fs::openFileForWrite(
++        Path, FD, llvm::sys::fs::CD_OpenExisting, llvm::sys::fs::OF_None));
+     auto CloseFD = llvm::scope_exit(
+         [&] { llvm::sys::Process::SafelyCloseFileDescriptor(FD); });
+-    llvm::sys::TimePoint<> OldTime =
+-        std::chrono::system_clock::now() - std::chrono::hours(24 * 5);
+-    ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(FD, OldTime));
++    ASSERT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(
++        FD, std::chrono::system_clock::now() - std::chrono::hours(24 * 5)));
+   }
+ 
+-  ModulesBuilder Builder(CDB);
+-  auto AInfo = Builder.buildPrerequisiteModulesFor(getFullPath("A.cppm"), FS);
+-  ASSERT_TRUE(AInfo);
+-  EXPECT_FALSE(llvm::sys::fs::exists(OrphanPCMPath));
++  llvm::sys::fs::file_status PublishedBefore;
++  ASSERT_FALSE(llvm::sys::fs::status(PublishedPCM, PublishedBefore));
++  llvm::SmallString<256> OrphanPCM(LivePCM);
++  llvm::sys::path::remove_filename(OrphanPCM);
++  llvm::sys::path::append(OrphanPCM, "Orphan.pcm");
++  ASSERT_FALSE(llvm::sys::fs::copy_file(LivePCM, OrphanPCM));
++  const std::string OrphanLease = OrphanPCM.str().str() + ".lease";
++  int LeaseFD = -1;
++  ASSERT_FALSE(llvm::sys::fs::openFileForWrite(OrphanLease, LeaseFD));
++  ASSERT_FALSE(llvm::sys::fs::tryLockFile(LeaseFD));
++  // Close the actual kernel-backed owner lease, as an exiting owner would.
++  ASSERT_FALSE(llvm::sys::fs::unlockFile(LeaseFD));
++  llvm::sys::Process::SafelyCloseFileDescriptor(LeaseFD);
++  ASSERT_TRUE(llvm::sys::fs::exists(OrphanPCM));
++  ASSERT_TRUE(llvm::sys::fs::exists(OrphanLease));
++
++  ModulesBuilder SecondBuilder(CDB);
++  auto NewInfo =
++      SecondBuilder.buildPrerequisiteModulesFor(getFullPath("A.cppm"), FS);
++  ASSERT_TRUE(NewInfo);
++  EXPECT_FALSE(llvm::sys::fs::exists(OrphanPCM));
++  EXPECT_FALSE(llvm::sys::fs::exists(OrphanLease));
++  EXPECT_TRUE(llvm::sys::fs::exists(PublishedPCM));
++  llvm::sys::fs::file_status PublishedAfter;
++  ASSERT_FALSE(llvm::sys::fs::status(PublishedPCM, PublishedAfter));
++  EXPECT_EQ(PublishedBefore.getLastModificationTime(),
++            PublishedAfter.getLastModificationTime())
++      << "GC must preserve the published BMI, not delete and rebuild it";
++  EXPECT_TRUE(llvm::sys::fs::exists(LivePCM));
++  EXPECT_TRUE(llvm::sys::fs::exists(LiveLease));
+ }
+ 
+ TEST_F(PrerequisiteModulesTests,
+-- 
+2.53.0
+

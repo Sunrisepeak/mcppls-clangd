@@ -1,0 +1,305 @@
+From 07ebff0a217d77a0022e87ed6c505ac7b7fd5430 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 12:34:00 +0900
+Subject: [clangd] Consumers bind to published prerequisite generations
+
+A consumer binds to the generations of the prerequisites actually published, a freshly published owned build is reported as built, and each producer snapshot covers only its own dependency closure, so an unrelated module change does not rebuild its importers.
+
+* fix(clangd): consumers bind to published prerequisite generations
+
+* [clangd] Report freshly published owned module builds
+
+* perf(modules): each producer binds only its dependency closure
+
+  The build-wave snapshot contained unrelated completed module roots, and every producer key included all of them. Shared importing Base acquired different cache generations when a consumer additionally imported or edited Noise. Preserve the planner dependency closure per node and select immutable prerequisite snapshots from that closure, conservatively retaining unknown prebuilt leaves. Actual transitive dependency changes still invalidate and rebuild consumers.
+
+  The old implementation fails the two unrelated-root reuse assertions. All 77 prerequisite-module controls pass with the change. A private same-recipe original UP20 replay has zero prerequisite/admission failures, 85 actual builds instead of 526, and restores all sources with normal cleanup. The replay is correctness-only, not release or a latency distribution.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 88 ++++++++++++++++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 94 +++++++++++++++++++
+ 2 files changed, 177 insertions(+), 5 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 9c820e1..046830e 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -831,6 +831,34 @@ public:
+     return Result;
+   }
+ 
++  llvm::Expected<std::string> getBuildChainKey() const {
++    std::string Result;
++    getValidationChainKey(Result);
++    llvm::SmallVector<const ModuleFile *, 8> Producers;
++    for (const auto &Module : RequiredModules)
++      Producers.push_back(Module.get());
++    llvm::sort(Producers, [](const ModuleFile *L, const ModuleFile *R) {
++      return L->getModuleName() < R->getModuleName();
++    });
++    for (const auto *Module : Producers) {
++      // Use the published producer identity captured by the read lease,
++      // never the temporary copy's path/inode/time. A legacy publication can
++      // be replaced while this request still owns the previous immutable copy.
++      auto Identity = Module->getPublishedSourceIdentity();
++      if (!Identity)
++        Identity = ModuleValidationCache::identityOf(
++            Module->getPublishedModuleFilePath());
++      if (!Identity)
++        return llvm::createStringError("Module prerequisite producer is unavailable");
++      Result.append(llvm::formatv("{0}:{1}:{2}:{3}:{4};", Module->getModuleName(),
++                                  Identity->Size, Identity->ID.getDevice(),
++                                  Identity->ID.getFile(),
++                                  Identity->ModTime.time_since_epoch().count())
++                         .str());
++    }
++    return Result;
++  }
++
+   bool canReuse(const CompilerInvocation &CI,
+                 llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) const override;
+ 
+@@ -843,6 +871,25 @@ public:
+     RequiredModules.emplace_back(std::move(MF));
+   }
+ 
++  std::shared_ptr<const ReusablePrerequisiteModules> forBuild(
++      llvm::ArrayRef<std::string> Dependencies,
++      const llvm::StringSet<> &PlannedNames) const {
++    auto Result = std::make_shared<ReusablePrerequisiteModules>(*this);
++    Result->RequiredModules.clear();
++    Result->BuiltModuleNames.clear();
++    llvm::StringSet<> Needed;
++    for (StringRef Name : Dependencies)
++      Needed.insert(Name);
++    for (const auto &Module : RequiredModules) {
++      // Unknown/prebuilt leaves may encode imports not represented in this
++      // source plan. Keep those conservatively; prune only known graph peers.
++      if (Needed.contains(Module->getModuleName()) ||
++          !PlannedNames.contains(Module->getModuleName()))
++        Result->addModuleFile(Module);
++    }
++    return Result;
++  }
++
+   void setDirectModuleNames(std::vector<std::string> Names) {
+     DirectModuleNames.insert_range(Names);
+   }
+@@ -1476,6 +1523,7 @@ struct ModuleBuildNode {
+   std::string Name;
+   std::string Source;
+   unsigned Depth;
++  std::vector<std::string> Dependencies;
+ };
+ 
+ /// Plan the entire forest before dispatching work. A completed shared
+@@ -1487,6 +1535,7 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+                    const ReusablePrerequisiteModules &AlreadyBuilt) {
+   llvm::SmallVector<ModuleBuildNode> Plan;
+   llvm::StringMap<unsigned> Completed;
++  llvm::StringMap<std::vector<std::string>> Closures;
+   llvm::StringSet<> Active;
+   auto Visit = [&](StringRef Name, auto Visitor) -> llvm::Error {
+     if (int Reason = isCancelled())
+@@ -1508,13 +1557,24 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+       return llvm::make_error<ModuleUnitNotFound>(
+           Name.str(), "no unit source in this project");
+     unsigned Depth = 0;
++    std::vector<std::string> Dependencies;
+     for (StringRef Dependency : MDB.getRequiredModules(Source)) {
+       if (llvm::Error Err = Visitor(Dependency, Visitor))
+         return Err;
+       Depth = (std::max)(Depth, Completed.find(Dependency)->second + 1);
++      Dependencies.push_back(Dependency.str());
++      const auto Closure = Closures.find(Dependency);
++      if (Closure != Closures.end())
++        Dependencies.insert(Dependencies.end(), Closure->second.begin(),
++                            Closure->second.end());
+     }
++    llvm::sort(Dependencies);
++    Dependencies.erase(std::unique(Dependencies.begin(), Dependencies.end()),
++                       Dependencies.end());
++    Closures.insert({Name, Dependencies});
+     Completed.insert({Name, Depth});
+-    Plan.push_back({Name.str(), std::move(Source), Depth});
++    Plan.push_back({Name.str(), std::move(Source), Depth,
++                    std::move(Dependencies)});
+     return llvm::Error::success();
+   };
+   for (StringRef Root : Roots) {
+@@ -2023,9 +2083,23 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     unsigned Remaining = --ActiveBuildTasks;
+     vlog("Module build task {0} finished (active={1})", ModuleName, Remaining);
+   });
+-  const std::string CommandHash = getCompileCommandStringHash(Cmd);
++  // A named standard-module import does not carry a producer signature in
++  // Clang's IMPORTS record. Input validation alone therefore cannot qualify a
++  // consumer built against another std generation or compile profile.
++  // Bind cache admission to the prerequisite producers before probing it.
++  auto Chain = Prerequisites.getBuildChainKey();
++  if (!Chain) return Chain.takeError();
++  const auto &BuildChain = *Chain;
++  const auto ChainHash = hashStringForCache(BuildChain);
++  const std::string CommandHash = BuildChain.empty()
++                                     ? getCompileCommandStringHash(Cmd)
++                                     : hashStringForCache(getCompileCommandStringHash(Cmd) +
++                                                          "\nproducer-chain-v1\n" + BuildChain);
++  auto ModuleDirectory = getModuleFilesDirectory(ModuleSource, Cmd, getCDB());
++  if (!BuildChain.empty())
++    llvm::sys::path::append(ModuleDirectory, "producer-chain-v1-" + ChainHash);
+   const std::string PublishedModuleFilePath = getPublishedModuleFilePath(
+-      ModuleName, getModuleFilesDirectory(ModuleSource, Cmd, getCDB()));
++      ModuleName, ModuleDirectory);
+ 
+   // Keep the source-scoped lock while probing and validating cached BMIs so
+   // stale-file replacement and final publication stay serialized.
+@@ -2089,6 +2163,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+         return llvm::make_error<CancelledError>(Reason);
+       if (auto Error = (*Reservation)->publish()) return std::move(Error);
+       *Stable = std::move(*Reservation);
++      log("Built module {0} to {1}", ModuleName, (*Stable)->payload());
+     }
+     auto Copy = (*Owned)->copy(*Stable);
+     if (!Copy) return Copy.takeError();
+@@ -2174,6 +2249,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+                     [](const ModuleBuildNode &L, const ModuleBuildNode &R) {
+                       return L.Depth < R.Depth;
+                     });
++  llvm::StringSet<> PlannedNames;
++  for (const auto &Node : *Plan)
++    PlannedNames.insert(Node.Name);
+   using Result = llvm::Expected<std::shared_ptr<const ModuleFile>>;
+   for (size_t Begin = 0; Begin < Plan->size();) {
+     if (int Reason = isCancelled())
+@@ -2185,8 +2263,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+     // immutable prerequisite snapshot; workers never wait on peer tasks.
+     for (size_t Batch = Begin; Batch < End;) {
+       size_t BatchEnd = (std::min)(End, Batch + BuildPool.getMaxConcurrency());
+-      auto Snapshot =
+-          std::make_shared<const ReusablePrerequisiteModules>(BuiltModuleFiles);
+       std::vector<std::optional<Result>> Results(BatchEnd - Batch);
+       llvm::SmallVector<std::future<void>> Futures;
+       llvm::Error PreparationError = llvm::Error::success();
+@@ -2200,6 +2276,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+               llvm::formatv("No compile command for {0}", Node.Source));
+           break;
+         }
++        auto Snapshot =
++            BuiltModuleFiles.forBuild(Node.Dependencies, PlannedNames);
+         // ThreadPool's returned future is deferred: waiting on it may run
+         // the compilation on this caller, bypassing the pool's global limit.
+         // Wait instead on a separate promise set only by the pool worker.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index bee21f6..7635d79 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -2463,6 +2463,51 @@ void func() {
+   EXPECT_EQ(Result.signatures[0].parameters[0].labelString, "int a");
+ }
+ 
++TEST_F(PrerequisiteModulesTests, UnrelatedRootDoesNotChangeProducerGeneration) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Leaf.cppm", "export module Leaf;\nexport constexpr int leaf = 7;\n");
++  CDB.addFile("Base.cppm", "export module Base;\nimport Leaf;\nexport constexpr int base = leaf;\n");
++  CDB.addFile("Noise.cppm", "export module Noise;\nexport constexpr int noise = 1;\n");
++  CDB.addFile("Shared.cppm", "export module Shared;\nimport Base;\nexport int shared() { return base; }\n");
++  CDB.addFile("Plain.cpp", "import Shared;\nint main() { return shared(); }\n");
++  CDB.addFile("Mixed.cpp", "import Noise;\nimport Shared;\nint main() { return shared() + noise; }\n");
++  ModulesBuilder Builder(CDB);
++  auto Plain = Builder.buildPrerequisiteModulesFor(getFullPath("Plain.cpp"), FS);
++  ASSERT_TRUE(Plain);
++  HeaderSearchOptions PlainPublished;
++  Plain->adjustHeaderSearchOptionsForValidation(PlainPublished);
++  ASSERT_EQ(PlainPublished.PrebuiltModuleFiles.count("Shared"), 1u);
++  auto Mixed = Builder.buildPrerequisiteModulesFor(getFullPath("Mixed.cpp"), FS);
++  ASSERT_TRUE(Mixed);
++  HeaderSearchOptions MixedPublished;
++  Mixed->adjustHeaderSearchOptionsForValidation(MixedPublished);
++  ASSERT_EQ(MixedPublished.PrebuiltModuleFiles.count("Shared"), 1u);
++  EXPECT_EQ(PlainPublished.PrebuiltModuleFiles.at("Shared"),
++            MixedPublished.PrebuiltModuleFiles.at("Shared"))
++      << "Shared imports Base, so an unrelated Noise root cannot change its producer chain";
++  CDB.addFile("Noise.cppm", "export module Noise;\nexport constexpr int noise = 2;\n");
++  auto Changed = Builder.buildPrerequisiteModulesFor(getFullPath("Mixed.cpp"), FS);
++  ASSERT_TRUE(Changed);
++  HeaderSearchOptions ChangedPublished;
++  Changed->adjustHeaderSearchOptionsForValidation(ChangedPublished);
++  EXPECT_EQ(PlainPublished.PrebuiltModuleFiles.at("Shared"),
++            ChangedPublished.PrebuiltModuleFiles.at("Shared"));
++  auto Inputs = getInputs("Mixed.cpp", CDB);
++  auto Invocation = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(Invocation);
++  EXPECT_FALSE(Mixed->canReuse(*Invocation, FS.view(TestDir)));
++  EXPECT_TRUE(Changed->canReuse(*Invocation, FS.view(TestDir)));
++  CDB.addFile("Leaf.cppm", "export module Leaf;\nexport constexpr int leaf = 9;\n");
++  EXPECT_FALSE(Changed->canReuse(*Invocation, FS.view(TestDir)));
++  auto ChangedDependency = Builder.buildPrerequisiteModulesFor(getFullPath("Mixed.cpp"), FS);
++  ASSERT_TRUE(ChangedDependency);
++  HeaderSearchOptions DependencyPublished;
++  ChangedDependency->adjustHeaderSearchOptionsForValidation(DependencyPublished);
++  EXPECT_NE(ChangedPublished.PrebuiltModuleFiles.at("Shared"),
++            DependencyPublished.PrebuiltModuleFiles.at("Shared"));
++  EXPECT_TRUE(ChangedDependency->canReuse(*Invocation, FS.view(TestDir)));
++}
++
+ TEST_F(PrerequisiteModulesTests, ReusablePrerequisiteModulesTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+@@ -3460,6 +3505,55 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+   EXPECT_FALSE(llvm::sys::fs::exists(ReadCopy));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, StandardModuleProfileInvalidatesConsumer) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  const char *Std = "export module std;\nexport constexpr int STD_VALUE = PROFILE;\n";
++  CDB.addFile("std.cppm", Std, {"-DPROFILE=1"});
++  CDB.addFile("Consumer.cppm", "export module Consumer;\nimport std;\n"
++                              "export constexpr int consumer_value = STD_VALUE;\n");
++  CDB.addFile("Use.cpp", "import Consumer;\n");
++  HeaderSearchOptions Before;
++  {
++    ModulesBuilder Builder(CDB);
++    auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++    ASSERT_TRUE(Modules);
++    Modules->adjustHeaderSearchOptionsForValidation(Before);
++    ASSERT_EQ(Before.PrebuiltModuleFiles.count("Consumer"), 1u);
++  }
++  CDB.addFile("std.cppm", Std, {"-DPROFILE=2"});
++  ModulesBuilder Builder(CDB);
++  auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++  ASSERT_TRUE(Modules);
++  HeaderSearchOptions After;
++  Modules->adjustHeaderSearchOptionsForValidation(After);
++  ASSERT_EQ(After.PrebuiltModuleFiles.count("Consumer"), 1u);
++  EXPECT_NE(Before.PrebuiltModuleFiles.at("std"), After.PrebuiltModuleFiles.at("std"));
++  EXPECT_NE(Before.PrebuiltModuleFiles.at("Consumer"), After.PrebuiltModuleFiles.at("Consumer"));
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  Inputs.Opts.SkipPreambleBuild = true;
++  Inputs.Contents = "import Consumer;\nstatic_assert(consumer_value == 2);\n";
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(Preamble);
++  auto AST = ParsedAST::build(getFullPath("Use.cpp"), Inputs, std::move(CI), {}, Preamble);
++  ASSERT_TRUE(AST);
++  EXPECT_TRUE(AST->getDiagnostics().empty());
++  HeaderSearchOptions AfterCopies;
++  Modules->adjustHeaderSearchOptions(AfterCopies);
++  ModulesBuilder WarmBuilder(CDB);
++  auto Warm = WarmBuilder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++  ASSERT_TRUE(Warm);
++  HeaderSearchOptions WarmPublished, WarmCopies;
++  Warm->adjustHeaderSearchOptionsForValidation(WarmPublished);
++  Warm->adjustHeaderSearchOptions(WarmCopies);
++  EXPECT_EQ(After.PrebuiltModuleFiles.at("Consumer"),
++             WarmPublished.PrebuiltModuleFiles.at("Consumer"));
++  EXPECT_NE(AfterCopies.PrebuiltModuleFiles.at("Consumer"),
++             WarmCopies.PrebuiltModuleFiles.at("Consumer"));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleImportThroughInclude) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.53.0
+

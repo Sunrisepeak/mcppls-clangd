@@ -2,7 +2,7 @@ name: build-test
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -12,10 +12,6 @@ on:
         default: "linux-x64"
         type: choice
         options: [linux-x64, linux-arm64, darwin-arm64, win32-x64, all]
-
-concurrency:
-  group: build-test-${{ github.ref }}-${{ github.event.inputs.platform || 'push' }}
-  cancel-in-progress: false
 
 jobs:
   setup:
@@ -36,7 +32,7 @@ jobs:
               win32-x64)   echo 'matrix=[{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT" ;;
             esac
           else
-            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"}]' >> "$GITHUB_OUTPUT"
+            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"linux-arm64","os":"ubuntu-22.04-arm"},{"platform":"darwin-arm64","os":"macos-14"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
           fi
 
   build:
@@ -48,6 +44,11 @@ jobs:
     name: build ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
+    concurrency:
+      # A long Windows build must not queue newer Linux/macOS results.
+      # Preserve active builds and their caches independently per platform.
+      group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,11 +56,14 @@ jobs:
           python-version: "3.11"
 
       - name: Install build tools
+        timeout-minutes: 15
         shell: bash
         run: |
           set -e
           case "${{ matrix.platform }}" in
-            linux-*)  sudo apt-get update && sudo apt-get install -y ninja-build ccache ;;
+            linux-*)
+              sudo bash ci/scripts/apt-install.sh ninja-build ccache
+              ;;
             darwin-*) brew install ninja ccache ;;
             win32-*)  pip install ninja ;;
           esac
@@ -67,6 +71,12 @@ jobs:
       - name: MSVC environment
         if: matrix.platform == 'win32-x64'
         uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install the Windows compiler cache
+        if: matrix.platform == 'win32-x64'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: v0.18.0
 
       - name: Restore ccache
         uses: actions/cache@v4
@@ -80,8 +90,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: llvm-project
-          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}
-          restore-keys: llvm-tree-${{ matrix.platform }}-
+          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
 
       - name: Build and test
         shell: bash
@@ -91,9 +100,336 @@ jobs:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           TEST: "1"
           RUN_TESTS: lit-subset
+          SCCACHE_GHA_ENABLED: "true"
+          SCCACHE_IDLE_TIMEOUT: "0"
+          CMAKE_EXTRA: ${{ matrix.platform == 'win32-x64' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }}
         run: ./ci/ci_build.sh
+
+      - name: Real standard-library const fixes remain compilable
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          python3 tests/e2e/const_correctness.py \
+            --engine build-${{ matrix.platform }}/bin/clangd --clang-tidy build-${{ matrix.platform }}/bin/clang-tidy \
+            --clang build-${{ matrix.platform }}/bin/clang --workdir "${{ runner.temp }}/const-correctness"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && startsWith(matrix.platform, 'linux-')
+        with:
+          name: const-correctness-${{ matrix.platform }}
+          path: ${{ runner.temp }}/const-correctness/result.json
+          if-no-files-found: error
+
+      - name: Module DAG compilation has shared worker and dependency bounds
+        shell: bash
+        run: |
+          python3 tests/e2e/module_dag.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "build-${{ matrix.platform }}/module-dag"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-dag-${{ matrix.platform }}
+          path: |
+            build-${{ matrix.platform }}/module-dag/results.json
+            build-${{ matrix.platform }}/module-dag/**/replay-result.json
+          if-no-files-found: warn
+
+      - name: Response edits preserve current module symbols
+        shell: bash
+        run: |
+          python3 tests/e2e/module_response_inputs.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-response-inputs"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-response-inputs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-response-inputs/result.json
+          if-no-files-found: warn
+
+      - name: First module completion has semantic imported symbols
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cold_completion.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-cold-completion"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-cold-completion-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-cold-completion/result.json
+          if-no-files-found: warn
+
+      - name: Current symbols survive header and draft preamble mode changes
+        shell: bash
+        run: |
+          python3 tests/e2e/module_preamble_mode.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-preamble-mode"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-preamble-mode-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-preamble-mode/result.json
+          if-no-files-found: warn
+
+      - name: Default Linux module worker preserves dirty headers
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          python3 tests/e2e/module_worker_default.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-default" \
+            --dependency-mode MMD
+          python3 tests/e2e/module_worker_default.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-payloads" \
+            --engine-flag=--modules-builder-worker-output-mib=1 \
+            --engine-flag=--modules-builder-worker-capture-mib=1
+          python3 tests/e2e/module_worker_failure.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-failure"
+          python3 tests/e2e/module_worker_diagnostics.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-worker-diagnostics"
+      - uses: actions/upload-artifact@v4
+        if: always() && startsWith(matrix.platform, 'linux-')
+        with:
+          name: module-worker-default-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/module-worker-default/result.json
+            ${{ runner.temp }}/module-worker-payloads/result.json
+            ${{ runner.temp }}/module-worker-failure/result.json
+            ${{ runner.temp }}/module-worker-diagnostics/result.json
+          if-no-files-found: warn
+
+      - name: Provider command facts survive fresh module facades
+        shell: bash
+        run: |
+          python3 tests/e2e/module_provider_cache.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-provider-cache"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-provider-cache-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-provider-cache/result.json
+          if-no-files-found: warn
+
+      - name: Verified module scans replay inputs and observe actual builtins
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          python3 tests/e2e/module_scan_memo.py \
+            --engine build-${{ matrix.platform }}/bin/clangd --clang build-${{ matrix.platform }}/bin/clang \
+            --workdir "${{ runner.temp }}/module-scan-memo"
+          python3 tests/e2e/module_scan_builtins.py \
+            --engine build-${{ matrix.platform }}/bin/clangd --clang build-${{ matrix.platform }}/bin/clang \
+            --workdir "${{ runner.temp }}/module-scan-builtins"
+      - uses: actions/upload-artifact@v4
+        if: always() && startsWith(matrix.platform, 'linux-')
+        with:
+          name: verified-module-scans-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/module-scan-memo/result.json
+            ${{ runner.temp }}/module-scan-builtins/summary.json
+            ${{ runner.temp }}/module-scan-builtins/case-*/result.json
+          if-no-files-found: warn
+
+      - name: BMI reader leases protect live copies and reclaim crash orphans
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cache_lease.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-cache-lease"
+
+      - name: Legacy Linux BMI reader lease contract
+        if: startsWith(matrix.platform, 'linux-')
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cache_lease.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --cache-mode legacy \
+            --workdir "${{ runner.temp }}/module-cache-lease-legacy"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-cache-lease-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/module-cache-lease/results.json
+            ${{ runner.temp }}/module-cache-lease-legacy/results.json
+          if-no-files-found: warn
+
+      - name: Exact request module inputs
+        shell: bash
+        run: |
+          python3 tests/e2e/module_request_inputs.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-request-inputs"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-request-inputs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-request-inputs/result.json
+          if-no-files-found: error
+
+      - name: Module directive diagnostic ranges
+        shell: bash
+        run: |
+          python3 tests/e2e/module_directive_diagnostics.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --output "${{ runner.temp }}/module-directive-diagnostics.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-directive-diagnostics-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-directive-diagnostics.json
+          if-no-files-found: error
+
+      - name: Module member semantic regression
+        shell: bash
+        run: |
+          python3 tests/e2e/completion_quality.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-quality" --async-scheduling
+
+      - name: Unsaved module export regression
+        shell: bash
+        run: |
+          python3 tests/e2e/completion_quality.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-drafts" --unsaved-update --async-scheduling
+
+      - name: Cyclic module dependency recovery
+        shell: bash
+        run: |
+          python3 tests/e2e/module_cycle.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-cycle"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-cycle-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-cycle/results.json
+          if-no-files-found: error
+
+      - name: Third-party imports keep resolvable modules and the preamble
+        shell: bash
+        run: |
+          python3 tests/e2e/third_party_import.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/third-party-import"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: third-party-import-${{ matrix.platform }}
+          path: ${{ runner.temp }}/third-party-import/results.json
+          if-no-files-found: error
+
+      - name: Document close cancels live-owner module lock wait
+        shell: bash
+        run: |
+          python3 tests/e2e/module_lock_close.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-lock-close"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-lock-close-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-lock-close/results.json
+          if-no-files-found: error
+
+      - name: Malformed module directive recovery
+        shell: bash
+        run: |
+          python3 tests/e2e/module_directive_recovery.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/module-directive-recovery"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: module-directive-recovery-${{ matrix.platform }}
+          path: ${{ runner.temp }}/module-directive-recovery/results.json
+          if-no-files-found: error
+
+      - name: Compiler extension semantics and actual insertion
+        shell: bash
+        run: |
+          python3 tests/e2e/compiler_extensions.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/compiler-extensions"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compiler-extensions-${{ matrix.platform }}
+          path: ${{ runner.temp }}/compiler-extensions/results.json
+          if-no-files-found: error
 
       - name: Show ccache stats
         shell: bash
         run: ccache --show-stats || true
         if: matrix.platform != 'win32-x64'
+
+  linux-portability:
+    name: Linux Ubuntu 20.04 package and runtime (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux-x64,   os: ubuntu-24.04,     rootfs: ci/linux-floor-rootfs.json,       cache: '',             minutes: 90 }
+          - { platform: linux-arm64, os: ubuntu-24.04-arm, rootfs: ci/linux-floor-rootfs-arm64.json, cache: '-linux-arm64', minutes: 300 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.minutes }}
+    concurrency:
+      group: build-test-floor-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .ccache-floor
+          key: ccache-floor-clang12${{ matrix.cache }}-${{ hashFiles('UPSTREAM', matrix.rootfs) }}-${{ github.sha }}
+          restore-keys: |
+            ccache-floor-clang12${{ matrix.cache }}-${{ hashFiles('UPSTREAM', matrix.rootfs) }}-
+      - uses: ./.github/actions/linux-floor
+        with:
+          platform: ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clangd-${{ matrix.platform }}-portable
+          path: |
+            dist/clangd-*-${{ matrix.platform }}/**
+            dist/portability-${{ matrix.platform }}.json
+            build-${{ matrix.platform }}-ubuntu20/portable-module-quality/quality-results.json
+            build-${{ matrix.platform }}-ubuntu20/portable-module-*/result*.json
+          if-no-files-found: warn
+          retention-days: 7
