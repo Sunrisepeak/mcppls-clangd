@@ -1,0 +1,98 @@
+From c7be7d78277f34d280260658077ef21653e3ce29 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 9 Oct 2026 09:39:51 +0900
+Subject: [PATCH] fix(sema): constructor completion emits each canonical
+ overload once
+
+Imported definitions can supply multiple redeclarations of each constructor to one lookup. Constructor expansion now retains one result per canonical overload and updates it with later declaration details, following ordinary completion behavior. Distinct ordinary and template overloads remain. The two-module shared-header regression fixture returns nine constructors before the fix and three after it.
+---
+ .../unittests/PrerequisiteModulesTest.cpp     | 49 +++++++++++++++++++
+ clang/lib/Sema/SemaCodeComplete.cpp           | 11 +++++
+ 2 files changed, 60 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index c3c56f06e..3c8673b1c 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -3370,6 +3370,55 @@ export int BValue = MValue;
+   EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ConstructorsFromSharedHeaderModulesAreUnique) {
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Shared.hpp", R"cpp(
++    #pragma once
++    template <typename T> struct SharedBox {
++      SharedBox();
++      SharedBox(int value);
++      template <typename U> SharedBox(U *value);
++    };
++  )cpp");
++  for (auto Name : {"First", "Second"}) {
++    CDB.addFile(std::string(Name) + ".cppm",
++                std::string("module;\n#include \"Shared.hpp\"\nexport module ") +
++                    Name + ";\nexport namespace api { using ::SharedBox; }\n");
++  }
++  Annotations Use(R"cpp(
++    #include "Shared.hpp"
++    import First;
++    import Second;
++    void use() { api::Shared^ }
++  )cpp");
++  CDB.addFile("Use.cpp", Use.code());
++  ModulesBuilder Builder(CDB);
++  auto Inputs = getInputs("Use.cpp", CDB);
++  Inputs.ModulesManager = &Builder;
++  auto CI = buildCompilerInvocation(Inputs, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs, true, nullptr);
++  ASSERT_TRUE(Preamble);
++  ASSERT_TRUE(Preamble->RequiredModules);
++  HeaderSearchOptions Modules(TestDir);
++  Preamble->RequiredModules->adjustHeaderSearchOptions(Modules);
++  ASSERT_EQ(Modules.PrebuiltModuleFiles.count("First"), 1u);
++  ASSERT_EQ(Modules.PrebuiltModuleFiles.count("Second"), 1u);
++  CodeCompleteOptions Opts;
++  Opts.BundleOverloads = false;
++  Opts.Limit = 0;
++  auto Results = codeComplete(getFullPath("Use.cpp"), Use.point(), Preamble.get(),
++                              Inputs, Opts);
++  std::vector<std::string> Signatures;
++  for (const auto &Result : Results.Completions)
++    if (Result.Name == "SharedBox" &&
++        Result.Kind == CompletionItemKind::Constructor)
++      Signatures.push_back(Result.Signature);
++  EXPECT_THAT(Signatures, testing::UnorderedElementsAre(
++                              "<typename T>()", "<typename T>(int value)",
++                              "<typename T>(U *value)"));
++}
++
+ TEST_F(PrerequisiteModulesTests, CompletionInputsKeepDraftRoleAndPrefixIndependent) {
+   VerifiedScanCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");
+diff --git a/clang/lib/Sema/SemaCodeComplete.cpp b/clang/lib/Sema/SemaCodeComplete.cpp
+index ea5115f50..12bb70f1c 100644
+--- a/clang/lib/Sema/SemaCodeComplete.cpp
++++ b/clang/lib/Sema/SemaCodeComplete.cpp
+@@ -1150,7 +1150,18 @@ void ResultBuilder::MaybeAddConstructorResults(Result R) {
+   if (!Record)
+     return;
+ 
++  // Imported definitions can contribute multiple redeclarations of the same
++  // constructor. Keep one result per semantic declaration, just as ordinary
++  // completion does, and retain the later encountered declaration's details.
++  llvm::DenseMap<const Decl *, unsigned> ConstructorResults;
+   for (NamedDecl *Ctor : getConstructors(SemaRef.Context, Record)) {
++    auto [Entry, Inserted] = ConstructorResults.try_emplace(
++        Ctor->getCanonicalDecl(), Results.size());
++    if (!Inserted) {
++      Results[Entry->second].Declaration = Ctor;
++      Results[Entry->second].CursorKind = getCursorKindForDecl(Ctor);
++      continue;
++    }
+     R.Declaration = Ctor;
+     R.CursorKind = getCursorKindForDecl(R.Declaration);
+     Results.push_back(R);
+-- 
+2.53.0
+

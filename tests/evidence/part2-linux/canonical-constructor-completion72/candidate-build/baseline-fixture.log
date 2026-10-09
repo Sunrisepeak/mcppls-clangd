@@ -1,0 +1,69 @@
+Note: Google Test filter = PrerequisiteModulesTests.ConstructorsFromSharedHeaderModulesAreUnique
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from PrerequisiteModulesTests
+[ RUN      ] PrerequisiteModulesTests.ConstructorsFromSharedHeaderModulesAreUnique
+Module dependency scan memo miss: /tmp/modules-test-ddc5b4/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-ddc5b4/Use.cpp (entries=1, bytes=86445)
+Module provider inventory: 4 files
+Module provider index rebuilt: 4 commands
+Module dependency scan memo miss: /tmp/modules-test-ddc5b4/Shared.hpp
+Module dependency scan memo stored: /tmp/modules-test-ddc5b4/Shared.hpp (entries=2, bytes=172152)
+Module dependency scan memo miss: /tmp/modules-test-ddc5b4/First.cppm
+Module dependency scan memo stored: /tmp/modules-test-ddc5b4/First.cppm (entries=3, bytes=258516)
+Module dependency scan memo miss: /tmp/modules-test-ddc5b4/Second.cppm
+Module dependency scan memo stored: /tmp/modules-test-ddc5b4/Second.cppm (entries=4, bytes=344890)
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Module dependency scan memo miss: /tmp/modules-test-ddc5b4/Use.cpp
+Module dependency scan memo stored: /tmp/modules-test-ddc5b4/Use.cpp (entries=5, bytes=431177)
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Module provider index reused: 4 commands
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/First.cppm
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Shared.hpp
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/First.cppm
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Second.cppm
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/First.cppm
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/First.cppm
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Second.cppm
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Second.cppm
+Module build task First started (active=1, limit=2)
+Module build task Second started (active=2, limit=2)
+Ignored diagnostic. argument unused during compilation: '-c'
+Ignored diagnostic. argument unused during compilation: '-c'
+Built module First to /tmp/modules-test-ddc5b4/.cache/clangd/modules/First.cppm-FE21DF485DEF7AEB/629493F96ACBF3E4/First-20261009-003251-456509.-7872df.pcm
+Module build task First finished (active=1)
+Built module Second to /tmp/modules-test-ddc5b4/.cache/clangd/modules/Second.cppm-2E8F74713AA7362E/CD9617FCF543072C/Second-20261009-003251-456517.-b3740f.pcm
+Module build task Second finished (active=0)
+Built prerequisite modules for file /tmp/modules-test-ddc5b4/Use.cpp in 0.01 seconds
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Textual module preamble audit: imports=false, emittedFree=true, complete=true, facts=28, replay=true, current=true, same=true
+Textual module preamble input/import audit passed: /tmp/modules-test-ddc5b4/Use.cpp
+Built preamble of size 270040 for file /tmp/modules-test-ddc5b4/Use.cpp version null in 0.00 seconds
+Ignored diagnostic. argument unused during compilation: '-c'
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Module dependency scan memo hit: /tmp/modules-test-ddc5b4/Use.cpp
+Code complete: sema context Symbol, query scopes [api::] (AnyScope=false), expected type <none>
+Code complete: 10 results from Sema, 0 from Index, 0 matched, 0 from identifiers, 10 returned.
+/dev/shm/mcppls-part2-canonical-constructors72/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp:3417: Failure
+Value of: Signatures
+Expected: has 3 elements and there exists some permutation of elements such that:
+ - element #0 is equal to "<typename T>()", and
+ - element #1 is equal to "<typename T>(int value)", and
+ - element #2 is equal to "<typename T>(U *value)"
+  Actual: { "<typename T>(U *value)", "<typename T>(U *value)", "<typename T>(U *value)", "<typename T>()", "<typename T>()", "<typename T>(int value)", "<typename T>(int value)", "<typename T>(int value)", "<typename T>()" }, which has 9 elements
+
+[  FAILED  ] PrerequisiteModulesTests.ConstructorsFromSharedHeaderModulesAreUnique (29 ms)
+[----------] 1 test from PrerequisiteModulesTests (29 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (29 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] PrerequisiteModulesTests.ConstructorsFromSharedHeaderModulesAreUnique
+
+ 1 FAILED TEST
