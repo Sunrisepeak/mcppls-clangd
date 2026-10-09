@@ -51,3 +51,14 @@ This evidence is in `tests/evidence/part2-linux/portable-canonical72/`.
 Final72 full distributions, product/kit, process-tree resources and platform/
 long-term gates remain open. State remains stabilizing; short timing is not a
 release performance conclusion.
+
+Final72 now also passes the full12-context3x30 distribution:2232 request checks
+(1674 typed-Sema requirements),263 exactly selected GCC insertion proofs and
+all applicable warm/edited budgets. The original invocation exits0; no remainder
+run was needed. Standard-qualified warm/edited p95 is72.722900/145.368447ms.
+The compressed-archive audit replays the per-request/input/workload/proof checks.
+Native independent cold control passes4 Sema replies/four insertions, and the
+AST-ready short stock/candidate/stock control passes9 replies/nine insertions
+with identical actual edit-field multisets. Stock cold failures remain unchanged.
+Native full distribution, matched header comparison, product/kit, process-tree,
+platform and long-term release gates remain open; state stays stabilizing.

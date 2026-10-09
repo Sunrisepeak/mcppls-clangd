@@ -1,0 +1,99 @@
+{
+  "scope": "AST-ready same-URI/CDB A/B/A; cold completion explicitly not requested. Original stock auto/always cold failures retained separately and not reclassified. Candidate independent cold correctness passes. No cold baseline or full release claim, same explicit completion-parse=always on both engines, real typed Sema required; no index gate for this prebuilt native std fixture. Compiler overlap invalidates timing; actual selected edits compile only after all engine measurements.",
+  "arms": {
+    "baseline-before": {
+      "engine_sha256": "c52547480ebac0f2887bb70e34bdfb54a0841d6bc84881c21e66de81c1bf2b0b",
+      "phases": {
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            89.646892,
+            82.209332
+          ],
+          "p50_ms": 82.209332,
+          "p95_ms": 89.646892
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            82.552488
+          ],
+          "p50_ms": 82.552488,
+          "p95_ms": 82.552488
+        }
+      },
+      "compiler_overlap": false,
+      "multiple_engine_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_native_insertions": 3
+    },
+    "candidate": {
+      "engine_sha256": "696e8caa5246525669583eb0f999f23cb21a87191f3b1be59a0c3952a5d1a0b1",
+      "phases": {
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            19.806093,
+            16.028877
+          ],
+          "p50_ms": 16.028877,
+          "p95_ms": 19.806093
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            19.928177
+          ],
+          "p50_ms": 19.928177,
+          "p95_ms": 19.928177
+        }
+      },
+      "compiler_overlap": false,
+      "multiple_engine_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_native_insertions": 3
+    },
+    "baseline-after": {
+      "engine_sha256": "c52547480ebac0f2887bb70e34bdfb54a0841d6bc84881c21e66de81c1bf2b0b",
+      "phases": {
+        "settled-warm": {
+          "requested": 2,
+          "answered": 2,
+          "missing": 0,
+          "samples_ms": [
+            87.570365,
+            79.371788
+          ],
+          "p50_ms": 79.371788,
+          "p95_ms": 87.570365
+        },
+        "edited": {
+          "requested": 1,
+          "answered": 1,
+          "missing": 0,
+          "samples_ms": [
+            80.887687
+          ],
+          "p50_ms": 80.887687,
+          "p95_ms": 80.887687
+        }
+      },
+      "compiler_overlap": false,
+      "multiple_engine_overlap": false,
+      "sampler_errors": [],
+      "watcher_stopped": true,
+      "selected_native_insertions": 3
+    }
+  },
+  "all_item_edit_fields_equal": true
+}
