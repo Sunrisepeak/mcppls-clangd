@@ -1,4 +1,4 @@
-From ee4de9453bf638c2bb59a2a24d80e49a5e938946 Mon Sep 17 00:00:00 2001
+From 1fda3d124fc38345f83021c1f4dbd1d6eb3e3e2d Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 19:41:47 +0900
 Subject: fix(clangd): dependency manifests replay exact filesystem query
@@ -43,10 +43,10 @@ index 48af558..920db33 100644
      O.Binary = Binary;
      if (!Result)
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 7635d79..ae9d44e 100644
+index 68550c4..f23bf32 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -3465,6 +3465,43 @@ export int BValue = MValue;
+@@ -3475,6 +3475,43 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  

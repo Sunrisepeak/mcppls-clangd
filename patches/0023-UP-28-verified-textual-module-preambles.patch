@@ -1,4 +1,4 @@
-From 236696f73b03f4cfaa04f7be5ba119e9e3e8b179 Mon Sep 17 00:00:00 2001
+From 3672912fa86fd09ade9f856b60b73471c4a05490 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -798,7 +798,7 @@ index 15e64ee..36aea5d 100644
        elog("Could not build CompilerInvocation for file {0}", FileName);
        // Remove the old AST if it's still in cache.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index ae9d44e..03c7fc2 100644
+index f23bf32..59a145c 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -22,6 +22,9 @@
@@ -832,7 +832,7 @@ index ae9d44e..03c7fc2 100644
  class ModuleUnitRootCompilationDatabase
      : public PerFileModulesCompilationDatabase {
  public:
-@@ -3465,6 +3482,249 @@ export int BValue = MValue;
+@@ -3475,6 +3492,249 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  
@@ -1082,7 +1082,7 @@ index ae9d44e..03c7fc2 100644
  TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    PerFileModulesCompilationDatabase CDB(TestDir, FS);
    CDB.addFile("relative.hpp", "int relative_value = 1;\n");
-@@ -3502,6 +3762,79 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
+@@ -3512,6 +3772,79 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
  }
  

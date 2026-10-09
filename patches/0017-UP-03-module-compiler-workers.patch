@@ -1,4 +1,4 @@
-From 5baec6678745a3709a834f70c47d69b45e0a4f7f Mon Sep 17 00:00:00 2001
+From b0ba2e2838cb225ea0e70d8c8500ada8c8e84722 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 11:35:02 +0900
 Subject: [clangd] Prerequisite modules compile in supervised worker processes
@@ -51,7 +51,7 @@ Module compilation can run in an isolated worker that receives the request's cap
  clang-tools-extra/clangd/DraftStore.h         |  16 +
  .../clangd/ModuleBuildMemoryBudget.cpp        | 613 +++++++++++++
  .../clangd/ModuleBuildMemoryBudget.h          |  51 ++
- .../clangd/ModuleBuildWorker.cpp              | 855 ++++++++++++++++++
+ .../clangd/ModuleBuildWorker.cpp              | 860 ++++++++++++++++++
  clang-tools-extra/clangd/ModuleBuildWorker.h  | 111 +++
  .../clangd/ModuleBuildWorkerOutput.cpp        | 320 +++++++
  .../clangd/ModuleBuildWorkerOutput.h          |  36 +
@@ -61,12 +61,12 @@ Module compilation can run in an isolated worker that receives the request's cap
  .../clangd/support/ThreadsafeFS.h             |  30 +
  clang-tools-extra/clangd/tool/ClangdMain.cpp  |  13 +
  .../clangd/unittests/DraftStoreTests.cpp      |  26 +
- .../unittests/PrerequisiteModulesTest.cpp     | 365 ++++++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 375 ++++++++
  .../clang/Serialization/GlobalModuleIndex.h   |  10 +
  clang/lib/Frontend/CompilerInstance.cpp       |  40 +-
  clang/lib/Frontend/FrontendAction.cpp         |   4 +-
  clang/lib/Serialization/GlobalModuleIndex.cpp |  21 +-
- 23 files changed, 3248 insertions(+), 68 deletions(-)
+ 23 files changed, 3263 insertions(+), 68 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleBuildMemoryBudget.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleBuildMemoryBudget.h
  create mode 100644 clang-tools-extra/clangd/ModuleBuildWorker.cpp
@@ -996,10 +996,10 @@ index 0000000..362b29d
 +#endif
 diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
 new file mode 100644
-index 0000000..bf26775
+index 0000000..77485ea
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
-@@ -0,0 +1,855 @@
+@@ -0,0 +1,860 @@
 +//===--- ModuleBuildWorker.cpp - isolated compiler protocol
 +//----------------===//
 +//
@@ -1013,6 +1013,7 @@ index 0000000..bf26775
 +#include "ModuleBuildMemoryBudget.h"
 +#include "ModuleBuildWorkerOutput.h"
 +#include "ModuleBuildWorkerStorage.h"
++#include "support/Logger.h"
 +#include "clang/Frontend/FrontendActions.h"
 +#include "clang/Frontend/TextDiagnosticPrinter.h"
 +#include "clang/Lex/PreprocessorOptions.h"
@@ -1799,8 +1800,12 @@ index 0000000..bf26775
 +
 +  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS(
 +      llvm::vfs::createPhysicalFileSystem().release());
++  // As for an in-process build (ThreadsafeFS::view): a command's directory that
++  // does not exist yet, such as a build tree before its first build, is
++  // reported and the build goes on.
 +  if (auto EC = VFS->setCurrentWorkingDirectory(Inputs.WorkingDirectory))
-+    return llvm::errorCodeToError(EC);
++    elog("VFS: failed to set CWD to {0}: {1}", Inputs.WorkingDirectory,
++         EC.message());
 +  for (StringRef Path : Inputs.OverlayFiles) {
 +    auto YAML = llvm::MemoryBuffer::getFile(Path);
 +    if (!YAML)
@@ -3276,7 +3281,7 @@ index 9d202e4..560da26 100644
    DraftStore DS;
    Path File = "foo.cpp";
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index f495966..972faf1 100644
+index f495966..83c453e 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -14,6 +14,10 @@
@@ -3339,7 +3344,7 @@ index f495966..972faf1 100644
    SmallString<256> TestDir;
    SmallString<256> OriginalWorkingDirectory;
    // FIXME: It will be better to use the MockFS if the scanning process and
-@@ -631,6 +655,347 @@ export module M;
+@@ -631,6 +655,357 @@ export module M;
    }
  }
  
@@ -3659,6 +3664,16 @@ index f495966..972faf1 100644
 +  Err = runModuleBuildWorker(getFullPath("request.json"));
 +  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
 +  EXPECT_TRUE(llvm::sys::fs::exists(Invocation->getFrontendOpts().OutputFile));
++  // A command directory that does not exist yet (a build tree before its first
++  // build) is reported, not fatal, as for an in-process build.
++  ModuleBuildWorkerInputs Unbuilt = Inputs;
++  Unbuilt.WorkingDirectory = getFullPath("not-built-yet");
++  auto UnbuiltRequest = serializeModuleBuildWorkerRequest(*Invocation, Unbuilt);
++  ASSERT_TRUE(static_cast<bool>(UnbuiltRequest))
++      << llvm::toString(UnbuiltRequest.takeError());
++  CDB.addFile("request.json", *UnbuiltRequest);
++  Err = runModuleBuildWorker(getFullPath("request.json"));
++  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
 +  // Legal relative cc1 inputs keep their spelling and resolve against the
 +  // captured working directory, rather than the supervisor's current directory.
 +  CompilerInvocation Relative(*Invocation);
