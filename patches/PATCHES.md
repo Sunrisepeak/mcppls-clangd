@@ -60,7 +60,9 @@ since then found the following, each fixed in the patch it belongs to:
   no module declaration is scanned as its preamble, a scan that stays
   memoized while only the body changes, plus the `import` declarations in
   that text: typing in such a file no longer preprocesses all its headers
-  again (seconds per keystroke with `<windows.h>`). `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares,
+  again (seconds per keystroke with `<windows.h>`). One document update or one
+  completion replays each memoized scan once, however many of its queries ask
+  for it (`ModuleScanEpoch.h`); a preamble build replays afresh. `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares,
   for an empty pattern, only the names its header declares (the ordinary
   lookup lists target predeclarations and macros differently for a preamble
   and a main file on x86_64-pc-windows-msvc).
@@ -68,7 +70,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`b516a50611c4bfeab6a6c4c76232d708e9ca4bdb`.
+`a1f866036f21a5d32708e28113dd586897964b02`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

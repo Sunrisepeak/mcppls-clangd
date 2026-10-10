@@ -1,4 +1,4 @@
-From 70b2e3487aeb0a43f6e144c3e32f676a005ad666 Mon Sep 17 00:00:00 2001
+From d8afe851616dcf3a5c1f6b687bc95377b0dcaca3 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -50,13 +50,16 @@ Qualified and unqualified completion ask the external AST source only for names 
   Imported definitions can supply multiple redeclarations of each constructor to one lookup. Constructor expansion now retains one result per canonical overload and updates it with later declaration details, following ordinary completion behavior. Distinct ordinary and template overloads remain. The two-module shared-header regression fixture returns nine constructors before the fix and three after it.
 ---
  clang-tools-extra/clangd/ClangdServer.cpp     |   4 +
- clang-tools-extra/clangd/CodeComplete.cpp     | 136 ++++-
+ clang-tools-extra/clangd/CodeComplete.cpp     | 142 +++++-
+ .../clangd/ModuleDependencyScanCache.h        |   9 +
+ clang-tools-extra/clangd/ModuleScanEpoch.h    |  32 ++
  clang-tools-extra/clangd/ModulesBuilder.cpp   | 255 +++++++++-
  clang-tools-extra/clangd/ModulesBuilder.h     |  40 ++
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
+ clang-tools-extra/clangd/TUScheduler.cpp      |  20 +-
  .../clangd/unittests/CodeCompleteTests.cpp    | 467 ++++++++++++++++++
- .../unittests/PrerequisiteModulesTest.cpp     | 189 +++++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 213 ++++++++
  clang/include/clang/AST/ExternalASTSource.h   |  17 +
  .../include/clang/Sema/CodeCompleteConsumer.h |   7 +
  clang/include/clang/Sema/Sema.h               |  15 +
@@ -66,7 +69,8 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 17 files changed, 1403 insertions(+), 53 deletions(-)
+ 20 files changed, 1487 insertions(+), 60 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleScanEpoch.h
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
 index c36a53a..b03e14f 100644
@@ -84,10 +88,18 @@ index c36a53a..b03e14f 100644
    if (FeatureModules) {
      for (auto &Mod : *FeatureModules)
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index c6f4728..32309de 100644
+index c6f4728..77f14da 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
-@@ -914,6 +914,22 @@ struct CompletionRecorder : public CodeCompleteConsumer {
+@@ -28,6 +28,7 @@
+ #include "FuzzyMatch.h"
+ #include "Headers.h"
+ #include "Hover.h"
++#include "ModuleScanEpoch.h"
+ #include "Preamble.h"
+ #include "Protocol.h"
+ #include "Quality.h"
+@@ -914,6 +915,22 @@ struct CompletionRecorder : public CodeCompleteConsumer {
      assert(this->ResultsCallback);
    }
  
@@ -110,7 +122,7 @@ index c6f4728..32309de 100644
    std::vector<CodeCompletionResult> Results;
    CodeCompletionContext CCContext;
    Sema *CCSema = nullptr; // Sema that created the results.
-@@ -1371,6 +1387,58 @@ void loadMainFilePreambleMacros(const Preprocessor &PP,
+@@ -1371,6 +1388,58 @@ void loadMainFilePreambleMacros(const Preprocessor &PP,
    }
  }
  
@@ -169,7 +181,7 @@ index c6f4728..32309de 100644
  // Invokes Sema code completion on a file.
  // If \p Includes is set, it will be updated based on the compiler invocation.
  bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
-@@ -1394,27 +1462,75 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1394,27 +1463,79 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
    const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
    std::unique_ptr<PrerequisiteModules> FreshModules;
    bool ReusePreamble = true;
@@ -193,6 +205,10 @@ index c6f4728..32309de 100644
 +           inModuleDeclarations(Input.ParseInput.Contents, Input.Offset,
 +                                CI->getLangOpts());
 +  }();
++  // The completion's module queries share one replay of each memoized scan.
++  std::optional<WithContextValue> ReplayOnce;
++  if (Input.ParseInput.ModulesManager)
++    ReplayOnce.emplace(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
 +  if (RequiredModules && Input.ParseInput.ModulesManager &&
 +      !InDirectiveRegion) {
      trace::Span ModuleTracer("Completion module validation");
@@ -255,6 +271,93 @@ index c6f4728..32309de 100644
                         ? Input.ParseInput.ModulesManager->getTextualPreambleInputs(
                               Input.FileName, *Input.ParseInput.TFS,
                               Input.ParseInput.Contents,
+@@ -1423,6 +1544,7 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+     if (!Current || !(*Current == *Input.Preamble.TextualModuleInputs))
+       ReusePreamble = false;
+   }
++  ReplayOnce.reset();
+   auto &FrontendOpts = CI->getFrontendOpts();
+   FrontendOpts.SkipFunctionBodies = true;
+   // Disable typo correction in Sema.
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index 09f3ca5..b6bee90 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -7,6 +7,7 @@
+ #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEDEPENDENCYSCANCACHE_H
+ #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEDEPENDENCYSCANCACHE_H
+ 
++#include "ModuleScanEpoch.h"
+ #include "support/Cancellation.h"
+ #include "support/Logger.h"
+ #include "support/ThreadsafeFS.h"
+@@ -871,6 +872,7 @@ class ModuleDependencyScanCache {
+     ModuleScanResult Result;
+     std::shared_ptr<Budget> Owner;
+     size_t Bytes;
++    std::atomic<uint64_t> VerifiedEpoch{0};
+     ~Entry() {
+       Owner->Bytes.fetch_sub(Bytes);
+       --Owner->Entries;
+@@ -1087,6 +1089,11 @@ public:
+       ++Misses;
+       return std::nullopt;
+     }
++    const uint64_t *Epoch = Context::current().get(ModuleScanReplayEpoch);
++    if (Epoch && Candidate->VerifiedEpoch.load() == *Epoch) {
++      ++Hits;
++      return Candidate->Result;
++    }
+     if (!Candidate->Inputs.matches(FS)) {
+       if (isCancelled())
+         return std::nullopt;
+@@ -1099,6 +1106,8 @@ public:
+     }
+     if (isCancelled())
+       return std::nullopt;
++    if (Epoch)
++      Candidate->VerifiedEpoch = *Epoch;
+     ++Hits;
+     vlog("Module dependency scan memo hit: {0}", File);
+     return Candidate->Result;
+diff --git a/clang-tools-extra/clangd/ModuleScanEpoch.h b/clang-tools-extra/clangd/ModuleScanEpoch.h
+new file mode 100644
+index 0000000..ea7d60f
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleScanEpoch.h
+@@ -0,0 +1,32 @@
++//===--- ModuleScanEpoch.h ---------------------------------------*- C++-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULESCANEPOCH_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULESCANEPOCH_H
++
++#include "support/Context.h"
++#include <atomic>
++#include <cstdint>
++
++namespace clang::clangd {
++
++// One operation (a document update, a completion) replays each memoized
++// dependency scan at most once: within it, the inputs a scan observed are taken
++// as they were when the operation first replayed them, however many of its
++// queries ask for that scan. The operation sets a fresh epoch; a lookup outside
++// one replays every time, as does a preamble build, whose audit must see the
++// inputs as they are after it.
++inline constexpr Key<uint64_t> ModuleScanReplayEpoch;
++
++inline uint64_t nextModuleScanReplayEpoch() {
++  static std::atomic<uint64_t> Next{0};
++  return ++Next;
++}
++
++} // namespace clang::clangd
++
++#endif
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
 index f6de08f..23947de 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
@@ -729,6 +832,44 @@ index c5cd3e9..4d6df17 100644
  };
  
  // One immutable compilation-database generation's command inventory. Facades
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 36aea5d..1dedf6b 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -54,6 +54,7 @@
+ #include "GlobalCompilationDatabase.h"
+ #include "ModulesBuilder.h"
+ #include "ParsedAST.h"
++#include "ModuleScanEpoch.h"
+ #include "Preamble.h"
+ #include "clang-include-cleaner/Record.h"
+ #include "support/Cancellation.h"
+@@ -913,13 +914,18 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags,
+     // after exact current request bytes/VFS certify its import-free prefix,
+     // under the same file configuration context as command lookup. Keep this
+     // potentially expensive inventory work off the document-update caller.
+-    if (Inputs.ModulesManager && !Inputs.Opts.SkipPreambleBuild &&
+-        Inputs.ModulesManager->hasBuildableRequiredModules(
+-            FileName, *Inputs.TFS, Inputs.Contents))
+-      Inputs.Opts.SkipPreambleBuild =
+-          !Invocation || !Inputs.ModulesManager->getTextualPreambleInputs(
+-                             FileName, *Inputs.TFS, Inputs.Contents,
+-                             Inputs.CompileCommand, *Invocation);
++    // Its queries share one replay of each memoized scan; the preamble build
++    // it leads to replays them afresh.
++    if (Inputs.ModulesManager && !Inputs.Opts.SkipPreambleBuild) {
++      WithContextValue ReplayOnce(ModuleScanReplayEpoch,
++                                  nextModuleScanReplayEpoch());
++      if (Inputs.ModulesManager->hasBuildableRequiredModules(
++              FileName, *Inputs.TFS, Inputs.Contents))
++        Inputs.Opts.SkipPreambleBuild =
++            !Invocation || !Inputs.ModulesManager->getTextualPreambleInputs(
++                               FileName, *Inputs.TFS, Inputs.Contents,
++                               Inputs.CompileCommand, *Invocation);
++    }
+ 
+     bool InputsAreTheSame =
+         std::tie(FileInputs.CompileCommand, FileInputs.Contents,
 diff --git a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp b/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
 index 5fad022..4b622d1 100644
 --- a/clang-tools-extra/clangd/unittests/CodeCompleteTests.cpp
@@ -1218,7 +1359,7 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 8296f03..ac2d864 100644
+index 8296f03..66684cd 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2576,6 +2576,62 @@ void func() {
@@ -1388,7 +1529,7 @@ index 8296f03..ac2d864 100644
  TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixPreservesFreshHeaderBytes) {
    VerifiedScanCompilationDatabase CDB(TestDir, FS);
    Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { text_^; }\n");
-@@ -3980,6 +4133,42 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
+@@ -3980,6 +4133,66 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
        *ChangedCI));
  }
  
@@ -1426,6 +1567,30 @@ index 8296f03..ac2d864 100644
 +  After = getModuleDependencyScanCache().stats();
 +  (void)Names("import M.\nint use() { return 4; }\n");
 +  EXPECT_GT(getModuleDependencyScanCache().stats().Misses, After.Misses);
++}
++
++TEST_F(PrerequisiteModulesTests, ScanReplayEpochReplaysOncePerOperation) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include \"dep.h\"\n");
++  CDB.addFile("dep.h", "import M;\n");
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Scan = [&] {
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(getFullPath("Use.cpp"));
++  };
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  {
++    // One operation replays the scan once; what changes meanwhile is the
++    // next operation's to see.
++    WithContextValue Once(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
++    EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++    CDB.addFile("dep.h", "import N;\n");
++    EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  }
++  EXPECT_THAT(Scan(), testing::ElementsAre("N"));
 +}
 +
  TEST_F(PrerequisiteModulesTests, PreambleAuditReadsOriginalUnusedFileObjects) {
