@@ -1,4 +1,4 @@
-From 58ca115fc5188d17f097d666041525971a7eeea3 Mon Sep 17 00:00:00 2001
+From ea73ca558139ac586b4298828973c84ce67892f0 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -13,7 +13,7 @@ audits and failed candidate construction once with a zero prefix; keep fresh
 prerequisite validation and late completion compatibility checks.
 ---
  clang-tools-extra/clangd/CodeComplete.cpp     |  10 +
- .../clangd/ModuleDependencyScanCache.h        | 182 ++++++++-
+ .../clangd/ModuleDependencyScanCache.h        | 213 +++++++++--
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  36 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |   8 +
  clang-tools-extra/clangd/Preamble.cpp         | 119 +++++-
@@ -22,7 +22,7 @@ prerequisite validation and late completion compatibility checks.
  clang-tools-extra/clangd/ProjectModules.h     |  13 +
  clang-tools-extra/clangd/TUScheduler.cpp      |  32 +-
  .../unittests/PrerequisiteModulesTest.cpp     | 356 ++++++++++++++++++
- 10 files changed, 736 insertions(+), 41 deletions(-)
+ 10 files changed, 763 insertions(+), 45 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
 index 82e5c38..c6f4728 100644
@@ -46,7 +46,7 @@ index 82e5c38..c6f4728 100644
    FrontendOpts.SkipFunctionBodies = true;
    // Disable typo correction in Sema.
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-index 34e8422..8cd18e7 100644
+index 34e8422..5a9398a 100644
 --- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 @@ -50,6 +50,8 @@ struct ModuleScanResult {
@@ -173,7 +173,56 @@ index 34e8422..8cd18e7 100644
    bool matches(llvm::vfs::FileSystem &FS) const {
      if (!Complete || Observations.empty())
        return false;
-@@ -426,10 +500,21 @@ private:
+@@ -296,12 +370,34 @@ public:
+       auto B = Reverse.emplace(New, Old);
+       return A.first->second == New && B.first->second == Old;
+     };
++    // What differs between a status observed and one replayed, for the log.
++    auto StatusChange = [](const Observation &O,
++                           const llvm::ErrorOr<llvm::vfs::Status> &Now) {
++      if (O.Error || !Now || !O.Info)
++        return std::string(O.Error ? "was an error" : "is an error now");
++      const auto &Was = *O.Info;
++      std::string Change;
++      auto Note = [&](llvm::StringRef Field, bool Same) {
++        if (!Same)
++          Change += (Change.empty() ? "" : ", ") + Field.str();
++      };
++      Note("name " + Was.Name + " -> " + Now->getName().str(),
++           Was.Name == Now->getName());
++      Note("time", Was.MTime == Now->getLastModificationTime());
++      Note("size", Was.Size == Now->getSize());
++      Note("owner", Was.User == Now->getUser() && Was.Group == Now->getGroup());
++      Note("type", Was.Type == Now->getType());
++      Note("permissions", Was.Permissions == Now->getPermissions());
++      Note("external", Was.External == Now->ExposesExternalVFSPath);
++      return Change.empty() ? std::string("identity") : Change;
++    };
+     for (const auto &O : Observations) {
+       if (isCancelled())
+         return false;
+       if (O.Operation == Stat) {
+-        if (!SameStatus(O, FS.status(O.Path)))
+-          return Differs(O, "status");
++        auto Now = FS.status(O.Path);
++        if (!SameStatus(O, Now))
++          return Differs(O, "status: " + StatusChange(O, Now));
+         continue;
+       }
+       if (O.Operation == Exists) {
+@@ -360,8 +456,9 @@ public:
+         Match = !O.Error;
+       else if (O.Operation == FileStat) {
+         auto Now = Held->status();
+-        Match = SameStatus(O, Now);
+-        if (Match && Now && unchangedOnDisk(O, *Now))
++        if (!SameStatus(O, Now))
++          return Differs(O, "status: " + StatusChange(O, Now));
++        if (Now && unchangedOnDisk(O, *Now))
+           HeldOnDisk = *Now;
+       } else if (O.Operation == FileName) {
+         auto Name = Held->getName();
+@@ -426,10 +523,21 @@ private:
  };
  
  class ModuleScanRecordingFS : public llvm::vfs::ProxyFileSystem {
@@ -196,7 +245,7 @@ index 34e8422..8cd18e7 100644
      auto CWD = getUnderlyingFS().getCurrentWorkingDirectory();
      if (CWD)
        this->Manifest->WorkingDirectory = *CWD;
-@@ -437,10 +522,27 @@ public:
+@@ -437,10 +545,27 @@ public:
        this->Manifest->Complete = false;
    }
  
@@ -226,7 +275,7 @@ index 34e8422..8cd18e7 100644
      ModuleScanManifest::Observation O{ModuleScanManifest::Stat, Path.str()};
      if (Result)
        O.Info.emplace(*Result);
-@@ -593,17 +695,49 @@ private:
+@@ -593,17 +718,49 @@ private:
      if (!Result)
        return Result;
      return std::make_unique<ObservedFile>(std::move(*Result), std::move(Name),
@@ -279,7 +328,7 @@ index 34e8422..8cd18e7 100644
      }
      llvm::ErrorOr<llvm::vfs::Status> status() override {
        auto Result = Base->status();
-@@ -649,6 +783,8 @@ private:
+@@ -649,6 +806,8 @@ private:
      }
      std::error_code close() override {
        auto EC = Base->close();
@@ -288,7 +337,7 @@ index 34e8422..8cd18e7 100644
        Closed = true;
        if (EC)
          Manifest->Complete = false;
-@@ -661,8 +797,11 @@ private:
+@@ -661,8 +820,11 @@ private:
      std::shared_ptr<ModuleScanManifest> Manifest;
      bool Closed = false;
      bool Binary;
@@ -300,7 +349,7 @@ index 34e8422..8cd18e7 100644
  };
  
  // Process-wide bounds also cover evicted entries borrowed by validators. CDB
-@@ -928,12 +1067,12 @@ public:
+@@ -928,12 +1090,12 @@ public:
      return Candidate->Result;
    }
  
@@ -315,7 +364,7 @@ index 34e8422..8cd18e7 100644
          (Result.FailureDiagnostic &&
           Result.FailureDiagnostic->capacity() >
               ModuleScanResult::FailureDiagnosticByteLimit) ||
-@@ -941,13 +1080,17 @@ public:
+@@ -941,13 +1103,17 @@ public:
          !Inputs.matches(FS) || isCancelled()) {
        ++Declines;
        vlog("Module dependency scan memo declined: {0}", File);
@@ -335,7 +384,7 @@ index 34e8422..8cd18e7 100644
      for (const auto &Arg : Command.CommandLine)
        Bytes += Arg.capacity() + 32;
      for (const auto &Name : Result.RequiredModules)
-@@ -958,22 +1101,22 @@ public:
+@@ -958,22 +1124,22 @@ public:
        Bytes += Result.FailureDiagnostic->capacity() + 32;
      if (Bytes > ModuleScanManifest::ByteLimit) {
        ++Declines;
@@ -362,7 +411,7 @@ index 34e8422..8cd18e7 100644
        }
        Entries.pop_back();
        ++Evictions;
-@@ -990,12 +1133,13 @@ public:
+@@ -990,12 +1156,13 @@ public:
      Added->Bytes = Bytes;
      if (isCancelled()) {
        ++Declines;
