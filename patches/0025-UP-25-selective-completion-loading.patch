@@ -1,4 +1,4 @@
-From 2de4161671799bc20c2a30924de4a5ed6cdcd9d1 Mon Sep 17 00:00:00 2001
+From 05cd25c0f31f782f756e3a81100deb3145f70f56 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -49,13 +49,13 @@ Qualified and unqualified completion ask the external AST source only for names 
 
   Imported definitions can supply multiple redeclarations of each constructor to one lookup. Constructor expansion now retains one result per canonical overload and updates it with later declaration details, following ordinary completion behavior. Distinct ordinary and template overloads remain. The two-module shared-header regression fixture returns nine constructors before the fix and three after it.
 ---
- clang-tools-extra/clangd/CodeComplete.cpp     |  33 +-
+ clang-tools-extra/clangd/CodeComplete.cpp     |  48 +-
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  31 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |  11 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
  .../clangd/unittests/CodeCompleteTests.cpp    | 467 ++++++++++++++++++
- .../unittests/PrerequisiteModulesTest.cpp     |  97 ++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 142 ++++++
  clang/include/clang/AST/ExternalASTSource.h   |  17 +
  .../include/clang/Sema/CodeCompleteConsumer.h |   7 +
  clang/include/clang/Sema/Sema.h               |  15 +
@@ -65,10 +65,10 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 16 files changed, 983 insertions(+), 21 deletions(-)
+ 16 files changed, 1041 insertions(+), 23 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index c6f4728..5c58d1a 100644
+index c6f4728..4f9e57e 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
 @@ -914,6 +914,22 @@ struct CompletionRecorder : public CodeCompleteConsumer {
@@ -94,7 +94,7 @@ index c6f4728..5c58d1a 100644
    std::vector<CodeCompletionResult> Results;
    CodeCompletionContext CCContext;
    Sema *CCSema = nullptr; // Sema that created the results.
-@@ -1394,13 +1410,22 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1394,13 +1410,33 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
    const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
    std::unique_ptr<PrerequisiteModules> FreshModules;
    bool ReusePreamble = true;
@@ -102,7 +102,19 @@ index c6f4728..5c58d1a 100644
    // Body edits can safely use a stale preamble, but dependency edits cannot:
    // its copy-on-read BMIs describe the old exports even after the current AST
    // update has noticed the invalidation. Validate against this request's VFS.
-   if (RequiredModules && Input.ParseInput.ModulesManager) {
+-  if (RequiredModules && Input.ParseInput.ModulesManager) {
++  // Completing inside the preamble region (below) parses the draft alone,
++  // without the preamble or what its modules export, so their freshness does
++  // not matter there: typing an import line never waits on a module rebuild.
++  const bool InPreambleRegion = [&] {
++    auto Buffer = llvm::MemoryBuffer::getMemBuffer(Input.ParseInput.Contents,
++                                                   Input.FileName);
++    PreambleBounds Bounds = computePreambleBounds(
++        CI->getLangOpts(), *Buffer, Input.ParseInput.Opts.SkipPreambleBuild);
++    return Input.Offset < Bounds.Size ||
++           (!Bounds.PreambleEndsAtStartOfLine && Input.Offset == Bounds.Size);
++  }();
++  if (RequiredModules && Input.ParseInput.ModulesManager && !InPreambleRegion) {
      trace::Span ModuleTracer("Completion module validation");
 -    auto CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
 -        Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
@@ -119,11 +131,13 @@ index c6f4728..5c58d1a 100644
      llvm::StringSet<> CurrentNameSet;
      for (const auto &Name : CurrentNames)
        CurrentNameSet.insert(Name);
-@@ -1414,7 +1439,9 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1413,8 +1449,10 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+       ReusePreamble = false;
      }
    }
-   if (Input.Preamble.TextualModuleInputs) {
+-  if (Input.Preamble.TextualModuleInputs) {
 -    auto Current = Input.ParseInput.ModulesManager
++  if (Input.Preamble.TextualModuleInputs && !InPreambleRegion) {
 +    auto Current = CompletionInputs
 +                       ? std::move(CompletionInputs->TextualPreamble)
 +                       : Input.ParseInput.ModulesManager
@@ -745,10 +759,62 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 61fc1e1..9b865af 100644
+index 12610f8..1648b55 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -3495,6 +3495,103 @@ export int BValue = MValue;
+@@ -2493,6 +2493,51 @@ void func() {
+   EXPECT_EQ(Result.Completions[0].Name, "printA");
+ }
+ 
++// Typing an import line changes the draft's imports at every key. Completion
++// there parses the draft alone, without the preamble, so it must not rebuild
++// the prerequisites on each keystroke the way a body completion after a
++// dependency edit does.
++TEST_F(PrerequisiteModulesTests, CompletionInImportLineKeepsPrerequisites) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("A.cppm", R"cpp(
++export module A;
++export void printA();
++  )cpp");
++  CDB.addFile("Use.cpp", R"cpp(
++import A;
++void func() {}
++)cpp");
++  ModulesBuilder Builder(CDB);
++  ParseInputs Use = getInputs("Use.cpp", CDB);
++  Use.ModulesManager = &Builder;
++  std::unique_ptr<CompilerInvocation> CI =
++      buildCompilerInvocation(Use, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Use,
++                                /*InMemory=*/true, /*Callback=*/nullptr);
++  ASSERT_TRUE(Preamble && Preamble->RequiredModules);
++  const unsigned Before = CDB.getGlobalScanningCount();
++
++  Annotations Typing(R"cpp(
++import A;
++import B^
++void func() {}
++)cpp");
++  Use.Contents = Typing.code().str();
++  codeComplete(getFullPath("Use.cpp"), Typing.point(), Preamble.get(), Use, {});
++  EXPECT_EQ(CDB.getGlobalScanningCount(), Before);
++
++  // Below the imports, completion still sees what the modules export.
++  Annotations Body(R"cpp(
++import A;
++void func() { print^ }
++)cpp");
++  Use.Contents = Body.code().str();
++  auto Result =
++      codeComplete(getFullPath("Use.cpp"), Body.point(), Preamble.get(), Use, {});
++  EXPECT_THAT(Result.Completions, testing::Contains(named("printA")));
++}
++
+ TEST_F(PrerequisiteModulesTests, SignatureHelpTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+@@ -3535,6 +3580,103 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  

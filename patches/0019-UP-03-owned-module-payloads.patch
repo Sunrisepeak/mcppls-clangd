@@ -1,4 +1,4 @@
-From 12adfb573b4c33d3dffb82fc0c59d5ddc299720d Mon Sep 17 00:00:00 2001
+From d8456362b632e3e2ab934d6c33a86b284fe774f6 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -15,7 +15,7 @@ Module payloads hold persistent admission and kernel leases through publication,
 ---
  clang-tools-extra/clangd/CMakeLists.txt       |    1 +
  clang-tools-extra/clangd/Compiler.cpp         |    6 +
- clang-tools-extra/clangd/ModuleBuildCache.cpp | 1455 +++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 1467 +++++++++++++++++
  clang-tools-extra/clangd/ModuleBuildCache.h   |   97 ++
  .../clangd/ModuleBuildWorker.cpp              |   59 +-
  clang-tools-extra/clangd/ModuleBuildWorker.h  |    2 +
@@ -23,8 +23,8 @@ Module payloads hold persistent admission and kernel leases through publication,
  .../clangd/ModuleBuildWorkerStorage.cpp       |  126 +-
  .../clangd/ModuleBuildWorkerStorage.h         |    4 +
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  143 +-
- .../unittests/PrerequisiteModulesTest.cpp     |  410 +++++
- 11 files changed, 2294 insertions(+), 19 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     |  450 +++++
+ 11 files changed, 2346 insertions(+), 19 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.h
 
@@ -66,15 +66,16 @@ index 0ccc2b0..17e5dff 100644
    CI->getLangOpts().CommentOpts.ParseAllComments = true;
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
 new file mode 100644
-index 0000000..9d1aafa
+index 0000000..bc1532d
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
-@@ -0,0 +1,1455 @@
+@@ -0,0 +1,1467 @@
 +//===--- ModuleBuildCache.cpp - persistent owned payload admission --------===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 +// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 +#include "ModuleBuildCache.h"
 +#include "ModuleBuildWorkerStorage.h"
++#include "support/Logger.h"
 +#include "clang/Frontend/CompilerInvocation.h"
 +#include "clang/Lex/HeaderSearchOptions.h"
 +#include "llvm/ADT/ScopeExit.h"
@@ -1028,17 +1029,28 @@ index 0000000..9d1aafa
 +      return G.takeError();
 +    FD Gen(*G);
 +    struct stat F;
++    // A stable generation whose files no longer match its record (truncated,
++    // replaced, corrupted on disk) is not usable, like one that fails
++    // validation: it is skipped, so the module is built again into a new
++    // generation, and keeps its charge until bounded collection retires it.
++    // Failing the lookup instead would fail the module for good.
 +    if (fstatat(Gen.Value, "payload.pcm", &F, AT_SYMLINK_NOFOLLOW) ||
 +        !S_ISREG(F.st_mode) || F.st_nlink != 1 ||
-+        uint64_t(F.st_size) != R->MainBytes)
-+      return failure("stable payload changed");
++        uint64_t(F.st_size) != R->MainBytes) {
++      log("Owned module generation {0} skipped: its payload changed",
++          State->name(S, R->Generation));
++      continue;
++    }
 +    auto Bundle = inventoryBundle(Gen.Value);
 +    if (!Bundle)
 +      return Bundle.takeError();
 +    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
 +        Bundle->CacheFiles != R->BundleFiles ||
-+        Bundle->Digest != R->BundleDigest)
-+      return failure("stable bundle changed");
++        Bundle->Digest != R->BundleDigest) {
++      log("Owned module generation {0} skipped: its bundle changed",
++          State->name(S, R->Generation));
++      continue;
++    }
 +    if (Usable && !Usable(path(path(State->Root, State->name(S, R->Generation)),
 +                               "payload.pcm")))
 +      continue;
@@ -2229,7 +2241,7 @@ index 6827763..9c820e1 100644
      if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
                               TFS.view(std::nullopt))) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 9cc3898..fb3434d 100644
+index 9cc3898..5099a63 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -12,6 +12,14 @@
@@ -2288,11 +2300,51 @@ index 9cc3898..fb3434d 100644
      // MockFS overlays the process-wide real filesystem; its scanner changes
      // the process CWD. Restore it before deleting this request's directory.
      ASSERT_FALSE(llvm::sys::fs::set_current_path(OriginalWorkingDirectory));
-@@ -926,6 +943,399 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
+@@ -926,6 +943,439 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
    EXPECT_LE(Limited->Examined, 2u);
  }
  
 +#ifdef __linux__
++// A stable generation whose payload changed on disk is skipped, not a failure
++// of the module: the module builds again into a new generation.
++TEST_F(PrerequisiteModulesTests, OwnedLookupSkipsAChangedStablePayload) {
++  const auto Root = (TestDir + "/changed/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/changed-anchor").str();
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(
++        llvm::sys::fs::create_directories(llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(File, EC);
++    EXPECT_FALSE(EC);
++    Out << Text;
++  };
++  Write(Anchor, "");
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  auto Cache = ModuleBuildCache::open(Root, 64, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Publish = [&](StringRef Text) {
++    auto Lease = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++    EXPECT_THAT_EXPECTED(Lease, llvm::Succeeded());
++    if (!Lease)
++      return std::string();
++    Write((*Lease)->payload(), Text);
++    EXPECT_THAT_ERROR((*Lease)->publish(), llvm::Succeeded());
++    return (*Lease)->payload();
++  };
++  const std::string First = Publish("MAIN");
++  ASSERT_FALSE(First.empty());
++  Write(First, "");   // truncated, as a crash or another program leaves it
++  auto Skipped = (*Cache)->lookup("M");
++  ASSERT_THAT_EXPECTED(Skipped, llvm::Succeeded());
++  EXPECT_FALSE(*Skipped);
++  ASSERT_FALSE(Publish("FRESH").empty());
++  auto Found = (*Cache)->lookup("M");
++  ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
++  ASSERT_TRUE(*Found);
++  EXPECT_EQ((*Found)->mainBytes(), 5u);
++}
++
 +TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
 +  const auto Root = (TestDir + "/bundles/.owned-payload-v1").str();
 +  const auto Anchor = (TestDir + "/source-anchor").str();
