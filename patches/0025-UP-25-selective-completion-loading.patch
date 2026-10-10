@@ -1,4 +1,4 @@
-From 507db351faf0a1fdc7a994e6249aa4c1275d31fe Mon Sep 17 00:00:00 2001
+From e0010fe302581c495cedbb1a75fac111f11b32a7 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -51,7 +51,7 @@ Qualified and unqualified completion ask the external AST source only for names 
 ---
  clang-tools-extra/clangd/ClangdServer.cpp     |   4 +
  clang-tools-extra/clangd/CodeComplete.cpp     | 136 ++++-
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 146 +++++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 155 +++++-
  clang-tools-extra/clangd/ModulesBuilder.h     |  40 ++
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
@@ -66,7 +66,7 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 17 files changed, 1263 insertions(+), 48 deletions(-)
+ 17 files changed, 1272 insertions(+), 48 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
 index c36a53a..b03e14f 100644
@@ -256,10 +256,18 @@ index c6f4728..32309de 100644
                               Input.FileName, *Input.ParseInput.TFS,
                               Input.ParseInput.Contents,
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index f6de08f..4905e26 100644
+index f6de08f..b56bfd6 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
-@@ -1814,25 +1814,33 @@ public:
+@@ -26,6 +26,7 @@
+ #include "clang/Frontend/FrontendActions.h"
+ #include "clang/Serialization/ASTReader.h"
+ #include "clang/Serialization/ModuleCache.h"
++#include <algorithm>
+ #include <atomic>
+ 
+ #include "llvm/ADT/DenseSet.h"
+@@ -1814,25 +1815,41 @@ public:
      CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
      std::vector<std::string> Names = CachedMDB.getRequiredModules(File);
      llvm::sort(Names);
@@ -282,6 +290,14 @@ index f6de08f..4905e26 100644
 -      }
 -    }
 -    return Verdict;
++    // Names whose unit is known come first: an import being typed, which no
++    // unit provides, is looked for across the whole project, and need not be
++    // when another import decides the verdict already.
++    auto &Known = ProjectModulesCache;
++    std::stable_partition(Names.begin(), Names.end(),
++                          [&](const std::string &N) {
++                            return !Known.getUniqueSourceForModuleName(N).empty();
++                          });
 +    return llvm::any_of(Names, [&](llvm::StringRef ModuleName) {
 +      return isBuildable(CachedMDB, ModuleName, File);
 +    });
@@ -312,7 +328,7 @@ index f6de08f..4905e26 100644
    }
  
    llvm::Error
-@@ -2368,6 +2376,37 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2368,6 +2385,37 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
    return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
  }
  
@@ -350,7 +366,7 @@ index f6de08f..4905e26 100644
  bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
                                                   const ThreadsafeFS &TFS,
                                                   llvm::StringRef Contents) {
-@@ -2375,6 +2414,13 @@ bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
+@@ -2375,6 +2423,13 @@ bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
    return Impl->hasBuildableRequiredModules(File, RequestFS);
  }
  
@@ -364,7 +380,7 @@ index f6de08f..4905e26 100644
  std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
    std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
    if (!MDB)
-@@ -2436,11 +2482,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+@@ -2436,11 +2491,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
    return std::move(RequiredModules);
  }
  
@@ -1073,7 +1089,7 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 44ab790..9acd52f 100644
+index 0466cb7..518237b 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2542,6 +2542,62 @@ void func() {

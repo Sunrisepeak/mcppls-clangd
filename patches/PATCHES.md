@@ -31,7 +31,9 @@ on, as an in-process build does; 0025's completion inside the preamble region or
 the module and import declarations (an import line being typed, or a blank
 line among them) no longer rebuilds the prerequisites at every keystroke,
 an import added since the preamble that nothing in the project builds keeps
-the preamble's modules, and the rebuild an edited dependency needs is waited
+the preamble's modules (and whether a file has a buildable import is decided
+by the imports whose unit is known before one being typed is looked for
+across the project), and the rebuild an edited dependency needs is waited
 for 250 ms before the completion is answered from the modules as they were,
 the rebuild going on for the next request (a module newly imported is still
 built for the answer); 0019's owned cache skips a stable generation whose files
@@ -52,7 +54,7 @@ preamble, parsing all its headers again for each request.
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`89567d42510d2d6c5a2e4a77f9adc03c5a515af1`.
+`6fad933a56730d6c04ba118bca37abb192c23d97`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
