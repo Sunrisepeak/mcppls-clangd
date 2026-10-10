@@ -21,41 +21,42 @@ patch returns it to `stabilizing` until the same run passes again.
 The 0.0.12 series carries 25 topic patches. They were regrouped from 74
 incremental patches without changing the patched tree (both apply to
 `a2e92ba00e6666eaa5d1f975a4bd65b80537dbab`); each multi-change patch lists the
-changes it combines in its message. Since then, running the product against the engine found these, each fixed in
-the patch it belongs to: 0025's `ExternalUnqualifiedNamesPreserveScopesAndUsing`
-compares, for an empty pattern, only the names its header declares (the
-ordinary lookup an empty pattern uses lists target predeclarations and macros
-differently for a preamble and a main file on x86_64-pc-windows-msvc); 0017's
-module worker reports a command directory that does not exist yet and builds
-on, as an in-process build does; 0025's completion inside the preamble region or
-the module and import declarations (an import line being typed, or a blank
-line among them) no longer rebuilds the prerequisites at every keystroke,
-an import added since the preamble that nothing in the project builds keeps
-the preamble's modules (and whether a file has a buildable import is decided
-by the imports whose unit is known before one being typed is looked for
-across the project), and the rebuild an edited dependency needs is waited
-for 250 ms before the completion is answered from the modules as they were,
-the rebuild going on for the next request (a module newly imported is still
-built for the answer); 0019's owned cache skips a stable generation whose files
-changed on disk instead of failing the module for good; and 0014's scan memo
-replays a file's observations through one handle and does not read again a
-header that is on disk with the identity, size and modification time it had,
-last modified well before the scan (the metadata clang trusts for a module's
-inputs), so a hit on `std.cppm` no longer reads and hashes every libc++ header;
-it admits a scan whose driver read a configuration file beside its compiler
-(an xlings or mcpp LLVM's `clang++.cfg`), whose bytes it replays like any
-input, where it declined every such scan, and with it the verified textual
-preamble of every file mixing modules with headers built by such a compiler;
-admits, on any host, a command whose target is MSVC and that names its
-Visual C++ tools and Windows SDK, or Darwin and names its SDK (as
-mcpp-language-server's do), where it admitted Linux hosts and targets only,
-which left every file mixing headers with module imports on Windows and macOS
-(`<windows.h>`, Qt) without a preamble; and the first input that replays
-differently is logged; 0023's audit of a
-textual preamble no longer compares a directory's time and size, which the
-temporary directory the preamble itself is written to changes, and which kept
-every file mixing headers with module imports (Qt, `<windows.h>`) without a
-preamble, parsing all its headers again for each request.
+changes it combines in its message. Running the product against the engine
+since then found the following, each fixed in the patch it belongs to:
+
+- 0014, scan memo: a hit replays a file's observations through one handle,
+  and does not read again a header that is on disk with the identity, size and
+  modification time it had, last modified well before the scan (the metadata
+  clang trusts for a module's inputs). A hit on `std.cppm` no longer reads and
+  hashes every libc++ header.
+- 0014, admission: a scan whose driver read a configuration file beside its
+  compiler (an xlings or mcpp LLVM's `clang++.cfg`) is admitted, its bytes
+  replayed like any input. A command whose target is MSVC and that names its
+  Visual C++ tools and Windows SDK, or Darwin and names its SDK (as
+  mcpp-language-server's do), is admitted on any host; only Linux hosts and
+  targets were. Either refusal left every file mixing headers with module
+  imports (Qt, `<windows.h>`) without a verified preamble, so all its headers
+  were parsed again for each request. The first input that replays
+  differently is logged.
+- 0017, module worker: a command directory that does not exist yet is
+  reported and the build goes on, as an in-process build does.
+- 0019, owned cache: a stable generation whose files changed on disk is
+  skipped instead of failing the module for good.
+- 0023, textual preamble audit: a directory's time and size are not compared;
+  the temporary directory the preamble itself is written to changes them.
+- 0025, completion: inside the preamble region or the module and import
+  declarations (an import line being typed, a blank line among them) the
+  prerequisites are not rebuilt. An import added since the preamble that
+  nothing in the project builds keeps the preamble's modules, and an import
+  being typed is looked for last when deciding whether a file has a buildable
+  import. The rebuild an edited dependency needs is waited for 250 ms; past
+  that the completion is answered from the modules as they were and the
+  rebuild goes on for the next request. A module newly imported is still built
+  for the answer. `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares,
+  for an empty pattern, only the names its header declares (the ordinary
+  lookup lists target predeclarations and macros differently for a preamble
+  and a main file on x86_64-pc-windows-msvc).
+
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
