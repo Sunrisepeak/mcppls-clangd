@@ -1,4 +1,4 @@
-From 02263c2f86b5fe184d7f92a417d23f548c6811b5 Mon Sep 17 00:00:00 2001
+From 228ee380bc91b25b11e6c37cefe7848132349df3 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -46,7 +46,7 @@ index 82e5c38..c6f4728 100644
    FrontendOpts.SkipFunctionBodies = true;
    // Disable typo correction in Sema.
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-index d84f4c2..f34ebd3 100644
+index 34e8422..b3edd5a 100644
 --- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 @@ -50,6 +50,8 @@ struct ModuleScanResult {
@@ -153,7 +153,7 @@ index d84f4c2..f34ebd3 100644
    bool matches(llvm::vfs::FileSystem &FS) const {
      if (!Complete || Observations.empty())
        return false;
-@@ -415,10 +480,21 @@ private:
+@@ -426,10 +491,21 @@ private:
  };
  
  class ModuleScanRecordingFS : public llvm::vfs::ProxyFileSystem {
@@ -176,7 +176,7 @@ index d84f4c2..f34ebd3 100644
      auto CWD = getUnderlyingFS().getCurrentWorkingDirectory();
      if (CWD)
        this->Manifest->WorkingDirectory = *CWD;
-@@ -426,10 +502,27 @@ public:
+@@ -437,10 +513,27 @@ public:
        this->Manifest->Complete = false;
    }
  
@@ -206,7 +206,7 @@ index d84f4c2..f34ebd3 100644
      ModuleScanManifest::Observation O{ModuleScanManifest::Stat, Path.str()};
      if (Result)
        O.Info.emplace(*Result);
-@@ -582,17 +675,49 @@ private:
+@@ -593,17 +686,49 @@ private:
      if (!Result)
        return Result;
      return std::make_unique<ObservedFile>(std::move(*Result), std::move(Name),
@@ -259,7 +259,7 @@ index d84f4c2..f34ebd3 100644
      }
      llvm::ErrorOr<llvm::vfs::Status> status() override {
        auto Result = Base->status();
-@@ -639,6 +764,8 @@ private:
+@@ -649,6 +774,8 @@ private:
      }
      std::error_code close() override {
        auto EC = Base->close();
@@ -268,7 +268,7 @@ index d84f4c2..f34ebd3 100644
        Closed = true;
        if (EC)
          Manifest->Complete = false;
-@@ -651,8 +778,11 @@ private:
+@@ -661,8 +788,11 @@ private:
      std::shared_ptr<ModuleScanManifest> Manifest;
      bool Closed = false;
      bool Binary;
@@ -280,7 +280,7 @@ index d84f4c2..f34ebd3 100644
  };
  
  // Process-wide bounds also cover evicted entries borrowed by validators. CDB
-@@ -918,12 +1048,12 @@ public:
+@@ -928,12 +1058,12 @@ public:
      return Candidate->Result;
    }
  
@@ -295,7 +295,7 @@ index d84f4c2..f34ebd3 100644
          (Result.FailureDiagnostic &&
           Result.FailureDiagnostic->capacity() >
               ModuleScanResult::FailureDiagnosticByteLimit) ||
-@@ -931,13 +1061,17 @@ public:
+@@ -941,13 +1071,17 @@ public:
          !Inputs.matches(FS) || isCancelled()) {
        ++Declines;
        vlog("Module dependency scan memo declined: {0}", File);
@@ -315,7 +315,7 @@ index d84f4c2..f34ebd3 100644
      for (const auto &Arg : Command.CommandLine)
        Bytes += Arg.capacity() + 32;
      for (const auto &Name : Result.RequiredModules)
-@@ -948,22 +1082,22 @@ public:
+@@ -958,22 +1092,22 @@ public:
        Bytes += Result.FailureDiagnostic->capacity() + 32;
      if (Bytes > ModuleScanManifest::ByteLimit) {
        ++Declines;
@@ -342,7 +342,7 @@ index d84f4c2..f34ebd3 100644
        }
        Entries.pop_back();
        ++Evictions;
-@@ -980,12 +1114,13 @@ public:
+@@ -990,12 +1124,13 @@ public:
      Added->Bytes = Bytes;
      if (isCancelled()) {
        ++Declines;

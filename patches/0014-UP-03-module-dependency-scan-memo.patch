@@ -1,4 +1,4 @@
-From 3dc2b59945aa49a86cb457ebad5881fe6aa579e2 Mon Sep 17 00:00:00 2001
+From 1185c50106f091eadd13d2f658270e3df780e602 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 12:59:35 +0900
 Subject: [clangd] Module dependency scans are memoized on fully observed
@@ -47,7 +47,7 @@ Dependency scans use the exact request buffers, and a scan is reused only after 
  clang-tools-extra/clangd/ClangdServer.cpp     |    5 +-
  clang-tools-extra/clangd/CodeComplete.cpp     |   13 +-
  .../clangd/GlobalCompilationDatabase.cpp      |   25 +-
- .../clangd/ModuleDependencyScanCache.h        | 1004 +++++++++++++++++
+ .../clangd/ModuleDependencyScanCache.h        | 1014 +++++++++++++++++
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  115 +-
  clang-tools-extra/clangd/ModulesBuilder.h     |   13 +-
  clang-tools-extra/clangd/Preamble.cpp         |    7 +-
@@ -56,7 +56,7 @@ Dependency scans use the exact request buffers, and a scan is reused only after 
  .../unittests/PrerequisiteModulesTest.cpp     |  798 +++++++++++++
  .../clang/Tooling/DependencyScanningTool.h    |   18 +
  clang/lib/Tooling/DependencyScanningTool.cpp  |   12 +-
- 12 files changed, 2216 insertions(+), 125 deletions(-)
+ 12 files changed, 2226 insertions(+), 125 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleDependencyScanCache.h
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
@@ -188,10 +188,10 @@ index 0b56fca..38749e6 100644
      // Don't log Error here, it's usually just "couldn't find <file>".
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 new file mode 100644
-index 0000000..da19f46
+index 0000000..054abb2
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-@@ -0,0 +1,1004 @@
+@@ -0,0 +1,1014 @@
 +//===--- ModuleDependencyScanCache.h -----------------------------*- C++
 +//-*-===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -467,6 +467,17 @@ index 0000000..da19f46
 +      HeldOnDisk.reset();
 +      return Closed;
 +    };
++    // The first observation that replays differently, for the log: what a
++    // cache miss or a declined preamble comes down to.
++    auto Differs = [](const Observation &O, llvm::StringRef What) {
++      static constexpr const char *Kinds[] = {
++          "stat",   "open",          "file status", "file name",
++          "read",   "exists",        "make absolute", "directory",
++          "directory entry", "real path"};
++      vlog("Module input replay differs at {0} {1}: {2}", Kinds[O.Operation],
++           O.Path, What);
++      return false;
++    };
 +    auto SameStatus = [&](const Observation &O,
 +                          const llvm::ErrorOr<llvm::vfs::Status> &Now) {
 +      if (O.Error)
@@ -484,12 +495,12 @@ index 0000000..da19f46
 +        return false;
 +      if (O.Operation == Stat) {
 +        if (!SameStatus(O, FS.status(O.Path)))
-+          return false;
++          return Differs(O, "status");
 +        continue;
 +      }
 +      if (O.Operation == Exists) {
 +        if (FS.exists(O.Path) != O.Found)
-+          return false;
++          return Differs(O, O.Found ? "gone" : "now there");
 +        continue;
 +      }
 +      if (O.Operation == DirectoryBegin || O.Operation == DirectoryNext) {
@@ -499,26 +510,26 @@ index 0000000..da19f46
 +          I = FS.dir_begin(O.Path, EC);
 +        else {
 +          if (I == llvm::vfs::directory_iterator())
-+            return false;
++            return Differs(O, "ended");
 +          I.increment(EC);
 +        }
 +        bool Found = I != llvm::vfs::directory_iterator();
 +        if (EC != O.Error || Found != O.Found ||
 +            (Found && (I->path() != O.Name || I->type() != O.EntryType)))
-+          return false;
++          return Differs(O, "entries");
 +        continue;
 +      }
 +      if (O.Operation == Absolute) {
 +        llvm::SmallString<256> Path(O.Path);
 +        if (FS.makeAbsolute(Path) != O.Error || Path.str() != O.Name)
-+          return false;
++          return Differs(O, Path.str());
 +        continue;
 +      }
 +      if (O.Operation == RealPath) {
 +        llvm::SmallString<256> Resolved;
 +        if (FS.getRealPath(O.Path, Resolved) != O.Error ||
 +            Resolved.str() != O.Name)
-+          return false;
++          return Differs(O, Resolved.str());
 +        continue;
 +      }
 +      // A file's observations replay through one handle, opened again
@@ -526,12 +537,12 @@ index 0000000..da19f46
 +      if (O.Operation == Open || !Held || HeldPath != O.Path ||
 +          HeldBinary != O.Binary) {
 +        if (!Release())
-+          return false;
++          return Differs(O, "close");
 +        auto File = O.Binary ? FS.openFileForReadBinary(O.Path)
 +                             : FS.openFileForRead(O.Path);
 +        if (!File) {
 +          if (O.Operation != Open || !O.Error || O.Error != File.getError())
-+            return false;
++            return Differs(O, File.getError().message());
 +          continue;
 +        }
 +        Held = std::move(*File);
@@ -563,7 +574,7 @@ index 0000000..da19f46
 +                              fingerprint((*Buffer)->getBuffer()) == O.Bytes;
 +      }
 +      if (!Match)
-+        return false;
++        return Differs(O, "content or metadata");
 +    }
 +    return Release() && !isCancelled();
 +  }
@@ -818,10 +829,9 @@ index 0000000..da19f46
 +      O.RequestedSize = Size;
 +      O.NullTerminated = NullTerm;
 +      if (Result) {
-+        // Default driver .cfg files can redirect to an unobserved native
-+        // toolchain. Their absence is replayable; a present file declines.
-+        if (llvm::StringRef(Path).ends_with(".cfg"))
-+          Manifest->Complete = false;
++        // A driver configuration file (clang++.cfg beside a toolchain's
++        // compiler) is read through this file system like any input, and so
++        // is every directory and file it names: its bytes are replayed too.
 +        O.Size = (*Result)->getBufferSize();
 +        O.Bytes = ModuleScanManifest::fingerprint((*Result)->getBuffer());
 +      } else
