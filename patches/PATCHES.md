@@ -45,9 +45,10 @@ since then found the following, each fixed in the patch it belongs to:
   another payload bound (a changed cache budget) adopts the ledger with it
   instead of failing every module build; charges above a lowered bound wait
   for space like other pressure.
-- 0023, textual preamble audit: a directory's time and size are not compared,
-  since the temporary directory the preamble itself is written to changes
-  them; nor is the main file, whose draft changes with each keystroke during
+- 0023, textual preamble audit (and 0025 for every replay): a directory is
+  compared by its name and type only, since the temporary directory the
+  preamble itself is written to changes its time and size, and an overlay of
+  open drafts makes up the rest for the directories holding them; nor is the main file, whose draft changes with each keystroke during
   the build and whose prefix the audit proves apart. Either declined the
   preamble and built it again without one. A status that replays differently
   is logged with the fields that changed.
@@ -73,7 +74,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`ec839972c2b792b4f657ba9f3c8720ff4ec8e4ca`.
+`80044f7554fba56e19cbddb4f82a987bbcabf059`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

@@ -1,4 +1,4 @@
-From 8a6c7817e407de277788db1271609e2034807f61 Mon Sep 17 00:00:00 2001
+From 3f0a22c85a58515c609e0720384aa0682adfecee Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -51,7 +51,7 @@ Qualified and unqualified completion ask the external AST source only for names 
 ---
  clang-tools-extra/clangd/ClangdServer.cpp     |   4 +
  clang-tools-extra/clangd/CodeComplete.cpp     | 142 +++++-
- .../clangd/ModuleDependencyScanCache.h        |   9 +
+ .../clangd/ModuleDependencyScanCache.h        |  38 +-
  clang-tools-extra/clangd/ModuleScanEpoch.h    |  32 ++
  clang-tools-extra/clangd/ModulesBuilder.cpp   | 255 +++++++++-
  clang-tools-extra/clangd/ModulesBuilder.h     |  40 ++
@@ -69,7 +69,7 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 20 files changed, 1487 insertions(+), 60 deletions(-)
+ 20 files changed, 1504 insertions(+), 72 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleScanEpoch.h
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
@@ -280,7 +280,7 @@ index c6f4728..77f14da 100644
    FrontendOpts.SkipFunctionBodies = true;
    // Disable typo correction in Sema.
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-index 09f3ca5..b6bee90 100644
+index 09f3ca5..c3db0a9 100644
 --- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 @@ -7,6 +7,7 @@
@@ -291,7 +291,54 @@ index 09f3ca5..b6bee90 100644
  #include "support/Cancellation.h"
  #include "support/Logger.h"
  #include "support/ThreadsafeFS.h"
-@@ -871,6 +872,7 @@ class ModuleDependencyScanCache {
+@@ -125,12 +126,13 @@ public:
+     bool sameMetadata(const llvm::vfs::Status &S) const {
+       // A directory's time and size change with any entry added or removed
+       // in it, a temporary directory's all the time (a preamble is written
+-      // there). The entries a scan depended on are observations of their own.
+-      const bool Directory = Type == llvm::sys::fs::file_type::directory_file;
+-      return Name == S.getName() &&
+-             (Directory || (MTime == S.getLastModificationTime() &&
+-                            Size == S.getSize())) &&
+-             User == S.getUser() &&
++      // there), and an overlay of open drafts makes up the rest for the
++      // directories it holds them in. The entries a scan depended on are
++      // observations of their own; a directory is its name and its type.
++      if (Type == llvm::sys::fs::file_type::directory_file)
++        return Name == S.getName() && Type == S.getType();
++      return Name == S.getName() && MTime == S.getLastModificationTime() &&
++             Size == S.getSize() && User == S.getUser() &&
+              Group == S.getGroup() && Type == S.getType() &&
+              Permissions == S.getPermissions() &&
+              External == S.ExposesExternalVFSPath;
+@@ -298,16 +300,20 @@ public:
+       if (O.Info) {
+         const auto &S = *O.Info;
+         String(S.Name);
+-        // As sameMetadata: a directory's time and size are not its identity.
+-        if (S.Type != llvm::sys::fs::file_type::directory_file) {
++        // As sameMetadata: a directory is its name and its type.
++        const bool Directory =
++            S.Type == llvm::sys::fs::file_type::directory_file;
++        if (!Directory) {
+           Integer(S.MTime.time_since_epoch().count());
+           Integer(S.Size);
++          Integer(S.User);
++          Integer(S.Group);
+         }
+-        Integer(S.User);
+-        Integer(S.Group);
+         Integer(static_cast<uint64_t>(S.Type));
+-        Integer(S.Permissions);
+-        Integer(S.External);
++        if (!Directory) {
++          Integer(S.Permissions);
++          Integer(S.External);
++        }
+         auto I = Aliases.try_emplace(
+             std::pair{S.ID.getDevice(), S.ID.getFile()}, Aliases.size()).first;
+         Integer(I->second);
+@@ -871,6 +877,7 @@ class ModuleDependencyScanCache {
      ModuleScanResult Result;
      std::shared_ptr<Budget> Owner;
      size_t Bytes;
@@ -299,7 +346,7 @@ index 09f3ca5..b6bee90 100644
      ~Entry() {
        Owner->Bytes.fetch_sub(Bytes);
        --Owner->Entries;
-@@ -1087,6 +1089,11 @@ public:
+@@ -1087,6 +1094,11 @@ public:
        ++Misses;
        return std::nullopt;
      }
@@ -311,7 +358,7 @@ index 09f3ca5..b6bee90 100644
      if (!Candidate->Inputs.matches(FS)) {
        if (isCancelled())
          return std::nullopt;
-@@ -1099,6 +1106,8 @@ public:
+@@ -1099,6 +1111,8 @@ public:
      }
      if (isCancelled())
        return std::nullopt;
