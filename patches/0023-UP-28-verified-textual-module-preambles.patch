@@ -1,4 +1,4 @@
-From 228ee380bc91b25b11e6c37cefe7848132349df3 Mon Sep 17 00:00:00 2001
+From c08c9f335d126b9309a5393275f3d200b7cdea25 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -13,16 +13,16 @@ audits and failed candidate construction once with a zero prefix; keep fresh
 prerequisite validation and late completion compatibility checks.
 ---
  clang-tools-extra/clangd/CodeComplete.cpp     |  10 +
- .../clangd/ModuleDependencyScanCache.h        | 169 ++++++++-
+ .../clangd/ModuleDependencyScanCache.h        | 182 ++++++++-
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  36 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |   8 +
- clang-tools-extra/clangd/Preamble.cpp         | 119 ++++++-
+ clang-tools-extra/clangd/Preamble.cpp         | 119 +++++-
  clang-tools-extra/clangd/Preamble.h           |   2 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  19 +-
  clang-tools-extra/clangd/ProjectModules.h     |  13 +
  clang-tools-extra/clangd/TUScheduler.cpp      |  32 +-
- .../unittests/PrerequisiteModulesTest.cpp     | 333 ++++++++++++++++++
- 10 files changed, 702 insertions(+), 39 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     | 356 ++++++++++++++++++
+ 10 files changed, 736 insertions(+), 41 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
 index 82e5c38..c6f4728 100644
@@ -46,7 +46,7 @@ index 82e5c38..c6f4728 100644
    FrontendOpts.SkipFunctionBodies = true;
    // Disable typo correction in Sema.
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-index 34e8422..b3edd5a 100644
+index 34e8422..8cd18e7 100644
 --- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 @@ -50,6 +50,8 @@ struct ModuleScanResult {
@@ -58,7 +58,24 @@ index 34e8422..b3edd5a 100644
    static constexpr size_t FailureDiagnosticByteLimit = 64 * 1024;
  };
  
-@@ -174,6 +176,8 @@ public:
+@@ -121,8 +123,14 @@ public:
+           User(S.getUser()), Group(S.getGroup()), Type(S.getType()),
+           Permissions(S.getPermissions()), External(S.ExposesExternalVFSPath) {}
+     bool sameMetadata(const llvm::vfs::Status &S) const {
+-      return Name == S.getName() && MTime == S.getLastModificationTime() &&
+-             Size == S.getSize() && User == S.getUser() &&
++      // A directory's time and size change with any entry added or removed
++      // in it, a temporary directory's all the time (a preamble is written
++      // there). The entries a scan depended on are observations of their own.
++      const bool Directory = Type == llvm::sys::fs::file_type::directory_file;
++      return Name == S.getName() &&
++             (Directory || (MTime == S.getLastModificationTime() &&
++                            Size == S.getSize())) &&
++             User == S.getUser() &&
+              Group == S.getGroup() && Type == S.getType() &&
+              Permissions == S.getPermissions() &&
+              External == S.ExposesExternalVFSPath;
+@@ -174,6 +182,8 @@ public:
        std::chrono::system_clock::now();
    bool Complete = true;
    uint64_t NextDirectory = 0;
@@ -67,7 +84,7 @@ index 34e8422..b3edd5a 100644
    size_t RepeatedFacts = 0;
  
    llvm::ArrayRef<Observation> observations() const { return Observations; }
-@@ -203,7 +207,7 @@ public:
+@@ -203,7 +213,7 @@ public:
              : std::min(ProbeLimit,
                         std::max(size_t(32), Observations.capacity() * 2));
      const size_t Strings = stringBytes(O);
@@ -76,7 +93,7 @@ index 34e8422..b3edd5a 100644
                         RecordedStringBytes + Strings +
                         FactCapacity * sizeof(Observation) +
                         IndexCapacity * sizeof(uint32_t);
-@@ -241,7 +245,7 @@ public:
+@@ -241,7 +251,7 @@ public:
    }
  
    size_t ownedBytes() const {
@@ -85,7 +102,7 @@ index 34e8422..b3edd5a 100644
                    Observations.capacity() * sizeof(Observation) +
                    FactIndex.capacity() * sizeof(uint32_t);
      for (const auto &O : Observations)
-@@ -250,6 +254,67 @@ public:
+@@ -250,6 +260,70 @@ public:
      return Size;
    }
  
@@ -127,8 +144,11 @@ index 34e8422..b3edd5a 100644
 +      if (O.Info) {
 +        const auto &S = *O.Info;
 +        String(S.Name);
-+        Integer(S.MTime.time_since_epoch().count());
-+        Integer(S.Size);
++        // As sameMetadata: a directory's time and size are not its identity.
++        if (S.Type != llvm::sys::fs::file_type::directory_file) {
++          Integer(S.MTime.time_since_epoch().count());
++          Integer(S.Size);
++        }
 +        Integer(S.User);
 +        Integer(S.Group);
 +        Integer(static_cast<uint64_t>(S.Type));
@@ -153,7 +173,7 @@ index 34e8422..b3edd5a 100644
    bool matches(llvm::vfs::FileSystem &FS) const {
      if (!Complete || Observations.empty())
        return false;
-@@ -426,10 +491,21 @@ private:
+@@ -426,10 +500,21 @@ private:
  };
  
  class ModuleScanRecordingFS : public llvm::vfs::ProxyFileSystem {
@@ -176,7 +196,7 @@ index 34e8422..b3edd5a 100644
      auto CWD = getUnderlyingFS().getCurrentWorkingDirectory();
      if (CWD)
        this->Manifest->WorkingDirectory = *CWD;
-@@ -437,10 +513,27 @@ public:
+@@ -437,10 +522,27 @@ public:
        this->Manifest->Complete = false;
    }
  
@@ -206,7 +226,7 @@ index 34e8422..b3edd5a 100644
      ModuleScanManifest::Observation O{ModuleScanManifest::Stat, Path.str()};
      if (Result)
        O.Info.emplace(*Result);
-@@ -593,17 +686,49 @@ private:
+@@ -593,17 +695,49 @@ private:
      if (!Result)
        return Result;
      return std::make_unique<ObservedFile>(std::move(*Result), std::move(Name),
@@ -259,7 +279,7 @@ index 34e8422..b3edd5a 100644
      }
      llvm::ErrorOr<llvm::vfs::Status> status() override {
        auto Result = Base->status();
-@@ -649,6 +774,8 @@ private:
+@@ -649,6 +783,8 @@ private:
      }
      std::error_code close() override {
        auto EC = Base->close();
@@ -268,7 +288,7 @@ index 34e8422..b3edd5a 100644
        Closed = true;
        if (EC)
          Manifest->Complete = false;
-@@ -661,8 +788,11 @@ private:
+@@ -661,8 +797,11 @@ private:
      std::shared_ptr<ModuleScanManifest> Manifest;
      bool Closed = false;
      bool Binary;
@@ -280,7 +300,7 @@ index 34e8422..b3edd5a 100644
  };
  
  // Process-wide bounds also cover evicted entries borrowed by validators. CDB
-@@ -928,12 +1058,12 @@ public:
+@@ -928,12 +1067,12 @@ public:
      return Candidate->Result;
    }
  
@@ -295,7 +315,7 @@ index 34e8422..b3edd5a 100644
          (Result.FailureDiagnostic &&
           Result.FailureDiagnostic->capacity() >
               ModuleScanResult::FailureDiagnosticByteLimit) ||
-@@ -941,13 +1071,17 @@ public:
+@@ -941,13 +1080,17 @@ public:
          !Inputs.matches(FS) || isCancelled()) {
        ++Declines;
        vlog("Module dependency scan memo declined: {0}", File);
@@ -315,7 +335,7 @@ index 34e8422..b3edd5a 100644
      for (const auto &Arg : Command.CommandLine)
        Bytes += Arg.capacity() + 32;
      for (const auto &Name : Result.RequiredModules)
-@@ -958,22 +1092,22 @@ public:
+@@ -958,22 +1101,22 @@ public:
        Bytes += Result.FailureDiagnostic->capacity() + 32;
      if (Bytes > ModuleScanManifest::ByteLimit) {
        ++Declines;
@@ -342,7 +362,7 @@ index 34e8422..b3edd5a 100644
        }
        Entries.pop_back();
        ++Evictions;
-@@ -990,12 +1124,13 @@ public:
+@@ -990,12 +1133,13 @@ public:
      Added->Bytes = Bytes;
      if (isCancelled()) {
        ++Declines;
@@ -798,7 +818,7 @@ index 15e64ee..36aea5d 100644
        elog("Could not build CompilerInvocation for file {0}", FileName);
        // Remove the old AST if it's still in cache.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index bba097a..44ab790 100644
+index bba097a..0466cb7 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -22,6 +22,9 @@
@@ -1082,10 +1102,33 @@ index bba097a..44ab790 100644
  TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    PerFileModulesCompilationDatabase CDB(TestDir, FS);
    CDB.addFile("relative.hpp", "int relative_value = 1;\n");
-@@ -3604,6 +3864,79 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
+@@ -3604,6 +3864,102 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
  }
  
++TEST_F(PrerequisiteModulesTests, ScanManifestIgnoresDirectoryTimes) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("kept.hpp", "int kept;\n");
++  auto Inputs = std::make_shared<ModuleScanManifest>();
++  auto Recording = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(
++      FS.view(TestDir), Inputs);
++  ASSERT_TRUE(Recording->status("."));
++  ASSERT_TRUE(Recording->status("kept.hpp"));
++  EXPECT_FALSE(Recording->status("later.hpp"));
++  ASSERT_TRUE(Inputs->Complete);
++  // A preamble written to the directory, or any other entry, changes its time;
++  // what the scan depended on are its entries, each observed on its own.
++  const llvm::sys::TimePoint<> Past =
++      std::chrono::system_clock::now() - std::chrono::hours(1);
++  ASSERT_FALSE(
++      llvm::sys::fs::setLastAccessAndModificationTime(TestDir, Past, Past));
++  CDB.addFile("unrelated.txt", "x\n");
++  EXPECT_TRUE(Inputs->matches(*FS.view(TestDir)));
++  // An entry it looked for and did not find still counts.
++  CDB.addFile("later.hpp", "int later;\n");
++  EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
++}
++
 +TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestCommand) {
 +  VerifiedScanCompilationDatabase CDB(TestDir, FS);
 +  CDB.addFile("M.cppm", "export module M;\nexport int fn_m();\n");

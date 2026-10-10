@@ -44,11 +44,15 @@ it admits a scan whose driver read a configuration file beside its compiler
 (an xlings or mcpp LLVM's `clang++.cfg`), whose bytes it replays like any
 input, where it declined every such scan, and with it the verified textual
 preamble of every file mixing modules with headers built by such a compiler;
-and the first input that replays differently is logged.
+and the first input that replays differently is logged; 0023's audit of a
+textual preamble no longer compares a directory's time and size, which the
+temporary directory the preamble itself is written to changes, and which kept
+every file mixing headers with module imports (Qt, `<windows.h>`) without a
+preamble, parsing all its headers again for each request.
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`17fa794bb080951533002b97b5645176ba14c2a0`.
+`89567d42510d2d6c5a2e4a77f9adc03c5a515af1`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
