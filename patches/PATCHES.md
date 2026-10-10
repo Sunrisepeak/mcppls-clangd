@@ -28,8 +28,12 @@ ordinary lookup an empty pattern uses lists target predeclarations and macros
 differently for a preamble and a main file on x86_64-pc-windows-msvc); 0017's
 module worker reports a command directory that does not exist yet and builds
 on, as an in-process build does; 0025's completion inside the preamble region or
-the module and import declarations (an import line being typed) no longer
-rebuilds the prerequisites at every keystroke; 0019's owned cache skips a stable generation whose files
+the module and import declarations (an import line being typed, or a blank
+line among them) no longer rebuilds the prerequisites at every keystroke,
+an import added since the preamble that nothing in the project builds keeps
+the preamble's modules, and a rebuild a completion needs (a dependency
+edited) is waited for 250 ms before the completion is answered from the
+modules it had, the rebuild going on for the next request; 0019's owned cache skips a stable generation whose files
 changed on disk instead of failing the module for good; and 0014's scan memo
 replays a file's observations through one handle and does not read again a
 header that is on disk with the identity, size and modification time it had,
@@ -38,7 +42,7 @@ inputs), so a hit on `std.cppm` no longer reads and hashes every libc++ header.
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`982ccc039eaf43b47bfeb287064d9a477a97cb07`.
+`d063793fce47b3a5f7627712536015e872398844`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

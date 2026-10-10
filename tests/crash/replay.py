@@ -234,7 +234,10 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None, req
         # deadline and cleanup ownership. Its console must never share LSP pipes.
         if process_started is not None:
             process_started(proc, deadline)
-        for step in sequence:
+        index = 0
+        while index < len(sequence):
+            step = sequence[index]
+            index += 1
             if step.get("action") == "sleep":
                 slept_until = time.monotonic() + float(step["seconds"])
                 while time.monotonic() < slept_until:
@@ -344,6 +347,13 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None, req
                                             "elapsed_ms": elapsed_ms})
                 missing = set(step.get("expected_symbols", [])) - names
                 polluted = set(step.get("forbidden_symbols", [])) & names
+                # A step may allow the engine a while to catch up (a module rebuilt in the
+                # background): it is asked again until then, each answer recorded.
+                retry_until = step.setdefault("_retry_until", started + float(step.get("retry_seconds", 0)))
+                if (missing or polluted) and time.monotonic() < retry_until:
+                    time.sleep(0.25)
+                    index -= 1
+                    continue
                 if missing or polluted:
                     raise ValueError(f"missing symbols {sorted(missing)}; forbidden symbols {sorted(polluted)}")
                 selected = {}

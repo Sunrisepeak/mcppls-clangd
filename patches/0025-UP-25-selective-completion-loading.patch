@@ -1,4 +1,4 @@
-From 37b139ce34677fd4bedcb8e9fc508f0d7e4eef23 Mon Sep 17 00:00:00 2001
+From 5a3df56571afc3508d21c627abd4c74433e1e97c Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -49,13 +49,14 @@ Qualified and unqualified completion ask the external AST source only for names 
 
   Imported definitions can supply multiple redeclarations of each constructor to one lookup. Constructor expansion now retains one result per canonical overload and updates it with later declaration details, following ordinary completion behavior. Distinct ordinary and template overloads remain. The two-module shared-header regression fixture returns nine constructors before the fix and three after it.
 ---
- clang-tools-extra/clangd/CodeComplete.cpp     |  98 +++-
- clang-tools-extra/clangd/ModulesBuilder.cpp   |  31 ++
- clang-tools-extra/clangd/ModulesBuilder.h     |  11 +
+ clang-tools-extra/clangd/ClangdServer.cpp     |   4 +
+ clang-tools-extra/clangd/CodeComplete.cpp     | 138 +++++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 145 +++++-
+ clang-tools-extra/clangd/ModulesBuilder.h     |  40 ++
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
  .../clangd/unittests/CodeCompleteTests.cpp    | 467 ++++++++++++++++++
- .../unittests/PrerequisiteModulesTest.cpp     | 142 ++++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 153 ++++++
  clang/include/clang/AST/ExternalASTSource.h   |  17 +
  .../include/clang/Sema/CodeCompleteConsumer.h |   7 +
  clang/include/clang/Sema/Sema.h               |  15 +
@@ -65,10 +66,25 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 16 files changed, 1091 insertions(+), 23 deletions(-)
+ 17 files changed, 1260 insertions(+), 52 deletions(-)
 
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index c36a53a..b03e14f 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -270,6 +270,10 @@ ClangdServer::~ClangdServer() {
+   // otherwise access members concurrently.
+   // (Nobody can be using TUScheduler because we're on the main thread).
+   WorkScheduler.reset();
++  // A completion's module rebuild may go on in the background with this
++  // server's file system; it ends before the file system does.
++  if (ModulesManager)
++    ModulesManager->stopBackgroundBuilds();
+   // Now requests have stopped, we can shut down feature modules.
+   if (FeatureModules) {
+     for (auto &Mod : *FeatureModules)
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index c6f4728..ce02b0c 100644
+index c6f4728..8b56d9e 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
 @@ -914,6 +914,22 @@ struct CompletionRecorder : public CodeCompleteConsumer {
@@ -94,13 +110,14 @@ index c6f4728..ce02b0c 100644
    std::vector<CodeCompletionResult> Results;
    CodeCompletionContext CCContext;
    Sema *CCSema = nullptr; // Sema that created the results.
-@@ -1371,6 +1387,52 @@ void loadMainFilePreambleMacros(const Preprocessor &PP,
+@@ -1371,6 +1387,58 @@ void loadMainFilePreambleMacros(const Preprocessor &PP,
    }
  }
  
 +// Whether Offset lies in the file's leading module and import declarations
 +// (or the directives among them), where completion names a module and needs
-+// nothing the modules export. An unfinished declaration owns its line.
++// nothing the modules export. An unfinished declaration owns its line, and a
++// blank line between two of them is among them.
 +bool inModuleDeclarations(llvm::StringRef Code, unsigned Offset,
 +                          const LangOptions &LangOpts) {
 +  const SourceLocation Start = SourceLocation::getFromRawEncoding(1);
@@ -110,8 +127,11 @@ index c6f4728..ce02b0c 100644
 +  };
 +  Token Tok;
 +  Lex.LexFromRawLexer(Tok);
-+  while (Tok.isNot(tok::eof) && OffsetOf(Tok) <= Offset) {
++  while (Tok.isNot(tok::eof)) {
++    const bool Ahead = OffsetOf(Tok) > Offset;
 +    if (Tok.isAtStartOfLine() && Tok.is(tok::hash)) {
++      if (Ahead)
++        return true;
 +      do
 +        Lex.LexFromRawLexer(Tok);
 +      while (Tok.isNot(tok::eof) && !Tok.isAtStartOfLine());
@@ -123,6 +143,8 @@ index c6f4728..ce02b0c 100644
 +        (Tok.getRawIdentifier() != "import" &&
 +         Tok.getRawIdentifier() != "module"))
 +      return false;
++    if (Ahead)
++      return true;
 +    Token Last = Tok;
 +    while (true) {
 +      Lex.LexFromRawLexer(Tok);
@@ -147,7 +169,7 @@ index c6f4728..ce02b0c 100644
  // Invokes Sema code completion on a file.
  // If \p Includes is set, it will be updated based on the compiler invocation.
  bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
-@@ -1394,13 +1456,37 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1394,27 +1462,69 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
    const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
    std::unique_ptr<PrerequisiteModules> FreshModules;
    bool ReusePreamble = true;
@@ -175,6 +197,11 @@ index c6f4728..ce02b0c 100644
      trace::Span ModuleTracer("Completion module validation");
 -    auto CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
 -        Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
+-    llvm::StringSet<> CurrentNameSet;
+-    for (const auto &Name : CurrentNames)
+-      CurrentNameSet.insert(Name);
+-    if (CurrentNameSet != RequiredModules->getRequiredModuleNames() ||
+-        !RequiredModules->canReuse(*CI, RequestVFS)) {
 +    std::vector<std::string> CurrentNames;
 +    if (Input.Preamble.TextualModuleInputs) {
 +      CompletionInputs = Input.ParseInput.ModulesManager->getCompletionInputs(
@@ -185,11 +212,36 @@ index c6f4728..ce02b0c 100644
 +      CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
 +          Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
 +    }
-     llvm::StringSet<> CurrentNameSet;
-     for (const auto &Name : CurrentNames)
-       CurrentNameSet.insert(Name);
-@@ -1413,8 +1499,10 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
-       ReusePreamble = false;
++    // An import added since the preamble that nothing in the project builds
++    // (one being typed) loads no BMI either way, and one removed leaves a BMI
++    // that nothing imports: the preamble's modules still serve the draft.
++    bool Covered = RequiredModules->canReuse(*CI, RequestVFS);
++    const llvm::StringSet<> Attached = RequiredModules->getRequiredModuleNames();
++    for (const auto &Name : CurrentNames) {
++      if (!Covered)
++        break;
++      if (!Attached.contains(Name) &&
++          Input.ParseInput.ModulesManager->isBuildableModule(
++              Input.FileName, Name, *Input.ParseInput.TFS,
++              Input.ParseInput.Contents))
++        Covered = false;
++    }
++    // A rebuild (a dependency edited, a module newly imported) is waited for
++    // a moment. One that takes longer goes on for the next request, and this
++    // one is answered from the preamble's modules, as before the edit.
++    if (!Covered) {
+       FreshModules =
+-          Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
+-              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
+-      RequiredModules = FreshModules.get();
+-      ReusePreamble = false;
++          Input.ParseInput.ModulesManager->buildPrerequisiteModulesWithin(
++              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
++              std::chrono::milliseconds(250));
++      if (FreshModules) {
++        RequiredModules = FreshModules.get();
++        ReusePreamble = false;
++      }
      }
    }
 -  if (Input.Preamble.TextualModuleInputs) {
@@ -202,10 +254,63 @@ index c6f4728..ce02b0c 100644
                               Input.FileName, *Input.ParseInput.TFS,
                               Input.ParseInput.Contents,
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index f6de08f..e6bd3ed 100644
+index f6de08f..53aa873 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
-@@ -2368,6 +2368,37 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -1814,25 +1814,33 @@ public:
+     CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
+     std::vector<std::string> Names = CachedMDB.getRequiredModules(File);
+     llvm::sort(Names);
+-    bool Verdict = false;
+-    // Mirrors the third-party bail-outs in getOrBuildModuleFile so the
+-    // two never disagree about which imports stay textual.
+-    for (llvm::StringRef ModuleName : Names) {
+-      std::string UnitFileName =
+-          CachedMDB.getSourceForModuleName(ModuleName, File);
+-      if (UnitFileName.empty())
+-        continue;
+-      if (getModuleCompileCommand(UnitFileName, CachedMDB)) {
+-        Verdict = true;
+-        break;
+-      }
+-      auto PI = getCDB().getProjectInfo(UnitFileName);
+-      if (PI && !PI->SourceRoot.empty()) {
+-        Verdict = true;
+-        break;
+-      }
+-    }
+-    return Verdict;
++    return llvm::any_of(Names, [&](llvm::StringRef ModuleName) {
++      return isBuildable(CachedMDB, ModuleName, File);
++    });
++  }
++
++  bool isBuildableModule(PathRef File, llvm::StringRef ModuleName,
++                         const ThreadsafeFS &TFS) {
++    auto MDB = getCDB().getProjectModules(File);
++    if (!MDB)
++      return false;
++    MDB->setFileSystem(TFS);
++    CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
++    return isBuildable(CachedMDB, ModuleName, File);
++  }
++
++  // Mirrors the third-party bail-outs in getOrBuildModuleFile so the two never
++  // disagree about which imports stay textual.
++  bool isBuildable(CachingProjectModules &CachedMDB, llvm::StringRef ModuleName,
++                   PathRef File) {
++    std::string UnitFileName =
++        CachedMDB.getSourceForModuleName(ModuleName, File);
++    if (UnitFileName.empty())
++      return false;
++    if (getModuleCompileCommand(UnitFileName, CachedMDB))
++      return true;
++    auto PI = getCDB().getProjectInfo(UnitFileName);
++    return PI && !PI->SourceRoot.empty();
+   }
+ 
+   llvm::Error
+@@ -2368,6 +2376,37 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
    return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
  }
  
@@ -243,11 +348,148 @@ index f6de08f..e6bd3ed 100644
  bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
                                                   const ThreadsafeFS &TFS,
                                                   llvm::StringRef Contents) {
+@@ -2375,6 +2414,13 @@ bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
+   return Impl->hasBuildableRequiredModules(File, RequestFS);
+ }
+ 
++bool ModulesBuilder::isBuildableModule(PathRef File, llvm::StringRef ModuleName,
++                                       const ThreadsafeFS &TFS,
++                                       llvm::StringRef Contents) {
++  RequestModuleFS RequestFS(TFS, File, Contents);
++  return Impl->isBuildableModule(File, ModuleName, RequestFS);
++}
++
+ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
+   if (!MDB)
+@@ -2436,11 +2482,70 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+   return std::move(RequiredModules);
+ }
+ 
++struct ModulesBuilder::BoundedBuild {
++  std::string Contents;
++  Canceler Cancel;
++  std::mutex Mu;
++  std::condition_variable Finished;
++  bool Done = false;
++  std::unique_ptr<PrerequisiteModules> Result;
++};
++
++std::unique_ptr<PrerequisiteModules>
++ModulesBuilder::buildPrerequisiteModulesWithin(PathRef File,
++                                               const ThreadsafeFS &TFS,
++                                               llvm::StringRef Contents,
++                                               std::chrono::milliseconds Wait) {
++  const std::string Key = maybeCaseFoldPath(File);
++  std::shared_ptr<BoundedBuild> Build;
++  {
++    std::lock_guard<std::mutex> Lock(BoundedMutex);
++    auto &Running = BoundedBuilds[Key];
++    if (!Running) {
++      Running = std::make_shared<BoundedBuild>();
++      Running->Contents = Contents.str();
++      auto Task = cancelableTask();
++      Running->Cancel = std::move(Task.second);
++      WithContext Cancelable(std::move(Task.first));
++      BoundedRunner.runAsync(
++          "prerequisites:" + llvm::sys::path::filename(File),
++          [this, Build = Running, Key, File = File.str(), &TFS] {
++            auto Result = buildPrerequisiteModulesFor(File, TFS, Build->Contents);
++            {
++              std::lock_guard<std::mutex> Lock(BoundedMutex);
++              auto It = BoundedBuilds.find(Key);
++              if (It != BoundedBuilds.end() && It->second == Build)
++                BoundedBuilds.erase(It);
++            }
++            std::lock_guard<std::mutex> Lock(Build->Mu);
++            Build->Result = std::move(Result);
++            Build->Done = true;
++            Build->Finished.notify_all();
++          });
++    }
++    Build = Running;
++  }
++  std::unique_lock<std::mutex> Lock(Build->Mu);
++  if (!Build->Finished.wait_for(Lock, Wait, [&] { return Build->Done; }) ||
++      Build->Contents != Contents)
++    return nullptr;
++  return std::move(Build->Result);
++}
++
++void ModulesBuilder::stopBackgroundBuilds() {
++  {
++    std::lock_guard<std::mutex> Lock(BoundedMutex);
++    for (auto &Running : BoundedBuilds)
++      Running.second->Cancel();
++  }
++  BoundedRunner.wait();
++}
++
+ ModulesBuilder::ModulesBuilder(const GlobalCompilationDatabase &CDB) {
+   Impl = std::make_unique<ModulesBuilderImpl>(CDB);
+ }
+ 
+-ModulesBuilder::~ModulesBuilder() {}
++ModulesBuilder::~ModulesBuilder() { stopBackgroundBuilds(); }
+ 
+ } // namespace clangd
+ } // namespace clang
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.h b/clang-tools-extra/clangd/ModulesBuilder.h
-index a616687..458a87a 100644
+index a616687..26712d8 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.h
 +++ b/clang-tools-extra/clangd/ModulesBuilder.h
-@@ -140,6 +140,17 @@ public:
+@@ -22,12 +22,17 @@
+ 
+ #include "GlobalCompilationDatabase.h"
+ #include "ProjectModules.h"
++#include "support/Cancellation.h"
+ #include "support/Path.h"
++#include "support/Threading.h"
+ #include "support/ThreadsafeFS.h"
+ #include "clang/Frontend/CompilerInvocation.h"
+ #include "llvm/ADT/SmallString.h"
++#include "llvm/ADT/StringMap.h"
+ #include "llvm/ADT/StringSet.h"
++#include <chrono>
+ #include <memory>
++#include <mutex>
+ 
+ namespace clang {
+ namespace clangd {
+@@ -123,6 +128,20 @@ public:
+   buildPrerequisiteModulesFor(PathRef File, const ThreadsafeFS &TFS,
+                               llvm::StringRef Contents);
+ 
++  /// buildPrerequisiteModulesFor, waited for at most \p Wait: null when it
++  /// takes longer. The build then goes on in the background, under the
++  /// caller's context, and leaves what it built in the module cache for the
++  /// next request. One such build runs per file at a time; a request finding
++  /// one running waits for it, and gets its result if it built this draft.
++  std::unique_ptr<PrerequisiteModules>
++  buildPrerequisiteModulesWithin(PathRef File, const ThreadsafeFS &TFS,
++                                 llvm::StringRef Contents,
++                                 std::chrono::milliseconds Wait);
++  /// Cancels the background builds and waits for them to end. Whoever owns a
++  /// ThreadsafeFS given to buildPrerequisiteModulesWithin calls this before
++  /// the file system goes.
++  void stopBackgroundBuilds();
++
+   bool hasRequiredModules(PathRef File);
+ 
+   /// Whether any directly imported module of \p File can actually produce a
+@@ -132,6 +151,11 @@ public:
+   bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS,
+                                    llvm::StringRef Contents);
+ 
++  /// Whether \p ModuleName, imported by \p File, can produce a BMI in this
++  /// project: the verdict hasBuildableRequiredModules gives each import.
++  bool isBuildableModule(PathRef File, llvm::StringRef ModuleName,
++                         const ThreadsafeFS &TFS, llvm::StringRef Contents);
++
+   /// Prove an ordinary TU's exact textual prefix imports no named modules.
+   /// Implicit maps, unknown scanner inputs and preprocessing errors decline.
+   std::optional<ProjectModules::VerifiedInputs>
+@@ -140,6 +164,17 @@ public:
                            const tooling::CompileCommand &Command,
                            const CompilerInvocation &CI);
  
@@ -265,6 +507,18 @@ index a616687..458a87a 100644
    /// Returns the list of directly required module names
    std::vector<std::string> getRequiredModuleNames(PathRef File);
    std::vector<std::string> getRequiredModuleNames(PathRef File,
+@@ -149,6 +184,11 @@ public:
+ private:
+   class ModulesBuilderImpl;
+   std::unique_ptr<ModulesBuilderImpl> Impl;
++  struct BoundedBuild;
++  std::mutex BoundedMutex;
++  llvm::StringMap<std::shared_ptr<BoundedBuild>> BoundedBuilds;
++  // Last: its destructor waits for the background builds before the rest goes.
++  AsyncTaskRunner BoundedRunner;
+ };
+ 
+ } // namespace clangd
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
 index 4258a89..457c403 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
@@ -816,10 +1070,10 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 44ab790..bca9d11 100644
+index 44ab790..9acd52f 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2542,6 +2542,51 @@ void func() {
+@@ -2542,6 +2542,62 @@ void func() {
    EXPECT_EQ(Result.Completions[0].Name, "printA");
  }
  
@@ -856,6 +1110,17 @@ index 44ab790..bca9d11 100644
 +  Use.Contents = Typing.code().str();
 +  codeComplete(getFullPath("Use.cpp"), Typing.point(), Preamble.get(), Use, {});
 +  EXPECT_EQ(CDB.getGlobalScanningCount(), Before);
++  // So is a blank line between two imports, where the next one is typed.
++  Annotations Between(R"cpp(
++import A;
++^
++import B;
++void func() {}
++)cpp");
++  Use.Contents = Between.code().str();
++  codeComplete(getFullPath("Use.cpp"), Between.point(), Preamble.get(), Use,
++               {});
++  EXPECT_EQ(CDB.getGlobalScanningCount(), Before);
 +
 +  // Below the imports, completion still sees what the modules export.
 +  Annotations Body(R"cpp(
@@ -871,7 +1136,7 @@ index 44ab790..bca9d11 100644
  TEST_F(PrerequisiteModulesTests, SignatureHelpTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3584,6 +3629,103 @@ export int BValue = MValue;
+@@ -3584,6 +3640,103 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  
