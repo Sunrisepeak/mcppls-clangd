@@ -1,4 +1,4 @@
-From 14c76574ae92748918636843a0f0b3e54985b3db Mon Sep 17 00:00:00 2001
+From 9adbc7f5074706d7391d976031c2c698e0c25f9f Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 19:41:47 +0900
 Subject: fix(clangd): dependency manifests replay exact filesystem query
@@ -10,10 +10,10 @@ Subject: fix(clangd): dependency manifests replay exact filesystem query
  2 files changed, 42 insertions(+), 3 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-index 48af558..920db33 100644
+index da19f46..d84f4c2 100644
 --- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-@@ -376,7 +376,9 @@ public:
+@@ -428,7 +428,9 @@ public:
  
    llvm::ErrorOr<llvm::vfs::Status> status(const llvm::Twine &Path) override {
      auto Result = getUnderlyingFS().status(Path);
@@ -24,7 +24,7 @@ index 48af558..920db33 100644
      if (Result)
        O.Info.emplace(*Result);
      else
-@@ -387,7 +389,7 @@ public:
+@@ -439,7 +441,7 @@ public:
    bool exists(const llvm::Twine &Path) override {
      bool Result = getUnderlyingFS().exists(Path);
      ModuleScanManifest::Observation O{ModuleScanManifest::Exists,
@@ -33,7 +33,7 @@ index 48af558..920db33 100644
      O.Found = Result;
      Manifest->add(std::move(O));
      return Result;
-@@ -519,7 +521,7 @@ private:
+@@ -571,7 +573,7 @@ private:
                                                         bool Binary) {
      auto Result = Binary ? getUnderlyingFS().openFileForReadBinary(Path)
                           : getUnderlyingFS().openFileForRead(Path);
@@ -43,10 +43,10 @@ index 48af558..920db33 100644
      O.Binary = Binary;
      if (!Result)
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 494ee91..a5b61a6 100644
+index df8c47a..bba097a 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -3518,6 +3518,43 @@ export int BValue = MValue;
+@@ -3567,6 +3567,43 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  

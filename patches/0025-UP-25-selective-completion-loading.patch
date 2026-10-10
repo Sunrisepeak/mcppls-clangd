@@ -1,4 +1,4 @@
-From b66f7cc3c7ea547dd383e8a1b8585753b17b374b Mon Sep 17 00:00:00 2001
+From 37b139ce34677fd4bedcb8e9fc508f0d7e4eef23 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -816,10 +816,10 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 12610f8..1648b55 100644
+index 44ab790..bca9d11 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2493,6 +2493,51 @@ void func() {
+@@ -2542,6 +2542,51 @@ void func() {
    EXPECT_EQ(Result.Completions[0].Name, "printA");
  }
  
@@ -871,7 +871,7 @@ index 12610f8..1648b55 100644
  TEST_F(PrerequisiteModulesTests, SignatureHelpTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3535,6 +3580,103 @@ export int BValue = MValue;
+@@ -3584,6 +3629,103 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  

@@ -29,9 +29,16 @@ differently for a preamble and a main file on x86_64-pc-windows-msvc); 0017's
 module worker reports a command directory that does not exist yet and builds
 on, as an in-process build does; 0025's completion inside the preamble region or
 the module and import declarations (an import line being typed) no longer
-rebuilds the prerequisites at every keystroke; and 0019's owned cache skips a stable generation whose files
-changed on disk instead of failing the module for good. The tree is now
-`93e3cde45cbbd32fd668cc2bc20b639ee0c43328`.
+rebuilds the prerequisites at every keystroke; 0019's owned cache skips a stable generation whose files
+changed on disk instead of failing the module for good; and 0014's scan memo
+replays a file's observations through one handle and does not read again a
+header that is on disk with the identity, size and modification time it had,
+last modified well before the scan (the metadata clang trusts for a module's
+inputs), so a hit on `std.cppm` no longer reads and hashes every libc++ header.
+The engine also proves `unresolved-import-recovery` on its package
+(`ci/unresolved_import_canary.py`): a module unit importing a module nothing
+provides leaves its importer answering. The tree is now
+`982ccc039eaf43b47bfeb287064d9a477a97cb07`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
@@ -48,7 +55,7 @@ release (`tests/evidence/README.md`).
 | 0009-FEATURE-43-mcpp-format-style.patch | FEATURE-43 | steady | clangd/test/mcpp-format-style.test; clangd/test/mcpp-format-fallback.test | upstream supports the pinned mcpp preset or an equivalent explicit fallback configuration |
 | 0010-FEATURE-44-compiler-extension-completion.patch | FEATURE-44 | steady | tests/e2e/compiler_extensions.py | upstream offers attribute introducers, cleanup references and target-aware SEH without index-only keyword pollution |
 | 0011-UP-01-module-directive-recovery.patch | UP-01, UP-12, UP-15 | steady | clangd/test/module-directive-recovery.test; clangd/test/missing-bmi-token-recovery.test; clang/test/Modules/missing-module-semicolon-location.cpp; tests/e2e/module_directive_recovery.py; tests/e2e/module_directive_diagnostics.py | upstream token collection, missing-BMI keyword handling and separator diagnostics recover in place |
-| 0012-UP-03-module-prerequisite-dag.patch | UP-03, UP-24, UP-25 | steady | clangd/test/modules-bounded-dag.test; tests/e2e/module_dag.py; tests/e2e/module_cycle.py; tests/e2e/third_party_import.py; tests/e2e/module_cache_lease.py | upstream schedules prerequisite builds as a bounded cancellable DAG with cycle rejection, third-party import fallback and reader leases |
+| 0012-UP-03-module-prerequisite-dag.patch | UP-03, UP-24, UP-25 | steady | clangd/test/modules-bounded-dag.test; ci/unresolved_import_canary.py; tests/e2e/module_dag.py; tests/e2e/module_cycle.py; tests/e2e/third_party_import.py; tests/e2e/module_cache_lease.py | upstream schedules prerequisite builds as a bounded cancellable DAG with cycle rejection, third-party import fallback and reader leases |
 | 0013-UP-03-module-provider-command-cache.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_provider_cache.py | upstream reuses provider command facts across equivalent CDB generations |
 | 0014-UP-03-module-dependency-scan-memo.patch | UP-03, UP-23 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py; tests/e2e/module_scan_builtins.py; tests/e2e/module_request_inputs.py | upstream reuses dependency scans only after replaying every observed input |
 | 0015-UP-03-module-compile-command-inputs.patch | UP-03, UP-23, UP-27 | steady | clangd/unittests/GlobalCompilationDatabaseTests.cpp; clangd/unittests/CompileCommandsTests.cpp; tests/e2e/module_response_inputs.py | upstream reloads response-file generations, resolves external module commands per project and preserves the GCC mapper dialect |

@@ -1,4 +1,4 @@
-From caa0967b23fbb7e672092654645fc6a834641ff9 Mon Sep 17 00:00:00 2001
+From 02263c2f86b5fe184d7f92a417d23f548c6811b5 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -46,10 +46,10 @@ index 82e5c38..c6f4728 100644
    FrontendOpts.SkipFunctionBodies = true;
    // Disable typo correction in Sema.
 diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-index 920db33..169ddf1 100644
+index d84f4c2..f34ebd3 100644
 --- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
 +++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
-@@ -49,6 +49,8 @@ struct ModuleScanResult {
+@@ -50,6 +50,8 @@ struct ModuleScanResult {
    std::vector<std::string> RequiredModules;
    // An observed semantic failure is reusable, but is never a provider result.
    std::optional<std::string> FailureDiagnostic;
@@ -58,8 +58,8 @@ index 920db33..169ddf1 100644
    static constexpr size_t FailureDiagnosticByteLimit = 64 * 1024;
  };
  
-@@ -170,6 +172,8 @@ public:
-   std::string WorkingDirectory;
+@@ -174,6 +176,8 @@ public:
+       std::chrono::system_clock::now();
    bool Complete = true;
    uint64_t NextDirectory = 0;
 +  size_t OpenFiles = 0;
@@ -67,7 +67,7 @@ index 920db33..169ddf1 100644
    size_t RepeatedFacts = 0;
  
    llvm::ArrayRef<Observation> observations() const { return Observations; }
-@@ -199,7 +203,7 @@ public:
+@@ -203,7 +207,7 @@ public:
              : std::min(ProbeLimit,
                         std::max(size_t(32), Observations.capacity() * 2));
      const size_t Strings = stringBytes(O);
@@ -76,7 +76,7 @@ index 920db33..169ddf1 100644
                         RecordedStringBytes + Strings +
                         FactCapacity * sizeof(Observation) +
                         IndexCapacity * sizeof(uint32_t);
-@@ -237,7 +241,7 @@ public:
+@@ -241,7 +245,7 @@ public:
    }
  
    size_t ownedBytes() const {
@@ -85,7 +85,7 @@ index 920db33..169ddf1 100644
                    Observations.capacity() * sizeof(Observation) +
                    FactIndex.capacity() * sizeof(uint32_t);
      for (const auto &O : Observations)
-@@ -246,6 +250,67 @@ public:
+@@ -250,6 +254,67 @@ public:
      return Size;
    }
  
@@ -153,7 +153,7 @@ index 920db33..169ddf1 100644
    bool matches(llvm::vfs::FileSystem &FS) const {
      if (!Complete || Observations.empty())
        return false;
-@@ -363,10 +428,21 @@ private:
+@@ -415,10 +480,21 @@ private:
  };
  
  class ModuleScanRecordingFS : public llvm::vfs::ProxyFileSystem {
@@ -176,7 +176,7 @@ index 920db33..169ddf1 100644
      auto CWD = getUnderlyingFS().getCurrentWorkingDirectory();
      if (CWD)
        this->Manifest->WorkingDirectory = *CWD;
-@@ -374,10 +450,27 @@ public:
+@@ -426,10 +502,27 @@ public:
        this->Manifest->Complete = false;
    }
  
@@ -206,7 +206,7 @@ index 920db33..169ddf1 100644
      ModuleScanManifest::Observation O{ModuleScanManifest::Stat, Path.str()};
      if (Result)
        O.Info.emplace(*Result);
-@@ -530,17 +623,49 @@ private:
+@@ -582,17 +675,49 @@ private:
      if (!Result)
        return Result;
      return std::make_unique<ObservedFile>(std::move(*Result), std::move(Name),
@@ -259,7 +259,7 @@ index 920db33..169ddf1 100644
      }
      llvm::ErrorOr<llvm::vfs::Status> status() override {
        auto Result = Base->status();
-@@ -587,6 +712,8 @@ private:
+@@ -639,6 +764,8 @@ private:
      }
      std::error_code close() override {
        auto EC = Base->close();
@@ -268,7 +268,7 @@ index 920db33..169ddf1 100644
        Closed = true;
        if (EC)
          Manifest->Complete = false;
-@@ -599,8 +726,11 @@ private:
+@@ -651,8 +778,11 @@ private:
      std::shared_ptr<ModuleScanManifest> Manifest;
      bool Closed = false;
      bool Binary;
@@ -280,7 +280,7 @@ index 920db33..169ddf1 100644
  };
  
  // Process-wide bounds also cover evicted entries borrowed by validators. CDB
-@@ -866,12 +996,12 @@ public:
+@@ -918,12 +1048,12 @@ public:
      return Candidate->Result;
    }
  
@@ -295,7 +295,7 @@ index 920db33..169ddf1 100644
          (Result.FailureDiagnostic &&
           Result.FailureDiagnostic->capacity() >
               ModuleScanResult::FailureDiagnosticByteLimit) ||
-@@ -879,13 +1009,17 @@ public:
+@@ -931,13 +1061,17 @@ public:
          !Inputs.matches(FS) || isCancelled()) {
        ++Declines;
        vlog("Module dependency scan memo declined: {0}", File);
@@ -315,7 +315,7 @@ index 920db33..169ddf1 100644
      for (const auto &Arg : Command.CommandLine)
        Bytes += Arg.capacity() + 32;
      for (const auto &Name : Result.RequiredModules)
-@@ -896,22 +1030,22 @@ public:
+@@ -948,22 +1082,22 @@ public:
        Bytes += Result.FailureDiagnostic->capacity() + 32;
      if (Bytes > ModuleScanManifest::ByteLimit) {
        ++Declines;
@@ -342,7 +342,7 @@ index 920db33..169ddf1 100644
        }
        Entries.pop_back();
        ++Evictions;
-@@ -928,12 +1062,13 @@ public:
+@@ -980,12 +1114,13 @@ public:
      Added->Bytes = Bytes;
      if (isCancelled()) {
        ++Declines;
@@ -798,7 +798,7 @@ index 15e64ee..36aea5d 100644
        elog("Could not build CompilerInvocation for file {0}", FileName);
        // Remove the old AST if it's still in cache.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index a5b61a6..12610f8 100644
+index bba097a..44ab790 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -22,6 +22,9 @@
@@ -832,7 +832,7 @@ index a5b61a6..12610f8 100644
  class ModuleUnitRootCompilationDatabase
      : public PerFileModulesCompilationDatabase {
  public:
-@@ -3518,6 +3535,249 @@ export int BValue = MValue;
+@@ -3567,6 +3584,249 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  
@@ -1082,7 +1082,7 @@ index a5b61a6..12610f8 100644
  TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    PerFileModulesCompilationDatabase CDB(TestDir, FS);
    CDB.addFile("relative.hpp", "int relative_value = 1;\n");
-@@ -3555,6 +3815,79 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
+@@ -3604,6 +3864,79 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
  }
  
