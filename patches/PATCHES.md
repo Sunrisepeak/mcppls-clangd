@@ -42,8 +42,12 @@ since then found the following, each fixed in the patch it belongs to:
   reported and the build goes on, as an in-process build does.
 - 0019, owned cache: a stable generation whose files changed on disk is
   skipped instead of failing the module for good.
-- 0023, textual preamble audit: a directory's time and size are not compared;
-  the temporary directory the preamble itself is written to changes them.
+- 0023, textual preamble audit: a directory's time and size are not compared,
+  since the temporary directory the preamble itself is written to changes
+  them; nor is the main file, whose draft changes with each keystroke during
+  the build and whose prefix the audit proves apart. Either declined the
+  preamble and built it again without one. A status that replays differently
+  is logged with the fields that changed.
 - 0025, completion: inside the preamble region or the module and import
   declarations (an import line being typed, a blank line among them) the
   prerequisites are not rebuilt. An import added since the preamble that
@@ -64,7 +68,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`1ea880bd87afec059febaac0cc0adecd783fc181`.
+`b516a50611c4bfeab6a6c4c76232d708e9ca4bdb`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

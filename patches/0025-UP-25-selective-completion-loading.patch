@@ -1,4 +1,4 @@
-From 62db067c1300d7fd60b659530aa25d1231ff0ca0 Mon Sep 17 00:00:00 2001
+From 70b2e3487aeb0a43f6e144c3e32f676a005ad666 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -1218,7 +1218,7 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 7c15591..d858eeb 100644
+index 8296f03..ac2d864 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2576,6 +2576,62 @@ void func() {
@@ -1388,7 +1388,7 @@ index 7c15591..d858eeb 100644
  TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixPreservesFreshHeaderBytes) {
    VerifiedScanCompilationDatabase CDB(TestDir, FS);
    Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { text_^; }\n");
-@@ -3960,6 +4113,42 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
+@@ -3980,6 +4133,42 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
        *ChangedCI));
  }
  
