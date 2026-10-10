@@ -1,4 +1,4 @@
-From 1dc194ef8d83ac4e30bd178ea267118c97078f55 Mon Sep 17 00:00:00 2001
+From 3d809cf892ed1650ea36240f8eb0e4d49d042b82 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -2253,7 +2253,7 @@ index 6827763..9c820e1 100644
      if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
                               TFS.view(std::nullopt))) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index bcccb31..8b22c98 100644
+index bcccb31..faa75c3 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -12,6 +12,14 @@
@@ -2390,13 +2390,13 @@ index bcccb31..8b22c98 100644
 +    ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
 +    EXPECT_TRUE(*Found);
 +  }
-+  // Below what is charged, a new admission waits for space instead of
-+  // failing the cache.
-+  auto Cache = ModuleBuildCache::open(Root, 16, 8);
++  // Below what is charged (the four published bytes), a new admission waits
++  // for space instead of failing the cache.
++  auto Cache = ModuleBuildCache::open(Root, 2, 8);
 +  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
 +  bool Pressure = false;
 +  llvm::handleAllErrors(
-+      (*Cache)->reserve("N", Anchor, 8, 4, 4).takeError(),
++      (*Cache)->reserve("N", Anchor, 2, 1, 1).takeError(),
 +      [&](const ModuleCachePressure &) { Pressure = true; },
 +      [](const llvm::ErrorInfoBase &) {});
 +  EXPECT_TRUE(Pressure);
