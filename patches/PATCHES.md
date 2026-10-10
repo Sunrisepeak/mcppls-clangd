@@ -52,7 +52,11 @@ since then found the following, each fixed in the patch it belongs to:
   import. The rebuild an edited dependency needs is waited for 250 ms; past
   that the completion is answered from the modules as they were and the
   rebuild goes on for the next request. A module newly imported is still built
-  for the answer. `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares,
+  for the answer. A draft whose text after its preamble holds no directive and
+  no module declaration is scanned as its preamble, a scan that stays
+  memoized while only the body changes, plus the `import` declarations in
+  that text: typing in such a file no longer preprocesses all its headers
+  again (seconds per keystroke with `<windows.h>`). `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares,
   for an empty pattern, only the names its header declares (the ordinary
   lookup lists target predeclarations and macros differently for a preamble
   and a main file on x86_64-pc-windows-msvc).
@@ -60,7 +64,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`5db66324dd2511c01407dfe9162b66abc0ee6bf2`.
+`cb84bf9ce899252c6b49182e7d4397c6aa47daba`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

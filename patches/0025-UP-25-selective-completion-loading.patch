@@ -1,4 +1,4 @@
-From 94c50882542bb12aa4cbf4d597f649d7a02df32d Mon Sep 17 00:00:00 2001
+From 62db067c1300d7fd60b659530aa25d1231ff0ca0 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -51,12 +51,12 @@ Qualified and unqualified completion ask the external AST source only for names 
 ---
  clang-tools-extra/clangd/ClangdServer.cpp     |   4 +
  clang-tools-extra/clangd/CodeComplete.cpp     | 136 ++++-
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 155 +++++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 255 +++++++++-
  clang-tools-extra/clangd/ModulesBuilder.h     |  40 ++
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
  .../clangd/unittests/CodeCompleteTests.cpp    | 467 ++++++++++++++++++
- .../unittests/PrerequisiteModulesTest.cpp     | 153 ++++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 189 +++++++
  clang/include/clang/AST/ExternalASTSource.h   |  17 +
  .../include/clang/Sema/CodeCompleteConsumer.h |   7 +
  clang/include/clang/Sema/Sema.h               |  15 +
@@ -66,7 +66,7 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 17 files changed, 1272 insertions(+), 48 deletions(-)
+ 17 files changed, 1403 insertions(+), 53 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
 index c36a53a..b03e14f 100644
@@ -256,7 +256,7 @@ index c6f4728..32309de 100644
                               Input.FileName, *Input.ParseInput.TFS,
                               Input.ParseInput.Contents,
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index f6de08f..b56bfd6 100644
+index f6de08f..23947de 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -26,6 +26,7 @@
@@ -267,9 +267,105 @@ index f6de08f..b56bfd6 100644
  #include <atomic>
  
  #include "llvm/ADT/DenseSet.h"
-@@ -1814,25 +1815,41 @@ public:
+@@ -98,6 +99,82 @@ private:
+   const std::string Contents;
+ };
+ 
++// A draft's body, the text after its preamble, adds to what the preamble's own
++// scan finds only its `import` declarations when it holds no directive and no
++// module declaration: preprocessing it reads no file and defines nothing an
++// import depends on. Such a draft is scanned as its preamble -- a scan that
++// stays memoized while only the body changes, keystroke after keystroke -- plus
++// those imports. A body this cannot vouch for is scanned whole.
++struct DraftParts {
++  llvm::StringRef Prefix;
++  std::vector<std::string> BodyImports;
++};
++
++LangOptions draftLangOptions() {
++  LangOptions Lang;
++  Lang.CPlusPlus = Lang.CPlusPlus11 = Lang.CPlusPlus14 = Lang.CPlusPlus17 = 1;
++  Lang.CPlusPlus20 = Lang.CPlusPlusModules = 1;
++  return Lang;
++}
++
++std::optional<DraftParts> splitDraft(llvm::StringRef Contents,
++                                     const LangOptions &Lang) {
++  auto Bounds = Lexer::ComputePreamble(Contents, Lang);
++  if (Bounds.Size && !Bounds.PreambleEndsAtStartOfLine)
++    return std::nullopt;
++  DraftParts Parts{Contents.take_front(Bounds.Size), {}};
++  llvm::StringRef Body = Contents.drop_front(Bounds.Size);
++  Lexer Lex(SourceLocation::getFromRawEncoding(1), Lang, Body.begin(),
++            Body.begin(), Body.end());
++  Token Tok;
++  Lex.LexFromRawLexer(Tok);
++  while (Tok.isNot(tok::eof)) {
++    if (!Tok.isAtStartOfLine()) {
++      Lex.LexFromRawLexer(Tok);
++      continue;
++    }
++    if (Tok.is(tok::hash))
++      return std::nullopt;
++    if (Tok.is(tok::raw_identifier) && Tok.getRawIdentifier() == "export")
++      Lex.LexFromRawLexer(Tok);
++    if (Tok.is(tok::raw_identifier) && Tok.getRawIdentifier() == "module")
++      return std::nullopt;
++    if (!Tok.is(tok::raw_identifier) || Tok.getRawIdentifier() != "import") {
++      Lex.LexFromRawLexer(Tok);
++      continue;
++    }
++    // A named module only; a partition, a header unit, an attribute or an
++    // unfinished name is left to the scanner.
++    std::string Name;
++    bool AfterDot = true;
++    for (Lex.LexFromRawLexer(Tok); Tok.isNot(tok::semi);
++         Lex.LexFromRawLexer(Tok)) {
++      if (Tok.is(tok::raw_identifier) && AfterDot)
++        Name += Tok.getRawIdentifier();
++      else if (Tok.is(tok::period) && !AfterDot)
++        Name += '.';
++      else
++        return std::nullopt;
++      AfterDot = Tok.is(tok::period);
++    }
++    if (Name.empty() || AfterDot)
++      return std::nullopt;
++    if (!llvm::is_contained(Parts.BodyImports, Name))
++      Parts.BodyImports.push_back(std::move(Name));
++    Lex.LexFromRawLexer(Tok);
++  }
++  return Parts;
++}
++
++void addBodyImports(std::vector<std::string> &Names,
++                    const std::optional<DraftParts> &Parts) {
++  if (!Parts)
++    return;
++  for (const auto &Name : Parts->BodyImports)
++    if (!llvm::is_contained(Names, Name))
++      Names.push_back(Name);
++}
++
+ llvm::cl::opt<bool> DebugModulesBuilder(
+     "debug-modules-builder",
+     llvm::cl::desc("Don't remove clangd's built module files for debugging. "
+@@ -1806,33 +1883,53 @@ public:
+ 
+   /// Source/header/draft inputs can change without a command notification.
+   /// Re-derive this preamble-safety decision from the actual request view.
+-  bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS) {
++  bool hasBuildableRequiredModules(PathRef File, const ThreadsafeFS &TFS,
++                                   llvm::ArrayRef<std::string> MoreNames) {
+     auto MDB = getCDB().getProjectModules(File);
+     if (!MDB)
+       return false;
+     MDB->setFileSystem(TFS);
      CachingProjectModules CachedMDB(std::move(MDB), ProjectModulesCache);
      std::vector<std::string> Names = CachedMDB.getRequiredModules(File);
++    for (const auto &Name : MoreNames)
++      if (!llvm::is_contained(Names, Name))
++        Names.push_back(Name);
      llvm::sort(Names);
 -    bool Verdict = false;
 -    // Mirrors the third-party bail-outs in getOrBuildModuleFile so the
@@ -328,21 +424,33 @@ index f6de08f..b56bfd6 100644
    }
  
    llvm::Error
-@@ -2368,6 +2385,37 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2346,7 +2443,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+       !CI.getFrontendOpts().ModuleFiles.empty() ||
+       !CI.getPreprocessorOpts().ImplicitPCHInclude.empty())
+     return std::nullopt;
+-  RequestModuleFS MainFS(TFS, File, Contents);
++  const auto Parts = splitDraft(Contents, Lang);
++  RequestModuleFS MainFS(TFS, File, Parts ? Parts->Prefix : Contents);
+   auto MDB = Impl->getCDB().getProjectModules(File);
+   if (!MDB)
+     return std::nullopt;
+@@ -2368,11 +2466,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
    return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
  }
  
 +ModulesBuilder::CompletionInputs ModulesBuilder::getCompletionInputs(
 +    PathRef File, const ThreadsafeFS &TFS, llvm::StringRef Contents,
 +    const tooling::CompileCommand &Command, const CompilerInvocation &CI) {
-+  RequestModuleFS MainFS(TFS, File, Contents);
++  const auto &Lang = CI.getLangOpts();
++  const auto Parts = splitDraft(Contents, Lang);
++  RequestModuleFS MainFS(TFS, File, Parts ? Parts->Prefix : Contents);
 +  auto MDB = Impl->getCDB().getProjectModules(File);
 +  if (!MDB)
 +    return {};
 +  MDB->setFileSystem(MainFS);
 +  auto Inputs = MDB->getRequiredModulesAndInputs(File);
++  addBodyImports(Inputs.RequiredModules, Parts);
 +  CompletionInputs Result{std::move(Inputs.RequiredModules), std::nullopt};
-+  const auto &Lang = CI.getLangOpts();
 +  const auto &HS = CI.getHeaderSearchOpts();
 +  if (!Inputs.OrdinaryTU || !Lang.CPlusPlus || !Lang.CPlusPlus20 || Lang.ObjC ||
 +      HS.ImplicitModuleMaps || !CI.getFrontendOpts().ModuleMapFiles.empty() ||
@@ -366,21 +474,42 @@ index f6de08f..b56bfd6 100644
  bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
                                                   const ThreadsafeFS &TFS,
                                                   llvm::StringRef Contents) {
-@@ -2375,6 +2423,13 @@ bool ModulesBuilder::hasBuildableRequiredModules(PathRef File,
-   return Impl->hasBuildableRequiredModules(File, RequestFS);
- }
- 
++  const auto Parts = splitDraft(Contents, draftLangOptions());
++  RequestModuleFS RequestFS(TFS, File, Parts ? Parts->Prefix : Contents);
++  return Impl->hasBuildableRequiredModules(
++      File, RequestFS,
++      Parts ? llvm::ArrayRef<std::string>(Parts->BodyImports)
++            : llvm::ArrayRef<std::string>());
++}
++
 +bool ModulesBuilder::isBuildableModule(PathRef File, llvm::StringRef ModuleName,
 +                                       const ThreadsafeFS &TFS,
 +                                       llvm::StringRef Contents) {
-+  RequestModuleFS RequestFS(TFS, File, Contents);
+   RequestModuleFS RequestFS(TFS, File, Contents);
+-  return Impl->hasBuildableRequiredModules(File, RequestFS);
 +  return Impl->isBuildableModule(File, ModuleName, RequestFS);
-+}
-+
+ }
+ 
  std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
-   std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
+@@ -2388,12 +2530,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+ std::vector<std::string>
+ ModulesBuilder::getRequiredModuleNames(PathRef File, const ThreadsafeFS &TFS,
+                                        llvm::StringRef Contents) {
+-  RequestModuleFS RequestFS(TFS, File, Contents);
++  const auto Parts = splitDraft(Contents, draftLangOptions());
++  RequestModuleFS RequestFS(TFS, File, Parts ? Parts->Prefix : Contents);
+   auto MDB = Impl->getCDB().getProjectModules(File);
    if (!MDB)
-@@ -2436,11 +2491,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+     return {};
+   MDB->setFileSystem(RequestFS);
+-  return MDB->getRequiredModules(File);
++  auto Names = MDB->getRequiredModules(File);
++  addBodyImports(Names, Parts);
++  return Names;
+ }
+ 
+ std::unique_ptr<PrerequisiteModules>
+@@ -2436,11 +2581,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
    return std::move(RequiredModules);
  }
  
@@ -1089,7 +1218,7 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 7c15591..ad36a39 100644
+index 7c15591..d858eeb 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2576,6 +2576,62 @@ void func() {
@@ -1259,6 +1388,49 @@ index 7c15591..ad36a39 100644
  TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixPreservesFreshHeaderBytes) {
    VerifiedScanCompilationDatabase CDB(TestDir, FS);
    Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { text_^; }\n");
+@@ -3960,6 +4113,42 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
+       *ChangedCI));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, BodyEditsReuseThePreambleScan) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\n");
++  CDB.addFile("N.cppm", "export module N;\n");
++  CDB.addFile("Header.hpp", "int from_header;\n");
++  const std::string Prefix = "#include \"Header.hpp\"\n";
++  CDB.addFile("Use.cpp", Prefix + "import M;\nint use() { return 0; }\n");
++  ModulesBuilder Builder(CDB);
++  const auto Use = getFullPath("Use.cpp");
++  auto Names = [&](llvm::StringRef Body) {
++    return Builder.getRequiredModuleNames(Use, FS, Prefix + Body.str());
++  };
++  EXPECT_THAT(Names("import M;\nint use() { return 0; }\n"),
++              testing::ElementsAre("M"));
++  // Typing in the body is the preamble's own scan again, memoized, with the
++  // body's imports.
++  auto Before = getModuleDependencyScanCache().stats();
++  EXPECT_THAT(Names("import M;\nint use() { return 1; }\n"),
++              testing::ElementsAre("M"));
++  EXPECT_THAT(Names("import M;\nimport N;\nint use() { return 2; }\n"),
++              testing::ElementsAre("M", "N"));
++  auto After = getModuleDependencyScanCache().stats();
++  EXPECT_EQ(After.Misses, Before.Misses);
++  EXPECT_GT(After.Hits, Before.Hits);
++  // A directive in the body may read a file or change an import, and an
++  // unfinished import is the scanner's to judge: such drafts are scanned whole.
++  EXPECT_THAT(Names("import M;\n#define LATER 1\nint use() { return 3; }\n"),
++              testing::ElementsAre("M"));
++  EXPECT_GT(getModuleDependencyScanCache().stats().Misses, After.Misses);
++  After = getModuleDependencyScanCache().stats();
++  (void)Names("import M.\nint use() { return 4; }\n");
++  EXPECT_GT(getModuleDependencyScanCache().stats().Misses, After.Misses);
++}
++
+ TEST_F(PrerequisiteModulesTests, PreambleAuditReadsOriginalUnusedFileObjects) {
+   PerFileModulesCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("Header.hpp", "int old_header;\n");
 diff --git a/clang/include/clang/AST/ExternalASTSource.h b/clang/include/clang/AST/ExternalASTSource.h
 index be88309..3b88352 100644
 --- a/clang/include/clang/AST/ExternalASTSource.h
