@@ -1,4 +1,4 @@
-From 05cd25c0f31f782f756e3a81100deb3145f70f56 Mon Sep 17 00:00:00 2001
+From b66f7cc3c7ea547dd383e8a1b8585753b17b374b Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -49,7 +49,7 @@ Qualified and unqualified completion ask the external AST source only for names 
 
   Imported definitions can supply multiple redeclarations of each constructor to one lookup. Constructor expansion now retains one result per canonical overload and updates it with later declaration details, following ordinary completion behavior. Distinct ordinary and template overloads remain. The two-module shared-header regression fixture returns nine constructors before the fix and three after it.
 ---
- clang-tools-extra/clangd/CodeComplete.cpp     |  48 +-
+ clang-tools-extra/clangd/CodeComplete.cpp     |  98 +++-
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  31 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |  11 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
@@ -65,10 +65,10 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 16 files changed, 1041 insertions(+), 23 deletions(-)
+ 16 files changed, 1091 insertions(+), 23 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index c6f4728..4f9e57e 100644
+index c6f4728..ce02b0c 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
 @@ -914,6 +914,22 @@ struct CompletionRecorder : public CodeCompleteConsumer {
@@ -94,7 +94,60 @@ index c6f4728..4f9e57e 100644
    std::vector<CodeCompletionResult> Results;
    CodeCompletionContext CCContext;
    Sema *CCSema = nullptr; // Sema that created the results.
-@@ -1394,13 +1410,33 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1371,6 +1387,52 @@ void loadMainFilePreambleMacros(const Preprocessor &PP,
+   }
+ }
+ 
++// Whether Offset lies in the file's leading module and import declarations
++// (or the directives among them), where completion names a module and needs
++// nothing the modules export. An unfinished declaration owns its line.
++bool inModuleDeclarations(llvm::StringRef Code, unsigned Offset,
++                          const LangOptions &LangOpts) {
++  const SourceLocation Start = SourceLocation::getFromRawEncoding(1);
++  Lexer Lex(Start, LangOpts, Code.begin(), Code.begin(), Code.end());
++  auto OffsetOf = [&](const Token &T) {
++    return T.getLocation().getRawEncoding() - Start.getRawEncoding();
++  };
++  Token Tok;
++  Lex.LexFromRawLexer(Tok);
++  while (Tok.isNot(tok::eof) && OffsetOf(Tok) <= Offset) {
++    if (Tok.isAtStartOfLine() && Tok.is(tok::hash)) {
++      do
++        Lex.LexFromRawLexer(Tok);
++      while (Tok.isNot(tok::eof) && !Tok.isAtStartOfLine());
++      continue;
++    }
++    if (Tok.is(tok::raw_identifier) && Tok.getRawIdentifier() == "export")
++      Lex.LexFromRawLexer(Tok);
++    if (Tok.isNot(tok::raw_identifier) ||
++        (Tok.getRawIdentifier() != "import" &&
++         Tok.getRawIdentifier() != "module"))
++      return false;
++    Token Last = Tok;
++    while (true) {
++      Lex.LexFromRawLexer(Tok);
++      if (Tok.is(tok::semi)) {
++        if (Offset <= OffsetOf(Tok))
++          return true;
++        Lex.LexFromRawLexer(Tok);
++        break;
++      }
++      if (Tok.is(tok::eof) || Tok.isAtStartOfLine()) {
++        size_t LineEnd = Code.find('\n', OffsetOf(Last) + Last.getLength());
++        if (Offset <= std::min(LineEnd, Code.size()))
++          return true;
++        break;
++      }
++      Last = Tok;
++    }
++  }
++  return false;
++}
++
+ // Invokes Sema code completion on a file.
+ // If \p Includes is set, it will be updated based on the compiler invocation.
+ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1394,13 +1456,37 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
    const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
    std::unique_ptr<PrerequisiteModules> FreshModules;
    bool ReusePreamble = true;
@@ -104,17 +157,21 @@ index c6f4728..4f9e57e 100644
    // update has noticed the invalidation. Validate against this request's VFS.
 -  if (RequiredModules && Input.ParseInput.ModulesManager) {
 +  // Completing inside the preamble region (below) parses the draft alone,
-+  // without the preamble or what its modules export, so their freshness does
-+  // not matter there: typing an import line never waits on a module rebuild.
-+  const bool InPreambleRegion = [&] {
++  // without the preamble or what its modules export, and completing a module
++  // or import declaration names a module, so their freshness does not matter
++  // there: typing an import line never waits on a module rebuild.
++  const bool InDirectiveRegion = [&] {
 +    auto Buffer = llvm::MemoryBuffer::getMemBuffer(Input.ParseInput.Contents,
 +                                                   Input.FileName);
 +    PreambleBounds Bounds = computePreambleBounds(
 +        CI->getLangOpts(), *Buffer, Input.ParseInput.Opts.SkipPreambleBuild);
 +    return Input.Offset < Bounds.Size ||
-+           (!Bounds.PreambleEndsAtStartOfLine && Input.Offset == Bounds.Size);
++           (!Bounds.PreambleEndsAtStartOfLine &&
++            Input.Offset == Bounds.Size) ||
++           inModuleDeclarations(Input.ParseInput.Contents, Input.Offset,
++                                CI->getLangOpts());
 +  }();
-+  if (RequiredModules && Input.ParseInput.ModulesManager && !InPreambleRegion) {
++  if (RequiredModules && Input.ParseInput.ModulesManager && !InDirectiveRegion) {
      trace::Span ModuleTracer("Completion module validation");
 -    auto CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
 -        Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
@@ -131,13 +188,13 @@ index c6f4728..4f9e57e 100644
      llvm::StringSet<> CurrentNameSet;
      for (const auto &Name : CurrentNames)
        CurrentNameSet.insert(Name);
-@@ -1413,8 +1449,10 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1413,8 +1499,10 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
        ReusePreamble = false;
      }
    }
 -  if (Input.Preamble.TextualModuleInputs) {
 -    auto Current = Input.ParseInput.ModulesManager
-+  if (Input.Preamble.TextualModuleInputs && !InPreambleRegion) {
++  if (Input.Preamble.TextualModuleInputs && !InDirectiveRegion) {
 +    auto Current = CompletionInputs
 +                       ? std::move(CompletionInputs->TextualPreamble)
 +                       : Input.ParseInput.ModulesManager

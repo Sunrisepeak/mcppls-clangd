@@ -27,11 +27,11 @@ compares, for an empty pattern, only the names its header declares (the
 ordinary lookup an empty pattern uses lists target predeclarations and macros
 differently for a preamble and a main file on x86_64-pc-windows-msvc); 0017's
 module worker reports a command directory that does not exist yet and builds
-on, as an in-process build does; 0025's completion inside the preamble region
-(an import line being typed) no longer rebuilds the prerequisites at every
-keystroke; and 0019's owned cache skips a stable generation whose files
+on, as an in-process build does; 0025's completion inside the preamble region or
+the module and import declarations (an import line being typed) no longer
+rebuilds the prerequisites at every keystroke; and 0019's owned cache skips a stable generation whose files
 changed on disk instead of failing the module for good. The tree is now
-`cd1381f32ee3754165a75878bacde4f55c18a861`.
+`93e3cde45cbbd32fd668cc2bc20b639ee0c43328`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
