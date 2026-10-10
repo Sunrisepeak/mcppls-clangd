@@ -31,9 +31,10 @@ on, as an in-process build does; 0025's completion inside the preamble region or
 the module and import declarations (an import line being typed, or a blank
 line among them) no longer rebuilds the prerequisites at every keystroke,
 an import added since the preamble that nothing in the project builds keeps
-the preamble's modules, and a rebuild a completion needs (a dependency
-edited) is waited for 250 ms before the completion is answered from the
-modules it had, the rebuild going on for the next request; 0019's owned cache skips a stable generation whose files
+the preamble's modules, and the rebuild an edited dependency needs is waited
+for 250 ms before the completion is answered from the modules as they were,
+the rebuild going on for the next request (a module newly imported is still
+built for the answer); 0019's owned cache skips a stable generation whose files
 changed on disk instead of failing the module for good; and 0014's scan memo
 replays a file's observations through one handle and does not read again a
 header that is on disk with the identity, size and modification time it had,
@@ -42,7 +43,7 @@ inputs), so a hit on `std.cppm` no longer reads and hashes every libc++ header.
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`d063793fce47b3a5f7627712536015e872398844`.
+`a85e3c07d357c6b103fbb7220f9aace1f1aea79b`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

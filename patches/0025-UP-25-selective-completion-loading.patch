@@ -1,4 +1,4 @@
-From 5a3df56571afc3508d21c627abd4c74433e1e97c Mon Sep 17 00:00:00 2001
+From 507db351faf0a1fdc7a994e6249aa4c1275d31fe Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -50,8 +50,8 @@ Qualified and unqualified completion ask the external AST source only for names 
   Imported definitions can supply multiple redeclarations of each constructor to one lookup. Constructor expansion now retains one result per canonical overload and updates it with later declaration details, following ordinary completion behavior. Distinct ordinary and template overloads remain. The two-module shared-header regression fixture returns nine constructors before the fix and three after it.
 ---
  clang-tools-extra/clangd/ClangdServer.cpp     |   4 +
- clang-tools-extra/clangd/CodeComplete.cpp     | 138 +++++-
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 145 +++++-
+ clang-tools-extra/clangd/CodeComplete.cpp     | 136 ++++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 146 +++++-
  clang-tools-extra/clangd/ModulesBuilder.h     |  40 ++
  clang-tools-extra/clangd/ProjectModules.cpp   |  15 +
  clang-tools-extra/clangd/ProjectModules.h     |  11 +
@@ -66,7 +66,7 @@ Qualified and unqualified completion ask the external AST source only for names 
  clang/lib/Serialization/ASTReader.cpp         |  52 +-
  .../lib/Serialization/MultiOnDiskHashTable.h  |  24 +
  .../Serialization/NamespaceLookupTest.cpp     | 107 ++++
- 17 files changed, 1260 insertions(+), 52 deletions(-)
+ 17 files changed, 1263 insertions(+), 48 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
 index c36a53a..b03e14f 100644
@@ -84,7 +84,7 @@ index c36a53a..b03e14f 100644
    if (FeatureModules) {
      for (auto &Mod : *FeatureModules)
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index c6f4728..8b56d9e 100644
+index c6f4728..32309de 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
 @@ -914,6 +914,22 @@ struct CompletionRecorder : public CodeCompleteConsumer {
@@ -169,7 +169,7 @@ index c6f4728..8b56d9e 100644
  // Invokes Sema code completion on a file.
  // If \p Includes is set, it will be updated based on the compiler invocation.
  bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
-@@ -1394,27 +1462,69 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1394,27 +1462,75 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
    const PrerequisiteModules *RequiredModules = Input.Preamble.RequiredModules.get();
    std::unique_ptr<PrerequisiteModules> FreshModules;
    bool ReusePreamble = true;
@@ -193,7 +193,8 @@ index c6f4728..8b56d9e 100644
 +           inModuleDeclarations(Input.ParseInput.Contents, Input.Offset,
 +                                CI->getLangOpts());
 +  }();
-+  if (RequiredModules && Input.ParseInput.ModulesManager && !InDirectiveRegion) {
++  if (RequiredModules && Input.ParseInput.ModulesManager &&
++      !InDirectiveRegion) {
      trace::Span ModuleTracer("Completion module validation");
 -    auto CurrentNames = Input.ParseInput.ModulesManager->getRequiredModuleNames(
 -        Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
@@ -214,27 +215,28 @@ index c6f4728..8b56d9e 100644
 +    }
 +    // An import added since the preamble that nothing in the project builds
 +    // (one being typed) loads no BMI either way, and one removed leaves a BMI
-+    // that nothing imports: the preamble's modules still serve the draft.
-+    bool Covered = RequiredModules->canReuse(*CI, RequestVFS);
-+    const llvm::StringSet<> Attached = RequiredModules->getRequiredModuleNames();
-+    for (const auto &Name : CurrentNames) {
-+      if (!Covered)
-+        break;
-+      if (!Attached.contains(Name) &&
-+          Input.ParseInput.ModulesManager->isBuildableModule(
-+              Input.FileName, Name, *Input.ParseInput.TFS,
-+              Input.ParseInput.Contents))
-+        Covered = false;
-+    }
-+    // A rebuild (a dependency edited, a module newly imported) is waited for
-+    // a moment. One that takes longer goes on for the next request, and this
-+    // one is answered from the preamble's modules, as before the edit.
-+    if (!Covered) {
++    // that nothing imports: the preamble's modules still serve the draft. A
++    // module newly imported is built for this answer, which is about it.
++    const llvm::StringSet<> Attached =
++        RequiredModules->getRequiredModuleNames();
++    const bool NewModule =
++        llvm::any_of(CurrentNames, [&](const std::string &Name) {
++          return !Attached.contains(Name) &&
++                 Input.ParseInput.ModulesManager->isBuildableModule(
++                     Input.FileName, Name, *Input.ParseInput.TFS,
++                     Input.ParseInput.Contents);
++        });
++    if (NewModule) {
        FreshModules =
--          Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
--              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
--      RequiredModules = FreshModules.get();
--      ReusePreamble = false;
+           Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
+               Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
+       RequiredModules = FreshModules.get();
+       ReusePreamble = false;
++    } else if (!RequiredModules->canReuse(*CI, RequestVFS)) {
++      // A dependency edited: its rebuild is waited for a moment. One that
++      // takes longer goes on for the next request, and this one is answered
++      // from the modules as they were before the edit.
++      FreshModules =
 +          Input.ParseInput.ModulesManager->buildPrerequisiteModulesWithin(
 +              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
 +              std::chrono::milliseconds(250));
@@ -254,7 +256,7 @@ index c6f4728..8b56d9e 100644
                               Input.FileName, *Input.ParseInput.TFS,
                               Input.ParseInput.Contents,
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index f6de08f..53aa873 100644
+index f6de08f..4905e26 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -1814,25 +1814,33 @@ public:
@@ -362,7 +364,7 @@ index f6de08f..53aa873 100644
  std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
    std::unique_ptr<ProjectModules> MDB = Impl->getCDB().getProjectModules(File);
    if (!MDB)
-@@ -2436,11 +2482,70 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+@@ -2436,11 +2482,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
    return std::move(RequiredModules);
  }
  
@@ -394,7 +396,8 @@ index f6de08f..53aa873 100644
 +      BoundedRunner.runAsync(
 +          "prerequisites:" + llvm::sys::path::filename(File),
 +          [this, Build = Running, Key, File = File.str(), &TFS] {
-+            auto Result = buildPrerequisiteModulesFor(File, TFS, Build->Contents);
++            auto Result =
++                buildPrerequisiteModulesFor(File, TFS, Build->Contents);
 +            {
 +              std::lock_guard<std::mutex> Lock(BoundedMutex);
 +              auto It = BoundedBuilds.find(Key);
