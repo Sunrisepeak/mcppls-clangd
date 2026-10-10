@@ -1,4 +1,4 @@
-From d8afe851616dcf3a5c1f6b687bc95377b0dcaca3 Mon Sep 17 00:00:00 2001
+From 8a6c7817e407de277788db1271609e2034807f61 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -1359,10 +1359,10 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 8296f03..66684cd 100644
+index fb57088..40647b5 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2576,6 +2576,62 @@ void func() {
+@@ -2623,6 +2623,62 @@ void func() {
    EXPECT_EQ(Result.Completions[0].Name, "printA");
  }
  
@@ -1425,7 +1425,7 @@ index 8296f03..66684cd 100644
  TEST_F(PrerequisiteModulesTests, SignatureHelpTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3618,6 +3674,103 @@ export int BValue = MValue;
+@@ -3665,6 +3721,103 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  
@@ -1529,7 +1529,7 @@ index 8296f03..66684cd 100644
  TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixPreservesFreshHeaderBytes) {
    VerifiedScanCompilationDatabase CDB(TestDir, FS);
    Annotations Use("#include \"Header.hpp\"\nimport M;\nvoid use() { text_^; }\n");
-@@ -3980,6 +4133,66 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
+@@ -4027,6 +4180,66 @@ TEST_F(PrerequisiteModulesTests, VerifiedTextualPrefixRequiresActualRequestComma
        *ChangedCI));
  }
  

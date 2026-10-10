@@ -41,7 +41,10 @@ since then found the following, each fixed in the patch it belongs to:
 - 0017, module worker: a command directory that does not exist yet is
   reported and the build goes on, as an in-process build does.
 - 0019, owned cache: a stable generation whose files changed on disk is
-  skipped instead of failing the module for good.
+  skipped instead of failing the module for good. A clangd started with
+  another payload bound (a changed cache budget) adopts the ledger with it
+  instead of failing every module build; charges above a lowered bound wait
+  for space like other pressure.
 - 0023, textual preamble audit: a directory's time and size are not compared,
   since the temporary directory the preamble itself is written to changes
   them; nor is the main file, whose draft changes with each keystroke during
@@ -70,7 +73,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`a1f866036f21a5d32708e28113dd586897964b02`.
+`ec839972c2b792b4f657ba9f3c8720ff4ec8e4ca`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

@@ -1,4 +1,4 @@
-From d8456362b632e3e2ab934d6c33a86b284fe774f6 Mon Sep 17 00:00:00 2001
+From 1dc194ef8d83ac4e30bd178ea267118c97078f55 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -15,7 +15,7 @@ Module payloads hold persistent admission and kernel leases through publication,
 ---
  clang-tools-extra/clangd/CMakeLists.txt       |    1 +
  clang-tools-extra/clangd/Compiler.cpp         |    6 +
- clang-tools-extra/clangd/ModuleBuildCache.cpp | 1467 +++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 1479 +++++++++++++++++
  clang-tools-extra/clangd/ModuleBuildCache.h   |   97 ++
  .../clangd/ModuleBuildWorker.cpp              |   59 +-
  clang-tools-extra/clangd/ModuleBuildWorker.h  |    2 +
@@ -23,8 +23,8 @@ Module payloads hold persistent admission and kernel leases through publication,
  .../clangd/ModuleBuildWorkerStorage.cpp       |  126 +-
  .../clangd/ModuleBuildWorkerStorage.h         |    4 +
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  143 +-
- .../unittests/PrerequisiteModulesTest.cpp     |  450 +++++
- 11 files changed, 2346 insertions(+), 19 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     |  497 ++++++
+ 11 files changed, 2405 insertions(+), 19 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.h
 
@@ -66,10 +66,10 @@ index 0ccc2b0..17e5dff 100644
    CI->getLangOpts().CommentOpts.ParseAllComments = true;
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
 new file mode 100644
-index 0000000..bc1532d
+index 0000000..dbfa653
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
-@@ -0,0 +1,1467 @@
+@@ -0,0 +1,1479 @@
 +//===--- ModuleBuildCache.cpp - persistent owned payload admission --------===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 +// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -861,8 +861,18 @@ index 0000000..bc1532d
 +             !exactRead(I->Ledger.Value, &I->Description, sizeof(Header), 0) ||
 +             I->Description.MagicValue != Magic ||
 +             I->Description.RecordSize != sizeof(Record) ||
-+             I->Description.Slots != Slots || I->Description.Limit != Bytes)
++             I->Description.Slots != Slots) {
 +    return failure("incompatible marked ledger or limits");
++  } else if (I->Description.Limit != Bytes) {
++    // The payload bound is admission policy, not layout: a clangd started
++    // with another one (a changed cache budget) adopts the ledger with it.
++    // Charges above a lowered bound wait for space like any other pressure.
++    I->Description.Limit = Bytes;
++    if (!exactWrite(I->Ledger.Value, &I->Description.Limit,
++                    sizeof(I->Description.Limit), offsetof(Header, Limit)) ||
++        fdatasync(I->Ledger.Value))
++      return ioError();
++  }
 +  return std::shared_ptr<ModuleBuildCache>(new ModuleBuildCache(std::move(I)));
 +#endif
 +}
@@ -889,7 +899,7 @@ index 0000000..bc1532d
 +    auto R = State->read(S);
 +    if (!R)
 +      return R.takeError();
-+    if (R->Bytes > State->Description.Limit - Used)
++    if (R->Bytes > UINT64_MAX - Used)
 +      return failure("invalid charged total");
 +    Used += R->Bytes;
 +    if (R->Type == Free && Candidate == State->Description.Slots) {
@@ -907,6 +917,7 @@ index 0000000..bc1532d
 +    }
 +  }
 +  if (Candidate == State->Description.Slots ||
++      Used > State->Description.Limit ||
 +      Bytes > State->Description.Limit - Used) {
 +    // Advisory cross-process pressure never authorizes deletion without leases.
 +    // Retain idle stable generations until admission needs space/another slot.
@@ -1427,12 +1438,13 @@ index 0000000..bc1532d
 +        auto R = State->read(S);
 +        if (!R)
 +          return R.takeError();
-+        if (R->Bytes > State->Description.Limit - Used)
++        if (R->Bytes > UINT64_MAX - Used)
 +          return failure("invalid charged total");
 +        Used += R->Bytes;
 +        Entries += R->Type != Free;
 +      }
-+      Pressure = Needed > State->Description.Limit - Used ||
++      Pressure = Used > State->Description.Limit ||
++                 Needed > State->Description.Limit - Used ||
 +                 Entries == State->Description.Slots;
 +      if (!Pressure) {
 +        Needed = 0;
@@ -2241,7 +2253,7 @@ index 6827763..9c820e1 100644
      if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
                               TFS.view(std::nullopt))) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 9cc3898..5099a63 100644
+index bcccb31..8b22c98 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -12,6 +12,14 @@
@@ -2300,7 +2312,7 @@ index 9cc3898..5099a63 100644
      // MockFS overlays the process-wide real filesystem; its scanner changes
      // the process CWD. Restore it before deleting this request's directory.
      ASSERT_FALSE(llvm::sys::fs::set_current_path(OriginalWorkingDirectory));
-@@ -926,6 +943,439 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
+@@ -926,6 +943,486 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
    EXPECT_LE(Limited->Examined, 2u);
  }
  
@@ -2343,6 +2355,53 @@ index 9cc3898..5099a63 100644
 +  ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
 +  ASSERT_TRUE(*Found);
 +  EXPECT_EQ((*Found)->mainBytes(), 5u);
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedCacheAdoptsAnotherPayloadBound) {
++  // The payload bound is policy: a clangd started with another (a changed
++  // cache budget) keeps the generations published under the first.
++  const auto Root = (TestDir + "/bound/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/bound-anchor").str();
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Anchor, EC);
++    ASSERT_FALSE(EC);
++  }
++  {
++    auto Cache = ModuleBuildCache::open(Root, 64, 8);
++    ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++    auto Lease = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++    ASSERT_THAT_EXPECTED(Lease, llvm::Succeeded());
++    {
++      std::error_code EC;
++      llvm::raw_fd_ostream Out((*Lease)->payload(), EC);
++      ASSERT_FALSE(EC);
++      Out << "MAIN";
++    }
++    ASSERT_THAT_ERROR((*Lease)->publish(), llvm::Succeeded());
++  }
++  for (uint64_t Bound : {uint64_t(128), uint64_t(16)}) {
++    SCOPED_TRACE(Bound);
++    auto Cache = ModuleBuildCache::open(Root, Bound, 8);
++    ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++    auto Found = (*Cache)->lookup("M");
++    ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
++    EXPECT_TRUE(*Found);
++  }
++  // Below what is charged, a new admission waits for space instead of
++  // failing the cache.
++  auto Cache = ModuleBuildCache::open(Root, 16, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  bool Pressure = false;
++  llvm::handleAllErrors(
++      (*Cache)->reserve("N", Anchor, 8, 4, 4).takeError(),
++      [&](const ModuleCachePressure &) { Pressure = true; },
++      [](const llvm::ErrorInfoBase &) {});
++  EXPECT_TRUE(Pressure);
++  // The layout is not policy: another slot count is another ledger.
++  EXPECT_THAT_EXPECTED(ModuleBuildCache::open(Root, 64, 4), llvm::Failed());
 +}
 +
 +TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
