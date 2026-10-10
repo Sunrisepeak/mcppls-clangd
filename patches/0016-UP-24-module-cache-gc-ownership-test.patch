@@ -1,4 +1,4 @@
-From bf29d7f6d048d8da270528d559ca5fac215cbfb1 Mon Sep 17 00:00:00 2001
+From 3f4977742a21a778b10abe5a2e965e48b241aa29 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 07:54:03 +0900
 Subject: Test module cache GC against actual copy ownership
@@ -11,10 +11,10 @@ Require GC to remove both the abandoned copy and sidecar immediately while retai
  1 file changed, 56 insertions(+), 41 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 25e474a..f333f83 100644
+index 766135f..293d782 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2459,54 +2459,69 @@ export int AValue = MValue;
+@@ -2493,54 +2493,69 @@ export int AValue = MValue;
  }
  
  TEST_F(PrerequisiteModulesTests,

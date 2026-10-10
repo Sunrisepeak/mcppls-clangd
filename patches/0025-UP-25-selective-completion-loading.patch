@@ -1,4 +1,4 @@
-From e0010fe302581c495cedbb1a75fac111f11b32a7 Mon Sep 17 00:00:00 2001
+From 94c50882542bb12aa4cbf4d597f649d7a02df32d Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -539,10 +539,10 @@ index a616687..26712d8 100644
  
  } // namespace clangd
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 4258a89..457c403 100644
+index 2af9afc..5a419f1 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
-@@ -569,6 +569,17 @@ public:
+@@ -584,6 +584,17 @@ public:
      return Scanner.getRequiredModules(File, Mangler);
    }
  
@@ -560,7 +560,7 @@ index 4258a89..457c403 100644
    std::optional<VerifiedInputs>
    getVerifiedInputs(PathRef File, bool ImportFree) override {
      auto Result = Scanner.scan(File, Mangler);
-@@ -828,6 +839,10 @@ public:
+@@ -843,6 +854,10 @@ public:
      return Scanning->getRequiredModules(File);
    }
  
@@ -1089,10 +1089,10 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 0466cb7..518237b 100644
+index 7c15591..ad36a39 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2542,6 +2542,62 @@ void func() {
+@@ -2576,6 +2576,62 @@ void func() {
    EXPECT_EQ(Result.Completions[0].Name, "printA");
  }
  
@@ -1155,7 +1155,7 @@ index 0466cb7..518237b 100644
  TEST_F(PrerequisiteModulesTests, SignatureHelpTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3584,6 +3640,103 @@ export int BValue = MValue;
+@@ -3618,6 +3674,103 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  

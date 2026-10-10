@@ -1,4 +1,4 @@
-From 1185c50106f091eadd13d2f658270e3df780e602 Mon Sep 17 00:00:00 2001
+From fb03c9168914703b0302113ac92fae85268eb596 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 12:59:35 +0900
 Subject: [clangd] Module dependency scans are memoized on fully observed
@@ -51,12 +51,12 @@ Dependency scans use the exact request buffers, and a scan is reused only after 
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  115 +-
  clang-tools-extra/clangd/ModulesBuilder.h     |   13 +-
  clang-tools-extra/clangd/Preamble.cpp         |    7 +-
- clang-tools-extra/clangd/ProjectModules.cpp   |  320 +++++-
+ clang-tools-extra/clangd/ProjectModules.cpp   |  335 +++++-
  clang-tools-extra/clangd/ProjectModules.h     |   11 +
- .../unittests/PrerequisiteModulesTest.cpp     |  798 +++++++++++++
+ .../unittests/PrerequisiteModulesTest.cpp     |  832 ++++++++++++++
  .../clang/Tooling/DependencyScanningTool.h    |   18 +
  clang/lib/Tooling/DependencyScanningTool.cpp  |   12 +-
- 12 files changed, 2226 insertions(+), 125 deletions(-)
+ 12 files changed, 2275 insertions(+), 125 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleDependencyScanCache.h
 
 diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
@@ -1442,7 +1442,7 @@ index 5b850e6..21ff295 100644
      NewNameSet.insert_range(NewNames);
      return NewNameSet == Preamble.RequiredModules->getRequiredModuleNames();
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 51aa4cd..4c3f2af 100644
+index 51aa4cd..1f86e89 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
 @@ -8,8 +8,15 @@
@@ -1475,7 +1475,7 @@ index 51aa4cd..4c3f2af 100644
  
    bool belongsTo(
        const std::shared_ptr<const tooling::CompilationDatabase> &DB) const {
-@@ -187,14 +197,125 @@ private:
+@@ -187,14 +197,140 @@ private:
    std::shared_ptr<const std::vector<ProviderCommand>> Inventory;
    std::vector<ProviderCommand> IndexedCommands;
    std::shared_ptr<const ProviderIndex> Index;
@@ -1496,27 +1496,28 @@ index 51aa4cd..4c3f2af 100644
  }
  
  namespace {
-+// Only GNU/Linux toolchain discovery has a reviewed VFS observation contract.
-+// Other targets can consult native registries/configuration outside that VFS.
-+// Require both host and inferred/explicit command targets, rather than relying
-+// on the host or executable basename alone. Unknown indirection declines.
++// GNU/Linux toolchain discovery goes through the VFS alone. The MSVC and
++// Darwin drivers consult native state (the registry, the Visual Studio setup
++// API, xcrun) only for what a command does not name: a command naming its
++// Visual C++ tools and Windows SDK, or its Darwin SDK, is observed as fully.
++// The host is not consulted: the command's own target decides, as the
++// driver's does. Unknown indirection declines.
 +bool hasObservableDriverInputs(const tooling::CompileCommand &Command) {
-+  llvm::Triple Target(llvm::sys::getDefaultTargetTriple());
-+  if (!Target.isOSLinux() || Target.isAndroid() || Command.CommandLine.empty())
++  if (Command.CommandLine.empty())
 +    return false;
++  llvm::Triple Target(llvm::sys::getDefaultTargetTriple());
 +  auto Name = driver::ToolChain::getTargetAndModeFromProgramName(
 +      Command.CommandLine.front());
 +  if (!Name.TargetPrefix.empty()) {
 +    if (!Name.TargetIsValid)
 +      return false;
 +    Target = llvm::Triple(llvm::Triple::normalize(Name.TargetPrefix));
-+    if (!Target.isOSLinux() || Target.isAndroid())
-+      return false;
 +  }
 +  if (Name.DriverMode &&
 +      llvm::StringRef(Name.DriverMode) != "--driver-mode=gcc" &&
 +      llvm::StringRef(Name.DriverMode) != "--driver-mode=g++")
 +    return false;
++  bool VisualCTools = false, WindowsSDK = false, DarwinSDK = false;
 +  for (size_t I = 1; I < Command.CommandLine.size(); ++I) {
 +    llvm::StringRef Arg = Command.CommandLine[I];
 +    // Driver/frontend native CPU selection observes host state outside VFS.
@@ -1542,8 +1543,22 @@ index 51aa4cd..4c3f2af 100644
 +             (Command.CommandLine[I + 1] == "hip" ||
 +              Command.CommandLine[I + 1] == "cuda"))
 +      return false;
++    else if (Arg == "-Xmicrosoft-visualc-tools-root")
++      VisualCTools = I + 1 < Command.CommandLine.size();
++    else if (Arg == "-Xmicrosoft-windows-sdk-root")
++      WindowsSDK = I + 1 < Command.CommandLine.size();
++    else if (Arg == "-isysroot" || Arg == "--sysroot")
++      DarwinSDK = I + 1 < Command.CommandLine.size();
++    else if (Arg.starts_with("-isysroot") || Arg.starts_with("--sysroot="))
++      DarwinSDK = true;
 +  }
-+  return Target.isOSLinux() && !Target.isAndroid();
++  if (Target.isOSLinux())
++    return !Target.isAndroid();
++  if (Target.isWindowsMSVCEnvironment())
++    return VisualCTools && WindowsSDK;
++  if (Target.isOSDarwin())
++    return DarwinSDK;
++  return false;
 +}
 +// Filesystem replay cannot reproduce wall-clock builtin expansion. Observe
 +// actual preprocessing: comments, strings, inactive branches and ordinary
@@ -1602,7 +1617,7 @@ index 51aa4cd..4c3f2af 100644
  /// A scanner to query the dependency information for C++20 Modules.
  ///
  /// The scanner can scan a single file with `scan(PathRef)` member function
-@@ -216,23 +337,10 @@ class ModuleDependencyScanner {
+@@ -216,23 +352,10 @@ class ModuleDependencyScanner {
  public:
    ModuleDependencyScanner(
        std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
@@ -1630,7 +1645,7 @@ index 51aa4cd..4c3f2af 100644
  
    /// Scanning the single file specified by \param FilePath.
    std::optional<ModuleDependencyInfo>
-@@ -267,9 +375,8 @@ private:
+@@ -267,9 +390,8 @@ private:
    // Whether the scanner has scanned the project globally.
    bool GlobalScanned = false;
  
@@ -1642,7 +1657,7 @@ index 51aa4cd..4c3f2af 100644
  
    // Map module name to source file path.
    llvm::StringMap<std::string> ModuleNameToSource;
-@@ -284,47 +391,125 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+@@ -284,47 +406,125 @@ ModuleDependencyScanner::scan(PathRef FilePath,
  
    using namespace clang::tooling;
  
@@ -1799,7 +1814,7 @@ index 51aa4cd..4c3f2af 100644
    return Result;
  }
  
-@@ -373,8 +558,8 @@ class ScanningAllProjectModules : public ProjectModules {
+@@ -373,8 +573,8 @@ class ScanningAllProjectModules : public ProjectModules {
  public:
    ScanningAllProjectModules(
        std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
@@ -1810,7 +1825,7 @@ index 51aa4cd..4c3f2af 100644
  
    ~ScanningAllProjectModules() override = default;
  
-@@ -614,10 +799,17 @@ public:
+@@ -614,10 +814,17 @@ public:
        std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
        const ThreadsafeFS &TFS,
        std::shared_ptr<ProjectModulesCommandCache> CommandCache)
@@ -1832,7 +1847,7 @@ index 51aa4cd..4c3f2af 100644
  
    std::vector<std::string> getRequiredModules(PathRef File) override {
      // Return scanning results directly as it is fast enough and up to date.
-@@ -653,6 +845,11 @@ public:
+@@ -653,6 +860,11 @@ public:
  
    void setCommandMangler(CommandMangler Mangler) override {
      this->Mangler = std::move(Mangler);
@@ -1844,7 +1859,7 @@ index 51aa4cd..4c3f2af 100644
      auto ForwardMangler = [this](tooling::CompileCommand &Command,
                                   PathRef CommandPath) {
        if (this->Mangler)
-@@ -662,7 +859,8 @@ public:
+@@ -662,7 +874,8 @@ public:
      Scanning->setCommandMangler(std::move(ForwardMangler));
    }
  
@@ -1885,7 +1900,7 @@ index a06894a..65ddffd 100644
  /// Providing modules information for the project by scanning every file.
  std::unique_ptr<ProjectModules> getProjectModules(
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index f87d8be..4f82882 100644
+index f87d8be..e806c8a 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -14,9 +14,11 @@
@@ -2159,7 +2174,7 @@ index f87d8be..4f82882 100644
  TEST_F(PrerequisiteModulesTests, CancellationAtCompilerBoundaries) {
    CancellationModulesCDB CDB(TestDir, FS);
    CDB.addFile("cancel.h", "inline int value() { return 42; }");
-@@ -454,6 +683,575 @@ export module M;
+@@ -454,6 +683,609 @@ export module M;
    EXPECT_TRUE(MInfo->canReuse(*Invocation, FS.view(TestDir)));
  }
  
@@ -2611,6 +2626,40 @@ index f87d8be..4f82882 100644
 +  EXPECT_THAT(Scan(), testing::ElementsAre("Q"));
 +  EXPECT_GT(getModuleDependencyScanCache().stats().Invalidations,
 +            Before.Invalidations);
++}
++
++TEST_F(PrerequisiteModulesTests, ScanMemoAdmitsCommandsNamingTheirToolchain) {
++  // The command's target decides, on any host. An MSVC target is observed in
++  // full once it names its Visual C++ tools and Windows SDK, a Darwin one its
++  // SDK; one that leaves its driver to look them up is not.
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  const auto Tools = (TestDir + "/vc").str();
++  const auto SDK = (TestDir + "/sdk").str();
++  ASSERT_FALSE(llvm::sys::fs::create_directories(Tools));
++  ASSERT_FALSE(llvm::sys::fs::create_directories(SDK));
++  CDB.addFile("Named.cpp", "import M;\n",
++              {"--target=x86_64-pc-windows-msvc",
++               "-Xmicrosoft-visualc-tools-root", Tools,
++               "-Xmicrosoft-windows-sdk-root", SDK,
++               "-Xmicrosoft-windows-sdk-version", "10.0.1"});
++  CDB.addFile("Darwin.cpp", "import M;\n",
++              {"--target=arm64-apple-macos12", "-isysroot", SDK});
++  CDB.addFile("LookedUp.cpp", "import M;\n",
++              {"--target=x86_64-pc-windows-msvc"});
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Scan = [&](llvm::StringRef File) {
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(getFullPath(File));
++  };
++  for (llvm::StringRef File : {"Named.cpp", "Darwin.cpp", "LookedUp.cpp"}) {
++    SCOPED_TRACE(File);
++    EXPECT_THAT(Scan(File), testing::ElementsAre("M"));
++    auto Before = getModuleDependencyScanCache().stats();
++    EXPECT_THAT(Scan(File), testing::ElementsAre("M"));
++    EXPECT_EQ(getModuleDependencyScanCache().stats().Hits > Before.Hits,
++              File != "LookedUp.cpp");
++  }
 +}
 +
 +TEST_F(PrerequisiteModulesTests, FailedScanResponseInputsRemainFresh) {

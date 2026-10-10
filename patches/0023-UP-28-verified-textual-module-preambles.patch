@@ -1,4 +1,4 @@
-From c08c9f335d126b9309a5393275f3d200b7cdea25 Mon Sep 17 00:00:00 2001
+From 58ca115fc5188d17f097d666041525971a7eeea3 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -676,10 +676,10 @@ index d16b14f..ed3fa45 100644
  
  using PreambleParsedCallback =
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 47d993a..0ce4e54 100644
+index 190f001..5f0bfc1 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
-@@ -484,7 +484,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+@@ -499,7 +499,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
          Result->RequiredModules.push_back(Required.ModuleName);
      if (Cacheable) {
        auto Current = TFS.view(Cmd->Directory);
@@ -688,7 +688,7 @@ index 47d993a..0ce4e54 100644
                                             *Environment, std::move(*Manifest),
                                             *Result, *Current);
      }
-@@ -559,7 +559,7 @@ public:
+@@ -574,7 +574,7 @@ public:
    ScanningAllProjectModules(
        std::shared_ptr<const clang::tooling::CompilationDatabase> CDB,
        const ThreadsafeFS &TFS, bool ScanInputsKnown)
@@ -697,7 +697,7 @@ index 47d993a..0ce4e54 100644
  
    ~ScanningAllProjectModules() override = default;
  
-@@ -567,6 +567,15 @@ public:
+@@ -582,6 +582,15 @@ public:
      return Scanner.getRequiredModules(File, Mangler);
    }
  
@@ -713,7 +713,7 @@ index 47d993a..0ce4e54 100644
    void setCommandMangler(CommandMangler Mangler) override {
      this->Mangler = std::move(Mangler);
    }
-@@ -595,6 +604,7 @@ public:
+@@ -610,6 +619,7 @@ public:
    }
  
  private:
@@ -721,7 +721,7 @@ index 47d993a..0ce4e54 100644
    ModuleDependencyScanner Scanner;
    CommandMangler Mangler;
  };
-@@ -816,6 +826,11 @@ public:
+@@ -831,6 +841,11 @@ public:
      return Scanning->getRequiredModules(File);
    }
  
@@ -818,7 +818,7 @@ index 15e64ee..36aea5d 100644
        elog("Could not build CompilerInvocation for file {0}", FileName);
        // Remove the old AST if it's still in cache.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index bba097a..0466cb7 100644
+index 795bdb9..7c15591 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -22,6 +22,9 @@
@@ -852,7 +852,7 @@ index bba097a..0466cb7 100644
  class ModuleUnitRootCompilationDatabase
      : public PerFileModulesCompilationDatabase {
  public:
-@@ -3567,6 +3584,249 @@ export int BValue = MValue;
+@@ -3601,6 +3618,249 @@ export int BValue = MValue;
    EXPECT_TRUE(StringRef(HSB.PrebuiltModuleFiles["M"]).contains("M.cppm-"));
  }
  
@@ -1102,7 +1102,7 @@ index bba097a..0466cb7 100644
  TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    PerFileModulesCompilationDatabase CDB(TestDir, FS);
    CDB.addFile("relative.hpp", "int relative_value = 1;\n");
-@@ -3604,6 +3864,102 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
+@@ -3638,6 +3898,102 @@ TEST_F(PrerequisiteModulesTests, ScanManifestReplaysExactRelativeQueries) {
    EXPECT_FALSE(Inputs->matches(*FS.view(TestDir)));
  }
  

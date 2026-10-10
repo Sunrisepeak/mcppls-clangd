@@ -1,4 +1,4 @@
-From c4c180e1e6951328ad44b0a0268917e35b5120b9 Mon Sep 17 00:00:00 2001
+From 0688548fff4bc0144a09de90b6ebb9ebb36f9726 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:32:47 +0900
 Subject: fix(clangd): recognize installed GNU standard module producers
@@ -268,7 +268,7 @@ index cc23406..f6de08f 100644
    auto WorkerRoot = getModuleCacheRoot(ModuleSource, getCDB());
    registerModuleCacheRoot(WorkerRoot);
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 0ce4e54..4258a89 100644
+index 5f0bfc1..2af9afc 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
 @@ -7,6 +7,7 @@
@@ -279,7 +279,7 @@ index 0ce4e54..4258a89 100644
  #include "Compiler.h"
  #include "ModuleDependencyScanCache.h"
  #include "support/Logger.h"
-@@ -402,6 +403,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+@@ -417,6 +418,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
          llvm::StringRef(Arg).starts_with("-Xclang=-add-plugin"))
        Cacheable = false;
    auto RequestFS = TFS.view(Cmd->Directory);

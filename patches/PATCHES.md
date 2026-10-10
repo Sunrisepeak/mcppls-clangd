@@ -46,7 +46,12 @@ it admits a scan whose driver read a configuration file beside its compiler
 (an xlings or mcpp LLVM's `clang++.cfg`), whose bytes it replays like any
 input, where it declined every such scan, and with it the verified textual
 preamble of every file mixing modules with headers built by such a compiler;
-and the first input that replays differently is logged; 0023's audit of a
+admits, on any host, a command whose target is MSVC and that names its
+Visual C++ tools and Windows SDK, or Darwin and names its SDK (as
+mcpp-language-server's do), where it admitted Linux hosts and targets only,
+which left every file mixing headers with module imports on Windows and macOS
+(`<windows.h>`, Qt) without a preamble; and the first input that replays
+differently is logged; 0023's audit of a
 textual preamble no longer compares a directory's time and size, which the
 temporary directory the preamble itself is written to changes, and which kept
 every file mixing headers with module imports (Qt, `<windows.h>`) without a
@@ -54,7 +59,7 @@ preamble, parsing all its headers again for each request.
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`6fad933a56730d6c04ba118bca37abb192c23d97`.
+`5db66324dd2511c01407dfe9162b66abc0ee6bf2`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
