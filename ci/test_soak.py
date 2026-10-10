@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -93,10 +94,19 @@ class Soak(unittest.TestCase):
         self.assertTrue(result['readers_stopped'])
         child_pid = int((self.project / 'child.pid').read_text())
         # A container PID 1 may leave a killed child zombie temporarily; its
-        # kernel state must nevertheless show it is no longer running.
+        # kernel state must nevertheless show it is no longer running, once the
+        # kill has been delivered (a loaded runner can show it running briefly).
         stat = Path(f'/proc/{child_pid}/stat')
-        if stat.exists():
-            self.assertEqual(stat.read_text().split(') ')[1].split()[0], 'Z')
+        state = None
+        for _ in range(100):
+            try:
+                state = stat.read_text().split(') ')[1].split()[0]
+            except (FileNotFoundError, ProcessLookupError):
+                return
+            if state == 'Z':
+                return
+            time.sleep(0.05)
+        self.assertEqual(state, 'Z')
 
 
 if __name__ == '__main__':
