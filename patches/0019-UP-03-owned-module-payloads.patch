@@ -1,4 +1,4 @@
-From d5d441a68a36c198f9b875dbf216ca7ad5fde731 Mon Sep 17 00:00:00 2001
+From 415e86620e29f8aa3ad70ec3b2a5dabb0beae736 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -15,8 +15,8 @@ Module payloads hold persistent admission and kernel leases through publication,
 ---
  clang-tools-extra/clangd/CMakeLists.txt       |    1 +
  clang-tools-extra/clangd/Compiler.cpp         |    6 +
- clang-tools-extra/clangd/ModuleBuildCache.cpp | 1510 +++++++++++++++++
- clang-tools-extra/clangd/ModuleBuildCache.h   |   97 ++
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 1527 +++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildCache.h   |   98 ++
  .../clangd/ModuleBuildWorker.cpp              |   59 +-
  clang-tools-extra/clangd/ModuleBuildWorker.h  |    2 +
  .../clangd/ModuleBuildWorkerOutput.cpp        |   10 +-
@@ -24,7 +24,7 @@ Module payloads hold persistent admission and kernel leases through publication,
  .../clangd/ModuleBuildWorkerStorage.h         |    4 +
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  143 +-
  .../unittests/PrerequisiteModulesTest.cpp     |  542 ++++++
- 11 files changed, 2481 insertions(+), 19 deletions(-)
+ 11 files changed, 2499 insertions(+), 19 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.h
 
@@ -66,10 +66,10 @@ index 0ccc2b0..17e5dff 100644
    CI->getLangOpts().CommentOpts.ParseAllComments = true;
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
 new file mode 100644
-index 0000000..da9c69a
+index 0000000..3550649
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
-@@ -0,0 +1,1510 @@
+@@ -0,0 +1,1527 @@
 +//===--- ModuleBuildCache.cpp - persistent owned payload admission --------===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 +// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -426,6 +426,12 @@ index 0000000..da9c69a
 +  llvm::Expected<Record> read(unsigned Slot) {
 +    if (!rootMatches() || !ledgerMatches())
 +      return failure("namespace or ledger identity changed");
++    return readRecord(Slot);
++  }
++  // read() without its identity checks, for a scan of every slot under the
++  // ledger lock that made them once: four stats a slot made a scan some 25k
++  // system calls.
++  llvm::Expected<Record> readRecord(unsigned Slot) {
 +    Record A{}, B{};
 +    if (!exactRead(Ledger.Value, &A, sizeof(A), offset(Slot, 0)) ||
 +        !exactRead(Ledger.Value, &B, sizeof(B), offset(Slot, 1)))
@@ -894,12 +900,14 @@ index 0000000..da9c69a
 +  Lock Ledger(State->Ledger.Value);
 +  if (!Ledger.acquire())
 +    return ioError();
++  if (!State->rootMatches() || !State->ledgerMatches())
++    return failure("namespace or ledger identity changed");
 +  uint64_t Used = 0;
 +  unsigned Candidate = State->Description.Slots;
 +  Record Selected{};
 +  FD Lease;
 +  for (unsigned S = 0; S < State->Description.Slots; ++S) {
-+    auto R = State->read(S);
++    auto R = State->readRecord(S);
 +    if (!R)
 +      return R.takeError();
 +    if (R->Bytes > UINT64_MAX - Used)
@@ -991,7 +999,9 @@ index 0000000..da9c69a
 +ModuleBuildCache::reserveUntil(
 +    StringRef Key, PathRef Source, uint64_t Bytes, uint64_t OutputEnvelope,
 +    uint64_t CaptureEnvelope, std::chrono::steady_clock::time_point Deadline,
-+    const std::function<bool()> &Cancelled) {
++    const std::function<bool()> &Cancelled,
++    const std::function<void()> &OnPressure) {
++  bool Pressed = false;
 +  for (;;) {
 +    if (Cancelled && Cancelled())
 +      return failure("worker admission cancelled");
@@ -1007,6 +1017,13 @@ index 0000000..da9c69a
 +    if (Error)
 +      return std::move(Error);
 +    assert(Pressure);
++    // The caller lets go of what it only keeps for later, once, before the
++    // first wait.
++    if (OnPressure && !Pressed) {
++      Pressed = true;
++      OnPressure();
++      continue;
++    }
 +    // Never collect, evict a lease, compile without admission, or wait while
 +    // holding the ledger/mutex. Another process can publish or release space.
 +    std::this_thread::sleep_until((std::min)(Deadline,
@@ -1582,10 +1599,10 @@ index 0000000..da9c69a
 +} // namespace clang::clangd
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
 new file mode 100644
-index 0000000..24f07eb
+index 0000000..fdbcdf8
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,98 @@
 +//===--- ModuleBuildCache.h - owned module payload admission -----*- C++
 +//-*-===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -1649,7 +1666,8 @@ index 0000000..24f07eb
 +  reserveUntil(llvm::StringRef Key, PathRef SourceAnchor, uint64_t Bytes,
 +               uint64_t OutputEnvelope, uint64_t CaptureEnvelope,
 +               std::chrono::steady_clock::time_point Deadline,
-+               const std::function<bool()> &Cancelled);
++               const std::function<bool()> &Cancelled,
++               const std::function<void()> &OnPressure = {});
 +  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
 +  lookup(llvm::StringRef Key, std::function<bool(PathRef)> Usable = {});
 +  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>

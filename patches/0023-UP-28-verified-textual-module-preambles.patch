@@ -1,4 +1,4 @@
-From 9f455c39558b9a56b78ddb53006a1477c75d6ce0 Mon Sep 17 00:00:00 2001
+From 3e0d0ccf2985659ba61cebdd7acc0cae6bc02c4d Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -445,7 +445,7 @@ index 34e8422..09f3ca5 100644
  
  private:
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 8c31a7f..0f77094 100644
+index f48c658..89ab536 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -19,6 +19,8 @@
@@ -457,7 +457,7 @@ index 8c31a7f..0f77094 100644
  #include "clang/Frontend/DependencyOutputOptions.h"
  #include "clang/Frontend/FrontendActions.h"
  #include "clang/Serialization/ASTReader.h"
-@@ -2381,6 +2383,40 @@ bool ModulesBuilder::hasRequiredModules(PathRef File) {
+@@ -2420,6 +2422,40 @@ bool ModulesBuilder::hasRequiredModules(PathRef File) {
    return !CachedMDB.getRequiredModules(File).empty();
  }
  
@@ -886,7 +886,7 @@ index 15e64ee..36aea5d 100644
        elog("Could not build CompilerInvocation for file {0}", FileName);
        // Remove the old AST if it's still in cache.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 1cb4406..ee9b6b4 100644
+index 1ed5877..f325fff 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -22,6 +22,9 @@
