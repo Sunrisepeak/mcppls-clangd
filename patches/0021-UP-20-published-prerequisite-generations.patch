@@ -1,4 +1,4 @@
-From 5502c4d08d2506edc141dffb7c2a8da337ea7d51 Mon Sep 17 00:00:00 2001
+From 53186f63cf41ba4061a1b1ed4176e4dc3f833ff9 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:34:00 +0900
 Subject: [clangd] Consumers bind to published prerequisite generations
@@ -16,8 +16,8 @@ A consumer binds to the generations of the prerequisites actually published, a f
   The old implementation fails the two unrelated-root reuse assertions. All 77 prerequisite-module controls pass with the change. A private same-recipe original UP20 replay has zero prerequisite/admission failures, 85 actual builds instead of 526, and restores all sources with normal cleanup. The replay is correctness-only, not release or a latency distribution.
 ---
  clang-tools-extra/clangd/ModulesBuilder.cpp   | 184 +++++++++++++++++-
- .../unittests/PrerequisiteModulesTest.cpp     | 151 +++++++++++++-
- 2 files changed, 327 insertions(+), 8 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     | 152 ++++++++++++++-
+ 2 files changed, 328 insertions(+), 8 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
 index 9c820e1..f48c658 100644
@@ -336,7 +336,7 @@ index 9c820e1..f48c658 100644
  }
  
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 6913606..7e3163a 100644
+index 6913606..86d68e7 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2691,6 +2691,51 @@ void func() {
@@ -391,7 +391,7 @@ index 6913606..7e3163a 100644
  TEST_F(PrerequisiteModulesTests, ReusablePrerequisiteModulesTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3684,8 +3729,112 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+@@ -3684,8 +3729,113 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
      EXPECT_THAT(Result.Completions, testing::Contains(named("fn_m")));
      EXPECT_TRUE(llvm::sys::fs::exists(ReadCopy));
    }
@@ -405,6 +405,7 @@ index 6913606..7e3163a 100644
 +  // A file's prerequisites dropped for a moment (an import being typed, a
 +  // bounded build answered late) are the same read views when asked again,
 +  // not new copies of every module.
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
 +  CDB.addFile("M.cppm", "export module M;\nexport int MValue = 1;\n");
 +  CDB.addFile("A.cppm", "export module A;\nimport M;\n");
 +  ModulesBuilder Builder(CDB);
