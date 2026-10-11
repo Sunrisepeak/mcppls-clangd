@@ -24,8 +24,8 @@ incremental patches without changing the patched tree (both apply to
 changes it combines in its message. Running the product against the engine
 since then found the following, each fixed in the patch it belongs to:
 
-- 0014, scan memo: a hit replays a file's observations through one handle,
-  and does not read again a header that is on disk with the identity, size and
+- 0014, scan memo: a hit replays a file's observations through one handle, and
+  does not read again a header that is on disk with the identity, size and
   modification time it had, last modified well before the scan (the metadata
   clang trusts for a module's inputs). A hit on `std.cppm` no longer reads and
   hashes every libc++ header.
@@ -36,10 +36,10 @@ since then found the following, each fixed in the patch it belongs to:
   mcpp-language-server's do), is admitted on any host; only Linux hosts and
   targets were. Either refusal left every file mixing headers with module
   imports (Qt, `<windows.h>`) without a verified preamble, so all its headers
-  were parsed again for each request. The first input that replays
-  differently is logged.
-- 0017, module worker: a command directory that does not exist yet is
-  reported and the build goes on, as an in-process build does.
+  were parsed again for each request. The first input that replays differently
+  is logged.
+- 0017, module worker: a command directory that does not exist yet is reported
+  and the build goes on, as an in-process build does.
 - 0019, owned cache: a stable generation whose files changed on disk is
   skipped instead of failing the module for good. A clangd started with
   another payload bound (a changed cache budget) adopts the ledger with it
@@ -47,32 +47,34 @@ since then found the following, each fixed in the patch it belongs to:
   for space like other pressure. A lookup tries the slot its key was last
   found in before the others: each slot looked at costs a lease and a ledger
   read, which made every prerequisite of a request about 12 ms to reuse (a
-  completion after an autosave waited 1-2 s on ux-xlings for 100 of them).
-  An admission scans the ledger after checking its identity once, not at
-  each slot, and its caller is told of pressure before the first wait.
-- 0021, published prerequisite generations: a consumer binds to its
-  producers' names and bytes (a digest read once per publication), not to
-  their file identity or the path they were published to. A producer built again to the same bytes, a lost or evicted BMI,
-  kept no importer: every one was rebuilt (ux-mcpp U11: 42 importers of
-  `mcpp.ui` after its BMI was removed, recovery 7 s in 0.0.11, 25 s here).
-  The module files last built for a file are kept by the builder (32 files
-  at most, let go of when admission meets pressure): a set dropped for a
-  moment, an import being typed or a bounded build answered late, was copied
-  again module by module, a reservation and a full BMI write each.
+  completion after an autosave waited 1-2 s on ux-xlings for 100 of them). An
+  admission scans the ledger after checking its identity once, not at each
+  slot, and its caller is told of pressure before the first wait.
+- 0021, published prerequisite generations: a consumer binds to its producers'
+  names and bytes (a digest read once per publication), not to their file
+  identity or the path they were published to. A producer built again to the
+  same bytes, a lost or evicted BMI, kept no importer: every one was rebuilt
+  (ux-mcpp U11: 42 importers of `mcpp.ui` after its BMI was removed, recovery
+  7 s in 0.0.11, 25 s here). The module files last built for a file are kept
+  by the builder (32 files at most, let go of when admission meets pressure):
+  a set dropped for a moment, an import being typed or a bounded build
+  answered late, was copied again module by module, a reservation and a full
+  BMI write each.
 - 0023, textual preamble: a preamble whose prefix another scan records with
   another key holds while the PCH construction's own reads replay unchanged
   (the key is then remembered), and a preamble found incompatible says which
   check failed, down to the file `PrecompiledPreamble::CanReuse` found changed
-  (an optional reason out-parameter). Each new scan of a `<windows.h>` prefix recorded its inputs
-  differently: the first edit of such a file rebuilt its preamble (3.6 s)
-  and completion parsed every header meanwhile (1-3 s each).
+  (an optional reason out-parameter). Each new scan of a `<windows.h>` prefix
+  recorded its inputs differently: the first edit of such a file rebuilt its
+  preamble (3.6 s) and completion parsed every header meanwhile (1-3 s each).
 - 0023, textual preamble audit (and 0025 for every replay): a directory is
   compared by its name and type only, since the temporary directory the
   preamble itself is written to changes its time and size, and an overlay of
-  open drafts makes up the rest for the directories holding them; nor is the main file, whose draft changes with each keystroke during
-  the build and whose prefix the audit proves apart. Either declined the
-  preamble and built it again without one. A status that replays differently
-  is logged with the fields that changed.
+  open drafts makes up the rest for the directories holding them; nor is the
+  main file, whose draft changes with each keystroke during the build and
+  whose prefix the audit proves apart. Either declined the preamble and built
+  it again without one. A status that replays differently is logged with the
+  fields that changed.
 - 0025, completion: inside the preamble region or the module and import
   declarations (an import line being typed, a blank line among them) the
   prerequisites are not rebuilt. An import added since the preamble that
@@ -82,15 +84,16 @@ since then found the following, each fixed in the patch it belongs to:
   that the completion is answered from the modules as they were and the
   rebuild goes on for the next request. A module newly imported is still built
   for the answer. A draft whose text after its preamble holds no directive and
-  no module declaration is scanned as its preamble, a scan that stays
-  memoized while only the body changes, plus the `import` declarations in
-  that text: typing in such a file no longer preprocesses all its headers
-  again (seconds per keystroke with `<windows.h>`). One document update or one
-  completion replays each memoized scan once, however many of its queries ask
-  for it (`ModuleScanEpoch.h`); a preamble build replays afresh. `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares,
-  for an empty pattern, only the names its header declares (the ordinary
-  lookup lists target predeclarations and macros differently for a preamble
-  and a main file on x86_64-pc-windows-msvc).
+  no module declaration is scanned as its preamble, a scan that stays memoized
+  while only the body changes, plus the `import` declarations in that text:
+  typing in such a file no longer preprocesses all its headers again (seconds
+  per keystroke with `<windows.h>`). One document update or one completion
+  replays each memoized scan once, however many of its queries ask for it
+  (`ModuleScanEpoch.h`); a preamble build replays afresh.
+  `ExternalUnqualifiedNamesPreserveScopesAndUsing` compares, for an empty
+  pattern, only the names its header declares (the ordinary lookup lists
+  target predeclarations and macros differently for a preamble and a main file
+  on x86_64-pc-windows-msvc).
 
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
