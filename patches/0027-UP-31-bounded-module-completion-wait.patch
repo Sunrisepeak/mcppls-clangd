@@ -1,0 +1,355 @@
+From 7cd157efe1d02926300c32630e5c8d6606278a78 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 12 Oct 2026 03:59:20 +0900
+Subject: [clangd] Completion waits for modules a bounded time
+
+In a file that imports modules, completion waited for the file's first
+preamble without limit, and built a module the draft newly imports
+synchronously: while a project's modules were being prepared, completion
+waited for all of them (minutes on a large Windows project), where stock
+clangd answers from its fallback at once.
+
+The first preamble is now waited for up to FirstPreambleWait (600 ms,
+--completion-first-preamble-wait-ms; TUScheduler's StaleWithin), past which
+completion answers as without a preamble. A newly imported module is waited
+for up to CodeCompleteOptions::ModuleWait (250 ms, --completion-module-wait-ms),
+as a dependency edit already was, past which the answer comes from the
+modules the preamble carries. Either answer is marked incomplete, so the
+client asks again and gets the imported names once they are there; the
+builds go on meanwhile.
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     | 29 ++++++++----
+ clang-tools-extra/clangd/ClangdServer.h       |  5 ++
+ clang-tools-extra/clangd/CodeComplete.cpp     | 29 +++++++++---
+ clang-tools-extra/clangd/CodeComplete.h       |  6 +++
+ clang-tools-extra/clangd/TUScheduler.cpp      | 15 ++++++
+ clang-tools-extra/clangd/TUScheduler.h        |  6 +++
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  | 20 ++++++++
+ .../clangd/unittests/TUSchedulerTests.cpp     | 47 +++++++++++++++++++
+ 8 files changed, 142 insertions(+), 15 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index b03e14f..ec4bdac 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -189,6 +189,7 @@ ClangdServer::Options::operator TUScheduler::Options() const {
+   Opts.RetentionPolicy = RetentionPolicy;
+   Opts.StorePreamblesInMemory = StorePreamblesInMemory;
+   Opts.UpdateDebounce = UpdateDebounce;
++  Opts.FirstPreambleWait = FirstPreambleWait;
+   Opts.ContextProvider = ContextProvider;
+   Opts.PreambleThrottler = PreambleThrottler;
+   return Opts;
+@@ -463,6 +464,14 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
+     CodeCompleteResult Result = clangd::codeComplete(
+         File, Pos, IP->Preamble, ParseInput, CodeCompleteOpts,
+         SpecFuzzyFind ? &*SpecFuzzyFind : nullptr);
++    // Answered without the first preamble of a module importer (its modules
++    // are still being built): incomplete, so the client asks again and gets
++    // the imported names once the preamble is there.
++    if (!IP->Preamble && ModulesManager &&
++        CodeCompleteOpts.RunParser != CodeCompleteOptions::NeverParse) {
++      log("Completion in {0} answered before its first preamble", File);
++      Result.HasMore = true;
++    }
+     // We don't want `codeComplete` to wait for the async call if it doesn't use
+     // the result (e.g. non-index completion, speculation fails), so that `CB`
+     // is called as soon as results are available.
+@@ -485,15 +494,17 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
+ 
+   // Reuse a potentially-stale preamble without waiting for an edit rebuild.
+   // In modules mode, the first preamble owns prerequisite construction: an
+-  // absent preamble would silently omit imported declarations from fallback
+-  // completion. Wait for that initial build unless parsing was disabled.
+-  bool NeedsInitialBuild =
+-      Opts.RunParser == CodeCompleteOptions::AlwaysParse ||
+-      (ModulesManager && Opts.RunParser != CodeCompleteOptions::NeverParse);
+-  WorkScheduler->runWithPreamble(
+-      "CodeComplete", File,
+-      NeedsInitialBuild ? TUScheduler::Stale : TUScheduler::StaleOrAbsent,
+-      std::move(Task));
++  // absent preamble omits imported declarations from fallback completion, so
++  // the initial build is waited for -- up to FirstPreambleWait, past which
++  // the answer is the fallback's, marked incomplete (a first preamble whose
++  // modules take minutes to build left completion waiting minutes).
++  const TUScheduler::PreambleConsistency Consistency =
++      Opts.RunParser == CodeCompleteOptions::AlwaysParse ? TUScheduler::Stale
++      : ModulesManager && Opts.RunParser != CodeCompleteOptions::NeverParse
++          ? TUScheduler::StaleWithin
++          : TUScheduler::StaleOrAbsent;
++  WorkScheduler->runWithPreamble("CodeComplete", File, Consistency,
++                                 std::move(Task));
+ }
+ 
+ void ClangdServer::signatureHelp(PathRef File, Position Pos,
+diff --git a/clang-tools-extra/clangd/ClangdServer.h b/clang-tools-extra/clangd/ClangdServer.h
+index cc9ecae..7c4e799 100644
+--- a/clang-tools-extra/clangd/ClangdServer.h
++++ b/clang-tools-extra/clangd/ClangdServer.h
+@@ -164,6 +164,11 @@ public:
+     /// directory.
+     std::optional<std::string> ResourceDir;
+ 
++    /// How long completion in a file that imports modules waits for the
++    /// file's first preamble (its modules may still be building) before it
++    /// answers as without a preamble, marking the answer incomplete.
++    std::chrono::milliseconds FirstPreambleWait = std::chrono::milliseconds(600);
++
+     /// Time to wait after a new file version before computing diagnostics.
+     DebouncePolicy UpdateDebounce = DebouncePolicy{
+         /*Min=*/std::chrono::milliseconds(50),
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index fa2ec25..715fffc 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1363,6 +1363,9 @@ struct SemaCompleteInput {
+   const PreambleData &Preamble;
+   const std::optional<PreamblePatch> Patch;
+   const ParseInputs &ParseInput;
++  std::chrono::milliseconds ModuleWait = std::chrono::milliseconds(250);
++  /// Set when the answer came from fewer modules than the draft imports.
++  mutable bool PartialModules = false;
+ };
+ 
+ void loadMainFilePreambleMacros(const Preprocessor &PP,
+@@ -1502,7 +1505,9 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+     // An import added since the preamble that nothing in the project builds
+     // (one being typed) loads no BMI either way, and one removed leaves a BMI
+     // that nothing imports: the preamble's modules still serve the draft. A
+-    // module newly imported is built for this answer, which is about it.
++    // module newly imported, or one still being prepared, is waited for a
++    // moment; one that takes longer is answered from the modules there are,
++    // and the answer is marked incomplete so the client asks again.
+     const llvm::StringSet<> Attached =
+         RequiredModules->getRequiredModuleNames();
+     const bool NewModule =
+@@ -1514,10 +1519,18 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+         });
+     if (NewModule) {
+       FreshModules =
+-          Input.ParseInput.ModulesManager->buildPrerequisiteModulesFor(
+-              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents);
+-      RequiredModules = FreshModules.get();
+-      ReusePreamble = false;
++          Input.ParseInput.ModulesManager->buildPrerequisiteModulesWithin(
++              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
++              Input.ModuleWait);
++      if (FreshModules) {
++        RequiredModules = FreshModules.get();
++        ReusePreamble = false;
++      } else {
++        log("Completion in {0} answers before its new modules are built "
++            "(waited {1} ms)",
++            Input.FileName, Input.ModuleWait.count());
++        Input.PartialModules = true;
++      }
+     } else if (!RequiredModules->canReuse(*CI, RequestVFS)) {
+       // A dependency edited: its rebuild is waited for a moment. One that
+       // takes longer goes on for the next request, and this one is answered
+@@ -1529,6 +1542,8 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+       if (FreshModules) {
+         RequiredModules = FreshModules.get();
+         ReusePreamble = false;
++      } else {
++        Input.PartialModules = true;
+       }
+     }
+   }
+@@ -1858,6 +1873,8 @@ public:
+ 
+     semaCodeComplete(std::move(RecorderOwner), Opts.getClangCompleteOpts(),
+                      SemaCCInput, &Includes);
++    if (SemaCCInput.PartialModules)
++      Output.HasMore = true;   // the modules still being built answer next time
+     logResults(Output, Tracer);
+     return Output;
+   }
+@@ -2579,7 +2596,7 @@ CodeCompleteResult codeComplete(PathRef FileName, Position Pos,
+                                     /*PreamblePatch=*/
+                                     PreamblePatch::createMacroPatch(
+                                         FileName, ParseInput, *Preamble),
+-                                    ParseInput});
++                                    ParseInput, Opts.ModuleWait});
+ }
+ 
+ SignatureHelp signatureHelp(PathRef FileName, Position Pos,
+diff --git a/clang-tools-extra/clangd/CodeComplete.h b/clang-tools-extra/clangd/CodeComplete.h
+index 81300ed..8ac4554 100644
+--- a/clang-tools-extra/clangd/CodeComplete.h
++++ b/clang-tools-extra/clangd/CodeComplete.h
+@@ -44,6 +44,12 @@ struct CodeCompleteOptions {
+   /// Returns options that can be passed to clang's completion engine.
+   clang::CodeCompleteOptions getClangCompleteOpts() const;
+ 
++  /// How long completion waits for a module the draft imports and its
++  /// preamble does not carry (one being typed, or one still being prepared)
++  /// before it answers from the modules it has, marking the answer
++  /// incomplete; the module goes on building for the next request.
++  std::chrono::milliseconds ModuleWait = std::chrono::milliseconds(250);
++
+   /// When true, completion items will contain expandable code snippets in
+   /// completion (e.g.  `return ${1:expression}` or `foo(${1:int a}, ${2:int
+   /// b})).
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 1dedf6b..9b41736 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -662,6 +662,8 @@ public:
+   /// return after an unsuccessful build of the preamble too, i.e. result of
+   /// getPossiblyStalePreamble() can be null even after this function returns.
+   void waitForFirstPreamble() const;
++  /// The same, giving up at `D`; whether the first preamble was built by then.
++  bool waitForFirstPreamble(Deadline D) const;
+ 
+   TUScheduler::FileStats stats() const;
+   bool isASTCached() const;
+@@ -1312,6 +1314,12 @@ void ASTWorker::waitForFirstPreamble() const {
+   PreambleCV.wait(Lock, [this] { return LatestPreamble || Done; });
+ }
+ 
++bool ASTWorker::waitForFirstPreamble(Deadline D) const {
++  std::unique_lock<std::mutex> Lock(Mutex);
++  return clangd::wait(Lock, PreambleCV, D,
++                      [this] { return LatestPreamble || Done; });
++}
++
+ tooling::CompileCommand ASTWorker::getCurrentCompileCommand() const {
+   std::unique_lock<std::mutex> Lock(Mutex);
+   return FileInputs.CompileCommand;
+@@ -1834,6 +1842,13 @@ void TUScheduler::runWithPreamble(llvm::StringRef Name, PathRef File,
+       // this task was queued. Use the resolved command paired with the first
+       // preamble, rather than the provisional fallback captured above.
+       Command = Worker->getCurrentCompileCommand();
++    } else if (Consistency == PreambleConsistency::StaleWithin) {
++      // A first preamble that takes longer (its modules are still being
++      // built) is not waited for: the action runs without it, as with
++      // StaleOrAbsent, and the next one gets it.
++      if (Worker->waitForFirstPreamble(timeoutSeconds(
++              std::chrono::duration<double>(Opts.FirstPreambleWait).count())))
++        Command = Worker->getCurrentCompileCommand();
+     }
+     std::shared_ptr<const ASTSignals> Signals;
+     Preamble = Worker->getPossiblyStalePreamble(&Signals);
+diff --git a/clang-tools-extra/clangd/TUScheduler.h b/clang-tools-extra/clangd/TUScheduler.h
+index d0da203..7befd49 100644
+--- a/clang-tools-extra/clangd/TUScheduler.h
++++ b/clang-tools-extra/clangd/TUScheduler.h
+@@ -226,6 +226,9 @@ public:
+     /// This tries to ensure we rebuild once the user stops typing.
+     DebouncePolicy UpdateDebounce;
+ 
++    /// How long a StaleWithin read waits for a file's first preamble.
++    std::chrono::milliseconds FirstPreambleWait = std::chrono::milliseconds(600);
++
+     /// Determines when to keep idle ASTs in memory for future use.
+     ASTRetentionPolicy RetentionPolicy;
+ 
+@@ -322,6 +325,9 @@ public:
+     /// Besides accepting stale preamble, this also allow preamble to be absent
+     /// (not ready or failed to build).
+     StaleOrAbsent,
++    /// Waits for the first preamble as Stale does, but at most
++    /// Options::FirstPreambleWait; past it, as StaleOrAbsent.
++    StaleWithin,
+   };
+ 
+   /// Schedule an async read of the preamble.
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 753d6eb..097eab7 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -211,6 +211,24 @@ opt<CodeCompleteOptions::CodeCompletionParse> CodeCompletionParse{
+     Hidden,
+ };
+ 
++opt<unsigned> CompletionFirstPreambleWait{
++    "completion-first-preamble-wait-ms",
++    cat(Features),
++    desc("How long completion in a file that imports modules waits for its "
++         "first preamble before answering without it (marked incomplete)"),
++    init(600),
++    Hidden,
++};
++
++opt<unsigned> CompletionModuleWait{
++    "completion-module-wait-ms",
++    cat(Features),
++    desc("How long completion waits for a module the draft imports and its "
++         "preamble lacks before answering from the modules it has"),
++    init(250),
++    Hidden,
++};
++
+ opt<std::string> CrashDumpsDir{
+     "crash-dumps-dir",
+     cat(Features),
+@@ -1020,6 +1038,8 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+     Opts.CodeComplete.IncludeIndicator.NoInsert.clear();
+   }
+   Opts.CodeComplete.RunParser = CodeCompletionParse;
++  Opts.CodeComplete.ModuleWait = std::chrono::milliseconds(CompletionModuleWait);
++  Opts.FirstPreambleWait = std::chrono::milliseconds(CompletionFirstPreambleWait);
+   Opts.CodeComplete.RankingModel = RankingModel;
+   // FIXME: If we're using C++20 modules, force the lookup process to load
+   // external decls, since currently the index doesn't support C++20 modules.
+diff --git a/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp b/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp
+index c6862b5..8c1cf54 100644
+--- a/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp
++++ b/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp
+@@ -1127,6 +1127,53 @@ TEST(DebouncePolicy, Compute) {
+   EXPECT_NEAR(25, Compute({}), 0.01) << "no history -> max";
+ }
+ 
++// A StaleWithin read waits for the first preamble only so long: a module
++// importer whose first preamble waits minutes for its modules is answered
++// without it meanwhile, and with it once it is there.
++TEST_F(TUSchedulerTests, StaleWithinGivesUpOnASlowFirstPreamble) {
++  class BlockFirstPreamble : public ParsingCallbacks {
++  public:
++    explicit BlockFirstPreamble(Notification &N) : N(N) {}
++    void onPreambleAST(
++        PathRef, llvm::StringRef, CapturedASTCtx,
++        std::shared_ptr<const include_cleaner::PragmaIncludes>) override {
++      N.wait();
++    }
++
++  private:
++    Notification &N;
++  };
++  Notification Release;
++  auto Opts = optsForTest();
++  Opts.FirstPreambleWait = std::chrono::milliseconds(50);
++  TUScheduler S(CDB, Opts, std::make_unique<BlockFirstPreamble>(Release));
++  Path File = testPath("foo.cpp");
++  FS.Files[testPath("foo.h")] = "int x;";
++  S.update(File, getInputs(File, "#include \"foo.h\"\nint y;"),
++           WantDiagnostics::Auto);
++
++  Notification Answered;
++  S.runWithPreamble("within", File, TUScheduler::StaleWithin,
++                    [&](Expected<InputsAndPreamble> IP) {
++                      ASSERT_TRUE(bool(IP));
++                      EXPECT_EQ(IP->Preamble, nullptr);
++                      Answered.notify();
++                    });
++  EXPECT_TRUE(Answered.wait(timeoutSeconds(10)))
++      << "answered while the first preamble is still being built";
++  Release.notify();
++  ASSERT_TRUE(S.blockUntilIdle(timeoutSeconds(60)));
++
++  bool HadPreamble = false;
++  S.runWithPreamble("after", File, TUScheduler::StaleWithin,
++                    [&](Expected<InputsAndPreamble> IP) {
++                      ASSERT_TRUE(bool(IP));
++                      HadPreamble = IP->Preamble != nullptr;
++                    });
++  ASSERT_TRUE(S.blockUntilIdle(timeoutSeconds(60)));
++  EXPECT_TRUE(HadPreamble);
++}
++
+ TEST_F(TUSchedulerTests, AsyncPreambleThread) {
+   // Blocks preamble thread while building preamble with \p BlockVersion until
+   // \p N is notified.
+-- 
+2.53.0
+
