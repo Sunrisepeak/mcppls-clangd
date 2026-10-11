@@ -1,4 +1,4 @@
-From 210f9deef9babd4b0f01eee37b8a0daf4b15e6be Mon Sep 17 00:00:00 2001
+From d249289acf062999194b333477f9066d798f9654 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -16,13 +16,13 @@ prerequisite validation and late completion compatibility checks.
  .../clangd/ModuleDependencyScanCache.h        | 229 +++++++++--
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  36 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |   8 +
- clang-tools-extra/clangd/Preamble.cpp         | 120 +++++-
+ clang-tools-extra/clangd/Preamble.cpp         | 143 ++++++-
  clang-tools-extra/clangd/Preamble.h           |   2 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  19 +-
  clang-tools-extra/clangd/ProjectModules.h     |  13 +
  clang-tools-extra/clangd/TUScheduler.cpp      |  32 +-
  .../unittests/PrerequisiteModulesTest.cpp     | 376 ++++++++++++++++++
- 10 files changed, 799 insertions(+), 46 deletions(-)
+ 10 files changed, 816 insertions(+), 52 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
 index 82e5c38..c6f4728 100644
@@ -518,7 +518,7 @@ index f98a505..a616687 100644
    std::vector<std::string> getRequiredModuleNames(PathRef File);
    std::vector<std::string> getRequiredModuleNames(PathRef File,
 diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
-index f43471e..ee6f292 100644
+index f43471e..514fb43 100644
 --- a/clang-tools-extra/clangd/Preamble.cpp
 +++ b/clang-tools-extra/clangd/Preamble.cpp
 @@ -18,6 +18,7 @@
@@ -715,21 +715,44 @@ index f43471e..ee6f292 100644
      Result->Diags = std::move(Diags);
      Result->Includes = CapturedInfo.takeIncludes();
      Result->Pragmas = std::make_shared<const include_cleaner::PragmaIncludes>(
-@@ -760,6 +860,14 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+@@ -760,12 +860,31 @@ bool isPreambleCompatible(const PreambleData &Preamble,
      return NewNameSet == Preamble.RequiredModules->getRequiredModuleNames();
    };
  
+-  return compileCommandsAreEqual(Inputs.CompileCommand,
+-                                 Preamble.CompileCommand) &&
+-         Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS) &&
+-         (!Preamble.RequiredModules ||
+-          Preamble.RequiredModules->canReuse(CI, VFS)) &&
+-         RequiredModulesMatch();
++  // Which check failed is logged: a preamble rebuilt for every edit of a
++  // file with heavy headers costs seconds, and nothing else says why.
++  auto Incompatible = [&](llvm::StringRef Why) {
++    vlog("Preamble of {0} is not compatible: {1}", FileName, Why);
++    return false;
++  };
 +  if (Preamble.TextualModuleInputs) {
 +    if (!Inputs.ModulesManager)
-+      return false;
++      return Incompatible("no modules manager for its textual module inputs");
 +    auto Current = Inputs.ModulesManager->getTextualPreambleInputs(
 +        FileName, *Inputs.TFS, Inputs.Contents, Inputs.CompileCommand, CI);
-+    if (!Current || !(*Current == *Preamble.TextualModuleInputs))
-+      return false;
++    if (!Current)
++      return Incompatible("its textual module inputs cannot be computed");
++    if (!(*Current == *Preamble.TextualModuleInputs))
++      return Incompatible("its textual module inputs changed");
 +  }
-   return compileCommandsAreEqual(Inputs.CompileCommand,
-                                  Preamble.CompileCommand) &&
-          Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS) &&
++  if (!compileCommandsAreEqual(Inputs.CompileCommand, Preamble.CompileCommand))
++    return Incompatible("the compile command changed");
++  if (!Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS))
++    return Incompatible("its text or an included file changed");
++  if (Preamble.RequiredModules && !Preamble.RequiredModules->canReuse(CI, VFS))
++    return Incompatible("its prerequisite modules cannot be reused");
++  if (!RequiredModulesMatch())
++    return Incompatible("the modules it imports changed");
++  return true;
+ }
+ 
+ void escapeBackslashAndQuotes(llvm::StringRef Text, llvm::raw_ostream &OS) {
 diff --git a/clang-tools-extra/clangd/Preamble.h b/clang-tools-extra/clangd/Preamble.h
 index d16b14f..ed3fa45 100644
 --- a/clang-tools-extra/clangd/Preamble.h
