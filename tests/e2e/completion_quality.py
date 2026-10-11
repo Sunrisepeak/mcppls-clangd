@@ -82,7 +82,8 @@ def main():
                 {'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': uri}}},
                 {'method': 'textDocument/completion',
                  'params': {'textDocument': {'uri': uri}, 'position': {'line': 7, 'character': 9}},
-                 'expected_symbols': ['freshItem'], 'forbidden_symbols': ['addOption']}]
+                 # Answered at once from the modules before the edit while the rebuild goes on.
+                 'expected_symbols': ['freshItem'], 'forbidden_symbols': ['addOption'], 'retry_seconds': 20}]
         manifest = project / f'{name}.json'
         manifest.write_text(json.dumps(case, indent=2))
         results.append(replay.replay(engine, manifest))

@@ -38,6 +38,27 @@ where each release's archive is, and `patches/HISTORY.md` maps the incremental
 patch numbers older notes use to the current series. The plan and architecture
 live in [.agents/docs](.agents/docs).
 
+## Integrating with mcppls
+
+A change here reaches users through mcpp-language-server's payload, so it is
+tested there before it is released:
+
+1. A PR's CI (`build-test`) packages each platform's part as a release does,
+   with its proved `engine.json`, as the artifact `clangd-<platform>-portable`
+   (the Linux ones from the Ubuntu 20.04 floor job).
+2. The mcpp-language-server PR that takes the change names that run in
+   `packaging/engine-candidate.json`; its CI assembles every payload from those
+   parts and runs its whole suite on them
+   ([docs/92-release.md, "A new engine"][new-engine]).
+3. Only when both PRs are green is this PR merged and tagged. The release
+   rebuilds the same source; the product then pins the released archives and
+   drops the candidate file.
+
+A patch that changes behaviour the product relies on, or a feature in
+`engine.json`, is not merged on this repository's CI alone.
+
+[new-engine]: https://github.com/Sunrisepeak/mcpp-language-server/blob/main/docs/92-release.md#a-new-engine
+
 ## License
 
 Same as LLVM: Apache License v2.0 with LLVM Exceptions (see [LICENSE](LICENSE)).

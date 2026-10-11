@@ -64,7 +64,8 @@ def main():
         parser.error(f'binary does not report expected identity: {version.strip()}')
     subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', 'HEAD', '--',
                     'UPSTREAM', 'patches', 'overlay', 'ci/scripts', 'ci/package_identity.py',
-                    'ci/const_views_canary.py', 'tests/e2e/module_directive_diagnostics.py'], check=True,
+                    'ci/const_views_canary.py', 'ci/unresolved_import_canary.py',
+                    'tests/e2e/module_directive_diagnostics.py'], check=True,
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')], text=True).strip()
@@ -106,6 +107,10 @@ def main():
                            text=True, capture_output=True, timeout=120)
     if views.returncode != 0:
         parser.error('final package bytes failed misc-const-correctness view canary: ' + views.stdout.strip())
+    unresolved = subprocess.run(['python3', str(ROOT / 'ci/unresolved_import_canary.py'),
+                                 '--engine', str(engine.resolve())], text=True, capture_output=True, timeout=120)
+    if unresolved.returncode != 0:
+        parser.error('final package bytes failed unresolved import canary: ' + unresolved.stdout.strip())
     directive_report = args.build_dir / 'module-directive-package-canary.json'
     directive = subprocess.run([
         'python3', str(ROOT / 'tests/e2e/module_directive_diagnostics.py'),
@@ -123,7 +128,7 @@ def main():
                 'platform': args.platform, 'sha256': sha(engine),
                 'features': ['semantic-tokens-range', 'format-style-mcpp',
                              'module-directive-diagnostic-ranges', 'module-directive-recovery',
-                             'const-correctness-views'],
+                             'const-correctness-views', 'unresolved-import-recovery'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
                 'llvm-tree-commit': stamp['llvm-tree-commit'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}
