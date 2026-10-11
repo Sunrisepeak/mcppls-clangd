@@ -44,7 +44,10 @@ since then found the following, each fixed in the patch it belongs to:
   skipped instead of failing the module for good. A clangd started with
   another payload bound (a changed cache budget) adopts the ledger with it
   instead of failing every module build; charges above a lowered bound wait
-  for space like other pressure.
+  for space like other pressure. A lookup tries the slot its key was last
+  found in before the others: each slot looked at costs a lease and a ledger
+  read, which made every prerequisite of a request about 12 ms to reuse (a
+  completion after an autosave waited 1-2 s on ux-xlings for 100 of them).
 - 0021, published prerequisite generations: a consumer binds to its
   producers' bytes (a digest read once per publication), not to their file
   identity. A producer built again to the same bytes, a lost or evicted BMI,
@@ -79,7 +82,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`67a640802b9a1b9dbed9d13795a79a83f803387a`.
+`df2a4c44d25de8d74a10ae5228293a69b3a9e544`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
