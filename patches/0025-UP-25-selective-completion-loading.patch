@@ -1,4 +1,4 @@
-From 3f0a22c85a58515c609e0720384aa0682adfecee Mon Sep 17 00:00:00 2001
+From 302687d3600b88cad3814806310c3234e4c03dbd Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -406,7 +406,7 @@ index 0000000..ea7d60f
 +
 +#endif
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index f6de08f..23947de 100644
+index 33e4fa6..c19908b 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -26,6 +26,7 @@
@@ -415,9 +415,9 @@ index f6de08f..23947de 100644
  #include "clang/Serialization/ModuleCache.h"
 +#include <algorithm>
  #include <atomic>
- 
- #include "llvm/ADT/DenseSet.h"
-@@ -98,6 +99,82 @@ private:
+ #include <map>
+ #include <mutex>
+@@ -102,6 +103,82 @@ private:
    const std::string Contents;
  };
  
@@ -500,7 +500,7 @@ index f6de08f..23947de 100644
  llvm::cl::opt<bool> DebugModulesBuilder(
      "debug-modules-builder",
      llvm::cl::desc("Don't remove clangd's built module files for debugging. "
-@@ -1806,33 +1883,53 @@ public:
+@@ -1858,33 +1935,53 @@ public:
  
    /// Source/header/draft inputs can change without a command notification.
    /// Re-derive this preamble-safety decision from the actual request view.
@@ -574,7 +574,7 @@ index f6de08f..23947de 100644
    }
  
    llvm::Error
-@@ -2346,7 +2443,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2398,7 +2495,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
        !CI.getFrontendOpts().ModuleFiles.empty() ||
        !CI.getPreprocessorOpts().ImplicitPCHInclude.empty())
      return std::nullopt;
@@ -584,7 +584,7 @@ index f6de08f..23947de 100644
    auto MDB = Impl->getCDB().getProjectModules(File);
    if (!MDB)
      return std::nullopt;
-@@ -2368,11 +2466,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2420,11 +2518,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
    return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
  }
  
@@ -641,7 +641,7 @@ index f6de08f..23947de 100644
  }
  
  std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
-@@ -2388,12 +2530,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+@@ -2440,12 +2582,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
  std::vector<std::string>
  ModulesBuilder::getRequiredModuleNames(PathRef File, const ThreadsafeFS &TFS,
                                         llvm::StringRef Contents) {
@@ -659,7 +659,7 @@ index f6de08f..23947de 100644
  }
  
  std::unique_ptr<PrerequisiteModules>
-@@ -2436,11 +2581,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+@@ -2488,11 +2633,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
    return std::move(RequiredModules);
  }
  
@@ -1406,7 +1406,7 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index fb57088..40647b5 100644
+index 48d10e3..27929a6 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2623,6 +2623,62 @@ void func() {

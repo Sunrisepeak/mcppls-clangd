@@ -45,6 +45,11 @@ since then found the following, each fixed in the patch it belongs to:
   another payload bound (a changed cache budget) adopts the ledger with it
   instead of failing every module build; charges above a lowered bound wait
   for space like other pressure.
+- 0021, published prerequisite generations: a consumer binds to its
+  producers' bytes (a digest read once per publication), not to their file
+  identity. A producer built again to the same bytes, a lost or evicted BMI,
+  kept no importer: every one was rebuilt (ux-mcpp U11: 42 importers of
+  `mcpp.ui` after its BMI was removed, recovery 7 s in 0.0.11, 25 s here).
 - 0023, textual preamble audit (and 0025 for every replay): a directory is
   compared by its name and type only, since the temporary directory the
   preamble itself is written to changes its time and size, and an overlay of
@@ -74,7 +79,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`bca1827bc5d7ed5f02617a302df2406dbd4ba704`.
+`67a640802b9a1b9dbed9d13795a79a83f803387a`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 

@@ -1,4 +1,4 @@
-From f746382cd5544703aa862d51b0b49702f2a41c36 Mon Sep 17 00:00:00 2001
+From 4a35024bc9b229b424190cdfe01d3eac2051a20e Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:34:00 +0900
 Subject: [clangd] Consumers bind to published prerequisite generations
@@ -15,15 +15,74 @@ A consumer binds to the generations of the prerequisites actually published, a f
 
   The old implementation fails the two unrelated-root reuse assertions. All 77 prerequisite-module controls pass with the change. A private same-recipe original UP20 replay has zero prerequisite/admission failures, 85 actual builds instead of 526, and restores all sources with normal cleanup. The replay is correctness-only, not release or a latency distribution.
 ---
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 88 ++++++++++++++++-
- .../unittests/PrerequisiteModulesTest.cpp     | 94 +++++++++++++++++++
- 2 files changed, 177 insertions(+), 5 deletions(-)
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 140 +++++++++++++++++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 123 +++++++++++++++
+ 2 files changed, 258 insertions(+), 5 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 9c820e1..046830e 100644
+index 9c820e1..8c31a7f 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
-@@ -831,6 +831,34 @@ public:
+@@ -24,6 +24,9 @@
+ #include "clang/Serialization/ASTReader.h"
+ #include "clang/Serialization/ModuleCache.h"
+ #include <atomic>
++#include <map>
++#include <mutex>
++#include <tuple>
+ 
+ #include "llvm/ADT/DenseSet.h"
+ #include "llvm/ADT/STLExtras.h"
+@@ -38,6 +41,7 @@
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/Process.h"
+ #include "llvm/Support/ThreadPool.h"
++#include "llvm/Support/xxhash.h"
+ 
+ #ifdef _WIN32
+ #include <fcntl.h>
+@@ -605,6 +609,40 @@ protected:
+   std::string PublishedModuleFilePath;
+ };
+ 
++/// The digest of a producer's bytes, read once per published identity.
++/// \p Content is the file holding them: the immutable view a read lease
++/// copied (\p Leased), or the published file, which is read again only while
++/// its identity holds. nullopt when the bytes cannot be read as that identity.
++std::optional<std::string>
++producerDigest(const ModuleValidationCache::FileIdentity &Identity,
++               PathRef Content, bool Leased) {
++  using Key = std::tuple<uint64_t, uint64_t, uint64_t, int64_t>;
++  static std::mutex Mutex;
++  static std::map<Key, std::string> Digests;
++  const Key K{Identity.Size, Identity.ID.getDevice(), Identity.ID.getFile(),
++              Identity.ModTime.time_since_epoch().count()};
++  {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    if (auto It = Digests.find(K); It != Digests.end())
++      return It->second;
++  }
++  auto Buffer = llvm::MemoryBuffer::getFile(Content, /*IsText=*/false,
++                                            /*RequiresNullTerminator=*/false);
++  if (!Buffer || (*Buffer)->getBufferSize() != Identity.Size)
++    return std::nullopt;
++  if (!Leased && ModuleValidationCache::identityOf(Content) != Identity)
++    return std::nullopt;
++  const StringRef Bytes = (*Buffer)->getBuffer();
++  const auto Hash = llvm::xxh3_128bits(Bytes.bytes_begin(), Bytes.size());
++  std::string Digest = llvm::utohexstr(Hash.high64, /*LowerCase=*/true, 16) +
++                       llvm::utohexstr(Hash.low64, /*LowerCase=*/true, 16);
++  std::lock_guard<std::mutex> Lock(Mutex);
++  if (Digests.size() >= 4096)
++    Digests.clear();
++  Digests.emplace(K, Digest);
++  return Digest;
++}
++
+ /// Represents a prebuilt module file which is not owned by us.
+ class PrebuiltModuleFile : public ModuleFile {
+ private:
+@@ -831,6 +869,48 @@ public:
      return Result;
    }
  
@@ -41,11 +100,25 @@ index 9c820e1..046830e 100644
 +      // never the temporary copy's path/inode/time. A legacy publication can
 +      // be replaced while this request still owns the previous immutable copy.
 +      auto Identity = Module->getPublishedSourceIdentity();
-+      if (!Identity)
++      PathRef Content = Module->getModuleFilePath();
++      if (!Identity) {
 +        Identity = ModuleValidationCache::identityOf(
 +            Module->getPublishedModuleFilePath());
++        Content = Module->getPublishedModuleFilePath();
++      }
 +      if (!Identity)
 +        return llvm::createStringError("Module prerequisite producer is unavailable");
++      // A producer is bound by its bytes: one built again to the same bytes
++      // (a lost or evicted BMI) keeps its consumers, as Clang's validation of
++      // the import does, where its new file identity rebuilt every importer.
++      if (auto Digest = producerDigest(*Identity, Content,
++                                       Module->getPublishedSourceIdentity()
++                                           .has_value())) {
++        Result.append(llvm::formatv("{0}:{1}:{2};", Module->getModuleName(),
++                                    Identity->Size, *Digest)
++                          .str());
++        continue;
++      }
 +      Result.append(llvm::formatv("{0}:{1}:{2}:{3}:{4};", Module->getModuleName(),
 +                                  Identity->Size, Identity->ID.getDevice(),
 +                                  Identity->ID.getFile(),
@@ -58,7 +131,7 @@ index 9c820e1..046830e 100644
    bool canReuse(const CompilerInvocation &CI,
                  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>) const override;
  
-@@ -843,6 +871,25 @@ public:
+@@ -843,6 +923,25 @@ public:
      RequiredModules.emplace_back(std::move(MF));
    }
  
@@ -84,7 +157,7 @@ index 9c820e1..046830e 100644
    void setDirectModuleNames(std::vector<std::string> Names) {
      DirectModuleNames.insert_range(Names);
    }
-@@ -1476,6 +1523,7 @@ struct ModuleBuildNode {
+@@ -1476,6 +1575,7 @@ struct ModuleBuildNode {
    std::string Name;
    std::string Source;
    unsigned Depth;
@@ -92,7 +165,7 @@ index 9c820e1..046830e 100644
  };
  
  /// Plan the entire forest before dispatching work. A completed shared
-@@ -1487,6 +1535,7 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+@@ -1487,6 +1587,7 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
                     const ReusablePrerequisiteModules &AlreadyBuilt) {
    llvm::SmallVector<ModuleBuildNode> Plan;
    llvm::StringMap<unsigned> Completed;
@@ -100,7 +173,7 @@ index 9c820e1..046830e 100644
    llvm::StringSet<> Active;
    auto Visit = [&](StringRef Name, auto Visitor) -> llvm::Error {
      if (int Reason = isCancelled())
-@@ -1508,13 +1557,24 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
+@@ -1508,13 +1609,24 @@ getModuleBuildPlan(PathRef RequiredSource, CachingProjectModules &MDB,
        return llvm::make_error<ModuleUnitNotFound>(
            Name.str(), "no unit source in this project");
      unsigned Depth = 0;
@@ -126,7 +199,7 @@ index 9c820e1..046830e 100644
      return llvm::Error::success();
    };
    for (StringRef Root : Roots) {
-@@ -2023,9 +2083,23 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2023,9 +2135,23 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
      unsigned Remaining = --ActiveBuildTasks;
      vlog("Module build task {0} finished (active={1})", ModuleName, Remaining);
    });
@@ -142,17 +215,17 @@ index 9c820e1..046830e 100644
 +  const std::string CommandHash = BuildChain.empty()
 +                                     ? getCompileCommandStringHash(Cmd)
 +                                     : hashStringForCache(getCompileCommandStringHash(Cmd) +
-+                                                          "\nproducer-chain-v1\n" + BuildChain);
++                                                          "\nproducer-chain-v2\n" + BuildChain);
 +  auto ModuleDirectory = getModuleFilesDirectory(ModuleSource, Cmd, getCDB());
 +  if (!BuildChain.empty())
-+    llvm::sys::path::append(ModuleDirectory, "producer-chain-v1-" + ChainHash);
++    llvm::sys::path::append(ModuleDirectory, "producer-chain-v2-" + ChainHash);
    const std::string PublishedModuleFilePath = getPublishedModuleFilePath(
 -      ModuleName, getModuleFilesDirectory(ModuleSource, Cmd, getCDB()));
 +      ModuleName, ModuleDirectory);
  
    // Keep the source-scoped lock while probing and validating cached BMIs so
    // stale-file replacement and final publication stay serialized.
-@@ -2089,6 +2163,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2089,6 +2215,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
          return llvm::make_error<CancelledError>(Reason);
        if (auto Error = (*Reservation)->publish()) return std::move(Error);
        *Stable = std::move(*Reservation);
@@ -160,7 +233,7 @@ index 9c820e1..046830e 100644
      }
      auto Copy = (*Owned)->copy(*Stable);
      if (!Copy) return Copy.takeError();
-@@ -2174,6 +2249,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+@@ -2174,6 +2301,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
                      [](const ModuleBuildNode &L, const ModuleBuildNode &R) {
                        return L.Depth < R.Depth;
                      });
@@ -170,7 +243,7 @@ index 9c820e1..046830e 100644
    using Result = llvm::Expected<std::shared_ptr<const ModuleFile>>;
    for (size_t Begin = 0; Begin < Plan->size();) {
      if (int Reason = isCancelled())
-@@ -2185,8 +2263,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+@@ -2185,8 +2315,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
      // immutable prerequisite snapshot; workers never wait on peer tasks.
      for (size_t Batch = Begin; Batch < End;) {
        size_t BatchEnd = (std::min)(End, Batch + BuildPool.getMaxConcurrency());
@@ -179,7 +252,7 @@ index 9c820e1..046830e 100644
        std::vector<std::optional<Result>> Results(BatchEnd - Batch);
        llvm::SmallVector<std::future<void>> Futures;
        llvm::Error PreparationError = llvm::Error::success();
-@@ -2200,6 +2276,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+@@ -2200,6 +2328,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
                llvm::formatv("No compile command for {0}", Node.Source));
            break;
          }
@@ -189,7 +262,7 @@ index 9c820e1..046830e 100644
          // the compilation on this caller, bypassing the pool's global limit.
          // Wait instead on a separate promise set only by the pool worker.
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 2589d06..4ae2529 100644
+index 45fef78..72130ea 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2646,6 +2646,51 @@ void func() {
@@ -244,7 +317,7 @@ index 2589d06..4ae2529 100644
  TEST_F(PrerequisiteModulesTests, ReusablePrerequisiteModulesTest) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
-@@ -3643,6 +3688,55 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
+@@ -3643,6 +3688,84 @@ TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
    EXPECT_FALSE(llvm::sys::fs::exists(ReadCopy));
  }
  
@@ -295,6 +368,35 @@ index 2589d06..4ae2529 100644
 +             WarmPublished.PrebuiltModuleFiles.at("Consumer"));
 +  EXPECT_NE(AfterCopies.PrebuiltModuleFiles.at("Consumer"),
 +             WarmCopies.PrebuiltModuleFiles.at("Consumer"));
++}
++
++TEST_F(PrerequisiteModulesTests, ProducerBuiltAgainToTheSameBytesKeepsItsConsumer) {
++  // A lost producer BMI is built again; its bytes are the same, so the
++  // consumer built against them is still the one published.
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("std.cppm", "export module std;\nexport constexpr int STD_VALUE = 1;\n");
++  CDB.addFile("Consumer.cppm", "export module Consumer;\nimport std;\n"
++                              "export constexpr int consumer_value = STD_VALUE;\n");
++  CDB.addFile("Use.cpp", "import Consumer;\n");
++  HeaderSearchOptions Before;
++  {
++    ModulesBuilder Builder(CDB);
++    auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++    ASSERT_TRUE(Modules);
++    Modules->adjustHeaderSearchOptionsForValidation(Before);
++    ASSERT_EQ(Before.PrebuiltModuleFiles.count("std"), 1u);
++    ASSERT_EQ(Before.PrebuiltModuleFiles.count("Consumer"), 1u);
++  }
++  ASSERT_FALSE(llvm::sys::fs::remove(Before.PrebuiltModuleFiles.at("std")));
++  ModulesBuilder Builder(CDB);
++  auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("Use.cpp"), FS);
++  ASSERT_TRUE(Modules);
++  HeaderSearchOptions After;
++  Modules->adjustHeaderSearchOptionsForValidation(After);
++  ASSERT_EQ(After.PrebuiltModuleFiles.count("std"), 1u);
++  EXPECT_TRUE(llvm::sys::fs::exists(After.PrebuiltModuleFiles.at("std")));
++  EXPECT_EQ(Before.PrebuiltModuleFiles.at("Consumer"),
++            After.PrebuiltModuleFiles.at("Consumer"));
 +}
 +
  TEST_F(PrerequisiteModulesTests, ModuleImportThroughInclude) {
