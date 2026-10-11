@@ -1,4 +1,4 @@
-From 358152f2387b55007684f40c9629371974cc44e0 Mon Sep 17 00:00:00 2001
+From 9cec79a72d95bd644eebed88adc5de645965dcdf Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -406,7 +406,7 @@ index 0000000..ea7d60f
 +
 +#endif
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 2d788e8..c1d879b 100644
+index 5f1df3e..bf7ffff 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -26,6 +26,7 @@
@@ -500,7 +500,7 @@ index 2d788e8..c1d879b 100644
  llvm::cl::opt<bool> DebugModulesBuilder(
      "debug-modules-builder",
      llvm::cl::desc("Don't remove clangd's built module files for debugging. "
-@@ -1885,33 +1962,53 @@ public:
+@@ -1887,33 +1964,53 @@ public:
  
    /// Source/header/draft inputs can change without a command notification.
    /// Re-derive this preamble-safety decision from the actual request view.
@@ -574,7 +574,7 @@ index 2d788e8..c1d879b 100644
    }
  
    llvm::Error
-@@ -2437,7 +2534,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2439,7 +2536,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
        !CI.getFrontendOpts().ModuleFiles.empty() ||
        !CI.getPreprocessorOpts().ImplicitPCHInclude.empty())
      return std::nullopt;
@@ -584,7 +584,7 @@ index 2d788e8..c1d879b 100644
    auto MDB = Impl->getCDB().getProjectModules(File);
    if (!MDB)
      return std::nullopt;
-@@ -2459,11 +2557,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2461,11 +2559,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
    return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
  }
  
@@ -641,7 +641,7 @@ index 2d788e8..c1d879b 100644
  }
  
  std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
-@@ -2479,12 +2621,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+@@ -2481,12 +2623,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
  std::vector<std::string>
  ModulesBuilder::getRequiredModuleNames(PathRef File, const ThreadsafeFS &TFS,
                                         llvm::StringRef Contents) {
@@ -659,7 +659,7 @@ index 2d788e8..c1d879b 100644
  }
  
  std::unique_ptr<PrerequisiteModules>
-@@ -2528,11 +2673,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+@@ -2530,11 +2675,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
    return std::move(RequiredModules);
  }
  
@@ -1406,7 +1406,7 @@ index 5fad022..4b622d1 100644
  } // namespace clangd
  } // namespace clang
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index f325fff..42609d3 100644
+index 521fd6e..5057f50 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -2668,6 +2668,62 @@ void func() {

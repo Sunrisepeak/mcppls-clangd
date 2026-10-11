@@ -51,8 +51,8 @@ since then found the following, each fixed in the patch it belongs to:
   An admission scans the ledger after checking its identity once, not at
   each slot, and its caller is told of pressure before the first wait.
 - 0021, published prerequisite generations: a consumer binds to its
-  producers' bytes (a digest read once per publication), not to their file
-  identity. A producer built again to the same bytes, a lost or evicted BMI,
+  producers' names and bytes (a digest read once per publication), not to
+  their file identity or the path they were published to. A producer built again to the same bytes, a lost or evicted BMI,
   kept no importer: every one was rebuilt (ux-mcpp U11: 42 importers of
   `mcpp.ui` after its BMI was removed, recovery 7 s in 0.0.11, 25 s here).
   The module files last built for a file are kept by the builder (32 files
@@ -88,7 +88,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`5f22c21c333c838e5a14aa893e50885782a6d860`.
+`46c5e808a2437d8dfb3a751c35808adda178f00a`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
