@@ -350,6 +350,14 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None, req
                 # A step may allow the engine a while to catch up (a module rebuilt in the
                 # background): it is asked again until then, each answer recorded.
                 retry_until = step.setdefault("_retry_until", started + float(step.get("retry_seconds", 0)))
+                # An answer marked incomplete is asked again as an editor does while the person types: completion
+                # answers before a file's modules are built, and the names come once they are.
+                result_value = response.get("result") if isinstance(response, dict) else None
+                incomplete = isinstance(result_value, dict) and bool(result_value.get("isIncomplete"))
+                if missing and incomplete and time.monotonic() < deadline - 2:
+                    time.sleep(0.25)
+                    index -= 1
+                    continue
                 if (missing or polluted) and time.monotonic() < retry_until:
                     time.sleep(0.25)
                     index -= 1
