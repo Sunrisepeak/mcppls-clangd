@@ -1,4 +1,4 @@
-From 3629878e984bc6173aa4ca8d845ddf4e31efc3e4 Mon Sep 17 00:00:00 2001
+From 381bdbf3159ec4d44075c02fe56c2a2535afc219 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -16,13 +16,15 @@ prerequisite validation and late completion compatibility checks.
  .../clangd/ModuleDependencyScanCache.h        | 229 +++++++++--
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  36 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |   8 +
- clang-tools-extra/clangd/Preamble.cpp         | 174 +++++++-
+ clang-tools-extra/clangd/Preamble.cpp         | 175 +++++++-
  clang-tools-extra/clangd/Preamble.h           |  21 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  19 +-
  clang-tools-extra/clangd/ProjectModules.h     |  13 +
  clang-tools-extra/clangd/TUScheduler.cpp      |  32 +-
  .../unittests/PrerequisiteModulesTest.cpp     | 376 ++++++++++++++++++
- 10 files changed, 870 insertions(+), 52 deletions(-)
+ .../clang/Frontend/PrecompiledPreamble.h      |   7 +-
+ clang/lib/Frontend/PrecompiledPreamble.cpp    |  35 +-
+ 12 files changed, 900 insertions(+), 65 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
 index 82e5c38..53d3c47 100644
@@ -522,7 +524,7 @@ index f98a505..a616687 100644
    std::vector<std::string> getRequiredModuleNames(PathRef File);
    std::vector<std::string> getRequiredModuleNames(PathRef File,
 diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
-index f43471e..57b6a97 100644
+index f43471e..3c5095f 100644
 --- a/clang-tools-extra/clangd/Preamble.cpp
 +++ b/clang-tools-extra/clangd/Preamble.cpp
 @@ -18,6 +18,7 @@
@@ -757,7 +759,7 @@ index f43471e..57b6a97 100644
  bool isPreambleCompatible(const PreambleData &Preamble,
                            const ParseInputs &Inputs, PathRef FileName,
                            const CompilerInvocation &CI) {
-@@ -760,12 +891,31 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+@@ -760,12 +891,32 @@ bool isPreambleCompatible(const PreambleData &Preamble,
      return NewNameSet == Preamble.RequiredModules->getRequiredModuleNames();
    };
  
@@ -785,8 +787,9 @@ index f43471e..57b6a97 100644
 +  }
 +  if (!compileCommandsAreEqual(Inputs.CompileCommand, Preamble.CompileCommand))
 +    return Incompatible("the compile command changed");
-+  if (!Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS))
-+    return Incompatible("its text or an included file changed");
++  std::string Changed;
++  if (!Preamble.Preamble.CanReuse(CI, *ContentsBuffer, Bounds, *VFS, &Changed))
++    return Incompatible(Changed);
 +  if (Preamble.RequiredModules && !Preamble.RequiredModules->canReuse(CI, VFS))
 +    return Incompatible("its prerequisite modules cannot be reused");
 +  if (!RequiredModulesMatch())
@@ -1393,6 +1396,138 @@ index 9f1d514..521fd6e 100644
  TEST_F(PrerequisiteModulesTests, PreambleBuildResolvesLateModuleImport) {
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
    Annotations UseCpp("#include \"Header.hpp\"\nvoid use() { fn_^; }\n");
+diff --git a/clang/include/clang/Frontend/PrecompiledPreamble.h b/clang/include/clang/Frontend/PrecompiledPreamble.h
+index 565395b..a4cc159 100644
+--- a/clang/include/clang/Frontend/PrecompiledPreamble.h
++++ b/clang/include/clang/Frontend/PrecompiledPreamble.h
+@@ -20,6 +20,7 @@
+ #include "llvm/Support/MD5.h"
+ #include <cstddef>
+ #include <memory>
++#include <string>
+ #include <system_error>
+ #include <type_traits>
+ 
+@@ -108,10 +109,12 @@ public:
+   }
+ 
+   /// Check whether PrecompiledPreamble can be reused for the new contents(\p
+-  /// MainFileBuffer) of the main file.
++  /// MainFileBuffer) of the main file. When it cannot and \p Why is given, it
++  /// is told why: which file changed, or that the preamble's text did.
+   bool CanReuse(const CompilerInvocation &Invocation,
+                 const llvm::MemoryBufferRef &MainFileBuffer,
+-                PreambleBounds Bounds, llvm::vfs::FileSystem &VFS) const;
++                PreambleBounds Bounds, llvm::vfs::FileSystem &VFS,
++                std::string *Why = nullptr) const;
+ 
+   /// Changes options inside \p CI to use PCH from this preamble. Also remaps
+   /// main file to \p MainFileBuffer and updates \p VFS to ensure the preamble
+diff --git a/clang/lib/Frontend/PrecompiledPreamble.cpp b/clang/lib/Frontend/PrecompiledPreamble.cpp
+index 9bf18b4..fa81c0b 100644
+--- a/clang/lib/Frontend/PrecompiledPreamble.cpp
++++ b/clang/lib/Frontend/PrecompiledPreamble.cpp
+@@ -24,6 +24,7 @@
+ #include "clang/Serialization/ASTWriter.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringSet.h"
++#include "llvm/ADT/Twine.h"
+ #include "llvm/ADT/iterator_range.h"
+ #include "llvm/Config/llvm-config.h"
+ #include "llvm/Support/CrashRecoveryContext.h"
+@@ -597,7 +598,13 @@ std::size_t PrecompiledPreamble::getSize() const {
+ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+                                    const llvm::MemoryBufferRef &MainFileBuffer,
+                                    PreambleBounds Bounds,
+-                                   llvm::vfs::FileSystem &VFS) const {
++                                   llvm::vfs::FileSystem &VFS,
++                                   std::string *Why) const {
++  auto Fail = [&](const llvm::Twine &Reason) {
++    if (Why)
++      *Why = Reason.str();
++    return false;
++  };
+ 
+   assert(
+       Bounds.Size <= MainFileBuffer.getBufferSize() &&
+@@ -611,11 +618,13 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+   // preamble now that we did before, and that there's enough space in
+   // the main-file buffer within the precompiled preamble to fit the
+   // new main file.
+-  if (PreambleBytes.size() != Bounds.Size ||
+-      PreambleEndsAtStartOfLine != Bounds.PreambleEndsAtStartOfLine ||
++  if (PreambleBytes.size() != Bounds.Size)
++    return Fail("its text is " + llvm::Twine(PreambleBytes.size()) +
++                " bytes, the new one " + llvm::Twine(Bounds.Size));
++  if (PreambleEndsAtStartOfLine != Bounds.PreambleEndsAtStartOfLine ||
+       !std::equal(PreambleBytes.begin(), PreambleBytes.end(),
+                   MainFileBuffer.getBuffer().begin()))
+-    return false;
++    return Fail("its text changed");
+   // The preamble has not changed. We may be able to re-use the precompiled
+   // preamble.
+ 
+@@ -629,7 +638,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+     if (!moveOnNoError(VFS.status(R.second), Status)) {
+       // If we can't stat the file we're remapping to, assume that something
+       // horrible happened.
+-      return false;
++      return Fail("remapped file " + R.second + " is gone");
+     }
+     // If a mapped file was previously missing, then it has changed.
+     llvm::SmallString<128> MappedPath(R.first);
+@@ -663,7 +672,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+       // The file's buffer was remapped and the file was not found in VFS.
+       // Check whether it matches up with the previous mapping.
+       if (OverridenFileBuffer->second != F.second)
+-        return false;
++        return Fail("remapped buffer " + F.first() + " changed");
+       continue;
+     }
+ 
+@@ -671,7 +680,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+     if (!moveOnNoError(VFS.status(F.first()), Status)) {
+       // If the file's buffer is not remapped and we can't stat it,
+       // assume that something horrible happened.
+-      return false;
++      return Fail(F.first() + " is gone");
+     }
+ 
+     std::map<llvm::sys::fs::UniqueID, PreambleFileHash>::iterator Overridden =
+@@ -680,7 +689,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+       // This file was remapped; check whether the newly-mapped file
+       // matches up with the previous mapping.
+       if (Overridden->second != F.second)
+-        return false;
++        return Fail("remapped file " + F.first() + " changed");
+       continue;
+     }
+ 
+@@ -689,17 +698,21 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
+     if (Status.getSize() != uint64_t(F.second.Size) ||
+         llvm::sys::toTimeT(Status.getLastModificationTime()) !=
+             F.second.ModTime)
+-      return false;
++      return Fail(F.first() + " changed: " + llvm::Twine(F.second.Size) +
++                  " bytes at " + llvm::Twine(int64_t(F.second.ModTime)) +
++                  ", now " + llvm::Twine(Status.getSize()) + " at " +
++                  llvm::Twine(int64_t(llvm::sys::toTimeT(
++                      Status.getLastModificationTime()))));
+   }
+   for (const auto &F : MissingFiles) {
+     // A missing file may be "provided" by an override buffer or file.
+     if (OverriddenAbsPaths.count(F.getKey()))
+-      return false;
++      return Fail("missing file " + F.getKey() + " is remapped now");
+     // If a file previously recorded as missing exists as a regular file, then
+     // consider the preamble out-of-date.
+     if (auto Status = VFS.status(F.getKey())) {
+       if (Status->isRegularFile())
+-        return false;
++        return Fail("missing file " + F.getKey() + " exists now");
+     }
+   }
+   return true;
 -- 
 2.53.0
 
