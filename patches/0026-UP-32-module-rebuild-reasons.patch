@@ -1,0 +1,362 @@
+From 0c6487dca0b8c1125f9ca145b03645bef06c1a56 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 12 Oct 2026 03:55:13 +0900
+Subject: [clangd] Say why a module is rebuilt and why a preamble is not reused
+
+A warm start that rebuilds modules it should reuse, or a file whose preamble
+is rebuilt for every edit, could only be explained from a verbose log, and
+only by inference. Before building a module, clangd now logs at info why the
+BMI it had is not reused: none was built for this command and these
+prerequisites (and how many were built with others), or the first problem a
+reporting read of the stale BMI finds -- the input that changed, as clang
+says it. The reporting read happens only on the way to a rebuild, which costs
+far more. Why a preamble is not compatible is logged at info too.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp | 211 ++++++++++++++++----
+ clang-tools-extra/clangd/Preamble.cpp       |   2 +-
+ 2 files changed, 171 insertions(+), 42 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 7307716..0b81df8 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -1090,49 +1090,49 @@ void recordValidationInputs(
+     Cache.markFresh(ModuleFilePath, ChainKey, std::move(Inputs));
+ }
+ 
+-bool IsModuleFileUpToDate(PathRef ModuleFilePath,
+-                          const PrerequisiteModules &RequisiteModules,
+-                          llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) {
++/// Keeps the first problem a read of a module file reports, formatted: what
++/// made a BMI stale ("file 'x.h' has been modified since the module file was
++/// built: content changed"), for the log line that says why it is rebuilt.
++class FirstProblemConsumer : public DiagnosticConsumer {
++public:
++  std::string First;
++  void HandleDiagnostic(DiagnosticsEngine::Level Level,
++                        const clang::Diagnostic &Info) override {
++    DiagnosticConsumer::HandleDiagnostic(Level, Info);
++    if (Level < DiagnosticsEngine::Warning || !First.empty())
++      return;
++    llvm::SmallString<256> Message;
++    Info.FormatDiagnostic(Message);
++    First = Message.str().str();
++  }
++};
++
++/// Reads `ModuleFilePath` as validation does. `Complain` reads it the way a
++/// compile would, reporting what is wrong to `Consumer`; validation itself
++/// asks for OutOfDate instead, which reports nothing.
++bool readModuleFileForValidation(
++    PathRef ModuleFilePath, const PrerequisiteModules &RequisiteModules,
++    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS,
++    DiagnosticConsumer &Consumer, bool Complain,
++    ModuleValidationCache *Record, llvm::StringRef ChainKey) {
+   HeaderSearchOptions HSOpts;
+   RequisiteModules.adjustHeaderSearchOptionsForValidation(HSOpts);
+   HSOpts.ForceCheckCXX20ModulesInputFiles = true;
+   HSOpts.ValidateASTInputFilesContent = true;
+-
+-  // Validating a BMI re-hashes all its inputs; the preamble redoes it for
+-  // every request reusing the same prerequisite modules. A memoized verdict
+-  // (keyed by the BMI, the dependency chain, and the input identities the
+-  // validation read) turns that into a handful of stats. Any doubt falls
+-  // back to the full validation below.
+-  std::string ChainKey;
+-  RequisiteModules.getValidationChainKey(ChainKey);
+-  ModuleValidationCache &ValidationCache = getModuleValidationCache();
+-  if (ValidationCache.isFresh(ModuleFilePath, ChainKey, *VFS)) {
+-    log("Module file {0} is up to date via the validation cache",
+-        ModuleFilePath);
+-    return true;
+-  }
+-
+-  clang::clangd::IgnoreDiagnostics IgnoreDiags;
+   DiagnosticOptions DiagOpts;
+   IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
+-      CompilerInstance::createDiagnostics(*VFS, DiagOpts, &IgnoreDiags,
++      CompilerInstance::createDiagnostics(*VFS, DiagOpts, &Consumer,
+                                           /*ShouldOwnClient=*/false);
+-
+   LangOptions LangOpts;
+   LangOpts.SkipODRCheckInGMF = true;
+-
+   FileManager FileMgr(FileSystemOptions(), VFS);
+-
+   SourceManager SourceMgr(*Diags, FileMgr);
+-
+   HeaderSearch HeaderInfo(HSOpts, SourceMgr, *Diags, LangOpts,
+                           /*Target=*/nullptr);
+-
+   PreprocessorOptions PPOpts;
+   TrivialModuleLoader ModuleLoader;
+   Preprocessor PP(PPOpts, *Diags, LangOpts, SourceMgr, HeaderInfo,
+                   ModuleLoader);
+-
+   std::shared_ptr<ModuleCache> ModCache = createCrossProcessModuleCache();
+   PCHContainerOperations PCHOperations;
+   CodeGenOptions CodeGenOpts;
+@@ -1146,24 +1146,80 @@ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
+       /*ValidateSystemInputs=*/false,
+       /*ForceValidateUserInputs=*/true,
+       /*ValidateASTInputFilesContent=*/true);
+-
+-  // We don't need any listener here. By default it will use a validator
+-  // listener.
+   Reader.setListener(nullptr);
+-
+-  // Use ARR_OutOfDate so that ReadAST returns OutOfDate instead of Failure
+-  // when input files are modified. This allows us to detect staleness
+-  // without treating it as a hard error.
+-  // ReadAST will validate all input files internally and return OutOfDate
+-  // if any file is modified.
+   bool Success = Reader.ReadAST(ModuleFileName::makeExplicit(ModuleFilePath),
+                                 serialization::MK_MainFile, SourceLocation(),
+-                                ASTReader::ARR_OutOfDate) == ASTReader::Success;
+-  if (Success)
+-    recordValidationInputs(Reader, ValidationCache, ModuleFilePath, ChainKey);
++                                Complain ? ASTReader::ARR_None
++                                         : ASTReader::ARR_OutOfDate) ==
++                 ASTReader::Success;
++  if (Success && Record)
++    recordValidationInputs(Reader, *Record, ModuleFilePath, ChainKey);
+   return Success;
+ }
+ 
++bool IsModuleFileUpToDate(PathRef ModuleFilePath,
++                          const PrerequisiteModules &RequisiteModules,
++                          llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS,
++                          std::string *Why = nullptr) {
++  // Validating a BMI re-hashes all its inputs; the preamble redoes it for
++  // every request reusing the same prerequisite modules. A memoized verdict
++  // (keyed by the BMI, the dependency chain, and the input identities the
++  // validation read) turns that into a handful of stats. Any doubt falls
++  // back to the full validation below.
++  std::string ChainKey;
++  RequisiteModules.getValidationChainKey(ChainKey);
++  ModuleValidationCache &ValidationCache = getModuleValidationCache();
++  if (ValidationCache.isFresh(ModuleFilePath, ChainKey, *VFS)) {
++    log("Module file {0} is up to date via the validation cache",
++        ModuleFilePath);
++    return true;
++  }
++
++  // ARR_OutOfDate: a modified input makes ReadAST return OutOfDate instead
++  // of failing, and reports nothing; ReadAST validates every input itself.
++  clang::clangd::IgnoreDiagnostics IgnoreDiags;
++  if (readModuleFileForValidation(ModuleFilePath, RequisiteModules, VFS,
++                                  IgnoreDiags, /*Complain=*/false,
++                                  &ValidationCache, ChainKey))
++    return true;
++  if (Why) {
++    // Only on the way to a rebuild, which costs far more than this second
++    // read: the same validation, reporting, so the log can say what changed.
++    FirstProblemConsumer Problem;
++    (void)readModuleFileForValidation(ModuleFilePath, RequisiteModules, VFS,
++                                      Problem, /*Complain=*/true, nullptr, "");
++    *Why = Problem.First.empty() ? "the module file could not be validated"
++                                 : Problem.First;
++  }
++  return false;
++}
++
++/// Why a module has no reusable BMI under its directory: never built with
++/// this command and these prerequisites, or built only with others (their
++/// count says how often the inputs that key the BMI changed).
++std::string missingModuleFileReason(PathRef PublishedModuleFilePath) {
++  llvm::SmallString<256> Directory(PublishedModuleFilePath);
++  llvm::sys::path::remove_filename(Directory);   // .../<command-hash>[/chain]
++  llvm::StringRef Leaf = llvm::sys::path::filename(Directory);
++  if (Leaf.starts_with("producer-chain-v2-"))
++    llvm::sys::path::remove_filename(Directory);
++  llvm::StringRef Mine = llvm::sys::path::filename(Directory);
++  llvm::SmallString<256> Source(Directory);
++  llvm::sys::path::remove_filename(Source);       // .../<source>-<hash>
++  unsigned Others = 0;
++  std::error_code EC;
++  for (llvm::sys::fs::directory_iterator It(Source, EC), End; It != End && !EC;
++       It.increment(EC))
++    if (llvm::sys::path::filename(It->path()) != Mine)
++      ++Others;
++  if (Others == 0)
++    return "no BMI was built for it before";
++  return llvm::formatv("no BMI for this command and these prerequisites ({0} "
++                       "built with other commands or prerequisites)",
++                       Others)
++      .str();
++}
++
+ bool IsModuleFilesUpToDate(
+     llvm::SmallVector<PathRef> ModuleFilePaths,
+     const PrerequisiteModules &RequisiteModules,
+@@ -2253,6 +2309,17 @@ void ModulesBuilder::ModulesBuilderImpl::getPrebuiltModuleFile(
+   }
+ }
+ 
++/// What one file's prerequisites cost, for the line that says so: how many
++/// modules were reused and built, and where the time went. Reached through
++/// the context, which the build pool's tasks carry.
++struct PrerequisiteTally {
++  std::atomic<unsigned> Reused{0};
++  std::atomic<unsigned> Built{0};
++  std::atomic<int64_t> ReuseMicros{0};
++  std::atomic<int64_t> BuildMicros{0};
++};
++static Key<PrerequisiteTally *> PrerequisiteTallyKey;
++
+ llvm::Expected<std::shared_ptr<const ModuleFile>>
+ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     StringRef ModuleName, PathRef ModuleSource, tooling::CompileCommand Cmd,
+@@ -2261,6 +2328,25 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     return llvm::make_error<CancelledError>(Reason);
+   if (!WorkerConfigurationError.empty())
+     return llvm::createStringError(WorkerConfigurationError);
++  const auto TallyStart = std::chrono::steady_clock::now();
++  bool TallyBuilt = false;   // compiled (or tried to)
++  bool TallyOk = false;      // and published
++  llvm::scope_exit TallyOne([&] {
++    PrerequisiteTally *const *Tally = Context::current().get(PrerequisiteTallyKey);
++    if (!Tally || !*Tally)
++      return;
++    const int64_t Micros = std::chrono::duration_cast<std::chrono::microseconds>(
++                               std::chrono::steady_clock::now() - TallyStart)
++                               .count();
++    if (TallyBuilt) {
++      if (TallyOk)
++        ++(*Tally)->Built;
++      (*Tally)->BuildMicros += Micros;
++    } else {
++      ++(*Tally)->Reused;
++      (*Tally)->ReuseMicros += Micros;
++    }
++  });
+   auto RequestFS = TFS.view(Cmd.Directory);
+   translateGNUStdModuleProducer(Cmd, ModuleSource, *RequestFS);
+   auto WorkerOptions = WorkerConfiguration;
+@@ -2304,9 +2390,12 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+   std::shared_ptr<const ModuleFile> Cached =
+       Cache.getModule(ModuleName, ModuleSource, CommandHash);
+ 
++  // Why this module is built rather than reused, said once at info: a warm
++  // start that rebuilds what it should reuse is found by reading this line.
++  std::string RebuildWhy;
+   if (Cached) {
+     if (IsModuleFileUpToDate(Cached->getModuleFilePath(), Prerequisites,
+-                             TFS.view(std::nullopt))) {
++                             TFS.view(std::nullopt), &RebuildWhy)) {
+       log("Reusing module {0} from {1}", ModuleName,
+           Cached->getModuleFilePath());
+       return Cached;
+@@ -2320,11 +2409,24 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     if (!Owned) return Owned.takeError();
+     const std::string Key = ModuleName.str() + "\n" + ModuleSource.str() +
+                             "\n" + CommandHash;
++    bool Examined = false;
+     auto Stable = (*Owned)->lookup(Key, [&](PathRef Payload) {
+-      return IsModuleFileUpToDate(Payload, Prerequisites, TFS.view(std::nullopt));
++      Examined = true;
++      std::string Why;
++      bool Fresh = IsModuleFileUpToDate(Payload, Prerequisites,
++                                        TFS.view(std::nullopt), &Why);
++      if (!Fresh && RebuildWhy.empty())
++        RebuildWhy = std::move(Why);
++      return Fresh;
+     });
+     if (!Stable) return Stable.takeError();
+     if (!*Stable) {
++      TallyBuilt = true;
++      log("Rebuilding module {0}: {1}", ModuleName,
++          !RebuildWhy.empty() ? RebuildWhy
++          : Examined          ? std::string("its cached BMI is not valid")
++                              : std::string("no BMI for this command and these "
++                                            "prerequisites"));
+       uint64_t Output = WorkerOptions.OutputLimitBytes;
+       uint64_t Capture = WorkerOptions.CaptureLimitBytes;
+       if (!Output || !Capture || Capture > UINT64_MAX - Output)
+@@ -2355,6 +2457,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+         return llvm::make_error<CancelledError>(Reason);
+       if (auto Error = (*Reservation)->publish()) return std::move(Error);
+       *Stable = std::move(*Reservation);
++      TallyOk = true;
+       log("Built module {0} to {1}", ModuleName, (*Stable)->payload());
+     }
+     auto Copy = (*Owned)->copy(*Stable);
+@@ -2375,7 +2478,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+ 
+   if (llvm::sys::fs::exists(PublishedModuleFilePath)) {
+     if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
+-                             TFS.view(std::nullopt))) {
++                             TFS.view(std::nullopt), &RebuildWhy)) {
+       log("Reusing persistent module {0} from {1}", ModuleName,
+           PublishedModuleFilePath);
+       auto Materialized =
+@@ -2394,6 +2497,10 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+                         PublishedModuleFilePath, EC.message()));
+   }
+ 
++  TallyBuilt = true;
++  log("Rebuilding module {0}: {1}", ModuleName,
++      !RebuildWhy.empty() ? RebuildWhy
++                          : missingModuleFileReason(PublishedModuleFilePath));
+   bool PublishedExistingModuleFile = false;
+   llvm::Expected<std::shared_ptr<BuiltModuleFile>> MF = buildModuleFile(
+       ModuleName, ModuleSource, std::move(Cmd), PublishedModuleFilePath, TFS,
+@@ -2414,6 +2521,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+   if (llvm::Error Err = Materialized.takeError())
+     return Err;
+ 
++  TallyOk = true;
+   log("Built module {0} to {1}", ModuleName,
+       (*Materialized)->getModuleFilePath());
+   Cache.add(ModuleName, ModuleSource, CommandHash, *Materialized);
+@@ -2670,13 +2778,34 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+   RequiredModules->setDirectModuleNames(RequiredModuleNames);
+   RequiredModules->setCommandGeneration(&Impl->commandGeneration(),
+                                         Impl->commandGeneration().load());
++  PrerequisiteTally Tally;
++  const auto SetStart = std::chrono::steady_clock::now();
++  auto Seconds = [](int64_t Micros) { return double(Micros) / 1e6; };
++  // Said once per file at info: a warm start that takes long with nothing
++  // rebuilt is told apart from one that rebuilds, and either from the scan.
++  auto SayCost = [&] {
++    const double Total = std::chrono::duration<double>(
++                             std::chrono::steady_clock::now() - SetStart)
++                             .count();
++    if (Total < 0.5 && !Tally.Built)
++      return;
++    log("Prerequisites of {0}: {1} modules, {2} reused, {3} built, in "
++        "{4:F2} s (reuse checks {5:F2} s, builds {6:F2} s, the rest scanning "
++        "and planning)",
++        File, RequiredModules->moduleFiles().size(), Tally.Reused.load(),
++        Tally.Built.load(), Total, Seconds(Tally.ReuseMicros.load()),
++        Seconds(Tally.BuildMicros.load()));
++  };
++  WithContextValue WithTally(PrerequisiteTallyKey, &Tally);
+   if (llvm::Error Err = Impl->getOrBuildModuleFiles(
+           File, RequiredModuleNames, TFS, CachedMDB, *RequiredModules)) {
+     elog("Failed to build module prerequisites for {0}; due to {1}", File,
+          toString(std::move(Err)));
++    SayCost();
+     return std::make_unique<FailedPrerequisiteModules>();
+   }
+ 
++  SayCost();
+   Impl->retain(File, *RequiredModules);
+   return std::move(RequiredModules);
+ }
+diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
+index 3c5095f..415d4ab 100644
+--- a/clang-tools-extra/clangd/Preamble.cpp
++++ b/clang-tools-extra/clangd/Preamble.cpp
+@@ -894,7 +894,7 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+   // Which check failed is logged: a preamble rebuilt for every edit of a
+   // file with heavy headers costs seconds, and nothing else says why.
+   auto Incompatible = [&](llvm::StringRef Why) {
+-    vlog("Preamble of {0} is not compatible: {1}", FileName, Why);
++    log("Preamble of {0} is not compatible: {1}", FileName, Why);
+     return false;
+   };
+   if (Preamble.TextualModuleInputs) {
+-- 
+2.53.0
+

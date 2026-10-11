@@ -102,6 +102,28 @@ provides leaves its importer answering. The tree is now
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
+## The 0.0.13 additions
+
+Three patches follow the 0.0.12 series, for what running the product on large projects found
+(mcpp-language-server's 0.0.13 design). The engine reports itself as `23.1.0-mcppls.1`.
+
+- 0026, rebuild reasons: before building a module, clangd says at info why the BMI it had is not
+  reused (none for this command and these prerequisites, and how many were built with others, or
+  the first problem a reporting read of the stale BMI finds: the input that changed). Each file's
+  prerequisites say what they cost: modules reused, built and failed, and the time in reuse
+  checks, builds and the rest. Why a preamble is not compatible is logged at info.
+- 0027, bounded waits: completion in a module importer waits for its first preamble up to
+  `--completion-first-preamble-wait-ms` (600) and for a newly imported module up to
+  `--completion-module-wait-ms` (250); past them it answers as without them, marked incomplete,
+  while the builds go on.
+- 0028, partial prerequisites: one module that does not compile no longer leaves its importers
+  with no module at all. The others are built and used, the failure is reported with the
+  compile's first error, and the set is tried again once the failed unit's source changes.
+
+`ci/module_resilience_canary.py` proves all three on the package (`partial-prerequisite-modules`,
+`module-rebuild-reasons`, `bounded-module-wait` in `engine.json`). The tree is now
+`d5ff4a25edade769a0a222e72abcdfc72c04fad7`.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
@@ -129,3 +151,6 @@ release (`tests/evidence/README.md`).
 | 0023-UP-28-verified-textual-module-preambles.patch | UP-28 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/completion_quality.py | upstream proves textual-prefix reuse with complete PCH input and import audits |
 | 0024-UP-29-gnu-standard-module-producers.patch | UP-29 | steady | clangd/unittests/CompileCommandsTests.cpp; tests/e2e/module_request_inputs.py | upstream dependency scanning recognizes installed GNU standard module producers |
 | 0025-UP-25-selective-completion-loading.patch | UP-25 | steady | clangd/unittests/CodeCompleteTests.cpp; clang/unittests/Serialization/NamespaceLookupTest.cpp; tests/e2e/frontend_completion_consumers.py | upstream completion loads only names that can match the typed prefix and emits each constructor overload once |
+| 0026-UP-32-module-rebuild-reasons.patch | UP-32 | steady | ci/module_resilience_canary.py | upstream logs why a prerequisite BMI is rebuilt and what a file's prerequisites cost at the default level |
+| 0027-UP-31-bounded-module-completion-wait.patch | UP-31, UP-25 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_resilience_canary.py; tests/e2e/module_cold_completion.py | upstream completion in module importers answers within a bound while the first preamble or a new import is still being built |
+| 0028-UP-30-partial-prerequisite-modules.patch | UP-30 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_resilience_canary.py | upstream serves an importer with the prerequisite modules that did build when one fails |

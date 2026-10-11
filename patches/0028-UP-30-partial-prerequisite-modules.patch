@@ -1,0 +1,317 @@
+From f7c2aec397acdc24752b4278c512bfd30023acbf Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 12 Oct 2026 04:05:01 +0900
+Subject: [clangd] One module that does not compile leaves the others
+
+A prerequisite set was all or nothing: one module that failed to compile
+left every importer with no module at all, not even std, so completion
+answered nothing and every import was unresolved.
+
+The set now holds the modules that did build. A module that failed, and any
+module that imports it, are left out and reported, one line each, with the
+compile's first error at info (an in-process build only said to look at a
+verbose log). Importers are parsed with the rest; the import of a failed
+module is diagnosed where it is. The set is not built again at every request
+while the failed unit is unchanged, and is stale once its source changes, so
+an edit that fixes it is picked up. A cancelled build still cancels the set.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 143 ++++++++++++++++--
+ .../unittests/PrerequisiteModulesTest.cpp     |  39 ++++-
+ 2 files changed, 165 insertions(+), 17 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 0b81df8..4a1640b 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -1043,7 +1043,44 @@ public:
+     return DirectModuleNames;
+   }
+ 
++  /// A module this set could not get: the file is served by the others, and
++  /// the set is not reused once the source that failed changes (an edit that
++  /// fixes it is tried; one that does not is not retried at every request).
++  struct FailedModule {
++    std::string Name;
++    std::string Source;   // the unit that did not compile
++    std::optional<std::pair<uint64_t, int64_t>> Stamp;   // its size, mtime
++    std::string Reason;
++  };
++  void addFailedModule(FailedModule Failure) {
++    FailedNames.insert(Failure.Name);
++    Failed.push_back(std::move(Failure));
++  }
++  bool hasFailedModule(llvm::StringRef Name) const {
++    return FailedNames.contains(Name);
++  }
++  const FailedModule *failureOf(llvm::StringRef Name) const {
++    for (const auto &F : Failed)
++      if (F.Name == Name)
++        return &F;
++    return nullptr;
++  }
++  llvm::ArrayRef<FailedModule> failedModules() const { return Failed; }
++  static std::optional<std::pair<uint64_t, int64_t>>
++  stampOf(llvm::vfs::FileSystem &VFS, llvm::StringRef Path) {
++    auto Status = VFS.status(Path);
++    if (!Status)
++      return std::nullopt;
++    return std::make_pair(Status->getSize(),
++                          static_cast<int64_t>(
++                              Status->getLastModificationTime()
++                                  .time_since_epoch()
++                                  .count()));
++  }
++
+ private:
++  llvm::SmallVector<FailedModule, 2> Failed;
++  llvm::StringSet<> FailedNames;
+   llvm::SmallVector<std::shared_ptr<const ModuleFile>, 8> RequiredModules;
+   // A helper class to speedup the query if a module is built.
+   llvm::StringSet<> BuiltModuleNames;
+@@ -1095,16 +1132,31 @@ void recordValidationInputs(
+ /// built: content changed"), for the log line that says why it is rebuilt.
+ class FirstProblemConsumer : public DiagnosticConsumer {
+ public:
++  explicit FirstProblemConsumer(
++      DiagnosticsEngine::Level Least = DiagnosticsEngine::Warning)
++      : Least(Least) {}
+   std::string First;
+   void HandleDiagnostic(DiagnosticsEngine::Level Level,
+                         const clang::Diagnostic &Info) override {
+     DiagnosticConsumer::HandleDiagnostic(Level, Info);
+-    if (Level < DiagnosticsEngine::Warning || !First.empty())
++    if (Level < Least || !First.empty())
+       return;
+     llvm::SmallString<256> Message;
+     Info.FormatDiagnostic(Message);
++    if (Info.hasSourceManager() && Info.getLocation().isValid()) {
++      auto Loc = Info.getSourceManager().getPresumedLoc(Info.getLocation());
++      if (Loc.isValid())
++        Message = (llvm::Twine(Loc.getFilename()) + ":" +
++                   llvm::Twine(Loc.getLine()) + ":" +
++                   llvm::Twine(Loc.getColumn()) + ": " + Message)
++                      .str();
++    }
+     First = Message.str().str();
++    std::replace(First.begin(), First.end(), '\n', ' ');
+   }
++
++private:
++  DiagnosticsEngine::Level Least;
+ };
+ 
+ /// Reads `ModuleFilePath` as validation does. `Complain` reads it the way a
+@@ -1333,10 +1385,13 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+     }
+     return std::move(Error);
+   }
++  // The compile's first error goes into the failure, which is logged at
++  // info; before, only a verbose log said why a module did not compile.
++  FirstProblemConsumer FirstError(DiagnosticsEngine::Error);
+   if (!*Worker) {
+     auto Clang =
+         prepareCompilerInstance(std::move(CI), /*Preamble=*/nullptr,
+-                                std::move(*Buf), std::move(FS), IgnoreDiags);
++                                std::move(*Buf), std::move(FS), FirstError);
+     if (!Clang)
+       return llvm::createStringError("Failed to prepare compiler instance");
+ 
+@@ -1371,8 +1426,11 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+                         "detailed failure reasons. It is helpful to use "
+                         "'--debug-modules-builder' flag to keep the clangd's "
+                         "built module files to reproduce the failure for "
+-                        "debugging. Remember to remove them after debugging.",
+-                        ModuleUnitFileName));
++                        "debugging. Remember to remove them after debugging.{1}",
++                        ModuleUnitFileName,
++                        FirstError.First.empty()
++                            ? std::string()
++                            : " First error: " + FirstError.First));
+     }
+   }
+   // This boundary also covers cancellation after successful worker reaping;
+@@ -1461,6 +1519,10 @@ bool ReusablePrerequisiteModules::canReuse(
+   if (CommandGenerationSource &&
+       CommandGenerationSource->load() != CommandGenerationAtBuild)
+     return false;
++  // A module that did not compile is tried again once its source changed.
++  for (const auto &Failure : Failed)
++    if (!Failure.Source.empty() && stampOf(*VFS, Failure.Source) != Failure.Stamp)
++      return false;
+   if (RequiredModules.empty())
+     return true;
+ 
+@@ -2561,6 +2623,19 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+   llvm::StringSet<> PlannedNames;
+   for (const auto &Node : *Plan)
+     PlannedNames.insert(Node.Name);
++  // A unit that did not compile, as an absolute path and its stamp: what
++  // canReuse compares, whichever directory its view starts from.
++  auto FailedSource = [&](const ModuleBuildNode &Node)
++      -> std::pair<std::string, std::optional<std::pair<uint64_t, int64_t>>> {
++    llvm::SmallString<256> Source(Node.Source);
++    if (llvm::sys::path::is_relative(Source))
++      if (auto Cmd = getModuleCompileCommand(Node.Source, MDB))
++        llvm::sys::path::make_absolute(Cmd->Directory, Source);
++    llvm::sys::path::remove_dots(Source, /*remove_dot_dot=*/true);
++    auto View = TFS.view(std::nullopt);
++    auto Stamp = ReusablePrerequisiteModules::stampOf(*View, Source);
++    return {Source.str().str(), Stamp};
++  };
+   using Result = llvm::Expected<std::shared_ptr<const ModuleFile>>;
+   for (size_t Begin = 0; Begin < Plan->size();) {
+     if (int Reason = isCancelled())
+@@ -2579,11 +2654,28 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+         const auto &Node = (*Plan)[Index];
+         if (BuiltModuleFiles.isModuleUnitBuilt(Node.Name))
+           continue;
++        // A module that needs one that did not compile cannot compile
++        // either; it is retried when that one's source changes.
++        if (auto Missing = llvm::find_if(Node.Dependencies, [&](const std::string &D) {
++              return BuiltModuleFiles.hasFailedModule(D);
++            });
++            Missing != Node.Dependencies.end()) {
++          const auto *Root = BuiltModuleFiles.failureOf(*Missing);
++          BuiltModuleFiles.addFailedModule(
++              {Node.Name, Root ? Root->Source : std::string(),
++               Root ? Root->Stamp : std::nullopt,
++               llvm::formatv("it imports {0}, which could not be built",
++                             *Missing)
++                   .str()});
++          continue;
++        }
+         auto Cmd = getModuleCompileCommand(Node.Source, MDB);
+         if (!Cmd) {
+-          PreparationError = llvm::createStringError(
+-              llvm::formatv("No compile command for {0}", Node.Source));
+-          break;
++          auto [Source, Stamp] = FailedSource(Node);
++          BuiltModuleFiles.addFailedModule(
++              {Node.Name, std::move(Source), Stamp,
++               llvm::formatv("No compile command for {0}", Node.Source).str()});
++          continue;
+         }
+         auto Snapshot =
+             BuiltModuleFiles.forBuild(Node.Dependencies, PlannedNames);
+@@ -2611,13 +2703,26 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+       for (auto &Future : Futures)
+         Future.wait();
+       llvm::Error Errors = std::move(PreparationError);
+-      for (auto &ResultSlot : Results) {
++      for (size_t Slot = 0; Slot < Results.size(); ++Slot) {
++        auto &ResultSlot = Results[Slot];
+         if (!ResultSlot)
+           continue;
+-        if (llvm::Error Err = ResultSlot->takeError())
+-          Errors = llvm::joinErrors(std::move(Errors), std::move(Err));
+-        else
++        if (llvm::Error Err = ResultSlot->takeError()) {
++          // A cancelled build stops the whole set, as before; a module that
++          // did not compile leaves the others to be built and used.
++          if (Err.isA<CancelledError>()) {
++            Errors = llvm::joinErrors(std::move(Errors), std::move(Err));
++            continue;
++          }
++          const auto &Node = (*Plan)[Batch + Slot];
++          std::string Reason = llvm::toString(std::move(Err));
++          std::replace(Reason.begin(), Reason.end(), '\n', ' ');
++          auto [Source, Stamp] = FailedSource(Node);
++          BuiltModuleFiles.addFailedModule(
++              {Node.Name, std::move(Source), Stamp, std::move(Reason)});
++        } else {
+           BuiltModuleFiles.addModuleFile(std::move(**ResultSlot));
++        }
+       }
+       if (Errors)
+         return Errors;
+@@ -2789,12 +2894,12 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+                              .count();
+     if (Total < 0.5 && !Tally.Built)
+       return;
+-    log("Prerequisites of {0}: {1} modules, {2} reused, {3} built, in "
+-        "{4:F2} s (reuse checks {5:F2} s, builds {6:F2} s, the rest scanning "
+-        "and planning)",
++    log("Prerequisites of {0}: {1} modules, {2} reused, {3} built, {4} "
++        "failed, in {5:F2} s (reuse checks {6:F2} s, builds {7:F2} s, "
++        "the rest scanning and planning)",
+         File, RequiredModules->moduleFiles().size(), Tally.Reused.load(),
+-        Tally.Built.load(), Total, Seconds(Tally.ReuseMicros.load()),
+-        Seconds(Tally.BuildMicros.load()));
++        Tally.Built.load(), RequiredModules->failedModules().size(), Total,
++        Seconds(Tally.ReuseMicros.load()), Seconds(Tally.BuildMicros.load()));
+   };
+   WithContextValue WithTally(PrerequisiteTallyKey, &Tally);
+   if (llvm::Error Err = Impl->getOrBuildModuleFiles(
+@@ -2804,6 +2909,12 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+     SayCost();
+     return std::make_unique<FailedPrerequisiteModules>();
+   }
++  // Modules that did not compile, one line each: the file is served with the
++  // rest of its modules, where one failure used to leave it with none (not
++  // even std), and an import of a failed one is diagnosed where it is.
++  for (const auto &Failure : RequiredModules->failedModules())
++    elog("Failed to build module prerequisites for {0}; due to {1}", File,
++         Failure.Reason);
+ 
+   SayCost();
+   Impl->retain(File, *RequiredModules);
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 5057f50..4f1b46d 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1599,6 +1599,40 @@ void use() {
+   EXPECT_TRUE(NonModularInfo->canReuse(*Invocation, FS.view(TestDir)));
+ }
+ 
++// One module that does not compile left an importer with no modules at
++// all, not even std. The others are built and used; the failed one and what
++// imports it are left out, and tried again once the failed source changes.
++TEST_F(PrerequisiteModulesTests, OneFailedModuleLeavesTheOthers) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("good.cppm", "export module good;\nexport int answer() { return 42; }\n");
++  CDB.addFile("bad.cppm", "export module bad;\nexport int broken() { return nope; }\n");
++  CDB.addFile("user.cppm", "export module user;\nimport bad;\nexport int use() { return broken(); }\n");
++  CDB.addFile("main.cpp", "import good;\nimport bad;\nimport user;\nint main() { return answer(); }\n");
++  ModulesBuilder Builder(CDB);
++
++  auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("main.cpp"), FS);
++  ASSERT_TRUE(Modules);
++  HeaderSearchOptions HSOpts;
++  Modules->adjustHeaderSearchOptions(HSOpts);
++  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("good"));
++  EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("bad"));
++  EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("user"));
++
++  auto Invocation = buildCompilerInvocation(getInputs("main.cpp", CDB), DiagConsumer);
++  EXPECT_TRUE(Modules->canReuse(*Invocation, FS.view(TestDir)))
++      << "not retried while the failed source is as it was";
++
++  // Fixed: the set is built again, and now has all three.
++  CDB.addFile("bad.cppm", "export module bad;\nexport int broken() { return 1; }\n");
++  EXPECT_FALSE(Modules->canReuse(*Invocation, FS.view(TestDir)));
++  auto Fixed = Builder.buildPrerequisiteModulesFor(getFullPath("main.cpp"), FS);
++  HeaderSearchOptions FixedOpts;
++  Fixed->adjustHeaderSearchOptions(FixedOpts);
++  EXPECT_TRUE(FixedOpts.PrebuiltModuleFiles.count("good"));
++  EXPECT_TRUE(FixedOpts.PrebuiltModuleFiles.count("bad"));
++  EXPECT_TRUE(FixedOpts.PrebuiltModuleFiles.count("user"));
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+@@ -2517,7 +2551,10 @@ export int NPart = 4LIdjwldijaw
+   EXPECT_FALSE(NInfo->canReuse(*Invocation, FS.view(TestDir)));
+   NInfo = Builder.buildPrerequisiteModulesFor(getFullPath("N.cppm"), FS);
+   EXPECT_TRUE(NInfo);
+-  EXPECT_FALSE(NInfo->canReuse(*Invocation, FS.view(TestDir)));
++  // A set with a module that did not compile serves the file with the other
++  // modules, and is not built again at every request while the failed
++  // source stays as it was; changing that source makes it stale.
++  EXPECT_TRUE(NInfo->canReuse(*Invocation, FS.view(TestDir)));
+ 
+   CDB.addFile("N-part.cppm", R"cpp(
+ export module N:Part;
+-- 
+2.53.0
+

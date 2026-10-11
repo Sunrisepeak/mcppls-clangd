@@ -17,11 +17,11 @@ bumped.
 
 ## Status
 
-The 0.0.12 engine carries 25 patches ([patches/PATCHES.md](patches/PATCHES.md))
-on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.0`. Each patch maps
+The 0.0.13 engine carries 28 patches ([patches/PATCHES.md](patches/PATCHES.md))
+on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.1`. Each patch maps
 to rows of the upstream-defects register and has a drop condition; every patch
 is `steady`, which `ci/check_ledger.py --release` requires before a release.
-The engine ships in mcpp-language-server 0.0.12, which pins it by binary SHA-256
+The engine ships in mcpp-language-server 0.0.13, which pins it by binary SHA-256
 and by the source identity in `engine.json`.
 
 | Platform | Built on | Runs on |

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Require imported symbols on the first request, without an AST barrier."""
+"""Imported symbols arrive without an AST barrier: the first answer, given within the first-preamble
+wait, is marked incomplete until the module is built, and asked again it carries the module's names."""
 import argparse
 import hashlib
 import importlib.util
