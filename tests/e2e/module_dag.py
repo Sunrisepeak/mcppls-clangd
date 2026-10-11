@@ -148,9 +148,9 @@ def run_case(engine, clang, root, shape, workers, baseline=False,
         if 'Keeping import of third-party module foreign_missing textual' not in result['stderr']:
             raise RuntimeError('unavailable transitive provider lost textual behavior')
     if shape == 'failure':
+        # A imports B, which does not compile; C, B's independent sibling, is built and used whatever the bound
+        # (it was left out with one worker while one failure still failed the whole set).
         required -= {'A'}
-        if workers == 1:
-            required -= {'C'}
     if set(starts) != required or set(finished) != required:
         raise RuntimeError(f'wrong tasks: started={set(starts)}, finished={set(finished)}')
     for name in required:
