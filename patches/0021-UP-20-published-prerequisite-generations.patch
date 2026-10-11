@@ -1,4 +1,4 @@
-From 6ca3bde17c361795874a7f3f6ac533e17e7c6715 Mon Sep 17 00:00:00 2001
+From a2fae15e508a97c362ed4bf021b74a2b22d2117e Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:34:00 +0900
 Subject: [clangd] Consumers bind to published prerequisite generations
@@ -15,12 +15,12 @@ A consumer binds to the generations of the prerequisites actually published, a f
 
   The old implementation fails the two unrelated-root reuse assertions. All 77 prerequisite-module controls pass with the change. A private same-recipe original UP20 replay has zero prerequisite/admission failures, 85 actual builds instead of 526, and restores all sources with normal cleanup. The replay is correctness-only, not release or a latency distribution.
 ---
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 186 +++++++++++++++++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 192 +++++++++++++++++-
  .../unittests/PrerequisiteModulesTest.cpp     | 152 +++++++++++++-
- 2 files changed, 330 insertions(+), 8 deletions(-)
+ 2 files changed, 336 insertions(+), 8 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 9c820e1..7476a48 100644
+index 9c820e1..fddc0eb 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -24,6 +24,9 @@
@@ -206,7 +206,7 @@ index 9c820e1..7476a48 100644
      return llvm::Error::success();
    };
    for (StringRef Root : Roots) {
-@@ -1727,6 +1846,28 @@ public:
+@@ -1727,6 +1846,34 @@ public:
    ModuleNameToSourceCache &getProjectModulesCache() {
      return ProjectModulesCache;
    }
@@ -218,11 +218,17 @@ index 9c820e1..7476a48 100644
 +  // module (a copy reserves a generation and writes the whole BMI).
 +  void retain(PathRef File, const ReusablePrerequisiteModules &Built) {
 +    constexpr unsigned MaxFiles = 32;
-+    std::lock_guard<std::mutex> Lock(RetainedMutex);
 +    const std::string Key = maybeCaseFoldPath(File);
-+    if (!Retained.count(Key) && Retained.size() >= MaxFiles)
++    // What is let go of goes after the lock: a copy's release removes files.
++    llvm::SmallVector<std::shared_ptr<const ModuleFile>, 8> Old, Evicted;
++    std::lock_guard<std::mutex> Lock(RetainedMutex);
++    if (!Retained.count(Key) && Retained.size() >= MaxFiles) {
++      Evicted.swap(Retained.begin()->second);
 +      Retained.erase(Retained.begin());
-+    Retained[Key] = Built.moduleFiles();
++    }
++    auto &Slot = Retained[Key];
++    Old.swap(Slot);
++    Slot = Built.moduleFiles();
 +  }
 +
 +  // Admission found no room: what is only retained goes first.
@@ -235,7 +241,7 @@ index 9c820e1..7476a48 100644
    std::atomic<uint64_t> &commandGeneration() { return CommandGeneration; }
    const GlobalCompilationDatabase &getCDB() const { return Cache.getCDB(); }
  
-@@ -1940,6 +2081,9 @@ private:
+@@ -1940,6 +2087,9 @@ private:
                               ReusablePrerequisiteModules &BuiltModuleFiles);
  
    ModuleFileCache Cache;
@@ -245,7 +251,7 @@ index 9c820e1..7476a48 100644
    ModuleNameToSourceCache ProjectModulesCache;
    std::atomic<uint64_t> CommandGeneration{1};
    GlobalCompilationDatabase::CommandChanged::Subscription CommandWatcher;
-@@ -2023,9 +2167,23 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2023,9 +2173,23 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
      unsigned Remaining = --ActiveBuildTasks;
      vlog("Module build task {0} finished (active={1})", ModuleName, Remaining);
    });
@@ -271,7 +277,7 @@ index 9c820e1..7476a48 100644
  
    // Keep the source-scoped lock while probing and validating cached BMIs so
    // stale-file replacement and final publication stay serialized.
-@@ -2068,7 +2226,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2068,7 +2232,7 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
        auto Reservation = (*Owned)->reserveUntil(
            Key, getModuleSourceHashLockPath(ModuleSource, getCDB()),
            Output + Capture, Output, Capture, AdmissionDeadline,
@@ -280,7 +286,7 @@ index 9c820e1..7476a48 100644
        if (!Reservation) return Reservation.takeError();
        // Waiting for a concurrent publisher is part of the original worker
        // deadline, not an extra timeout before launching the bounded child.
-@@ -2089,9 +2247,19 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2089,9 +2253,19 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
          return llvm::make_error<CancelledError>(Reason);
        if (auto Error = (*Reservation)->publish()) return std::move(Error);
        *Stable = std::move(*Reservation);
@@ -301,7 +307,7 @@ index 9c820e1..7476a48 100644
      auto Result = std::make_shared<OwnedModuleFile>(ModuleName, *Stable, *Copy);
      Cache.add(ModuleName, ModuleSource, CommandHash, Result);
      return std::shared_ptr<const ModuleFile>(std::move(Result));
-@@ -2174,6 +2342,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+@@ -2174,6 +2348,9 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
                      [](const ModuleBuildNode &L, const ModuleBuildNode &R) {
                        return L.Depth < R.Depth;
                      });
@@ -311,7 +317,7 @@ index 9c820e1..7476a48 100644
    using Result = llvm::Expected<std::shared_ptr<const ModuleFile>>;
    for (size_t Begin = 0; Begin < Plan->size();) {
      if (int Reason = isCancelled())
-@@ -2185,8 +2356,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+@@ -2185,8 +2362,6 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
      // immutable prerequisite snapshot; workers never wait on peer tasks.
      for (size_t Batch = Begin; Batch < End;) {
        size_t BatchEnd = (std::min)(End, Batch + BuildPool.getMaxConcurrency());
@@ -320,7 +326,7 @@ index 9c820e1..7476a48 100644
        std::vector<std::optional<Result>> Results(BatchEnd - Batch);
        llvm::SmallVector<std::future<void>> Futures;
        llvm::Error PreparationError = llvm::Error::success();
-@@ -2200,6 +2369,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
+@@ -2200,6 +2375,8 @@ llvm::Error ModulesBuilder::ModulesBuilderImpl::getOrBuildModuleFiles(
                llvm::formatv("No compile command for {0}", Node.Source));
            break;
          }
@@ -329,7 +335,7 @@ index 9c820e1..7476a48 100644
          // ThreadPool's returned future is deferred: waiting on it may run
          // the compilation on this caller, bypassing the pool's global limit.
          // Wait instead on a separate promise set only by the pool worker.
-@@ -2316,6 +2487,7 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+@@ -2316,6 +2493,7 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
      return std::make_unique<FailedPrerequisiteModules>();
    }
  

@@ -1,4 +1,4 @@
-From 24f7bb5afe1b476a1bca41c3546e9ec011f1adb2 Mon Sep 17 00:00:00 2001
+From 8f320efff51615d8c09b5110905682d513dda202 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -406,7 +406,7 @@ index 0000000..ea7d60f
 +
 +#endif
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 5f1df3e..bf7ffff 100644
+index 9085c62..7307716 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -26,6 +26,7 @@
@@ -500,7 +500,7 @@ index 5f1df3e..bf7ffff 100644
  llvm::cl::opt<bool> DebugModulesBuilder(
      "debug-modules-builder",
      llvm::cl::desc("Don't remove clangd's built module files for debugging. "
-@@ -1887,33 +1964,53 @@ public:
+@@ -1893,33 +1970,53 @@ public:
  
    /// Source/header/draft inputs can change without a command notification.
    /// Re-derive this preamble-safety decision from the actual request view.
@@ -574,7 +574,7 @@ index 5f1df3e..bf7ffff 100644
    }
  
    llvm::Error
-@@ -2439,7 +2536,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2445,7 +2542,8 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
        !CI.getFrontendOpts().ModuleFiles.empty() ||
        !CI.getPreprocessorOpts().ImplicitPCHInclude.empty())
      return std::nullopt;
@@ -584,7 +584,7 @@ index 5f1df3e..bf7ffff 100644
    auto MDB = Impl->getCDB().getProjectModules(File);
    if (!MDB)
      return std::nullopt;
-@@ -2461,11 +2559,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
+@@ -2467,11 +2565,55 @@ ModulesBuilder::getTextualPreambleInputs(PathRef File, const ThreadsafeFS &TFS,
    return MDB->getVerifiedInputs(File, /*ImportFree=*/true);
  }
  
@@ -641,7 +641,7 @@ index 5f1df3e..bf7ffff 100644
  }
  
  std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
-@@ -2481,12 +2623,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
+@@ -2487,12 +2629,15 @@ std::vector<std::string> ModulesBuilder::getRequiredModuleNames(PathRef File) {
  std::vector<std::string>
  ModulesBuilder::getRequiredModuleNames(PathRef File, const ThreadsafeFS &TFS,
                                         llvm::StringRef Contents) {
@@ -659,7 +659,7 @@ index 5f1df3e..bf7ffff 100644
  }
  
  std::unique_ptr<PrerequisiteModules>
-@@ -2530,11 +2675,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
+@@ -2536,11 +2681,71 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
    return std::move(RequiredModules);
  }
  

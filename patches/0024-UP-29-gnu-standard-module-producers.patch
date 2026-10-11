@@ -1,4 +1,4 @@
-From af7ed1620e692f81ee1eaa783b55e67ce45ca14d Mon Sep 17 00:00:00 2001
+From ab7f5d495c67e4980d1225ac1a2a836de0e5e0f2 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:32:47 +0900
 Subject: fix(clangd): recognize installed GNU standard module producers
@@ -247,7 +247,7 @@ index 1ee0dba..a378ee2 100644
  //
  // Internally this builds a large (0.5MB) table of clang options on first use.
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 74d2089..5f1df3e 100644
+index ed54402..9085c62 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -9,6 +9,7 @@
@@ -258,7 +258,7 @@ index 74d2089..5f1df3e 100644
  #include "ModuleValidationCache.h"
  #include "ModuleBuildMemoryBudget.h"
  #include "ModuleBuildWorker.h"
-@@ -2157,6 +2158,8 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2163,6 +2164,8 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
      return llvm::make_error<CancelledError>(Reason);
    if (!WorkerConfigurationError.empty())
      return llvm::createStringError(WorkerConfigurationError);
