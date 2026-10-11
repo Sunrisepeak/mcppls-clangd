@@ -1,4 +1,4 @@
-From 9cec79a72d95bd644eebed88adc5de645965dcdf Mon Sep 17 00:00:00 2001
+From 24f7bb5afe1b476a1bca41c3546e9ec011f1adb2 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 09:39:51 +0900
 Subject: [clang] Code completion loads only matching external names
@@ -88,7 +88,7 @@ index c36a53a..b03e14f 100644
    if (FeatureModules) {
      for (auto &Mod : *FeatureModules)
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index c6f4728..77f14da 100644
+index 53d3c47..fa2ec25 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
 @@ -28,6 +28,7 @@
@@ -271,8 +271,8 @@ index c6f4728..77f14da 100644
                         ? Input.ParseInput.ModulesManager->getTextualPreambleInputs(
                               Input.FileName, *Input.ParseInput.TFS,
                               Input.ParseInput.Contents,
-@@ -1423,6 +1544,7 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
-     if (!Current || !(*Current == *Input.Preamble.TextualModuleInputs))
+@@ -1427,6 +1548,7 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+             Input.FileName))
        ReusePreamble = false;
    }
 +  ReplayOnce.reset();

@@ -1,4 +1,4 @@
-From d249289acf062999194b333477f9066d798f9654 Mon Sep 17 00:00:00 2001
+From 3629878e984bc6173aa4ca8d845ddf4e31efc3e4 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:34:48 +0900
 Subject: clangd: admit fully verified import-free textual module preambles
@@ -12,23 +12,23 @@ Audit original live compiler file objects before publication. Retry rejected
 audits and failed candidate construction once with a zero prefix; keep fresh
 prerequisite validation and late completion compatibility checks.
 ---
- clang-tools-extra/clangd/CodeComplete.cpp     |  10 +
+ clang-tools-extra/clangd/CodeComplete.cpp     |  14 +
  .../clangd/ModuleDependencyScanCache.h        | 229 +++++++++--
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  36 ++
  clang-tools-extra/clangd/ModulesBuilder.h     |   8 +
- clang-tools-extra/clangd/Preamble.cpp         | 143 ++++++-
- clang-tools-extra/clangd/Preamble.h           |   2 +
+ clang-tools-extra/clangd/Preamble.cpp         | 174 +++++++-
+ clang-tools-extra/clangd/Preamble.h           |  21 +
  clang-tools-extra/clangd/ProjectModules.cpp   |  19 +-
  clang-tools-extra/clangd/ProjectModules.h     |  13 +
  clang-tools-extra/clangd/TUScheduler.cpp      |  32 +-
  .../unittests/PrerequisiteModulesTest.cpp     | 376 ++++++++++++++++++
- 10 files changed, 816 insertions(+), 52 deletions(-)
+ 10 files changed, 870 insertions(+), 52 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index 82e5c38..c6f4728 100644
+index 82e5c38..53d3c47 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
-@@ -1413,6 +1413,16 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+@@ -1413,6 +1413,20 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
        ReusePreamble = false;
      }
    }
@@ -39,7 +39,11 @@ index 82e5c38..c6f4728 100644
 +                             Input.ParseInput.Contents,
 +                             Input.ParseInput.CompileCommand, *CI)
 +                       : std::nullopt;
-+    if (!Current || !(*Current == *Input.Preamble.TextualModuleInputs))
++    if (!Current ||
++        !textualModuleInputsHold(
++            Input.Preamble, *Current,
++            *Input.ParseInput.TFS->view(Input.ParseInput.CompileCommand.Directory),
++            Input.FileName))
 +      ReusePreamble = false;
 +  }
    auto &FrontendOpts = CI->getFrontendOpts();
@@ -518,7 +522,7 @@ index f98a505..a616687 100644
    std::vector<std::string> getRequiredModuleNames(PathRef File);
    std::vector<std::string> getRequiredModuleNames(PathRef File,
 diff --git a/clang-tools-extra/clangd/Preamble.cpp b/clang-tools-extra/clangd/Preamble.cpp
-index f43471e..514fb43 100644
+index f43471e..57b6a97 100644
 --- a/clang-tools-extra/clangd/Preamble.cpp
 +++ b/clang-tools-extra/clangd/Preamble.cpp
 @@ -18,6 +18,7 @@
@@ -707,15 +711,53 @@ index f43471e..514fb43 100644
    if (BuiltPreamble) {
      log("Built preamble of size {0} for file {1} version {2} in {3} seconds",
          BuiltPreamble->getSize(), FileName, Inputs.Version,
-@@ -694,6 +793,7 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+@@ -694,6 +793,11 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
      Result->Version = Inputs.Version;
      Result->CompileCommand = Inputs.CompileCommand;
      Result->SkipPreambleBuild = SkipPreambleBuild;
 +    Result->TextualModuleInputs = std::move(TextualInputs);
++    if (Result->TextualModuleInputs) {
++      Result->TextualProof = std::make_shared<TextualPreambleProof>();
++      Result->TextualProof->Built = BuiltInputs;
++    }
      Result->Diags = std::move(Diags);
      Result->Includes = CapturedInfo.takeIncludes();
      Result->Pragmas = std::make_shared<const include_cleaner::PragmaIncludes>(
-@@ -760,12 +860,31 @@ bool isPreambleCompatible(const PreambleData &Preamble,
+@@ -736,6 +840,33 @@ buildPreamble(PathRef FileName, CompilerInvocation CI,
+   return nullptr;
+ }
+ 
++bool textualModuleInputsHold(const PreambleData &Preamble,
++                             const ProjectModules::VerifiedInputs &Current,
++                             llvm::vfs::FileSystem &FS, PathRef FileName) {
++  if (!Preamble.TextualModuleInputs)
++    return false;
++  if (Current == *Preamble.TextualModuleInputs)
++    return true;
++  const auto &Proof = Preamble.TextualProof;
++  if (!Proof || !Proof->Built ||
++      Current.Generation != Preamble.TextualModuleInputs->Generation)
++    return false;
++  {
++    std::lock_guard<std::mutex> Lock(Proof->Mu);
++    if (llvm::is_contained(Proof->Equivalent, Current.Key))
++      return true;
++  }
++  if (!Proof->Built->matches(FS, FileName))
++    return false;
++  vlog("Textual module preamble of {0} still holds under another scan key",
++       FileName);
++  std::lock_guard<std::mutex> Lock(Proof->Mu);
++  if (Proof->Equivalent.size() >= 16)
++    Proof->Equivalent.erase(Proof->Equivalent.begin());
++  Proof->Equivalent.push_back(Current.Key);
++  return true;
++}
++
+ bool isPreambleCompatible(const PreambleData &Preamble,
+                           const ParseInputs &Inputs, PathRef FileName,
+                           const CompilerInvocation &CI) {
+@@ -760,12 +891,31 @@ bool isPreambleCompatible(const PreambleData &Preamble,
      return NewNameSet == Preamble.RequiredModules->getRequiredModuleNames();
    };
  
@@ -738,7 +780,7 @@ index f43471e..514fb43 100644
 +        FileName, *Inputs.TFS, Inputs.Contents, Inputs.CompileCommand, CI);
 +    if (!Current)
 +      return Incompatible("its textual module inputs cannot be computed");
-+    if (!(*Current == *Preamble.TextualModuleInputs))
++    if (!textualModuleInputsHold(Preamble, *Current, *VFS, FileName))
 +      return Incompatible("its textual module inputs changed");
 +  }
 +  if (!compileCommandsAreEqual(Inputs.CompileCommand, Preamble.CompileCommand))
@@ -754,18 +796,53 @@ index f43471e..514fb43 100644
  
  void escapeBackslashAndQuotes(llvm::StringRef Text, llvm::raw_ostream &OS) {
 diff --git a/clang-tools-extra/clangd/Preamble.h b/clang-tools-extra/clangd/Preamble.h
-index d16b14f..ed3fa45 100644
+index d16b14f..b50974b 100644
 --- a/clang-tools-extra/clangd/Preamble.h
 +++ b/clang-tools-extra/clangd/Preamble.h
-@@ -131,6 +131,8 @@ struct PreambleData {
+@@ -44,6 +44,7 @@
+ #include <cstddef>
+ #include <functional>
+ #include <memory>
++#include <mutex>
+ #include <string>
+ #include <utility>
+ #include <vector>
+@@ -97,6 +98,13 @@ private:
+ ///
+ /// As we must avoid re-parsing the preamble, any information that can only
+ /// be obtained during parsing must be eagerly captured and stored here.
++class ModuleScanManifest;
++struct TextualPreambleProof {
++  std::shared_ptr<const ModuleScanManifest> Built;
++  std::mutex Mu;
++  std::vector<std::string> Equivalent;
++};
++
+ struct PreambleData {
+   PreambleData(PrecompiledPreamble Preamble) : Preamble(std::move(Preamble)) {}
+ 
+@@ -131,8 +139,21 @@ struct PreambleData {
    // Policy used to construct this preamble. Consumers patching a stale
    // preamble must preserve its mode; dependency freshness is checked separately.
    bool SkipPreambleBuild = false;
 +  // Exact verified prefix inputs permitting a PCH alongside body-only imports.
 +  std::optional<ProjectModules::VerifiedInputs> TextualModuleInputs;
++  // What the PCH's construction read, and the keys of later scans of the
++  // prefix found to describe it (see textualModuleInputsHold).
++  std::shared_ptr<TextualPreambleProof> TextualProof;
  };
  
++/// Whether \p Current, a verified scan of the preamble's prefix now, still
++/// vouches for its textual module inputs. A scan of the same prefix may record
++/// its inputs differently (another key); the PCH construction's own reads
++/// replaying unchanged then prove nothing changed, and that key is remembered.
++bool textualModuleInputsHold(const PreambleData &Preamble,
++                             const ProjectModules::VerifiedInputs &Current,
++                             llvm::vfs::FileSystem &FS, PathRef FileName);
++
  using PreambleParsedCallback =
+     std::function<void(CapturedASTCtx ASTCtx,
+                        std::shared_ptr<const include_cleaner::PragmaIncludes>)>;
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
 index 190f001..5f0bfc1 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp

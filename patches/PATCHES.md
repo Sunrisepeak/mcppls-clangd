@@ -59,6 +59,12 @@ since then found the following, each fixed in the patch it belongs to:
   at most, let go of when admission meets pressure): a set dropped for a
   moment, an import being typed or a bounded build answered late, was copied
   again module by module, a reservation and a full BMI write each.
+- 0023, textual preamble: a preamble whose prefix another scan records with
+  another key holds while the PCH construction's own reads replay unchanged
+  (the key is then remembered), and a preamble found incompatible says which
+  check failed. Each new scan of a `<windows.h>` prefix recorded its inputs
+  differently: the first edit of such a file rebuilt its preamble (3.6 s)
+  and completion parsed every header meanwhile (1-3 s each).
 - 0023, textual preamble audit (and 0025 for every replay): a directory is
   compared by its name and type only, since the temporary directory the
   preamble itself is written to changes its time and size, and an overlay of
@@ -88,7 +94,7 @@ since then found the following, each fixed in the patch it belongs to:
 The engine also proves `unresolved-import-recovery` on its package
 (`ci/unresolved_import_canary.py`): a module unit importing a module nothing
 provides leaves its importer answering. The tree is now
-`dced87aa1fb242a7b2add961142e2ae288d53002`.
+`8f1a14e0387b2ae2301be5547fdfffc93f0935bc`.
 The incremental history and the raw evidence it produced are in the `archive/0.0.12-joint` branch and the `evidence-0.0.12`
 release (`tests/evidence/README.md`).
 
