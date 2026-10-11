@@ -393,6 +393,24 @@ jobs:
           path: ${{ runner.temp }}/compiler-extensions/results.json
           if-no-files-found: error
 
+      # The packaged part, proved like a release's, for the platforms the floor job does not
+      # package: a product PR's CI assembles its payloads from these before the engine is
+      # released (README.md, "Integrating with mcppls").
+      - name: Package payload part
+        if: "!startsWith(matrix.platform, 'linux-')"
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: ./ci/scripts/package.sh
+
+      - uses: actions/upload-artifact@v4
+        if: "!startsWith(matrix.platform, 'linux-')"
+        with:
+          name: clangd-${{ matrix.platform }}-portable
+          path: dist/clangd-*-${{ matrix.platform }}/**
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Show ccache stats
         shell: bash
         run: ccache --show-stats || true
@@ -432,4 +450,4 @@ jobs:
             build-${{ matrix.platform }}-ubuntu20/portable-module-quality/quality-results.json
             build-${{ matrix.platform }}-ubuntu20/portable-module-*/result*.json
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 14

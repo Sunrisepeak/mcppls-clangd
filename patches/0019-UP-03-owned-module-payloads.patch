@@ -1,4 +1,4 @@
-From 12adfb573b4c33d3dffb82fc0c59d5ddc299720d Mon Sep 17 00:00:00 2001
+From 415e86620e29f8aa3ad70ec3b2a5dabb0beae736 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Fri, 9 Oct 2026 12:33:59 +0900
 Subject: [clangd] Module payloads are admitted and owned through stable leases
@@ -15,16 +15,16 @@ Module payloads hold persistent admission and kernel leases through publication,
 ---
  clang-tools-extra/clangd/CMakeLists.txt       |    1 +
  clang-tools-extra/clangd/Compiler.cpp         |    6 +
- clang-tools-extra/clangd/ModuleBuildCache.cpp | 1455 +++++++++++++++++
- clang-tools-extra/clangd/ModuleBuildCache.h   |   97 ++
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 1527 +++++++++++++++++
+ clang-tools-extra/clangd/ModuleBuildCache.h   |   98 ++
  .../clangd/ModuleBuildWorker.cpp              |   59 +-
  clang-tools-extra/clangd/ModuleBuildWorker.h  |    2 +
  .../clangd/ModuleBuildWorkerOutput.cpp        |   10 +-
  .../clangd/ModuleBuildWorkerStorage.cpp       |  126 +-
  .../clangd/ModuleBuildWorkerStorage.h         |    4 +
  clang-tools-extra/clangd/ModulesBuilder.cpp   |  143 +-
- .../unittests/PrerequisiteModulesTest.cpp     |  410 +++++
- 11 files changed, 2294 insertions(+), 19 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     |  542 ++++++
+ 11 files changed, 2499 insertions(+), 19 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleBuildCache.h
 
@@ -66,18 +66,20 @@ index 0ccc2b0..17e5dff 100644
    CI->getLangOpts().CommentOpts.ParseAllComments = true;
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
 new file mode 100644
-index 0000000..9d1aafa
+index 0000000..3550649
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
-@@ -0,0 +1,1455 @@
+@@ -0,0 +1,1527 @@
 +//===--- ModuleBuildCache.cpp - persistent owned payload admission --------===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 +// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 +#include "ModuleBuildCache.h"
 +#include "ModuleBuildWorkerStorage.h"
++#include "support/Logger.h"
 +#include "clang/Frontend/CompilerInvocation.h"
 +#include "clang/Lex/HeaderSearchOptions.h"
 +#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/StringMap.h"
 +#include "llvm/ADT/StringExtras.h"
 +#include "llvm/Support/FileSystem.h"
 +#include "llvm/Support/LockFileManager.h"
@@ -404,6 +406,8 @@ index 0000000..9d1aafa
 +  std::string Root;
 +  std::mutex Mutex;
 +  unsigned Cursor = 0;
++  // Under Mutex: the slot each key was last found in (lookup's first try).
++  llvm::StringMap<unsigned> Hints;
 +#ifdef __linux__
 +  FD Directory, Ledger;
 +  Header Description;
@@ -422,6 +426,12 @@ index 0000000..9d1aafa
 +  llvm::Expected<Record> read(unsigned Slot) {
 +    if (!rootMatches() || !ledgerMatches())
 +      return failure("namespace or ledger identity changed");
++    return readRecord(Slot);
++  }
++  // read() without its identity checks, for a scan of every slot under the
++  // ledger lock that made them once: four stats a slot made a scan some 25k
++  // system calls.
++  llvm::Expected<Record> readRecord(unsigned Slot) {
 +    Record A{}, B{};
 +    if (!exactRead(Ledger.Value, &A, sizeof(A), offset(Slot, 0)) ||
 +        !exactRead(Ledger.Value, &B, sizeof(B), offset(Slot, 1)))
@@ -860,8 +870,18 @@ index 0000000..9d1aafa
 +             !exactRead(I->Ledger.Value, &I->Description, sizeof(Header), 0) ||
 +             I->Description.MagicValue != Magic ||
 +             I->Description.RecordSize != sizeof(Record) ||
-+             I->Description.Slots != Slots || I->Description.Limit != Bytes)
++             I->Description.Slots != Slots) {
 +    return failure("incompatible marked ledger or limits");
++  } else if (I->Description.Limit != Bytes) {
++    // The payload bound is admission policy, not layout: a clangd started
++    // with another one (a changed cache budget) adopts the ledger with it.
++    // Charges above a lowered bound wait for space like any other pressure.
++    I->Description.Limit = Bytes;
++    if (!exactWrite(I->Ledger.Value, &I->Description.Limit,
++                    sizeof(I->Description.Limit), offsetof(Header, Limit)) ||
++        fdatasync(I->Ledger.Value))
++      return ioError();
++  }
 +  return std::shared_ptr<ModuleBuildCache>(new ModuleBuildCache(std::move(I)));
 +#endif
 +}
@@ -880,15 +900,17 @@ index 0000000..9d1aafa
 +  Lock Ledger(State->Ledger.Value);
 +  if (!Ledger.acquire())
 +    return ioError();
++  if (!State->rootMatches() || !State->ledgerMatches())
++    return failure("namespace or ledger identity changed");
 +  uint64_t Used = 0;
 +  unsigned Candidate = State->Description.Slots;
 +  Record Selected{};
 +  FD Lease;
 +  for (unsigned S = 0; S < State->Description.Slots; ++S) {
-+    auto R = State->read(S);
++    auto R = State->readRecord(S);
 +    if (!R)
 +      return R.takeError();
-+    if (R->Bytes > State->Description.Limit - Used)
++    if (R->Bytes > UINT64_MAX - Used)
 +      return failure("invalid charged total");
 +    Used += R->Bytes;
 +    if (R->Type == Free && Candidate == State->Description.Slots) {
@@ -906,6 +928,7 @@ index 0000000..9d1aafa
 +    }
 +  }
 +  if (Candidate == State->Description.Slots ||
++      Used > State->Description.Limit ||
 +      Bytes > State->Description.Limit - Used) {
 +    // Advisory cross-process pressure never authorizes deletion without leases.
 +    // Retain idle stable generations until admission needs space/another slot.
@@ -976,7 +999,9 @@ index 0000000..9d1aafa
 +ModuleBuildCache::reserveUntil(
 +    StringRef Key, PathRef Source, uint64_t Bytes, uint64_t OutputEnvelope,
 +    uint64_t CaptureEnvelope, std::chrono::steady_clock::time_point Deadline,
-+    const std::function<bool()> &Cancelled) {
++    const std::function<bool()> &Cancelled,
++    const std::function<void()> &OnPressure) {
++  bool Pressed = false;
 +  for (;;) {
 +    if (Cancelled && Cancelled())
 +      return failure("worker admission cancelled");
@@ -992,6 +1017,13 @@ index 0000000..9d1aafa
 +    if (Error)
 +      return std::move(Error);
 +    assert(Pressure);
++    // The caller lets go of what it only keeps for later, once, before the
++    // first wait.
++    if (OnPressure && !Pressed) {
++      Pressed = true;
++      OnPressure();
++      continue;
++    }
 +    // Never collect, evict a lease, compile without admission, or wait while
 +    // holding the ledger/mutex. Another process can publish or release space.
 +    std::this_thread::sleep_until((std::min)(Deadline,
@@ -1004,11 +1036,12 @@ index 0000000..9d1aafa
 +  return failure("unsupported lookup");
 +#else
 +  const std::string K = digest(Key);
-+  for (unsigned S = 0; S < State->Description.Slots; ++S) {
++  using Found = std::shared_ptr<ModuleBuildCacheLease>;
++  auto At = [&](unsigned S) -> llvm::Expected<Found> {
 +    auto L = State->lease(S, false, true);
 +    if (!L) {
 +      llvm::consumeError(L.takeError());
-+      continue;
++      return Found{};
 +    }
 +    FD Lease(*L);
 +    auto R = [&]() -> llvm::Expected<Record> {
@@ -1022,35 +1055,73 @@ index 0000000..9d1aafa
 +      return R.takeError();
 +    if (R->Type != Stable || StringRef(R->Key) != K ||
 +        !State->leaseMatches(S, Lease.Value, *R))
-+      continue;
++      return Found{};
 +    auto G = State->generation(S, *R);
 +    if (!G)
 +      return G.takeError();
 +    FD Gen(*G);
 +    struct stat F;
++    // A stable generation whose files no longer match its record (truncated,
++    // replaced, corrupted on disk) is not usable, like one that fails
++    // validation: it is skipped, so the module is built again into a new
++    // generation, and keeps its charge until bounded collection retires it.
++    // Failing the lookup instead would fail the module for good.
 +    if (fstatat(Gen.Value, "payload.pcm", &F, AT_SYMLINK_NOFOLLOW) ||
 +        !S_ISREG(F.st_mode) || F.st_nlink != 1 ||
-+        uint64_t(F.st_size) != R->MainBytes)
-+      return failure("stable payload changed");
++        uint64_t(F.st_size) != R->MainBytes) {
++      log("Owned module generation {0} skipped: its payload changed",
++          State->name(S, R->Generation));
++      return Found{};
++    }
 +    auto Bundle = inventoryBundle(Gen.Value);
 +    if (!Bundle)
 +      return Bundle.takeError();
 +    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
 +        Bundle->CacheFiles != R->BundleFiles ||
-+        Bundle->Digest != R->BundleDigest)
-+      return failure("stable bundle changed");
++        Bundle->Digest != R->BundleDigest) {
++      log("Owned module generation {0} skipped: its bundle changed",
++          State->name(S, R->Generation));
++      return Found{};
++    }
 +    if (Usable && !Usable(path(path(State->Root, State->name(S, R->Generation)),
 +                               "payload.pcm")))
-+      continue;
++      return Found{};
 +    auto I = std::make_unique<ModuleBuildCacheLease::Impl>();
 +    I->Cache = shared_from_this();
 +    I->Slot = S;
 +    I->Lease.Value = Lease.release();
 +    I->Description = *R;
-+    return std::shared_ptr<ModuleBuildCacheLease>(
-+        new ModuleBuildCacheLease(std::move(I)));
++    return Found(new ModuleBuildCacheLease(std::move(I)));
++  };
++  // The slot a key was last found in is tried first, and checked like any
++  // other: looking at every slot costs a lease and a ledger read each, which
++  // made every module of a request's prerequisites a dozen milliseconds.
++  std::optional<unsigned> Hint;
++  {
++    std::lock_guard<std::mutex> Guard(State->Mutex);
++    if (auto It = State->Hints.find(K); It != State->Hints.end())
++      Hint = It->second;
 +  }
-+  return std::shared_ptr<ModuleBuildCacheLease>{};
++  if (Hint && *Hint < State->Description.Slots) {
++    auto Hit = At(*Hint);
++    if (!Hit || *Hit)
++      return Hit;
++  }
++  for (unsigned S = 0; S < State->Description.Slots; ++S) {
++    if (Hint && S == *Hint)
++      continue;
++    auto Hit = At(S);
++    if (!Hit)
++      return Hit.takeError();
++    if (!*Hit)
++      continue;
++    std::lock_guard<std::mutex> Guard(State->Mutex);
++    if (State->Hints.size() >= 2 * State->Description.Slots)
++      State->Hints.clear();
++    State->Hints[K] = S;
++    return Hit;
++  }
++  return Found{};
 +#endif
 +}
 +llvm::Error ModuleBuildCacheLease::publish() {
@@ -1415,12 +1486,13 @@ index 0000000..9d1aafa
 +        auto R = State->read(S);
 +        if (!R)
 +          return R.takeError();
-+        if (R->Bytes > State->Description.Limit - Used)
++        if (R->Bytes > UINT64_MAX - Used)
 +          return failure("invalid charged total");
 +        Used += R->Bytes;
 +        Entries += R->Type != Free;
 +      }
-+      Pressure = Needed > State->Description.Limit - Used ||
++      Pressure = Used > State->Description.Limit ||
++                 Needed > State->Description.Limit - Used ||
 +                 Entries == State->Description.Slots;
 +      if (!Pressure) {
 +        Needed = 0;
@@ -1527,10 +1599,10 @@ index 0000000..9d1aafa
 +} // namespace clang::clangd
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
 new file mode 100644
-index 0000000..24f07eb
+index 0000000..fdbcdf8
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,98 @@
 +//===--- ModuleBuildCache.h - owned module payload admission -----*- C++
 +//-*-===//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -1594,7 +1666,8 @@ index 0000000..24f07eb
 +  reserveUntil(llvm::StringRef Key, PathRef SourceAnchor, uint64_t Bytes,
 +               uint64_t OutputEnvelope, uint64_t CaptureEnvelope,
 +               std::chrono::steady_clock::time_point Deadline,
-+               const std::function<bool()> &Cancelled);
++               const std::function<bool()> &Cancelled,
++               const std::function<void()> &OnPressure = {});
 +  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
 +  lookup(llvm::StringRef Key, std::function<bool(PathRef)> Usable = {});
 +  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
@@ -2229,7 +2302,7 @@ index 6827763..9c820e1 100644
      if (IsModuleFileUpToDate(PublishedModuleFilePath, Prerequisites,
                               TFS.view(std::nullopt))) {
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 9cc3898..fb3434d 100644
+index bcccb31..1de7af1 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -12,6 +12,14 @@
@@ -2288,11 +2361,143 @@ index 9cc3898..fb3434d 100644
      // MockFS overlays the process-wide real filesystem; its scanner changes
      // the process CWD. Restore it before deleting this request's directory.
      ASSERT_FALSE(llvm::sys::fs::set_current_path(OriginalWorkingDirectory));
-@@ -926,6 +943,399 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
+@@ -926,6 +943,531 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
    EXPECT_LE(Limited->Examined, 2u);
  }
  
 +#ifdef __linux__
++// A stable generation whose payload changed on disk is skipped, not a failure
++// of the module: the module builds again into a new generation.
++TEST_F(PrerequisiteModulesTests, OwnedLookupSkipsAChangedStablePayload) {
++  const auto Root = (TestDir + "/changed/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/changed-anchor").str();
++  auto Write = [](StringRef File, StringRef Text) {
++    EXPECT_FALSE(
++        llvm::sys::fs::create_directories(llvm::sys::path::parent_path(File)));
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(File, EC);
++    EXPECT_FALSE(EC);
++    Out << Text;
++  };
++  Write(Anchor, "");
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  auto Cache = ModuleBuildCache::open(Root, 64, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Publish = [&](StringRef Text) {
++    auto Lease = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++    EXPECT_THAT_EXPECTED(Lease, llvm::Succeeded());
++    if (!Lease)
++      return std::string();
++    Write((*Lease)->payload(), Text);
++    EXPECT_THAT_ERROR((*Lease)->publish(), llvm::Succeeded());
++    return (*Lease)->payload();
++  };
++  const std::string First = Publish("MAIN");
++  ASSERT_FALSE(First.empty());
++  Write(First, "");   // truncated, as a crash or another program leaves it
++  auto Skipped = (*Cache)->lookup("M");
++  ASSERT_THAT_EXPECTED(Skipped, llvm::Succeeded());
++  EXPECT_FALSE(*Skipped);
++  ASSERT_FALSE(Publish("FRESH").empty());
++  auto Found = (*Cache)->lookup("M");
++  ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
++  ASSERT_TRUE(*Found);
++  EXPECT_EQ((*Found)->mainBytes(), 5u);
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedCacheAdoptsAnotherPayloadBound) {
++  // The payload bound is policy: a clangd started with another (a changed
++  // cache budget) keeps the generations published under the first.
++  const auto Root = (TestDir + "/bound/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/bound-anchor").str();
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Anchor, EC);
++    ASSERT_FALSE(EC);
++  }
++  {
++    auto Cache = ModuleBuildCache::open(Root, 64, 8);
++    ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++    auto Lease = (*Cache)->reserve("M", Anchor, 20, 16, 4);
++    ASSERT_THAT_EXPECTED(Lease, llvm::Succeeded());
++    {
++      std::error_code EC;
++      llvm::raw_fd_ostream Out((*Lease)->payload(), EC);
++      ASSERT_FALSE(EC);
++      Out << "MAIN";
++    }
++    ASSERT_THAT_ERROR((*Lease)->publish(), llvm::Succeeded());
++  }
++  for (uint64_t Bound : {uint64_t(128), uint64_t(16)}) {
++    SCOPED_TRACE(Bound);
++    auto Cache = ModuleBuildCache::open(Root, Bound, 8);
++    ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++    auto Found = (*Cache)->lookup("M");
++    ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
++    EXPECT_TRUE(*Found);
++  }
++  // Below what is charged (the four published bytes), a new admission waits
++  // for space instead of failing the cache.
++  auto Cache = ModuleBuildCache::open(Root, 2, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  bool Pressure = false;
++  llvm::handleAllErrors(
++      (*Cache)->reserve("N", Anchor, 2, 1, 1).takeError(),
++      [&](const ModuleCachePressure &) { Pressure = true; },
++      [](const llvm::ErrorInfoBase &) {});
++  EXPECT_TRUE(Pressure);
++  // The layout is not policy: another slot count is another ledger.
++  EXPECT_THAT_EXPECTED(ModuleBuildCache::open(Root, 64, 4), llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedLookupFindsEachKeyAgain) {
++  // A lookup tries the slot its key was last found in first; whichever slot
++  // it tries, it returns that key's generation or nothing.
++  const auto Root = (TestDir + "/hints/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/hints-anchor").str();
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Anchor, EC);
++    ASSERT_FALSE(EC);
++  }
++  auto Cache = ModuleBuildCache::open(Root, 64, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  for (StringRef Key : {"M", "N"}) {
++    auto Lease = (*Cache)->reserve(Key, Anchor, 8, 4, 4);
++    ASSERT_THAT_EXPECTED(Lease, llvm::Succeeded());
++    {
++      std::error_code EC;
++      llvm::raw_fd_ostream Out((*Lease)->payload(), EC);
++      ASSERT_FALSE(EC);
++      Out << Key;
++    }
++    ASSERT_THAT_ERROR((*Lease)->publish(), llvm::Succeeded());
++  }
++  auto Text = [](const std::shared_ptr<ModuleBuildCacheLease> &Lease) {
++    auto Buffer = llvm::MemoryBuffer::getFile(Lease->payload());
++    return Buffer ? (*Buffer)->getBuffer().str() : std::string();
++  };
++  for (StringRef Key : {"M", "N", "M", "N"}) {
++    SCOPED_TRACE(Key);
++    auto Found = (*Cache)->lookup(Key);
++    ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
++    ASSERT_TRUE(*Found);
++    EXPECT_EQ(Text(*Found), Key.str());
++  }
++  // The generation it was last found in is not usable: nothing else is.
++  auto Refused = (*Cache)->lookup("M", [](PathRef) { return false; });
++  ASSERT_THAT_EXPECTED(Refused, llvm::Succeeded());
++  EXPECT_FALSE(*Refused);
++  auto Missing = (*Cache)->lookup("O");
++  ASSERT_THAT_EXPECTED(Missing, llvm::Succeeded());
++  EXPECT_FALSE(*Missing);
++}
++
 +TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
 +  const auto Root = (TestDir + "/bundles/.owned-payload-v1").str();
 +  const auto Anchor = (TestDir + "/source-anchor").str();

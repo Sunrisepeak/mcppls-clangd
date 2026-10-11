@@ -1,4 +1,4 @@
-From a1cec2202edfb9100eaa5f474b68b52fbc2a3a29 Mon Sep 17 00:00:00 2001
+From 9f52826129cefb7b8d38e37df2eb6ea6047d87b5 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Thu, 8 Oct 2026 20:32:47 +0900
 Subject: fix(clangd): recognize installed GNU standard module producers
@@ -247,7 +247,7 @@ index 1ee0dba..a378ee2 100644
  //
  // Internally this builds a large (0.5MB) table of clang options on first use.
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index cc23406..f6de08f 100644
+index 89ab536..2d788e8 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -9,6 +9,7 @@
@@ -258,7 +258,7 @@ index cc23406..f6de08f 100644
  #include "ModuleValidationCache.h"
  #include "ModuleBuildMemoryBudget.h"
  #include "ModuleBuildWorker.h"
-@@ -2073,6 +2074,8 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2155,6 +2156,8 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
      return llvm::make_error<CancelledError>(Reason);
    if (!WorkerConfigurationError.empty())
      return llvm::createStringError(WorkerConfigurationError);
@@ -268,7 +268,7 @@ index cc23406..f6de08f 100644
    auto WorkerRoot = getModuleCacheRoot(ModuleSource, getCDB());
    registerModuleCacheRoot(WorkerRoot);
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 0ce4e54..4258a89 100644
+index 5f0bfc1..2af9afc 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
 @@ -7,6 +7,7 @@
@@ -279,7 +279,7 @@ index 0ce4e54..4258a89 100644
  #include "Compiler.h"
  #include "ModuleDependencyScanCache.h"
  #include "support/Logger.h"
-@@ -402,6 +403,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+@@ -417,6 +418,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
          llvm::StringRef(Arg).starts_with("-Xclang=-add-plugin"))
        Cacheable = false;
    auto RequestFS = TFS.view(Cmd->Directory);
