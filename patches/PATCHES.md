@@ -142,9 +142,10 @@ No feature is declared for it: it changes how fast, not what, the engine answers
 
 ## The 0.0.15 additions
 
-Two patches, for what makes a completion and a second opening slow on Windows: every check of whether
+Three patches, for what makes a completion and a second opening slow on Windows: every check of whether
 a memoized scan or a BMI is still good is a stat or an open per input file, and a stat on Windows opens
-a handle and resolves its final path. The engine reports itself as `23.1.0-mcppls.3`.
+a handle and resolves its final path; and a BMI whose global module fragment includes a platform header
+carried every declaration of it. The engine reports itself as `23.1.0-mcppls.3`.
 
 - 0030, where inputs come from: under a store given with `--managed-input-root`, a file belongs to a
   package version (`<store>/<package>/<version>/`) checked by the version's markers, which its package
@@ -159,10 +160,18 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
 - 0031, costs: a completion in a module importer that takes 200 ms or more logs where its time went
   (input checks by source, the wait for modules); `--max-retained-asts` sets how many ASTs of files not
   being edited are kept (three).
+- 0032, the reduced BMI: the declarations of an `extern "C" { }` or `extern "C++" { }` block in the
+  global module fragment that nothing in the module reaches are left out, as those of a namespace
+  there already were. Platform and C library headers declare almost everything in such blocks, so a
+  module unit including `<windows.h>` wrote all of it (9.5 MB reduced or not for a header of 20,000
+  declarations; 20 KB now), and a completion in an importer of many such modules loaded every copy
+  (2.2 s for `::` in an importer of 25 of them; 0.28 s now). No feature is declared for it: it changes
+  how large a BMI is, not what the engine answers.
 
-`ci/module_inputs_canary.py` proves them on the package (`managed-input-roots`,
-`persistent-module-memos`, `retained-asts-option` in `engine.json`). The tree is now
-`5fc199ab85ac40388ad215e188d3c33c31d056e5`.
+`ci/module_inputs_canary.py` proves 0030 and 0031 on the package (`managed-input-roots`,
+`persistent-module-memos`, `retained-asts-option` in `engine.json`);
+`clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm` covers 0032. The tree is now
+`79b44aac3cc120f9d2cf52a7c1f02e84a7113bff`.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
@@ -197,3 +206,4 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
 | 0029-UP-33-module-unit-body-scan.patch | UP-33, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | upstream keeps a module unit's dependency scan memoized while its body is typed in |
 | 0030-UP-35-module-input-sources-and-memos.patch | UP-35, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream checks module inputs by where they come from, and keeps scan and validation memos across sessions |
 | 0031-UP-36-module-completion-costs.patch | UP-36 | steady | ci/module_inputs_canary.py | upstream logs where a slow module completion's time went, and makes the retained AST count an option |
+| 0032-UP-37-reduced-bmi-linkage-spec-in-gmf.patch | UP-37 | steady | clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm | upstream elides the unreachable declarations of a linkage specification in the global module fragment from the reduced BMI |
