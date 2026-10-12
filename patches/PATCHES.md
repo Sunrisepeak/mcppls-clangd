@@ -150,7 +150,9 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
   package version (`<store>/<package>/<version>/`) checked by the version's markers, which its package
   manager rewrites whenever it changes the version; under a system root of the command (`-isystem`,
   `-idirafter`, the sysroot, the driver's toolchain) an input is replayed once per session, as clang's
-  own module input validation skips system inputs; everything else is checked every time, as before.
+  own module input validation skips system inputs; everything else is checked every time, as before,
+  and what the command searches as user headers, its directory and the file's win over the toolchain's
+  root, which is no system root when the project lies within it.
   The validation cache checks outside its lock. With `--module-memo-dir` the verdicts and scans are
   written to a directory and read back by the next session, each checked again before it is used.
 - 0031, costs: a completion in a module importer that takes 200 ms or more logs where its time went
@@ -159,7 +161,7 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
 
 `ci/module_inputs_canary.py` proves them on the package (`managed-input-roots`,
 `persistent-module-memos`, `retained-asts-option` in `engine.json`). The tree is now
-`c8659e6f62b020799a8cf02456c669fb4f2ea2ce`.
+`3c54212c934b1d3f664854a302f10da26cc58d6c`.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|

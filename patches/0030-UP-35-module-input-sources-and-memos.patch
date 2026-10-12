@@ -1,4 +1,4 @@
-From 7ea92ceb77660671aa0194956fbb28ea1885ae4e Mon Sep 17 00:00:00 2001
+From 6460db0cbbd6f32797f526f6d2bb685cb8d8463c Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 12 Oct 2026 21:31:02 +0900
 Subject: [clangd] Module inputs are checked by where they come from, and kept
@@ -21,7 +21,11 @@ Inputs are now checked by where they come from:
 - Under a system root of the command (-isystem, -idirafter, the sysroot, the
   toolchain the driver belongs to), an input is replayed once per session,
   as clang's own module input validation skips system inputs.
-- Everything else is checked every time, as before.
+- Everything else is checked every time, as before. What the command searches
+  as user headers (-I, -iquote), its directory and the file's win over the
+  toolchain's root, which is no system root at all when the project lies
+  within it (a driver in /usr/bin, a project in /usr/src): a wrong guess costs
+  a check, never a missed change.
 
 The validation cache checks its inputs outside its lock, so one file's check
 does not hold up another's.
@@ -37,14 +41,14 @@ the next.
 ---
  clang-tools-extra/clangd/CMakeLists.txt       |   1 +
  .../clangd/ModuleDependencyScanCache.h        | 159 ++++-
- clang-tools-extra/clangd/ModuleInputSources.h | 244 ++++++++
- clang-tools-extra/clangd/ModuleMemoStore.cpp  | 579 ++++++++++++++++++
+ clang-tools-extra/clangd/ModuleInputSources.h | 283 +++++++++
+ clang-tools-extra/clangd/ModuleMemoStore.cpp  | 587 ++++++++++++++++++
  clang-tools-extra/clangd/ModuleMemoStore.h    |  49 ++
  .../clangd/ModuleValidationCache.h            | 118 +++-
  clang-tools-extra/clangd/ProjectModules.cpp   |   1 +
  clang-tools-extra/clangd/tool/ClangdMain.cpp  |  37 +-
- .../unittests/PrerequisiteModulesTest.cpp     | 168 +++++
- 9 files changed, 1331 insertions(+), 25 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     | 200 ++++++
+ 9 files changed, 1410 insertions(+), 25 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleInputSources.h
  create mode 100644 clang-tools-extra/clangd/ModuleMemoStore.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleMemoStore.h
@@ -288,10 +292,10 @@ index c3db0a9..d6d8bf4 100644
    std::list<std::shared_ptr<Entry>> Entries;
 diff --git a/clang-tools-extra/clangd/ModuleInputSources.h b/clang-tools-extra/clangd/ModuleInputSources.h
 new file mode 100644
-index 0000000..f2ae9f1
+index 0000000..95db47c
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleInputSources.h
-@@ -0,0 +1,244 @@
+@@ -0,0 +1,283 @@
 +//===--- ModuleInputSources.h - Where a module input comes from -*- C++-*-===//
 +//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -314,11 +318,15 @@ index 0000000..f2ae9f1
 +//   only one to touch it afterwards; any change of its own rewrites a marker.
 +//   A package version is checked by its markers, not file by file.
 +// - Files under a system root -- what the command searches as system headers
-+//   (-isystem, -idirafter, the sysroot) and the toolchain the driver belongs
++//   (-isystem, -idirafter, the sysroot), and the toolchain the driver belongs
 +//   to -- change with a system or toolchain update. Like clang's own module
 +//   input validation, which skips system inputs, they are checked once per
 +//   session.
-+// - Everything else is the project's, and is checked every time.
++// - Everything else is the project's, and is checked every time: what the
++//   command searches as user headers (-I, -iquote), its directory and the
++//   file's own directory win over the toolchain's root, which is not a system
++//   root at all when the project lies within it (a driver in /usr/bin and a
++//   project in /usr/src). A wrong guess costs a check, never a missed change.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -383,37 +391,64 @@ index 0000000..f2ae9f1
 +  forCommand(const tooling::CompileCommand &Command) {
 +    auto Result = std::make_shared<ModuleInputSources>();
 +    Result->Managed = getManagedRoots();
-+    auto Add = [&](llvm::StringRef Dir) {
++    auto Root = [&](llvm::StringRef Dir) -> std::optional<std::string> {
 +      if (Dir.empty())
-+        return;
-+      std::string Root = normalized(Dir, Command.Directory);
-+      // A root of the whole filesystem would make every file a system one.
-+      if (llvm::StringRef(Root).count('/') < 2)
-+        return;
-+      Result->SystemRoots.push_back(Root + "/");
++        return std::nullopt;
++      std::string Normal = normalized(Dir, Command.Directory);
++      // A root of the whole filesystem would take in everything.
++      if (llvm::StringRef(Normal).count('/') < 2)
++        return std::nullopt;
++      return Normal + "/";
 +    };
++    auto Add = [&](std::vector<std::string> &To, llvm::StringRef Dir) {
++      if (auto R = Root(Dir))
++        To.push_back(std::move(*R));
++    };
++    Add(Result->UserRoots, Command.Directory);
++    Add(Result->UserRoots,
++        llvm::sys::path::parent_path(normalized(Command.Filename, Command.Directory)));
++    const size_t ProjectRoots = Result->UserRoots.size();
 +    const auto &Args = Command.CommandLine;
-+    if (!Args.empty() && llvm::sys::path::is_absolute(Args.front())) {
-+      // <toolchain>/bin/<driver>: the toolchain's own headers and libraries.
-+      llvm::StringRef Bin = llvm::sys::path::parent_path(Args.front());
-+      if (llvm::sys::path::filename(Bin) == "bin")
-+        Add(llvm::sys::path::parent_path(Bin));
-+    }
-+    for (size_t I = 1; I < Args.size(); ++I) {
++    auto Flagged = [&](size_t &I, std::initializer_list<llvm::StringRef> Flags,
++                       std::vector<std::string> &To) {
 +      llvm::StringRef Arg = Args[I];
-+      for (llvm::StringRef Flag :
-+           {"-isystem", "-idirafter", "-isysroot", "--sysroot", "-imsvc",
-+            "/imsvc", "-external:I", "/external:I"}) {
++      for (llvm::StringRef Flag : Flags) {
 +        if (Arg == Flag && I + 1 < Args.size()) {
-+          Add(Args[I + 1]);
-+          break;
++          Add(To, Args[++I]);
++          return true;
 +        }
-+        if (Arg.consume_front(Flag)) {
++        if (Arg.size() > Flag.size() && Arg.consume_front(Flag)) {
 +          Arg.consume_front("=");
-+          Add(Arg);
-+          break;
++          Add(To, Arg);
++          return true;
 +        }
 +      }
++      return false;
++    };
++    for (size_t I = 1; I < Args.size(); ++I) {
++      if (Flagged(I,
++                  {"-isystem", "-idirafter", "-isysroot", "--sysroot", "-imsvc",
++                   "/imsvc", "-external:I", "/external:I"},
++                  Result->SystemRoots))
++        continue;
++      Flagged(I, {"-iquote", "-I", "/I"}, Result->UserRoots);
++    }
++    if (!Args.empty() && llvm::sys::path::is_absolute(Args.front())) {
++      // <toolchain>/bin/<driver>: the toolchain's own headers and libraries,
++      // unless the project lies within it.
++      llvm::StringRef Bin = llvm::sys::path::parent_path(Args.front());
++      if (llvm::sys::path::filename(Bin) == "bin")
++        if (auto Toolchain = Root(llvm::sys::path::parent_path(Bin))) {
++          // Where the project is: the command's directory and the file's
++          // (the first user roots); -I directories win over it anyway.
++          const bool HoldsProject = llvm::any_of(
++              llvm::ArrayRef(Result->UserRoots).take_front(ProjectRoots),
++              [&](const std::string &User) {
++                return llvm::StringRef(User).starts_with(*Toolchain);
++              });
++          if (!HoldsProject)
++            Result->ToolchainRoots.push_back(std::move(*Toolchain));
++        }
 +    }
 +    return Result;
 +  }
@@ -438,6 +473,12 @@ index 0000000..f2ae9f1
 +      return Kind::Package;
 +    }
 +    for (const auto &Root : SystemRoots)
++      if (File.starts_with(Root))
++        return System;
++    for (const auto &Root : UserRoots)
++      if (File.starts_with(Root))
++        return Project;
++    for (const auto &Root : ToolchainRoots)
 +      if (File.starts_with(Root))
 +        return System;
 +    return Project;
@@ -512,7 +553,9 @@ index 0000000..f2ae9f1
 +  }
 +
 +  std::vector<std::string> Managed;
-+  std::vector<std::string> SystemRoots;
++  std::vector<std::string> SystemRoots;    // searched as system headers
++  std::vector<std::string> UserRoots;      // searched as user headers, the command's and the file's directories
++  std::vector<std::string> ToolchainRoots; // the driver's toolchain, when the project is not within it
 +
 +private:
 +  static std::mutex &rootsMutex() {
@@ -538,10 +581,10 @@ index 0000000..f2ae9f1
 +#endif
 diff --git a/clang-tools-extra/clangd/ModuleMemoStore.cpp b/clang-tools-extra/clangd/ModuleMemoStore.cpp
 new file mode 100644
-index 0000000..2d78617
+index 0000000..fb911d7
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleMemoStore.cpp
-@@ -0,0 +1,579 @@
+@@ -0,0 +1,587 @@
 +//===--- ModuleMemoStore.cpp - Module memos kept across sessions -*- C++-*-===//
 +//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -569,7 +612,7 @@ index 0000000..2d78617
 +namespace clang::clangd {
 +namespace {
 +
-+constexpr int FormatVersion = 1;
++constexpr int FormatVersion = 2;
 +constexpr llvm::StringLiteral FileName = "module-memos.json";
 +
 +using llvm::json::Array;
@@ -763,12 +806,16 @@ index 0000000..2d78617
 +  Array Requires;
 +  for (const auto &R : S.Result.RequiredModules)
 +    Requires.push_back(R);
-+  Array Managed, System;
++  Array Managed, System, User, Toolchain;
 +  if (S.Inputs.Sources) {
 +    for (const auto &R : S.Inputs.Sources->Managed)
 +      Managed.push_back(R);
 +    for (const auto &R : S.Inputs.Sources->SystemRoots)
 +      System.push_back(R);
++    for (const auto &R : S.Inputs.Sources->UserRoots)
++      User.push_back(R);
++    for (const auto &R : S.Inputs.Sources->ToolchainRoots)
++      Toolchain.push_back(R);
 +  }
 +  return Object{
 +      {"file", S.File},
@@ -786,6 +833,8 @@ index 0000000..2d78617
 +           .count()},
 +      {"sources", Object{{"managed", std::move(Managed)},
 +                         {"system", std::move(System)},
++                         {"user", std::move(User)},
++                         {"toolchain", std::move(Toolchain)},
 +                         {"present", S.Inputs.Sources != nullptr}}},
 +      {"packages", packagesJSON(S.Inputs.Packages)},
 +      {"observations", std::move(Observations)},
@@ -897,7 +946,11 @@ index 0000000..2d78617
 +    return std::nullopt;
 +  if (Sources->getBoolean("present").value_or(false)) {
 +    auto Made = std::make_shared<ModuleInputSources>();
-+    for (const char *Field : {"managed", "system"}) {
++    for (auto [Field, Into] :
++         {std::pair{"managed", &Made->Managed},
++          std::pair{"system", &Made->SystemRoots},
++          std::pair{"user", &Made->UserRoots},
++          std::pair{"toolchain", &Made->ToolchainRoots}}) {
 +      const Array *Roots = Sources->getArray(Field);
 +      if (!Roots)
 +        return std::nullopt;
@@ -905,9 +958,7 @@ index 0000000..2d78617
 +        auto Root = R.getAsString();
 +        if (!Root)
 +          return std::nullopt;
-+        (llvm::StringRef(Field) == "managed" ? Made->Managed
-+                                             : Made->SystemRoots)
-+            .push_back(Root->str());
++        Into->push_back(Root->str());
 +      }
 +    }
 +    S.Inputs.Sources = std::move(Made);
@@ -1435,7 +1486,7 @@ index 097eab7..713a677 100644
    // There may still be lingering background threads (e.g. slow requests
    // whose results will be dropped, background index shutting down).
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 3bc6056..d4a3df9 100644
+index 3bc6056..b2064a0 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 @@ -30,6 +30,9 @@
@@ -1448,7 +1499,7 @@ index 3bc6056..d4a3df9 100644
  #include "ModulesBuilder.h"
  #include "Preamble.h"
  #include "ProjectModules.h"
-@@ -4347,6 +4350,171 @@ TEST_F(PrerequisiteModulesTests, BodyEditsInAModuleUnitReuseItsScan) {
+@@ -4347,6 +4350,203 @@ TEST_F(PrerequisiteModulesTests, BodyEditsInAModuleUnitReuseItsScan) {
    EXPECT_GT(getModuleDependencyScanCache().stats().Misses, Before.Misses);
  }
  
@@ -1463,6 +1514,38 @@ index 3bc6056..d4a3df9 100644
 +  llvm::raw_fd_ostream OS(Abs, EC);
 +  ASSERT_FALSE(EC);
 +  OS << Contents;
++}
++
++TEST(ModuleInputSourcesTest, ProjectFilesAreNeverTakenForSystemOnes) {
++  if (llvm::Triple(llvm::sys::getProcessTriple()).isOSWindows())
++    GTEST_SKIP() << "POSIX paths";
++  ModuleInputSources::setManagedRoots({"/stores/mcpp"});
++  auto Reset = llvm::make_scope_exit([] { ModuleInputSources::setManagedRoots({}); });
++  auto Kind = [](const tooling::CompileCommand &Command, llvm::StringRef Path) {
++    return ModuleInputSources::forCommand(Command)->classify(Path, Command.Directory);
++  };
++  // A toolchain apart from the project: its headers are system ones, but a
++  // directory searched as user headers is the project's.
++  tooling::CompileCommand Apart(
++      "/work/project", "/work/project/src/a.cpp",
++      {"/opt/llvm/bin/clang++", "-I/opt/llvm/include/mine", "-isystem",
++       "/sdk/include", "-c", "src/a.cpp"},
++      "");
++  EXPECT_EQ(Kind(Apart, "/opt/llvm/include/c++/v1/vector"), ModuleInputSources::System);
++  EXPECT_EQ(Kind(Apart, "/opt/llvm/include/mine/lib.h"), ModuleInputSources::Project);
++  EXPECT_EQ(Kind(Apart, "/sdk/include/windows.h"), ModuleInputSources::System);
++  EXPECT_EQ(Kind(Apart, "/work/project/src/a.h"), ModuleInputSources::Project);
++  EXPECT_EQ(Kind(Apart, "include/b.h"), ModuleInputSources::Project);
++  EXPECT_EQ(Kind(Apart, "/stores/mcpp/lib/1.0/include/lib.h"), ModuleInputSources::Package);
++  EXPECT_EQ(Kind(Apart, "/stores/mcpp/lib"), ModuleInputSources::Project)
++      << "not within a package version";
++  // A project within the toolchain's directory (a driver in /usr/bin, a
++  // project in /usr/src): the toolchain is no system root at all.
++  tooling::CompileCommand Within(
++      "/usr/src/project", "/usr/src/project/a.cpp",
++      {"/usr/bin/clang++", "-c", "a.cpp"}, "");
++  EXPECT_EQ(Kind(Within, "/usr/include/stdio.h"), ModuleInputSources::Project);
++  EXPECT_EQ(Kind(Within, "/usr/src/project/enable.h"), ModuleInputSources::Project);
 +}
 +
 +TEST_F(PrerequisiteModulesTests, PackageInputsAreCheckedByTheirMarkers) {
