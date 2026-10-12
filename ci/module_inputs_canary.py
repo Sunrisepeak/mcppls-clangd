@@ -8,9 +8,12 @@ Self-contained, on the final package bytes (`clangd --check`, no client):
   many stores it checks by their markers); a module unit including a header of a package in it builds
   and is used. How the checks skip a package version whose markers held is covered by the unit tests
   (PrerequisiteModulesTests.PackageInputsAreCheckedByTheirMarkers, ...CheckPackagesByTheirMarkers).
-- persistent-module-memos: a first run with --module-memo-dir writes the memos there; a second run
-  reads them back and says how many it kept (each is checked again before it is used; covered by
-  PrerequisiteModulesTests.MemosKeptForTheNextSession).
+- persistent-module-memos: a run with --module-memo-dir writes the memos there; the next run reads
+  them back and says how many it kept (each is checked again before it is used; covered by
+  PrerequisiteModulesTests.MemosKeptForTheNextSession). Dependency scans are memoized only for a
+  command whose driver inputs can be observed (a Linux target here; a Windows host's default target
+  is not one without its tool roots), so the scans are required on Linux only; the BMI validation
+  verdicts are required everywhere.
 - retained-asts-option: the engine takes --max-retained-asts.
 
 Exits 0 when all hold, 1 with the first that does not.
@@ -77,9 +80,8 @@ def main():
         if not re.search(r'Built module good to ', first):
             fail('the module including a package header was not built', first)
         written = memos / 'module-memos.json'
-        if not written.is_file():
-            fail('the first run wrote no memos', first)
-        if not json.loads(written.read_text()).get('scans'):
+        scans = sys.platform.startswith('linux')
+        if scans and (not written.is_file() or not json.loads(written.read_text()).get('scans')):
             fail('the first run kept none of its dependency scans', first)
 
         # The second run reads the scans back, and reuses the BMI: its validation is a verdict to keep.
@@ -87,9 +89,9 @@ def main():
         if code != 0:
             fail('the second run did not check main.cpp', second)
         found = re.search(r'Module memos: (\d+) BMI verdicts and (\d+) scans kept', second)
-        if not found or int(found.group(2)) == 0:
+        if scans and (not found or int(found.group(2)) == 0):
             fail('the second run kept no scan from the first', second)
-        if not json.loads(written.read_text()).get('verdicts'):
+        if not written.is_file() or not json.loads(written.read_text()).get('verdicts'):
             fail('the second run kept no BMI validation verdict', second)
 
         code, third = check(engine, root, *flags)
