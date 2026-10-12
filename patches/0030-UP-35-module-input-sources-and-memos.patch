@@ -1,0 +1,1625 @@
+From 7ea92ceb77660671aa0194956fbb28ea1885ae4e Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 12 Oct 2026 21:31:02 +0900
+Subject: [clangd] Module inputs are checked by where they come from, and kept
+ across sessions
+
+A memoized dependency scan and a BMI's validation verdict are reused only
+while every file they read is as it was, and checking that is a stat or an
+open per file. A global module fragment that includes a platform or framework
+header reads hundreds of them, on every keystroke and every completion; on
+Windows, where a stat opens a handle and resolves its final path, that is most
+of what a completion costs.
+
+Inputs are now checked by where they come from:
+
+- Under a store given with --managed-input-root, a file belongs to a package
+  version, <store>/<package>/<version>/, which only its package manager
+  changes, rewriting the version's markers when it does. A scan or verdict
+  records the markers' identity when it first reads from the version, and a
+  later check compares the markers instead of the version's files.
+- Under a system root of the command (-isystem, -idirafter, the sysroot, the
+  toolchain the driver belongs to), an input is replayed once per session,
+  as clang's own module input validation skips system inputs.
+- Everything else is checked every time, as before.
+
+The validation cache checks its inputs outside its lock, so one file's check
+does not hold up another's.
+
+With --module-memo-dir, the verdicts and the scans are written to a directory
+while the process runs and read back by the next session, which otherwise
+re-hashes every input of every BMI it reuses and preprocesses every module
+unit again. What is read back is only a candidate: a verdict is used after its
+inputs are checked, a scan after its manifest is replayed as on publication.
+A kept scan names only the environment variables a driver reads for headers,
+macros and tools, since the complete environment changes from one session to
+the next.
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |   1 +
+ .../clangd/ModuleDependencyScanCache.h        | 159 ++++-
+ clang-tools-extra/clangd/ModuleInputSources.h | 244 ++++++++
+ clang-tools-extra/clangd/ModuleMemoStore.cpp  | 579 ++++++++++++++++++
+ clang-tools-extra/clangd/ModuleMemoStore.h    |  49 ++
+ .../clangd/ModuleValidationCache.h            | 118 +++-
+ clang-tools-extra/clangd/ProjectModules.cpp   |   1 +
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  |  37 +-
+ .../unittests/PrerequisiteModulesTest.cpp     | 168 +++++
+ 9 files changed, 1331 insertions(+), 25 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleInputSources.h
+ create mode 100644 clang-tools-extra/clangd/ModuleMemoStore.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleMemoStore.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index e079372..0a2d3c6 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -102,6 +102,7 @@ add_clang_library(clangDaemon STATIC
+   ModuleBuildWorkerOutput.cpp
+   ModuleBuildWorkerStorage.cpp
+   ModulesBuilder.cpp
++  ModuleMemoStore.cpp
+   PathMapping.cpp
+   ProjectModules.cpp
+   Protocol.cpp
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index c3db0a9..d6d8bf4 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -7,6 +7,7 @@
+ #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEDEPENDENCYSCANCACHE_H
+ #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEDEPENDENCYSCANCACHE_H
+ 
++#include "ModuleInputSources.h"
+ #include "ModuleScanEpoch.h"
+ #include "support/Cancellation.h"
+ #include "support/Logger.h"
+@@ -29,6 +30,7 @@ extern char **environ;
+ }
+ #endif
+ #include "llvm/Support/BLAKE3.h"
++#include "llvm/Support/Process.h"
+ #include "llvm/Support/SHA256.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include <algorithm>
+@@ -183,6 +185,11 @@ public:
+   std::chrono::system_clock::time_point RecordedAt =
+       std::chrono::system_clock::now();
+   bool Complete = true;
++  // Where the inputs come from (ModuleInputSources.h), and the identity of
++  // each package version the scan read from when it first did. Without
++  // sources every input is the project's.
++  std::shared_ptr<const ModuleInputSources> Sources;
++  std::map<std::string, std::optional<ModuleInputSources::Identity>> Packages;
+   uint64_t NextDirectory = 0;
+   size_t OpenFiles = 0;
+   size_t AuxiliaryBytes = 0;
+@@ -193,6 +200,14 @@ public:
+   void add(Observation O) {
+     if (!Complete)
+       return;
++    if (Sources) {
++      std::string Package;
++      if (Sources->classify(O.Path, WorkingDirectory, &Package) ==
++              ModuleInputSources::Package &&
++          !Packages.count(Package))
++        Packages.emplace(Package,
++                         ModuleInputSources::packageIdentity(Package));
++    }
+     const bool Indexed =
+         O.Operation != DirectoryBegin && O.Operation != DirectoryNext;
+     // Hash only selects candidates. Equality still compares EVERY recorded
+@@ -409,11 +424,50 @@ public:
+       Note("external", Was.External == Now->ExposesExternalVFSPath);
+       return Change.empty() ? std::string("identity") : Change;
+     };
++    // A package version whose markers are as they were, and a system input
++    // already replayed this session, are not replayed (ModuleInputSources.h).
++    auto &Counters = moduleInputCounters();
++    llvm::StringSet<> HeldPackages;
++    for (const auto &[Package, Recorded] : Packages) {
++      ++Counters.PackageChecks;
++      if (Recorded && ModuleInputSources::packageIdentity(Package) == Recorded)
++        HeldPackages.insert(Package);
++    }
++    std::vector<std::string> SystemReplayed;
++    auto Skipped = [&](const Observation &O) {
++      if (!Sources)
++        return false;
++      std::string Package;
++      switch (Sources->classify(O.Path, WorkingDirectory, &Package)) {
++      case ModuleInputSources::Package:
++        if (HeldPackages.contains(Package)) {
++          ++Counters.Package;
++          return true;
++        }
++        break;
++      case ModuleInputSources::System: {
++        std::string Normal =
++            ModuleInputSources::normalized(O.Path, WorkingDirectory);
++        if (ModuleInputSources::systemChecked(Normal)) {
++          ++Counters.System;
++          return true;
++        }
++        SystemReplayed.push_back(std::move(Normal));
++        break;
++      }
++      case ModuleInputSources::Project:
++        break;
++      }
++      ++Counters.Project;
++      return false;
++    };
+     for (const auto &O : Observations) {
+       if (isCancelled())
+         return false;
+       if (!MainSpelling.empty() && Spelling(O.Path) == MainSpelling)
+         continue;
++      if (Skipped(O))
++        continue;
+       if (O.Operation == Stat) {
+         auto Now = FS.status(O.Path);
+         if (!SameStatus(O, Now))
+@@ -499,7 +553,10 @@ public:
+       if (!Match)
+         return Differs(O, "content or metadata");
+     }
+-    return Release() && !isCancelled();
++    if (!Release() || isCancelled())
++      return false;
++    ModuleInputSources::noteSystemChecked(SystemReplayed);
++    return true;
+   }
+ 
+   // A file whose metadata equals what was recorded can still have other bytes
+@@ -1091,6 +1148,11 @@ public:
+       }
+     }
+     if (!Candidate) {
++      if (auto Kept = fromEarlierSession(CDB, File, Command, MainBytes,
++                                         *Environment, FS)) {
++        ++Hits;
++        return Kept;
++      }
+       ++Misses;
+       return std::nullopt;
+     }
+@@ -1193,7 +1255,102 @@ public:
+     return {reinterpret_cast<const char *>(Key.data()), Key.size()};
+   }
+ 
++  /// A scan an earlier session kept (ModuleMemoStore.h). Its environment is
++  /// persistedEnvironment(): the complete one changes from one session to the
++  /// next (an editor sets variables of its own), so what is kept names only
++  /// the variables a driver reads for headers, macros and tools.
++  struct KeptScan {
++    std::string File;
++    tooling::CompileCommand Command;
++    ModuleScanManifest::Digest MainBytes, Environment;
++    ModuleScanManifest Inputs;
++    ModuleScanResult Result;
++  };
++  static ModuleScanManifest::Digest persistedEnvironment() {
++    llvm::SHA256 Hash;
++    for (const char *Name :
++         {"PATH", "CPATH", "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH",
++          "OBJC_INCLUDE_PATH", "OBJCPLUS_INCLUDE_PATH", "INCLUDE",
++          "EXTERNAL_INCLUDE", "CL", "_CL_", "SDKROOT", "DEVELOPER_DIR",
++          "MACOSX_DEPLOYMENT_TARGET", "IPHONEOS_DEPLOYMENT_TARGET",
++          "CCC_OVERRIDE_OPTIONS", "COMPILER_PATH", "GCC_EXEC_PREFIX",
++          "VCINSTALLDIR", "VCToolsInstallDir", "VSINSTALLDIR",
++          "WindowsSdkDir", "WindowsSDKVersion", "UniversalCRTSdkDir",
++          "UCRTVersion"}) {
++      Hash.update(llvm::StringRef(Name));
++      Hash.update(llvm::StringRef("=", 1));
++      if (auto Value = llvm::sys::Process::GetEnv(Name))
++        Hash.update(*Value);
++      Hash.update(llvm::StringRef("\0", 1));
++    }
++    return Hash.final();
++  }
++  /// What the store writes: every live scan whose manifest can be replayed
++  /// in another session, and the kept ones not yet replayed in this one.
++  std::vector<KeptScan> snapshot(uint64_t &StoredSoFar) {
++    std::lock_guard<std::mutex> Lock(Mu);
++    StoredSoFar = Stores.load();
++    std::vector<KeptScan> Out;
++    const auto Kept = persistedEnvironment();
++    // Kept by command, not by database: one whose database is gone (a
++    // reload, or a check that has returned) is as good for the next session.
++    for (const auto &E : Entries) {
++      if (!E->Inputs.Complete || E->Inputs.OpenFiles)
++        continue;
++      Out.push_back({E->File, E->Command, E->MainBytes, Kept, E->Inputs,
++                     E->Result});
++    }
++    for (const auto &K : Earlier)
++      Out.push_back(K);
++    return Out;
++  }
++  void adopt(std::vector<KeptScan> Scans) {
++    std::lock_guard<std::mutex> Lock(Mu);
++    for (auto &S : Scans)
++      if (Earlier.size() < EarlierBound)
++        Earlier.push_back(std::move(S));
++  }
++  uint64_t keptHits() const { return KeptHits.load(); }
++
+ private:
++  // A kept scan for this request: replayed against what is there now, as a
++  // scan made in this session would be on publication, and stored for this
++  // database when it holds.
++  std::optional<ModuleScanResult>
++  fromEarlierSession(
++      const std::shared_ptr<const tooling::CompilationDatabase> &CDB,
++      llvm::StringRef File, const tooling::CompileCommand &Command,
++      ModuleScanManifest::Digest MainBytes,
++      ModuleScanManifest::Digest Environment, llvm::vfs::FileSystem &FS) {
++    std::optional<KeptScan> Found;
++    {
++      std::lock_guard<std::mutex> Lock(Mu);
++      if (Earlier.empty())
++        return std::nullopt;
++      const auto Kept = persistedEnvironment();
++      for (auto I = Earlier.begin(); I != Earlier.end(); ++I)
++        if (I->File == File && I->Command == Command &&
++            I->MainBytes == MainBytes && I->Environment == Kept) {
++          Found = std::move(*I);
++          Earlier.erase(I);
++          break;
++        }
++    }
++    if (!Found)
++      return std::nullopt;
++    auto Key = store(CDB, File, Command, MainBytes, Environment,
++                     std::move(Found->Inputs), Found->Result, FS);
++    if (Key.empty())
++      return std::nullopt;
++    ++KeptHits;
++    Found->Result.VerifiedInputsKey = std::move(Key);
++    vlog("Module dependency scan kept from an earlier session: {0}", File);
++    return std::move(Found->Result);
++  }
++
++  static constexpr size_t EarlierBound = 4096;
++  std::list<KeptScan> Earlier;
++  std::atomic<uint64_t> KeptHits{0};
+   std::shared_ptr<Flights> FlightRegistry = std::make_shared<Flights>();
+   std::mutex Mu;
+   std::list<std::shared_ptr<Entry>> Entries;
+diff --git a/clang-tools-extra/clangd/ModuleInputSources.h b/clang-tools-extra/clangd/ModuleInputSources.h
+new file mode 100644
+index 0000000..f2ae9f1
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleInputSources.h
+@@ -0,0 +1,244 @@
++//===--- ModuleInputSources.h - Where a module input comes from -*- C++-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// A memoized dependency scan, and a BMI's validation verdict, are reused only
++// while every file they read is as it was. Checking that is a stat or an open
++// per file, and a global module fragment that includes a platform or framework
++// header reads hundreds of them -- on Windows, where a stat opens a handle,
++// that is most of the cost of a completion.
++//
++// Not every input changes the same way:
++//
++// - Files under a managed root (--managed-input-root) belong to a package
++//   version: <root>/<package>/<version>/. A package manager installs a version
++//   into its own directory, writes its completion markers last, and is the
++//   only one to touch it afterwards; any change of its own rewrites a marker.
++//   A package version is checked by its markers, not file by file.
++// - Files under a system root -- what the command searches as system headers
++//   (-isystem, -idirafter, the sysroot) and the toolchain the driver belongs
++//   to -- change with a system or toolchain update. Like clang's own module
++//   input validation, which skips system inputs, they are checked once per
++//   session.
++// - Everything else is the project's, and is checked every time.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEINPUTSOURCES_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEINPUTSOURCES_H
++
++#include "clang/Tooling/CompilationDatabase.h"
++#include "llvm/ADT/StringRef.h"
++#include "llvm/ADT/StringSet.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/SHA256.h"
++#include <array>
++#include <atomic>
++#include <cstdint>
++#include <memory>
++#include <mutex>
++#include <optional>
++#include <string>
++#include <vector>
++
++namespace clang::clangd {
++
++/// How far a check of the inputs a scan or validation read went, per source.
++/// Thread-local: an operation reads the difference around its own work.
++struct ModuleInputCounters {
++  uint64_t Project = 0;       // observations or inputs checked one by one
++  uint64_t Package = 0;       // of a package version whose markers held
++  uint64_t System = 0;        // under a system root already checked
++  uint64_t PackageChecks = 0; // package versions checked by their markers
++  ModuleInputCounters operator-(const ModuleInputCounters &O) const {
++    return {Project - O.Project, Package - O.Package, System - O.System,
++            PackageChecks - O.PackageChecks};
++  }
++};
++inline ModuleInputCounters &moduleInputCounters() {
++  static thread_local ModuleInputCounters Counters;
++  return Counters;
++}
++
++class ModuleInputSources {
++public:
++  enum Kind { Project, Package, System };
++  using Identity = std::array<uint8_t, 32>;
++
++  /// The package managers' stores, process-wide (--managed-input-root).
++  static void setManagedRoots(const std::vector<std::string> &Roots) {
++    std::vector<std::string> Normal;
++    for (const auto &Root : Roots)
++      if (!Root.empty())
++        Normal.push_back(normalized(Root, "") + "/");
++    std::lock_guard<std::mutex> Lock(rootsMutex());
++    managedRoots() = std::move(Normal);
++  }
++  static std::vector<std::string> getManagedRoots() {
++    std::lock_guard<std::mutex> Lock(rootsMutex());
++    return managedRoots();
++  }
++
++  /// The system roots of a scan or build command.
++  static std::shared_ptr<const ModuleInputSources>
++  forCommand(const tooling::CompileCommand &Command) {
++    auto Result = std::make_shared<ModuleInputSources>();
++    Result->Managed = getManagedRoots();
++    auto Add = [&](llvm::StringRef Dir) {
++      if (Dir.empty())
++        return;
++      std::string Root = normalized(Dir, Command.Directory);
++      // A root of the whole filesystem would make every file a system one.
++      if (llvm::StringRef(Root).count('/') < 2)
++        return;
++      Result->SystemRoots.push_back(Root + "/");
++    };
++    const auto &Args = Command.CommandLine;
++    if (!Args.empty() && llvm::sys::path::is_absolute(Args.front())) {
++      // <toolchain>/bin/<driver>: the toolchain's own headers and libraries.
++      llvm::StringRef Bin = llvm::sys::path::parent_path(Args.front());
++      if (llvm::sys::path::filename(Bin) == "bin")
++        Add(llvm::sys::path::parent_path(Bin));
++    }
++    for (size_t I = 1; I < Args.size(); ++I) {
++      llvm::StringRef Arg = Args[I];
++      for (llvm::StringRef Flag :
++           {"-isystem", "-idirafter", "-isysroot", "--sysroot", "-imsvc",
++            "/imsvc", "-external:I", "/external:I"}) {
++        if (Arg == Flag && I + 1 < Args.size()) {
++          Add(Args[I + 1]);
++          break;
++        }
++        if (Arg.consume_front(Flag)) {
++          Arg.consume_front("=");
++          Add(Arg);
++          break;
++        }
++      }
++    }
++    return Result;
++  }
++
++  /// Which source `Path` (absolute, or relative to `WorkingDirectory`) is
++  /// from; for a package, `PackageDir` is its version directory.
++  Kind classify(llvm::StringRef Path, llvm::StringRef WorkingDirectory,
++                std::string *PackageDir = nullptr) const {
++    std::string Normal = normalized(Path, WorkingDirectory);
++    llvm::StringRef File(Normal);
++    for (const auto &Root : Managed) {
++      if (!File.starts_with(Root))
++        continue;
++      // <root>/<package>/<version>/<file within it>
++      llvm::StringRef Rest = File.drop_front(Root.size());
++      auto [Name, AfterName] = Rest.split('/');
++      auto [Version, Within] = AfterName.split('/');
++      if (Name.empty() || Version.empty() || Within.empty())
++        return Project;
++      if (PackageDir)
++        *PackageDir = Root + Name.str() + "/" + Version.str();
++      return Kind::Package;
++    }
++    for (const auto &Root : SystemRoots)
++      if (File.starts_with(Root))
++        return System;
++    return Project;
++  }
++
++  /// A package version's identity: its markers' size, time and file id, in
++  /// a fixed order. nullopt when it has none, and is then no package at all.
++  static std::optional<Identity> packageIdentity(llvm::StringRef PackageDir) {
++    llvm::SHA256 Hash;
++    bool Any = false;
++    for (llvm::StringRef Marker :
++         {".mcpp_ok", ".xpkg-install.json", ".mcpp-fixup.json",
++          ".xlings-resolution.json"}) {
++      llvm::SmallString<256> File(PackageDir);
++      llvm::sys::path::append(File, Marker);
++      llvm::sys::fs::file_status Status;
++      Hash.update(Marker);
++      if (llvm::sys::fs::status(File, Status) ||
++          !llvm::sys::fs::is_regular_file(Status)) {
++        Hash.update(llvm::StringRef("-", 1));
++        continue;
++      }
++      Any |= Marker == ".mcpp_ok" || Marker == ".xpkg-install.json";
++      uint64_t Fields[] = {
++          Status.getSize(),
++          static_cast<uint64_t>(
++              Status.getLastModificationTime().time_since_epoch().count()),
++          Status.getUniqueID().getDevice(), Status.getUniqueID().getFile()};
++      Hash.update(llvm::ArrayRef<uint8_t>(
++          reinterpret_cast<const uint8_t *>(Fields), sizeof(Fields)));
++    }
++    if (!Any)
++      return std::nullopt;
++    return Hash.final();
++  }
++
++  /// System inputs replayed this session: they are not replayed again.
++  static bool systemChecked(llvm::StringRef NormalPath) {
++    std::lock_guard<std::mutex> Lock(systemMutex());
++    return systemPaths().contains(NormalPath);
++  }
++  static void noteSystemChecked(llvm::ArrayRef<std::string> NormalPaths) {
++    if (NormalPaths.empty())
++      return;
++    std::lock_guard<std::mutex> Lock(systemMutex());
++    for (const auto &Path : NormalPaths)
++      systemPaths().insert(Path);
++  }
++
++  /// `Path` made absolute against `WorkingDirectory`, with `/` separators,
++  /// no `.` or `..`, and lower case where the filesystem ignores it.
++  static std::string normalized(llvm::StringRef Path,
++                                llvm::StringRef WorkingDirectory) {
++    llvm::SmallString<256> Result(Path);
++    if (!llvm::sys::path::is_absolute(Result) && !WorkingDirectory.empty()) {
++      llvm::SmallString<256> Base(WorkingDirectory);
++      llvm::sys::path::append(Base, Result);
++      Result = Base;
++    }
++    llvm::sys::path::remove_dots(Result, /*remove_dot_dot=*/true);
++    std::string Out = Result.str().str();
++    for (char &C : Out) {
++      if (C == '\\')
++        C = '/';
++#ifdef _WIN32
++      C = static_cast<char>(llvm::toLower(C));
++#endif
++    }
++    while (Out.size() > 1 && Out.back() == '/')
++      Out.pop_back();
++    return Out;
++  }
++
++  std::vector<std::string> Managed;
++  std::vector<std::string> SystemRoots;
++
++private:
++  static std::mutex &rootsMutex() {
++    static std::mutex M;
++    return M;
++  }
++  static std::vector<std::string> &managedRoots() {
++    static std::vector<std::string> Roots;
++    return Roots;
++  }
++  static std::mutex &systemMutex() {
++    static std::mutex M;
++    return M;
++  }
++  static llvm::StringSet<> &systemPaths() {
++    static llvm::StringSet<> Paths;
++    return Paths;
++  }
++};
++
++} // namespace clang::clangd
++
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleMemoStore.cpp b/clang-tools-extra/clangd/ModuleMemoStore.cpp
+new file mode 100644
+index 0000000..2d78617
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleMemoStore.cpp
+@@ -0,0 +1,579 @@
++//===--- ModuleMemoStore.cpp - Module memos kept across sessions -*- C++-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "ModuleMemoStore.h"
++#include "ModuleDependencyScanCache.h"
++#include "ModuleValidationCache.h"
++#include "support/Logger.h"
++#include "clang/Basic/Version.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/JSON.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
++#include "llvm/Support/raw_ostream.h"
++#include <chrono>
++#include <condition_variable>
++#include <mutex>
++#include <thread>
++
++namespace clang::clangd {
++namespace {
++
++constexpr int FormatVersion = 1;
++constexpr llvm::StringLiteral FileName = "module-memos.json";
++
++using llvm::json::Array;
++using llvm::json::Object;
++using llvm::json::Value;
++
++// 64-bit values as hexadecimal: JSON numbers stop at 2^53.
++std::string hex64(uint64_t V) { return llvm::utohexstr(V); }
++std::optional<uint64_t> unhex64(const Value *V) {
++  auto S = V ? V->getAsString() : std::nullopt;
++  uint64_t Out;
++  if (!S || S->getAsInteger(16, Out))
++    return std::nullopt;
++  return Out;
++}
++template <size_t N> std::string hexDigest(const std::array<uint8_t, N> &D) {
++  return llvm::toHex(llvm::ArrayRef<uint8_t>(D.data(), D.size()));
++}
++template <size_t N>
++bool unhexDigest(const Value *V, std::array<uint8_t, N> &Out) {
++  auto S = V ? V->getAsString() : std::nullopt;
++  if (!S || S->size() != 2 * N)
++    return false;
++  std::string Bytes;
++  if (!llvm::tryGetFromHex(*S, Bytes) || Bytes.size() != N)
++    return false;
++  std::copy(Bytes.begin(), Bytes.end(), Out.begin());
++  return true;
++}
++int64_t nanos(llvm::sys::TimePoint<> T) {
++  return std::chrono::duration_cast<std::chrono::nanoseconds>(
++             T.time_since_epoch())
++      .count();
++}
++llvm::sys::TimePoint<> fromNanos(int64_t N) {
++  return llvm::sys::TimePoint<>(std::chrono::nanoseconds(N));
++}
++
++Value packagesJSON(
++    const std::map<std::string, std::optional<ModuleInputSources::Identity>>
++        &Packages) {
++  Array Out;
++  for (const auto &[Dir, Identity] : Packages)
++    Out.push_back(Array{Dir, Identity ? Value(hexDigest(*Identity))
++                                      : Value(nullptr)});
++  return Out;
++}
++bool packagesFrom(
++    const Array *In,
++    std::map<std::string, std::optional<ModuleInputSources::Identity>> &Out) {
++  if (!In)
++    return false;
++  for (const auto &Item : *In) {
++    const Array *Pair = Item.getAsArray();
++    if (!Pair || Pair->size() != 2 || !(*Pair)[0].getAsString())
++      return false;
++    std::optional<ModuleInputSources::Identity> Identity;
++    if ((*Pair)[1].kind() != Value::Null) {
++      Identity.emplace();
++      if (!unhexDigest(&(*Pair)[1], *Identity))
++        return false;
++    }
++    Out.emplace((*Pair)[0].getAsString()->str(), Identity);
++  }
++  return true;
++}
++
++Value identityJSON(const ModuleValidationCache::FileIdentity &I) {
++  return Array{hex64(I.Size), nanos(I.ModTime), hex64(I.ID.getDevice()),
++               hex64(I.ID.getFile())};
++}
++std::optional<ModuleValidationCache::FileIdentity>
++identityFrom(const Value *V) {
++  const Array *A = V ? V->getAsArray() : nullptr;
++  if (!A || A->size() != 4)
++    return std::nullopt;
++  auto Size = unhex64(&(*A)[0]);
++  auto Time = (*A)[1].getAsInteger();
++  auto Device = unhex64(&(*A)[2]);
++  auto File = unhex64(&(*A)[3]);
++  if (!Size || !Time || !Device || !File)
++    return std::nullopt;
++  ModuleValidationCache::FileIdentity I;
++  I.Size = *Size;
++  I.ModTime = fromNanos(*Time);
++  I.ID = llvm::sys::fs::UniqueID(*Device, *File);
++  return I;
++}
++
++// ---- BMI validation verdicts ---------------------------------------------
++
++// json::Value keeps a StringRef without copying it: every string given here
++// is a std::string, owned by the value.
++Value verdictJSON(const std::string &Key,
++                  const ModuleValidationCache::Entry &E) {
++  Array Inputs;
++  for (const auto &In : E.Inputs)
++    Inputs.push_back(Array{In.Path, identityJSON(In.Identity), In.Package});
++  return Object{{"key", Key},
++                {"bmi", identityJSON(E.BMI)},
++                {"inputs", std::move(Inputs)},
++                {"packages", packagesJSON(E.Packages)}};
++}
++std::optional<std::pair<std::string,
++                        std::shared_ptr<const ModuleValidationCache::Entry>>>
++verdictFrom(const Value &V) {
++  const Object *O = V.getAsObject();
++  if (!O)
++    return std::nullopt;
++  auto Key = O->getString("key");
++  auto BMI = identityFrom(O->get("bmi"));
++  const Array *Inputs = O->getArray("inputs");
++  if (!Key || !BMI || !Inputs)
++    return std::nullopt;
++  auto E = std::make_shared<ModuleValidationCache::Entry>();
++  E->BMI = *BMI;
++  for (const auto &Item : *Inputs) {
++    const Array *A = Item.getAsArray();
++    if (!A || A->size() != 3 || !(*A)[0].getAsString() ||
++        !(*A)[2].getAsString())
++      return std::nullopt;
++    auto Identity = identityFrom(&(*A)[1]);
++    if (!Identity)
++      return std::nullopt;
++    E->Inputs.push_back({(*A)[0].getAsString()->str(), *Identity,
++                         (*A)[2].getAsString()->str()});
++  }
++  if (E->Inputs.empty() || !packagesFrom(O->getArray("packages"), E->Packages))
++    return std::nullopt;
++  return std::make_pair(Key->str(),
++                        std::shared_ptr<const ModuleValidationCache::Entry>(E));
++}
++
++// ---- dependency scans ------------------------------------------------------
++
++// Errors a real filesystem gives; any other category is not kept.
++std::optional<Value> errorJSON(std::error_code EC) {
++  if (!EC)
++    return Value(nullptr);
++  if (EC.category() == std::generic_category())
++    return Array{"generic", EC.value()};
++  if (EC.category() == std::system_category())
++    return Array{"system", EC.value()};
++  return std::nullopt;
++}
++std::optional<std::error_code> errorFrom(const Value *V) {
++  if (!V || V->kind() == Value::Null)
++    return std::error_code();
++  const Array *A = V->getAsArray();
++  if (!A || A->size() != 2)
++    return std::nullopt;
++  auto Category = (*A)[0].getAsString();
++  auto Code = (*A)[1].getAsInteger();
++  if (!Category || !Code)
++    return std::nullopt;
++  if (*Category == "generic")
++    return std::error_code(static_cast<int>(*Code), std::generic_category());
++  if (*Category == "system")
++    return std::error_code(static_cast<int>(*Code), std::system_category());
++  return std::nullopt;
++}
++
++std::optional<Value> scanJSON(
++    const ModuleDependencyScanCache::KeptScan &S) {
++  Array Observations;
++  for (const auto &O : S.Inputs.observations()) {
++    auto Error = errorJSON(O.Error);
++    if (!Error)
++      return std::nullopt;
++    Value Info(nullptr);
++    if (O.Info)
++      Info = Array{O.Info->Name,
++                   hex64(O.Info->ID.getDevice()),
++                   hex64(O.Info->ID.getFile()),
++                   nanos(O.Info->MTime),
++                   hex64(O.Info->Size),
++                   O.Info->User,
++                   O.Info->Group,
++                   static_cast<int64_t>(O.Info->Type),
++                   static_cast<int64_t>(O.Info->Permissions),
++                   O.Info->External};
++    Observations.push_back(Array{
++        static_cast<int64_t>(O.Operation), O.Path, std::move(*Error),
++        std::move(Info), O.Name, hexDigest(O.Bytes), hex64(O.Size),
++        O.RequestedSize, O.NullTerminated, O.Found, O.Binary,
++        static_cast<int64_t>(O.EntryType)});
++  }
++  Array Args;
++  for (const auto &A : S.Command.CommandLine)
++    Args.push_back(A);
++  Array Requires;
++  for (const auto &R : S.Result.RequiredModules)
++    Requires.push_back(R);
++  Array Managed, System;
++  if (S.Inputs.Sources) {
++    for (const auto &R : S.Inputs.Sources->Managed)
++      Managed.push_back(R);
++    for (const auto &R : S.Inputs.Sources->SystemRoots)
++      System.push_back(R);
++  }
++  return Object{
++      {"file", S.File},
++      {"command", Object{{"directory", S.Command.Directory},
++                         {"file", S.Command.Filename},
++                         {"output", S.Command.Output},
++                         {"heuristic", S.Command.Heuristic},
++                         {"arguments", std::move(Args)}}},
++      {"main", hexDigest(S.MainBytes)},
++      {"environment", hexDigest(S.Environment)},
++      {"workingDirectory", S.Inputs.WorkingDirectory},
++      {"recordedAt",
++       std::chrono::duration_cast<std::chrono::nanoseconds>(
++           S.Inputs.RecordedAt.time_since_epoch())
++           .count()},
++      {"sources", Object{{"managed", std::move(Managed)},
++                         {"system", std::move(System)},
++                         {"present", S.Inputs.Sources != nullptr}}},
++      {"packages", packagesJSON(S.Inputs.Packages)},
++      {"observations", std::move(Observations)},
++      {"module", S.Result.ModuleName ? Value(*S.Result.ModuleName)
++                                     : Value(nullptr)},
++      {"requires", std::move(Requires)},
++      {"failure", S.Result.FailureDiagnostic
++                      ? Value(*S.Result.FailureDiagnostic)
++                      : Value(nullptr)}};
++}
++
++std::optional<ModuleDependencyScanCache::KeptScan> scanFrom(const Value &V) {
++  const Object *O = V.getAsObject();
++  if (!O)
++    return std::nullopt;
++  ModuleDependencyScanCache::KeptScan S;
++  auto File = O->getString("file");
++  const Object *Command = O->getObject("command");
++  auto WorkingDirectory = O->getString("workingDirectory");
++  auto RecordedAt = O->getInteger("recordedAt");
++  const Object *Sources = O->getObject("sources");
++  const Array *Observations = O->getArray("observations");
++  if (!File || !Command || !WorkingDirectory || !RecordedAt || !Sources ||
++      !Observations || !unhexDigest(O->get("main"), S.MainBytes) ||
++      !unhexDigest(O->get("environment"), S.Environment))
++    return std::nullopt;
++  S.File = File->str();
++  auto Directory = Command->getString("directory");
++  auto CommandFile = Command->getString("file");
++  auto Output = Command->getString("output");
++  auto Heuristic = Command->getString("heuristic");
++  const Array *Args = Command->getArray("arguments");
++  if (!Directory || !CommandFile || !Output || !Heuristic || !Args)
++    return std::nullopt;
++  S.Command.Directory = Directory->str();
++  S.Command.Filename = CommandFile->str();
++  S.Command.Output = Output->str();
++  S.Command.Heuristic = Heuristic->str();
++  for (const auto &A : *Args) {
++    auto Arg = A.getAsString();
++    if (!Arg)
++      return std::nullopt;
++    S.Command.CommandLine.push_back(Arg->str());
++  }
++  // The observations first, with no sources: adding one with sources would
++  // take a package's identity as it is now, not as it was when it was read.
++  S.Inputs.WorkingDirectory = WorkingDirectory->str();
++  S.Inputs.RecordedAt = std::chrono::system_clock::time_point(
++      std::chrono::duration_cast<std::chrono::system_clock::duration>(
++          std::chrono::nanoseconds(*RecordedAt)));
++  for (const auto &Item : *Observations) {
++    const Array *A = Item.getAsArray();
++    if (!A || A->size() != 12)
++      return std::nullopt;
++    ModuleScanManifest::Observation Ob;
++    auto Op = (*A)[0].getAsInteger();
++    auto Path = (*A)[1].getAsString();
++    auto Error = errorFrom(&(*A)[2]);
++    auto Name = (*A)[4].getAsString();
++    auto Size = unhex64(&(*A)[6]);
++    auto Requested = (*A)[7].getAsInteger();
++    auto NullTerminated = (*A)[8].getAsBoolean();
++    auto Found = (*A)[9].getAsBoolean();
++    auto Binary = (*A)[10].getAsBoolean();
++    auto EntryType = (*A)[11].getAsInteger();
++    if (!Op || *Op < 0 || *Op > ModuleScanManifest::RealPath || !Path ||
++        !Error || !Name || !Size || !Requested || !NullTerminated || !Found ||
++        !Binary || !EntryType || !unhexDigest(&(*A)[5], Ob.Bytes))
++      return std::nullopt;
++    Ob.Operation = static_cast<ModuleScanManifest::Kind>(*Op);
++    Ob.Path = Path->str();
++    Ob.Error = *Error;
++    Ob.Name = Name->str();
++    Ob.Size = *Size;
++    Ob.RequestedSize = *Requested;
++    Ob.NullTerminated = *NullTerminated;
++    Ob.Found = *Found;
++    Ob.Binary = *Binary;
++    Ob.EntryType = static_cast<llvm::sys::fs::file_type>(*EntryType);
++    if ((*A)[3].kind() != Value::Null) {
++      const Array *I = (*A)[3].getAsArray();
++      if (!I || I->size() != 10)
++        return std::nullopt;
++      auto InfoName = (*I)[0].getAsString();
++      auto Device = unhex64(&(*I)[1]);
++      auto FileID = unhex64(&(*I)[2]);
++      auto Time = (*I)[3].getAsInteger();
++      auto InfoSize = unhex64(&(*I)[4]);
++      auto User = (*I)[5].getAsInteger();
++      auto Group = (*I)[6].getAsInteger();
++      auto Type = (*I)[7].getAsInteger();
++      auto Perms = (*I)[8].getAsInteger();
++      auto External = (*I)[9].getAsBoolean();
++      if (!InfoName || !Device || !FileID || !Time || !InfoSize || !User ||
++          !Group || !Type || !Perms || !External)
++        return std::nullopt;
++      llvm::vfs::Status Status(
++          *InfoName, llvm::sys::fs::UniqueID(*Device, *FileID),
++          fromNanos(*Time), static_cast<uint32_t>(*User),
++          static_cast<uint32_t>(*Group), *InfoSize,
++          static_cast<llvm::sys::fs::file_type>(*Type),
++          static_cast<llvm::sys::fs::perms>(*Perms));
++      Status.ExposesExternalVFSPath = *External;
++      Ob.Info.emplace(Status);
++    }
++    S.Inputs.add(std::move(Ob));
++  }
++  if (!S.Inputs.Complete || S.Inputs.observations().size() != Observations->size())
++    return std::nullopt;
++  if (Sources->getBoolean("present").value_or(false)) {
++    auto Made = std::make_shared<ModuleInputSources>();
++    for (const char *Field : {"managed", "system"}) {
++      const Array *Roots = Sources->getArray(Field);
++      if (!Roots)
++        return std::nullopt;
++      for (const auto &R : *Roots) {
++        auto Root = R.getAsString();
++        if (!Root)
++          return std::nullopt;
++        (llvm::StringRef(Field) == "managed" ? Made->Managed
++                                             : Made->SystemRoots)
++            .push_back(Root->str());
++      }
++    }
++    S.Inputs.Sources = std::move(Made);
++  }
++  if (!packagesFrom(O->getArray("packages"), S.Inputs.Packages))
++    return std::nullopt;
++  if (auto Module = O->getString("module"))
++    S.Result.ModuleName = Module->str();
++  if (const Array *Requires = O->getArray("requires"))
++    for (const auto &R : *Requires)
++      if (auto Name = R.getAsString())
++        S.Result.RequiredModules.push_back(Name->str());
++  if (auto Failure = O->getString("failure"))
++    S.Result.FailureDiagnostic = Failure->str();
++  return S;
++}
++
++// ---- the whole --------------------------------------------------------------
++
++Value memos(uint64_t &Verdicts, uint64_t &Scans) {
++  auto VerdictSnapshot = getModuleValidationCache().snapshot(Verdicts);
++  auto ScanSnapshot = getModuleDependencyScanCache().snapshot(Scans);
++  Array VerdictsJSON;
++  for (const auto &[Key, E] : VerdictSnapshot)
++    VerdictsJSON.push_back(verdictJSON(Key, *E));
++  Array ScansJSON;
++  for (const auto &S : ScanSnapshot)
++    if (auto V = scanJSON(S))
++      ScansJSON.push_back(std::move(*V));
++  return Object{{"format", FormatVersion},
++                {"engine", getClangToolFullVersion("clangd")},
++                {"verdicts", std::move(VerdictsJSON)},
++                {"scans", std::move(ScansJSON)}};
++}
++
++struct Adopted {
++  size_t Verdicts = 0, Scans = 0, Dropped = 0;
++};
++Adopted adopt(const Object &Root) {
++  Adopted Counts;
++  std::vector<std::pair<std::string,
++                        std::shared_ptr<const ModuleValidationCache::Entry>>>
++      Verdicts;
++  if (const Array *A = Root.getArray("verdicts"))
++    for (const auto &V : *A) {
++      if (auto E = verdictFrom(V))
++        Verdicts.push_back(std::move(*E));
++      else
++        ++Counts.Dropped;
++    }
++  std::vector<ModuleDependencyScanCache::KeptScan> Scans;
++  if (const Array *A = Root.getArray("scans"))
++    for (const auto &V : *A) {
++      if (auto S = scanFrom(V))
++        Scans.push_back(std::move(*S));
++      else
++        ++Counts.Dropped;
++    }
++  Counts.Verdicts = Verdicts.size();
++  Counts.Scans = Scans.size();
++  getModuleValidationCache().adopt(std::move(Verdicts));
++  getModuleDependencyScanCache().adopt(std::move(Scans));
++  return Counts;
++}
++
++// ---- the store ---------------------------------------------------------------
++
++class Store {
++public:
++  explicit Store(std::string Directory) : Directory(std::move(Directory)) {}
++
++  void start() {
++    Worker = std::thread([this] {
++      load();
++      std::unique_lock<std::mutex> Lock(Mu);
++      while (!Stopping) {
++        Wake.wait_for(Lock, std::chrono::seconds(30));
++        if (Stopping)
++          break;
++        Lock.unlock();
++        write();
++        Lock.lock();
++      }
++    });
++  }
++
++  void flush() {
++    {
++      std::lock_guard<std::mutex> Lock(Mu);
++      Stopping = true;
++    }
++    Wake.notify_all();
++    if (Worker.joinable())
++      Worker.join();
++    write();
++  }
++
++private:
++  std::string path() const {
++    llvm::SmallString<256> P(Directory);
++    llvm::sys::path::append(P, FileName);
++    return P.str().str();
++  }
++
++  void load() {
++    const auto Began = std::chrono::steady_clock::now();
++    auto Buffer = llvm::MemoryBuffer::getFile(path());
++    if (!Buffer) {
++      log("Module memos: none kept in {0}", Directory);
++      return;
++    }
++    auto Parsed = llvm::json::parse((*Buffer)->getBuffer());
++    if (!Parsed) {
++      llvm::consumeError(Parsed.takeError());
++      log("Module memos: {0} could not be read; starting without them",
++          path());
++      return;
++    }
++    const Object *Root = Parsed->getAsObject();
++    if (!Root || Root->getInteger("format") != FormatVersion ||
++        Root->getString("engine") != getClangToolFullVersion("clangd")) {
++      log("Module memos: {0} was written by another engine or format; "
++          "starting without them",
++          path());
++      return;
++    }
++    const Adopted Counts = adopt(*Root);
++    log("Module memos: {0} BMI verdicts and {1} scans kept from the last "
++        "session ({2} unreadable), read in {3} ms; each is checked again "
++        "before it is used",
++        Counts.Verdicts, Counts.Scans, Counts.Dropped,
++        std::chrono::duration_cast<std::chrono::milliseconds>(
++            std::chrono::steady_clock::now() - Began)
++            .count());
++  }
++
++  void write() {
++    uint64_t Verdicts = 0, Scans = 0;
++    Value Root = memos(Verdicts, Scans);
++    if (Verdicts == WrittenVerdicts && Scans == WrittenScans)
++      return;
++    if (std::error_code EC = llvm::sys::fs::create_directories(Directory)) {
++      log("Module memos: cannot write {0}: {1}", Directory, EC.message());
++      return;
++    }
++    llvm::SmallString<256> Temporary(path());
++    Temporary += ".tmp-%%%%%%";
++    int FD;
++    llvm::SmallString<256> Made;
++    if (llvm::sys::fs::createUniqueFile(Temporary, FD, Made)) {
++      log("Module memos: cannot write {0}", path());
++      return;
++    }
++    {
++      llvm::raw_fd_ostream OS(FD, /*shouldClose=*/true);
++      OS << Root;
++      OS.flush();
++      if (OS.has_error()) {
++        OS.clear_error();
++        llvm::sys::fs::remove(Made);
++        return;
++      }
++    }
++    if (llvm::sys::fs::rename(Made, path())) {
++      llvm::sys::fs::remove(Made);
++      return;
++    }
++    WrittenVerdicts = Verdicts;
++    WrittenScans = Scans;
++    vlog("Module memos written to {0}", path());
++  }
++
++  const std::string Directory;
++  std::thread Worker;
++  std::mutex Mu;
++  std::condition_variable Wake;
++  bool Stopping = false;
++  uint64_t WrittenVerdicts = 0, WrittenScans = 0;
++};
++
++Store *&theStore() {
++  static Store *S = nullptr;
++  return S;
++}
++
++} // namespace
++
++void startModuleMemoStore(llvm::StringRef Directory) {
++  if (Directory.empty() || theStore())
++    return;
++  theStore() = new Store(Directory.str());
++  theStore()->start();
++}
++
++void flushModuleMemoStore() {
++  if (Store *S = theStore())
++    S->flush();
++}
++
++llvm::json::Value moduleMemosJSON() {
++  uint64_t Verdicts, Scans;
++  return memos(Verdicts, Scans);
++}
++
++size_t adoptModuleMemos(const llvm::json::Value &Memos) {
++  const Object *Root = Memos.getAsObject();
++  if (!Root || Root->getInteger("format") != FormatVersion)
++    return 0;
++  const Adopted Counts = adopt(*Root);
++  return Counts.Verdicts + Counts.Scans;
++}
++
++} // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleMemoStore.h b/clang-tools-extra/clangd/ModuleMemoStore.h
+new file mode 100644
+index 0000000..e9cf8ee
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleMemoStore.h
+@@ -0,0 +1,49 @@
++//===--- ModuleMemoStore.h - Module memos kept across sessions --*- C++-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// The validation verdicts of BMIs (ModuleValidationCache.h) and the memoized
++// dependency scans (ModuleDependencyScanCache.h) live in the process: a new
++// session re-hashes every input of every BMI it reuses and preprocesses every
++// module unit again, which is most of what opening a project the second time
++// costs. With a directory (--module-memo-dir), both are written there and read
++// back by the next session.
++//
++// What is read back is only a candidate: a verdict is used after its inputs
++// are checked as for any other verdict, and a scan after its manifest is
++// replayed as on publication. A file that cannot be read, or that another
++// format or engine wrote, is ignored. Writes go to a temporary file renamed
++// over the old one, so a reader sees one whole file or the previous one.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEMEMOSTORE_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEMEMOSTORE_H
++
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Support/JSON.h"
++#include <cstddef>
++
++namespace clang::clangd {
++
++/// Reads the memos kept in `Directory` in the background, and keeps writing
++/// them there while the process runs. Called once, at startup.
++void startModuleMemoStore(llvm::StringRef Directory);
++
++/// Writes the memos now, if they changed since they were last written. For
++/// the end of the process; a no-op without a directory.
++void flushModuleMemoStore();
++
++/// The memos as the store writes them, and taking them back as it reads
++/// them (returns how many were readable). The store's own format; exposed
++/// for tests.
++llvm::json::Value moduleMemosJSON();
++size_t adoptModuleMemos(const llvm::json::Value &Memos);
++
++} // namespace clang::clangd
++
++#endif
+diff --git a/clang-tools-extra/clangd/ModuleValidationCache.h b/clang-tools-extra/clangd/ModuleValidationCache.h
+index c2cb062..fd609bf 100644
+--- a/clang-tools-extra/clangd/ModuleValidationCache.h
++++ b/clang-tools-extra/clangd/ModuleValidationCache.h
+@@ -25,6 +25,12 @@
+ // is not memoized at all, because its outcome depends on the buffer rather
+ // than the file the fast path re-stats.
+ //
++// An input of a package version (ModuleInputSources.h) is not re-statted while
++// the version's markers are as they were when the verdict was recorded: the
++// package manager rewrites a marker whenever it changes the version. The
++// re-stats happen outside the cache's lock, so one file's check does not hold
++// up another's.
++//
+ // Only up-to-date verdicts are memoized: a stale result leads to a rebuild,
+ // and the rebuilt BMI has a new identity that misses anyway. Entries are
+ // bounded; when the bound is hit the cache is dropped wholesale. The working
+@@ -37,12 +43,15 @@
+ #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULE_VALIDATION_CACHE_H
+ #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULE_VALIDATION_CACHE_H
+ 
++#include "ModuleInputSources.h"
+ #include "llvm/ADT/StringMap.h"
+ #include "llvm/ADT/StringRef.h"
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include <chrono>
+ #include <cstdint>
++#include <map>
++#include <memory>
+ #include <mutex>
+ #include <optional>
+ #include <string>
+@@ -84,23 +93,45 @@ public:
+   /// nor any recorded input has moved since. Any doubt returns false.
+   bool isFresh(llvm::StringRef BMIPath, llvm::StringRef ChainKey,
+                llvm::vfs::FileSystem &FS) {
+-    std::lock_guard<std::mutex> Lock(Mutex);
+-    auto It = Entries.find(key(BMIPath, ChainKey));
+-    if (It == Entries.end())
+-      return false;
+-    if (identityOf(BMIPath) != It->second.BMI) {
+-      Entries.erase(It);
+-      return false;
++    const std::string Key = key(BMIPath, ChainKey);
++    std::shared_ptr<const Entry> Found;
++    {
++      std::lock_guard<std::mutex> Lock(Mutex);
++      auto It = Entries.find(Key);
++      if (It == Entries.end())
++        return false;
++      Found = It->second;
+     }
+-    for (const auto &Input : It->second.Inputs) {
+-      auto Visible = FS.status(Input.first);
+-      if (!Visible || Visible->getUniqueID() != Input.second.ID ||
+-          Visible->getSize() != Input.second.Size ||
+-          Visible->getLastModificationTime() != Input.second.ModTime ||
+-          identityOf(Input.first) != Input.second) {
++    auto Stale = [&] {
++      std::lock_guard<std::mutex> Lock(Mutex);
++      auto It = Entries.find(Key);
++      if (It != Entries.end() && It->second == Found) {
+         Entries.erase(It);
+-        return false;
++        ++Changes;
+       }
++      return false;
++    };
++    if (identityOf(BMIPath) != Found->BMI)
++      return Stale();
++    auto &Counters = moduleInputCounters();
++    llvm::StringSet<> HeldPackages;
++    for (const auto &[Package, Recorded] : Found->Packages) {
++      ++Counters.PackageChecks;
++      if (Recorded && ModuleInputSources::packageIdentity(Package) == Recorded)
++        HeldPackages.insert(Package);
++    }
++    for (const auto &Input : Found->Inputs) {
++      if (!Input.Package.empty() && HeldPackages.contains(Input.Package)) {
++        ++Counters.Package;
++        continue;
++      }
++      ++Counters.Project;
++      auto Visible = FS.status(Input.Path);
++      if (!Visible || Visible->getUniqueID() != Input.Identity.ID ||
++          Visible->getSize() != Input.Identity.Size ||
++          Visible->getLastModificationTime() != Input.Identity.ModTime ||
++          identityOf(Input.Path) != Input.Identity)
++        return Stale();
+     }
+     return true;
+   }
+@@ -116,10 +147,59 @@ public:
+     auto BMI = identityOf(BMIPath);
+     if (!BMI)
+       return;
++    auto Made = std::make_shared<Entry>();
++    Made->BMI = std::move(*BMI);
++    ModuleInputSources Sources;
++    Sources.Managed = ModuleInputSources::getManagedRoots();
++    for (auto &[Path, Identity] : Inputs) {
++      std::string Package;
++      if (Sources.classify(Path, "", &Package) != ModuleInputSources::Package)
++        Package.clear();
++      else if (!Made->Packages.count(Package))
++        Made->Packages.emplace(Package,
++                               ModuleInputSources::packageIdentity(Package));
++      Made->Inputs.push_back({std::move(Path), Identity, std::move(Package)});
++    }
+     std::lock_guard<std::mutex> Lock(Mutex);
+     if (Entries.size() >= Bound)
+       Entries.clear();
+-    Entries[key(BMIPath, ChainKey)] = {std::move(*BMI), std::move(Inputs)};
++    Entries[key(BMIPath, ChainKey)] = std::move(Made);
++    ++Changes;
++  }
++
++  struct Input {
++    std::string Path;
++    FileIdentity Identity;
++    std::string Package; // its package version directory; empty when none
++  };
++  struct Entry {
++    FileIdentity BMI;
++    std::vector<Input> Inputs;
++    std::map<std::string, std::optional<ModuleInputSources::Identity>>
++        Packages;
++  };
++
++  /// For the store (ModuleMemoStore.h): every entry, by key, and how many
++  /// entries have been made so far.
++  std::vector<std::pair<std::string, std::shared_ptr<const Entry>>>
++  snapshot(uint64_t &MadeSoFar) {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    MadeSoFar = Changes;
++    std::vector<std::pair<std::string, std::shared_ptr<const Entry>>> Out;
++    for (const auto &It : Entries)
++      Out.emplace_back(It.getKey().str(), It.getValue());
++    return Out;
++  }
++  /// Entries an earlier session kept: like any other, each is a verdict to
++  /// check again before it is used. An entry this session made wins.
++  void adopt(std::vector<std::pair<std::string, std::shared_ptr<const Entry>>>
++                 Kept) {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    for (auto &[Key, Kept1] : Kept) {
++      if (Entries.size() >= Bound)
++        break;
++      Entries.try_emplace(Key, std::move(Kept1));
++    }
+   }
+ 
+ private:
+@@ -132,13 +212,9 @@ private:
+     return Result;
+   }
+ 
+-  struct Entry {
+-    FileIdentity BMI;
+-    std::vector<std::pair<std::string, FileIdentity>> Inputs;
+-  };
+-
+   static constexpr size_t Bound = 256;
+-  llvm::StringMap<Entry> Entries;
++  llvm::StringMap<std::shared_ptr<const Entry>> Entries;
++  uint64_t Changes = 0; // entries made, for the store (persistence)
+   std::mutex Mutex;
+ };
+ 
+diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
+index 5a419f1..8861111 100644
+--- a/clang-tools-extra/clangd/ProjectModules.cpp
++++ b/clang-tools-extra/clangd/ProjectModules.cpp
+@@ -454,6 +454,7 @@ ModuleDependencyScanner::scan(PathRef FilePath,
+     llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> ScanFS = RequestFS;
+     if (Cacheable) {
+       Manifest = std::make_shared<ModuleScanManifest>();
++      Manifest->Sources = ModuleInputSources::forCommand(*Cmd);
+       ScanFS = llvm::makeIntrusiveRefCnt<ModuleScanRecordingFS>(
+           std::move(RequestFS), Manifest);
+     }
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 097eab7..713a677 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -16,6 +16,8 @@
+ #include "FeatureModule.h"
+ #include "IncludeCleaner.h"
+ #include "ModuleBuildWorker.h"
++#include "ModuleInputSources.h"
++#include "ModuleMemoStore.h"
+ #include "PathMapping.h"
+ #include "Protocol.h"
+ #include "TidyProvider.h"
+@@ -229,6 +231,25 @@ opt<unsigned> CompletionModuleWait{
+     Hidden,
+ };
+ 
++list<std::string> ManagedInputRoots{
++    "managed-input-root",
++    cat(Features),
++    desc("A package store whose <package>/<version> directories are changed "
++         "only by its package manager, which rewrites the version's markers "
++         "when it does: module inputs there are checked by those markers "
++         "instead of one by one. May be given more than once"),
++    Hidden,
++};
++
++opt<std::string> ModuleMemoDir{
++    "module-memo-dir",
++    cat(Features),
++    desc("Directory to keep module validation verdicts and dependency scans "
++         "in across sessions; each is checked again before it is used"),
++    init(""),
++    Hidden,
++};
++
+ opt<std::string> CrashDumpsDir{
+     "crash-dumps-dir",
+     cat(Features),
+@@ -995,6 +1016,15 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+   }
+   if (!ResourceDir.empty())
+     Opts.ResourceDir = ResourceDir;
++  if (!ManagedInputRoots.empty()) {
++    ModuleInputSources::setManagedRoots(
++        std::vector<std::string>(ManagedInputRoots.begin(), ManagedInputRoots.end()));
++    log("Module inputs: {0} managed package store(s) checked by their "
++        "markers",
++        ManagedInputRoots.size());
++  }
++  if (!ModuleMemoDir.empty())
++    startModuleMemoStore(ModuleMemoDir);
+   Opts.StrongWorkspaceMode = StrongWorkspaceMode;
+   Opts.BuildDynamicSymbolIndex = true;
+ #if CLANGD_ENABLE_REMOTE
+@@ -1110,9 +1140,9 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+       return 1;
+     }
+     log("Entering check mode (no LSP server)");
+-    return check(Path, TFS, Opts)
+-               ? 0
+-               : static_cast<int>(ErrorResultCode::CheckFailed);
++    const bool Checked = check(Path, TFS, Opts);
++    flushModuleMemoStore();
++    return Checked ? 0 : static_cast<int>(ErrorResultCode::CheckFailed);
+   }
+ 
+   FeatureModuleSet ModuleSet = FeatureModuleSet::fromRegistry();
+@@ -1153,6 +1183,7 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+                      ? 0
+                      : static_cast<int>(ErrorResultCode::NoShutdownRequest);
+   log("LSP finished, exiting with status {0}", ExitCode);
++  flushModuleMemoStore();
+ 
+   // There may still be lingering background threads (e.g. slow requests
+   // whose results will be dropped, background index shutting down).
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 3bc6056..d4a3df9 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -30,6 +30,9 @@
+ #include "ModuleBuildWorkerOutput.h"
+ #include "ModuleBuildWorkerStorage.h"
+ #include "ModuleDependencyScanCache.h"
++#include "ModuleInputSources.h"
++#include "ModuleMemoStore.h"
++#include "ModuleValidationCache.h"
+ #include "ModulesBuilder.h"
+ #include "Preamble.h"
+ #include "ProjectModules.h"
+@@ -4347,6 +4350,171 @@ TEST_F(PrerequisiteModulesTests, BodyEditsInAModuleUnitReuseItsScan) {
+   EXPECT_GT(getModuleDependencyScanCache().stats().Misses, Before.Misses);
+ }
+ 
++// Writes `Contents` to `Path` under the test directory, without a command.
++static void writeTestFile(llvm::StringRef Dir, llvm::StringRef Path,
++                          llvm::StringRef Contents) {
++  SmallString<256> Abs(Dir);
++  llvm::sys::path::append(Abs, Path);
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Abs)));
++  std::error_code EC;
++  llvm::raw_fd_ostream OS(Abs, EC);
++  ASSERT_FALSE(EC);
++  OS << Contents;
++}
++
++TEST_F(PrerequisiteModulesTests, PackageInputsAreCheckedByTheirMarkers) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  // A package store: lib 1.0, installed with its markers.
++  writeTestFile(TestDir, "store/lib/1.0/.mcpp_ok", "1\n");
++  writeTestFile(TestDir, "store/lib/1.0/.xpkg-install.json", "{}\n");
++  writeTestFile(TestDir, "store/lib/1.0/include/dep.h", "import M;\n");
++  ModuleInputSources::setManagedRoots({getFullPath("store")});
++  auto Reset = llvm::make_scope_exit([] { ModuleInputSources::setManagedRoots({}); });
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include \"dep.h\"\n",
++              {"-I" + getFullPath("store/lib/1.0/include")});
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Scan = [&] {
++    WithContextValue Once(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(getFullPath("Use.cpp"));
++  };
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  // A header of the package changed without its markers: no package manager
++  // did that, and the version is taken as installed.
++  writeTestFile(TestDir, "store/lib/1.0/include/dep.h", "import N;\n");
++  const auto Before = moduleInputCounters();
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  EXPECT_GT((moduleInputCounters() - Before).Package, 0u);
++  // Reinstalled: a marker changed, and the version's files are replayed.
++  writeTestFile(TestDir, "store/lib/1.0/.mcpp_ok", "reinstalled\n");
++  EXPECT_THAT(Scan(), testing::ElementsAre("N"));
++  // The project's own headers are replayed every time (see
++  // ScanReplayEpochReplaysOncePerOperation).
++}
++
++TEST_F(PrerequisiteModulesTests, SystemInputsAreReplayedOncePerSession) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  writeTestFile(TestDir, "sysroot/include/dep.h", "import M;\n");
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include <dep.h>\n",
++              {"-isystem", getFullPath("sysroot/include")});
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Scan = [&] {
++    WithContextValue Once(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(getFullPath("Use.cpp"));
++  };
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  // Like clang's own module input validation, which skips system inputs: a
++  // system header is not checked again in this session.
++  writeTestFile(TestDir, "sysroot/include/dep.h", "import N;\n");
++  const auto Before = moduleInputCounters();
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  EXPECT_GT((moduleInputCounters() - Before).System, 0u);
++}
++
++TEST_F(PrerequisiteModulesTests, ValidationVerdictsCheckPackagesByTheirMarkers) {
++  writeTestFile(TestDir, "store/lib/2.0/.mcpp_ok", "1\n");
++  writeTestFile(TestDir, "store/lib/2.0/include/lib.h", "int lib;\n");
++  writeTestFile(TestDir, "own.h", "int own;\n");
++  writeTestFile(TestDir, "M.pcm", "bmi\n");
++  ModuleInputSources::setManagedRoots({getFullPath("store")});
++  auto Reset = llvm::make_scope_exit([] { ModuleInputSources::setManagedRoots({}); });
++  const std::string Lib = getFullPath("store/lib/2.0/include/lib.h");
++  const std::string Own = getFullPath("own.h");
++  const std::string BMI = getFullPath("M.pcm");
++  ModuleValidationCache Cache;
++  Cache.markFresh(BMI, "chain",
++                  {{Lib, *ModuleValidationCache::identityOf(Lib)},
++                   {Own, *ModuleValidationCache::identityOf(Own)}});
++  auto RealFS = llvm::vfs::getRealFileSystem();
++  EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++  // The package's header changed without its markers: still fresh.
++  writeTestFile(TestDir, "store/lib/2.0/include/lib.h", "int library_changed;\n");
++  EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++  // The project's own input changed: stale.
++  writeTestFile(TestDir, "own.h", "int own_changed;\n");
++  EXPECT_FALSE(Cache.isFresh(BMI, "chain", *RealFS));
++  // A marker changed: the package's inputs are checked one by one again.
++  Cache.markFresh(BMI, "chain",
++                  {{Lib, *ModuleValidationCache::identityOf(Lib)},
++                   {Own, *ModuleValidationCache::identityOf(Own)}});
++  writeTestFile(TestDir, "store/lib/2.0/include/lib.h", "int library_again;\n");
++  EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++  writeTestFile(TestDir, "store/lib/2.0/.mcpp_ok", "reinstalled\n");
++  EXPECT_FALSE(Cache.isFresh(BMI, "chain", *RealFS));
++}
++
++TEST_F(PrerequisiteModulesTests, MemosKeptForTheNextSession) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include \"dep.h\"\nimport O;\n");
++  CDB.addFile("dep.h", "import M;\n");
++  {
++    auto Generation = CDB.toolingCDB();
++    auto Commands = createProjectModulesCommandCache(Generation, true);
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    EXPECT_THAT(Modules->getRequiredModules(getFullPath("Use.cpp")),
++                testing::ElementsAre("M", "O"));
++  }
++  // What the store writes, as text and back.
++  std::string Text;
++  llvm::raw_string_ostream(Text) << moduleMemosJSON();
++  auto Parsed = llvm::json::parse(Text);
++  ASSERT_TRUE(bool(Parsed)) << llvm::toString(Parsed.takeError());
++  const llvm::json::Array *Scans = Parsed->getAsObject()->getArray("scans");
++  ASSERT_TRUE(Scans);
++  ASSERT_GT(Scans->size(), 0u) << Text.substr(0, 2000);
++  // The next session: another database, nothing of its own memoized yet,
++  // and the files as they were (writing them again would move their times).
++  auto TimeOf = [&](llvm::StringRef File) {
++    llvm::sys::fs::file_status Status;
++    EXPECT_FALSE(llvm::sys::fs::status(getFullPath(File), Status));
++    return Status.getLastModificationTime();
++  };
++  auto Restore = [&](llvm::StringRef File, llvm::sys::TimePoint<> Time) {
++    int FD;
++    ASSERT_FALSE(llvm::sys::fs::openFileForWrite(
++        getFullPath(File), FD, llvm::sys::fs::CD_OpenExisting,
++        llvm::sys::fs::OF_Append));
++    EXPECT_FALSE(llvm::sys::fs::setLastAccessAndModificationTime(FD, Time));
++    llvm::sys::Process::SafelyCloseFileDescriptor(FD);
++  };
++  const auto UseTime = TimeOf("Use.cpp"), DepTime = TimeOf("dep.h");
++  PerFileModulesCompilationDatabase Next(TestDir, FS);
++  Next.addFile("Use.cpp", "#include \"dep.h\"\nimport O;\n");
++  Next.addFile("dep.h", "import M;\n");
++  Restore("Use.cpp", UseTime);
++  Restore("dep.h", DepTime);
++  EXPECT_GT(adoptModuleMemos(*Parsed), 0u);
++  const auto Kept = getModuleDependencyScanCache().keptHits();
++  auto Generation = Next.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++  EXPECT_THAT(Modules->getRequiredModules(getFullPath("Use.cpp")),
++              testing::ElementsAre("M", "O"));
++  EXPECT_GT(getModuleDependencyScanCache().keptHits(), Kept);
++  // A kept scan is replayed before it is used: an input that changed since
++  // is seen.
++  PerFileModulesCompilationDatabase Third(TestDir, FS);
++  Third.addFile("Use.cpp", "#include \"dep.h\"\nimport O;\n");
++  Third.addFile("dep.h", "import N;\n");
++  EXPECT_GT(adoptModuleMemos(*Parsed), 0u);
++  auto ThirdGeneration = Third.toolingCDB();
++  auto ThirdCommands = createProjectModulesCommandCache(ThirdGeneration, true);
++  auto ThirdModules =
++      clang::clangd::getProjectModules(ThirdGeneration, FS, ThirdCommands);
++  EXPECT_THAT(ThirdModules->getRequiredModules(getFullPath("Use.cpp")),
++              testing::ElementsAre("N", "O"));
++}
++
+ TEST_F(PrerequisiteModulesTests, ScanReplayEpochReplaysOncePerOperation) {
+   if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
+     GTEST_SKIP() << "scan memo admission covers this host's test commands only";
+-- 
+2.53.0
+

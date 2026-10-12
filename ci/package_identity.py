@@ -115,6 +115,10 @@ def main():
                                  '--engine', str(engine.resolve())], text=True, capture_output=True, timeout=900)
     if resilience.returncode != 0:
         parser.error('final package bytes failed module resilience canary: ' + resilience.stdout.strip())
+    inputs = subprocess.run(['python3', str(ROOT / 'ci/module_inputs_canary.py'),
+                             '--engine', str(engine.resolve())], text=True, capture_output=True, timeout=900)
+    if inputs.returncode != 0:
+        parser.error('final package bytes failed module inputs canary: ' + inputs.stdout.strip())
     directive_report = args.build_dir / 'module-directive-package-canary.json'
     directive = subprocess.run([
         'python3', str(ROOT / 'tests/e2e/module_directive_diagnostics.py'),
@@ -133,7 +137,8 @@ def main():
                 'features': ['semantic-tokens-range', 'format-style-mcpp',
                              'module-directive-diagnostic-ranges', 'module-directive-recovery',
                              'const-correctness-views', 'unresolved-import-recovery',
-                             'partial-prerequisite-modules', 'module-rebuild-reasons', 'bounded-module-wait'],
+                             'partial-prerequisite-modules', 'module-rebuild-reasons', 'bounded-module-wait',
+                             'managed-input-roots', 'persistent-module-memos', 'retained-asts-option'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
                 'llvm-tree-commit': stamp['llvm-tree-commit'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}

@@ -140,6 +140,27 @@ completions at the server's one-second deadline. The engine reports itself as `2
 No feature is declared for it: it changes how fast, not what, the engine answers. The tree is now
 `8992c4ec675d717eaef4c4a59dbaa73789da5ae2`.
 
+## The 0.0.15 additions
+
+Two patches, for what makes a completion and a second opening slow on Windows: every check of whether
+a memoized scan or a BMI is still good is a stat or an open per input file, and a stat on Windows opens
+a handle and resolves its final path. The engine reports itself as `23.1.0-mcppls.3`.
+
+- 0030, where inputs come from: under a store given with `--managed-input-root`, a file belongs to a
+  package version (`<store>/<package>/<version>/`) checked by the version's markers, which its package
+  manager rewrites whenever it changes the version; under a system root of the command (`-isystem`,
+  `-idirafter`, the sysroot, the driver's toolchain) an input is replayed once per session, as clang's
+  own module input validation skips system inputs; everything else is checked every time, as before.
+  The validation cache checks outside its lock. With `--module-memo-dir` the verdicts and scans are
+  written to a directory and read back by the next session, each checked again before it is used.
+- 0031, costs: a completion in a module importer that takes 200 ms or more logs where its time went
+  (input checks by source, the wait for modules); `--max-retained-asts` sets how many ASTs of files not
+  being edited are kept (three).
+
+`ci/module_inputs_canary.py` proves them on the package (`managed-input-roots`,
+`persistent-module-memos`, `retained-asts-option` in `engine.json`). The tree is now
+`c8659e6f62b020799a8cf02456c669fb4f2ea2ce`.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
@@ -171,3 +192,5 @@ No feature is declared for it: it changes how fast, not what, the engine answers
 | 0027-UP-31-bounded-module-completion-wait.patch | UP-31, UP-25 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_resilience_canary.py; tests/e2e/module_cold_completion.py | upstream completion in module importers answers within a bound while the first preamble or a new import is still being built |
 | 0028-UP-30-partial-prerequisite-modules.patch | UP-30 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_resilience_canary.py | upstream serves an importer with the prerequisite modules that did build when one fails |
 | 0029-UP-33-module-unit-body-scan.patch | UP-33, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | upstream keeps a module unit's dependency scan memoized while its body is typed in |
+| 0030-UP-35-module-input-sources-and-memos.patch | UP-35, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream checks module inputs by where they come from, and keeps scan and validation memos across sessions |
+| 0031-UP-36-module-completion-costs.patch | UP-36 | steady | ci/module_inputs_canary.py | upstream logs where a slow module completion's time went, and makes the retained AST count an option |
