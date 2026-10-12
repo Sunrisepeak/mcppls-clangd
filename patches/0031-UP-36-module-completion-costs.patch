@@ -1,0 +1,150 @@
+From 2a41e50cb63b078f3f5a79e12ebacd6be46e87c8 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 12 Oct 2026 21:31:02 +0900
+Subject: [clangd] A slow completion in a module importer says where its time
+ went
+
+A completion in a module importer that takes 200 ms or more logs, at the
+default level, how long the checks of what its modules were built from took,
+how many inputs were checked one by one, by package markers, or skipped as
+system inputs already checked, and how long it waited for modules: a slow
+completion is told apart from a busy machine without a verbose log.
+
+The number of ASTs kept for files not being edited (three) is an option,
+--max-retained-asts: switching between files whose preambles are large
+rebuilds an evicted AST for every hover and definition.
+---
+ clang-tools-extra/clangd/CodeComplete.cpp    | 53 +++++++++++++++++---
+ clang-tools-extra/clangd/tool/ClangdMain.cpp | 10 ++++
+ 2 files changed, 55 insertions(+), 8 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 715fffc..12a4cfe 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -28,6 +28,7 @@
+ #include "FuzzyMatch.h"
+ #include "Headers.h"
+ #include "Hover.h"
++#include "ModuleInputSources.h"
+ #include "ModuleScanEpoch.h"
+ #include "Preamble.h"
+ #include "Protocol.h"
+@@ -60,6 +61,7 @@
+ #include "clang/Sema/DeclSpec.h"
+ #include "clang/Sema/Sema.h"
+ #include "llvm/ADT/ArrayRef.h"
++#include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/SmallVector.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include "llvm/ADT/StringRef.h"
+@@ -1451,6 +1453,32 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+                       IncludeStructure *Includes = nullptr,
+                       std::unique_ptr<CompilerInvocation> CI = nullptr) {
+   trace::Span Tracer("Sema completion");
++  // A slow completion in a module importer says, at the default level, where
++  // its time went: the checks of what its modules were built from, by where
++  // those inputs come from (ModuleInputSources.h), and the wait for modules.
++  struct CostLine {
++    llvm::StringRef File;
++    bool Modules;
++    std::chrono::steady_clock::time_point Began =
++        std::chrono::steady_clock::now();
++    ModuleInputCounters Before = moduleInputCounters();
++    std::chrono::steady_clock::duration Checks{}, Waited{};
++    ~CostLine() {
++      using std::chrono::duration_cast;
++      using std::chrono::milliseconds;
++      const auto Total = std::chrono::steady_clock::now() - Began;
++      if (!Modules || Total < milliseconds(200))
++        return;
++      const auto Counted = moduleInputCounters() - Before;
++      log("Completion in {0}: {1} ms (module input checks {2} ms: {3} one by "
++          "one, {4} by {5} package checks, {6} system already checked; "
++          "waited {7} ms for modules)",
++          File, duration_cast<milliseconds>(Total).count(),
++          duration_cast<milliseconds>(Checks).count(), Counted.Project,
++          Counted.Package, Counted.PackageChecks, Counted.System,
++          duration_cast<milliseconds>(Waited).count());
++    }
++  } Cost{Input.FileName, Input.ParseInput.ModulesManager != nullptr};
+ 
+   IgnoreDiagnostics IgnoreDiags;
+   if (!CI) {
+@@ -1492,6 +1520,21 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+   if (RequiredModules && Input.ParseInput.ModulesManager &&
+       !InDirectiveRegion) {
+     trace::Span ModuleTracer("Completion module validation");
++    const auto ChecksBegan = std::chrono::steady_clock::now();
++    auto ChecksEnd = llvm::make_scope_exit([&] {
++      Cost.Checks += std::chrono::steady_clock::now() - ChecksBegan;
++    });
++    auto Wait = [&](std::chrono::milliseconds Within) {
++      const auto Began = std::chrono::steady_clock::now();
++      auto Built =
++          Input.ParseInput.ModulesManager->buildPrerequisiteModulesWithin(
++              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
++              Within);
++      const auto Took = std::chrono::steady_clock::now() - Began;
++      Cost.Waited += Took;
++      Cost.Checks -= Took;
++      return Built;
++    };
+     std::vector<std::string> CurrentNames;
+     if (Input.Preamble.TextualModuleInputs) {
+       CompletionInputs = Input.ParseInput.ModulesManager->getCompletionInputs(
+@@ -1518,10 +1561,7 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+                      Input.ParseInput.Contents);
+         });
+     if (NewModule) {
+-      FreshModules =
+-          Input.ParseInput.ModulesManager->buildPrerequisiteModulesWithin(
+-              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
+-              Input.ModuleWait);
++      FreshModules = Wait(Input.ModuleWait);
+       if (FreshModules) {
+         RequiredModules = FreshModules.get();
+         ReusePreamble = false;
+@@ -1535,10 +1575,7 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+       // A dependency edited: its rebuild is waited for a moment. One that
+       // takes longer goes on for the next request, and this one is answered
+       // from the modules as they were before the edit.
+-      FreshModules =
+-          Input.ParseInput.ModulesManager->buildPrerequisiteModulesWithin(
+-              Input.FileName, *Input.ParseInput.TFS, Input.ParseInput.Contents,
+-              std::chrono::milliseconds(250));
++      FreshModules = Wait(std::chrono::milliseconds(250));
+       if (FreshModules) {
+         RequiredModules = FreshModules.get();
+         ReusePreamble = false;
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 713a677..f7fa725 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -250,6 +250,15 @@ opt<std::string> ModuleMemoDir{
+     Hidden,
+ };
+ 
++opt<unsigned> MaxRetainedASTs{
++    "max-retained-asts",
++    cat(Features),
++    desc("How many ASTs of files not being edited are kept in memory "
++         "(default 3)"),
++    init(3),
++    Hidden,
++};
++
+ opt<std::string> CrashDumpsDir{
+     "crash-dumps-dir",
+     cat(Features),
+@@ -1016,6 +1025,7 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+   }
+   if (!ResourceDir.empty())
+     Opts.ResourceDir = ResourceDir;
++  Opts.RetentionPolicy.MaxRetainedASTs = std::max(1u, MaxRetainedASTs.getValue());
+   if (!ManagedInputRoots.empty()) {
+     ModuleInputSources::setManagedRoots(
+         std::vector<std::string>(ManagedInputRoots.begin(), ManagedInputRoots.end()));
+-- 
+2.53.0
+

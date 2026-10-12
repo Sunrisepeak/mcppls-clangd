@@ -1,0 +1,172 @@
+From c4561b8785e53be4c74b87c1f1354b134e079e62 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 13 Oct 2026 02:02:21 +0900
+Subject: [PATCH] [C++20] [Modules] Elide unreachable declarations in a linkage
+ specification in the GMF from the reduced BMI
+
+A reduced BMI leaves out the declarations of the global module fragment
+that nothing in the module reaches. A namespace there has its lexical and
+visible blocks written only after every declaration and type is, so that
+they list the reached declarations only (DelayedNamespace). A language
+linkage specification did not: once one declaration in an `extern "C" { }`
+or `extern "C++" { }` block was reached, the block was written, and its
+lexical block named every declaration in it, so all of them were written.
+
+Platform and C library headers declare almost everything inside such
+blocks (`__BEGIN_DECLS`, the Windows SDK's headers, a C++ standard library
+that wraps its headers in `extern "C++"`), so a module whose global module
+fragment includes one carried all of it: a module unit including
+<windows.h> wrote a BMI of the same size reduced or not, and an importer of
+many such modules loaded every copy (code completion, which loads the
+visible declarations of every module it imports, slowed by an order of
+magnitude).
+
+A linkage specification in the global module fragment is now delayed as a
+namespace there is, and read back the same way.
+---
+ clang/include/clang/Serialization/ASTWriter.h | 14 +++---
+ clang/lib/Serialization/ASTReaderDecl.cpp     |  2 +-
+ clang/lib/Serialization/ASTWriter.cpp         |  7 +--
+ clang/lib/Serialization/ASTWriterDecl.cpp     | 11 ++---
+ .../reduced-bmi-linkage-spec-in-gmf.cppm      | 45 +++++++++++++++++++
+ 5 files changed, 64 insertions(+), 15 deletions(-)
+ create mode 100644 clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm
+
+diff --git a/clang/include/clang/Serialization/ASTWriter.h b/clang/include/clang/Serialization/ASTWriter.h
+index 95ae8a6ba..4824f9fe5 100644
+--- a/clang/include/clang/Serialization/ASTWriter.h
++++ b/clang/include/clang/Serialization/ASTWriter.h
+@@ -209,15 +209,17 @@ private:
+   /// The declarations and types to emit.
+   std::queue<DeclOrType> DeclTypesToEmit;
+ 
+-  /// The delayed namespace to emit. Only meaningful for reduced BMI.
++  /// The delayed namespaces and language linkage specifications to emit.
++  /// Only meaningful for reduced BMI.
+   ///
+   /// In reduced BMI, we want to elide the unreachable declarations in
+   /// the global module fragment. However, in ASTWriterDecl, when we see
+-  /// a namespace, all the declarations in the namespace would be emitted.
+-  /// So the optimization become meaningless. To solve the issue, we
+-  /// delay recording all the declarations until we emit all the declarations.
+-  /// Then we can safely record the reached declarations only.
+-  llvm::SmallVector<NamespaceDecl *, 16> DelayedNamespace;
++  /// a namespace or a linkage specification (`extern "C" { ... }`), all the
++  /// declarations in it would be emitted. So the optimization become
++  /// meaningless. To solve the issue, we delay recording all the declarations
++  /// until we emit all the declarations. Then we can safely record the reached
++  /// declarations only.
++  llvm::SmallVector<Decl *, 16> DelayedNamespace;
+ 
+   /// The first ID number we can use for our own declarations.
+   LocalDeclID FirstDeclID = LocalDeclID(clang::NUM_PREDEF_DECL_IDS);
+diff --git a/clang/lib/Serialization/ASTReaderDecl.cpp b/clang/lib/Serialization/ASTReaderDecl.cpp
+index 4d5c8648f..df2aa7b89 100644
+--- a/clang/lib/Serialization/ASTReaderDecl.cpp
++++ b/clang/lib/Serialization/ASTReaderDecl.cpp
+@@ -4349,7 +4349,7 @@ Decl *ASTReader::ReadDeclRecord(GlobalDeclID ID) {
+     // Get the lexical and visible block for the delayed namespace.
+     // It is sufficient to judge if ID is in DelayedNamespaceOffsetMap.
+     // But it may be more efficient to filter the other cases.
+-    if (!Offsets && isa<NamespaceDecl>(D))
++    if (!Offsets && isa<NamespaceDecl, LinkageSpecDecl>(D))
+       if (auto Iter = DelayedNamespaceOffsetMap.find(ID);
+           Iter != DelayedNamespaceOffsetMap.end())
+         Offsets = Iter->second;
+diff --git a/clang/lib/Serialization/ASTWriter.cpp b/clang/lib/Serialization/ASTWriter.cpp
+index 1e3be005a..d9df9857a 100644
+--- a/clang/lib/Serialization/ASTWriter.cpp
++++ b/clang/lib/Serialization/ASTWriter.cpp
+@@ -6415,11 +6415,12 @@ void ASTWriter::WriteDeclAndTypes(ASTContext &Context) {
+   // See the comments of DelayedNamespace for details.
+   assert(DelayedNamespace.empty() || GeneratingReducedBMI);
+   RecordData DelayedNamespaceRecord;
+-  for (NamespaceDecl *NS : DelayedNamespace) {
++  for (Decl *NS : DelayedNamespace) {
+     LookupBlockOffsets Offsets;
++    auto *DC = cast<DeclContext>(NS);
+ 
+-    Offsets.LexicalOffset = WriteDeclContextLexicalBlock(Context, NS);
+-    WriteDeclContextVisibleBlock(Context, NS, Offsets);
++    Offsets.LexicalOffset = WriteDeclContextLexicalBlock(Context, DC);
++    WriteDeclContextVisibleBlock(Context, DC, Offsets);
+ 
+     if (Offsets.LexicalOffset)
+       Offsets.LexicalOffset -= DeclTypesBlockStartOffset;
+diff --git a/clang/lib/Serialization/ASTWriterDecl.cpp b/clang/lib/Serialization/ASTWriterDecl.cpp
+index d8f5ed9af..84dfc74a1 100644
+--- a/clang/lib/Serialization/ASTWriterDecl.cpp
++++ b/clang/lib/Serialization/ASTWriterDecl.cpp
+@@ -2238,12 +2238,13 @@ void ASTDeclWriter::VisitDeclContext(DeclContext *DC) {
+                 "DeclContextBits");
+   LookupBlockOffsets Offsets;
+ 
+-  if (Writer.isGeneratingReducedBMI() && isa<NamespaceDecl>(DC) &&
+-      cast<NamespaceDecl>(DC)->isFromExplicitGlobalModule()) {
++  if (Writer.isGeneratingReducedBMI() &&
++      isa<NamespaceDecl, LinkageSpecDecl>(DC) &&
++      cast<Decl>(DC)->isFromExplicitGlobalModule()) {
+     // In reduced BMI, delay writing lexical and visible block for namespace
+-    // in the global module fragment. See the comments of DelayedNamespace for
+-    // details.
+-    Writer.DelayedNamespace.push_back(cast<NamespaceDecl>(DC));
++    // and linkage specification in the global module fragment. See the
++    // comments of DelayedNamespace for details.
++    Writer.DelayedNamespace.push_back(cast<Decl>(DC));
+   } else {
+     Offsets.LexicalOffset =
+         Writer.WriteDeclContextLexicalBlock(Record.getASTContext(), DC);
+diff --git a/clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm b/clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm
+new file mode 100644
+index 000000000..c7e3ddfa1
+--- /dev/null
++++ b/clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm
+@@ -0,0 +1,45 @@
++// Test that the unreachable declarations in a language linkage specification
++// (`extern "C" { ... }`, `extern "C++" { ... }`) in the global module fragment
++// are elided from the Reduced BMI, as they are when they are in a namespace.
++//
++// RUN: rm -rf %t
++// RUN: mkdir -p %t
++// RUN: split-file %s %t
++//
++// RUN: %clang_cc1 -std=c++20 %t/M.cppm -emit-reduced-module-interface -o %t/M.pcm
++// RUN: llvm-bcanalyzer --dump --disable-histogram %t/M.pcm > %t/M.dump
++// RUN: cat %t/M.dump | FileCheck %t/M.cppm
++//
++// RUN: %clang_cc1 -std=c++20 %t/use.cpp -fmodule-file=M=%t/M.pcm -fsyntax-only -verify
++
++//--- foo.h
++extern "C" {
++int used_c(int);
++int unused_c(int);
++struct UnusedC { int x; };
++}
++
++extern "C++" {
++int used_cxx(int);
++int unused_cxx(int);
++namespace ns {
++int unused_in_ns(int);
++}
++}
++
++//--- M.cppm
++module;
++#include "foo.h"
++export module M;
++export inline int f(int x) { return used_c(x) + used_cxx(x); }
++
++// The module's own function and the two it uses, and none of the others.
++// CHECK-NOT: <DECL_CXX_RECORD
++// CHECK-COUNT-3: <DECL_FUNCTION
++// CHECK-NOT: <DECL_FUNCTION
++// CHECK-NOT: <DECL_CXX_RECORD
++
++//--- use.cpp
++// expected-no-diagnostics
++import M;
++int g() { return f(1); }
+-- 
+2.53.0
+

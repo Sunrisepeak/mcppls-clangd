@@ -19,7 +19,7 @@ MCPPLS_CI_ROOT="$PWD"
 
 if [[ "${TEST:-0}" = "1" ]]; then
   # clangd + the clang driver (module lit tests compile with it) + lit helpers
-  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format ClangdTests AllClangUnitTests c-index-test clang-repl clangd-validation-overlay-probe FileCheck not count split-file llvm-config -j "${JOBS:-4}"
+  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format ClangdTests AllClangUnitTests c-index-test clang-repl clangd-validation-overlay-probe FileCheck not count split-file llvm-bcanalyzer llvm-config -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
@@ -52,6 +52,7 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
     tools/clang/tools/extra/clangd/test/module_dependencies.test \
     tools/clang/tools/extra/clangd/test/modules_no_cdb.test \
     tools/clang/test/Modules/pr218152.cppm \
+    tools/clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm \
     tools/clang/test/Modules/missing-module-semicolon-location.cpp
   CLANGD_TESTS=./tools/clang/tools/extra/clangd/unittests/ClangdTests
   [[ -x "$CLANGD_TESTS" ]] || CLANGD_TESTS+=.exe

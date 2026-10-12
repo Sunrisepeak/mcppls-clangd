@@ -140,6 +140,39 @@ completions at the server's one-second deadline. The engine reports itself as `2
 No feature is declared for it: it changes how fast, not what, the engine answers. The tree is now
 `8992c4ec675d717eaef4c4a59dbaa73789da5ae2`.
 
+## The 0.0.15 additions
+
+Three patches, for what makes a completion and a second opening slow on Windows: every check of whether
+a memoized scan or a BMI is still good is a stat or an open per input file, and a stat on Windows opens
+a handle and resolves its final path; and a BMI whose global module fragment includes a platform header
+carried every declaration of it. The engine reports itself as `23.1.0-mcppls.3`.
+
+- 0030, where inputs come from: under a store given with `--managed-input-root`, a file belongs to a
+  package version (`<store>/<package>/<version>/`) checked by the version's markers, which its package
+  manager rewrites whenever it changes the version; under a system root of the command (`-isystem`,
+  `-idirafter`, the sysroot, the driver's toolchain, `INCLUDE`, the Windows SDK and Visual Studio's
+  headers) an input is replayed once per session, as clang's
+  own module input validation skips system inputs; everything else is checked every time, as before,
+  and what the command searches as user headers, its directory and the file's win over the toolchain's
+  root, which is no system root when the project lies within it.
+  The validation cache checks outside its lock. With `--module-memo-dir` the verdicts and scans are
+  written to a directory and read back by the next session, each checked again before it is used.
+- 0031, costs: a completion in a module importer that takes 200 ms or more logs where its time went
+  (input checks by source, the wait for modules); `--max-retained-asts` sets how many ASTs of files not
+  being edited are kept (three).
+- 0032, the reduced BMI: the declarations of an `extern "C" { }` or `extern "C++" { }` block in the
+  global module fragment that nothing in the module reaches are left out, as those of a namespace
+  there already were. Platform and C library headers declare almost everything in such blocks, so a
+  module unit including `<windows.h>` wrote all of it (9.5 MB reduced or not for a header of 20,000
+  declarations; 20 KB now), and a completion in an importer of many such modules loaded every copy
+  (2.2 s for `::` in an importer of 25 of them; 0.28 s now). No feature is declared for it: it changes
+  how large a BMI is, not what the engine answers.
+
+`ci/module_inputs_canary.py` proves 0030 and 0031 on the package (`managed-input-roots`,
+`persistent-module-memos`, `retained-asts-option` in `engine.json`);
+`clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm` covers 0032. The tree is now
+`79b44aac3cc120f9d2cf52a7c1f02e84a7113bff`.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
@@ -171,3 +204,6 @@ No feature is declared for it: it changes how fast, not what, the engine answers
 | 0027-UP-31-bounded-module-completion-wait.patch | UP-31, UP-25 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_resilience_canary.py; tests/e2e/module_cold_completion.py | upstream completion in module importers answers within a bound while the first preamble or a new import is still being built |
 | 0028-UP-30-partial-prerequisite-modules.patch | UP-30 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_resilience_canary.py | upstream serves an importer with the prerequisite modules that did build when one fails |
 | 0029-UP-33-module-unit-body-scan.patch | UP-33, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | upstream keeps a module unit's dependency scan memoized while its body is typed in |
+| 0030-UP-35-module-input-sources-and-memos.patch | UP-35, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream checks module inputs by where they come from, and keeps scan and validation memos across sessions |
+| 0031-UP-36-module-completion-costs.patch | UP-36 | steady | ci/module_inputs_canary.py | upstream logs where a slow module completion's time went, and makes the retained AST count an option |
+| 0032-UP-37-reduced-bmi-linkage-spec-in-gmf.patch | UP-37 | steady | clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm | upstream elides the unreachable declarations of a linkage specification in the global module fragment from the reduced BMI |
