@@ -126,8 +126,8 @@ Three patches follow the 0.0.12 series, for what running the product on large pr
 
 ## The 0.0.14 additions
 
-Two patches, for what the 0.0.13 product's CI found on Windows: typing in a module unit whose
-global module fragment includes a platform header, with an importer open, left the typed file's
+One patch, for what the 0.0.13 product's CI found on Windows: typing in a module unit whose global
+module fragment includes a platform header, with an importer open, left the typed file's
 completions at the server's one-second deadline. The engine reports itself as `23.1.0-mcppls.2`.
 
 - 0029, a module unit's body: a draft's body is scanned as its preamble plus its imports when it
@@ -136,13 +136,9 @@ completions at the server's one-second deadline. The engine reports itself as `2
   global module fragment's headers preprocessed again each time. The declaration, and the imports
   right after it, now belong to the scanned prefix (a module unit typed in: completion's module
   validation 37 ms to 0.1 ms on Linux).
-- 0030, recent replays: an operation replays every memoized scan it looks up, opening and checking
-  each file the scan read. A document update now takes a replay made in the last two seconds and a
-  completion one made in the last thirty; a file the editor has open is never in a memoized scan,
-  a watched file's change ends the allowance, and a preamble build replays as before.
 
-No feature is declared for them: they change how fast, not what, the engine answers. The tree is
-now `6dd096756f80d813572718707b009da9e901410b`.
+No feature is declared for it: it changes how fast, not what, the engine answers. The tree is now
+`8992c4ec675d717eaef4c4a59dbaa73789da5ae2`.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
@@ -175,4 +171,3 @@ now `6dd096756f80d813572718707b009da9e901410b`.
 | 0027-UP-31-bounded-module-completion-wait.patch | UP-31, UP-25 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_resilience_canary.py; tests/e2e/module_cold_completion.py | upstream completion in module importers answers within a bound while the first preamble or a new import is still being built |
 | 0028-UP-30-partial-prerequisite-modules.patch | UP-30 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_resilience_canary.py | upstream serves an importer with the prerequisite modules that did build when one fails |
 | 0029-UP-33-module-unit-body-scan.patch | UP-33, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | upstream keeps a module unit's dependency scan memoized while its body is typed in |
-| 0030-UP-34-recent-scan-replay.patch | UP-34, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | upstream lets an operation take a recent replay of a memoized scan, ended by a watched file's change |
