@@ -1,4 +1,4 @@
-From bbae7600266424cae687719bde2847144b59cfd1 Mon Sep 17 00:00:00 2001
+From b9173561887bd0a1d680dd1e8b36732cd3db7e86 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 12 Oct 2026 21:31:02 +0900
 Subject: [clangd] Module inputs are checked by where they come from, and kept
@@ -43,14 +43,14 @@ the next.
 ---
  clang-tools-extra/clangd/CMakeLists.txt       |   1 +
  .../clangd/ModuleDependencyScanCache.h        | 159 ++++-
- clang-tools-extra/clangd/ModuleInputSources.h | 299 +++++++++
+ clang-tools-extra/clangd/ModuleInputSources.h | 300 +++++++++
  clang-tools-extra/clangd/ModuleMemoStore.cpp  | 587 ++++++++++++++++++
  clang-tools-extra/clangd/ModuleMemoStore.h    |  49 ++
  .../clangd/ModuleValidationCache.h            | 118 +++-
  clang-tools-extra/clangd/ProjectModules.cpp   |   1 +
  clang-tools-extra/clangd/tool/ClangdMain.cpp  |  37 +-
  .../unittests/PrerequisiteModulesTest.cpp     | 205 ++++++
- 9 files changed, 1431 insertions(+), 25 deletions(-)
+ 9 files changed, 1432 insertions(+), 25 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleInputSources.h
  create mode 100644 clang-tools-extra/clangd/ModuleMemoStore.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleMemoStore.h
@@ -294,10 +294,10 @@ index c3db0a9..d6d8bf4 100644
    std::list<std::shared_ptr<Entry>> Entries;
 diff --git a/clang-tools-extra/clangd/ModuleInputSources.h b/clang-tools-extra/clangd/ModuleInputSources.h
 new file mode 100644
-index 0000000..da0ceb8
+index 0000000..df7e492
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleInputSources.h
-@@ -0,0 +1,299 @@
+@@ -0,0 +1,300 @@
 +//===--- ModuleInputSources.h - Where a module input comes from -*- C++-*-===//
 +//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -336,6 +336,7 @@ index 0000000..da0ceb8
 +#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEINPUTSOURCES_H
 +
 +#include "clang/Tooling/CompilationDatabase.h"
++#include "llvm/ADT/StringExtras.h"
 +#include "llvm/ADT/StringRef.h"
 +#include "llvm/ADT/StringSet.h"
 +#include "llvm/Support/FileSystem.h"

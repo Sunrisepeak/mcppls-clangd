@@ -162,7 +162,7 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
 
 `ci/module_inputs_canary.py` proves them on the package (`managed-input-roots`,
 `persistent-module-memos`, `retained-asts-option` in `engine.json`). The tree is now
-`7836a3337f72b370ce26141aadb2d2808eb9d3f0`.
+`5fc199ab85ac40388ad215e188d3c33c31d056e5`.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
