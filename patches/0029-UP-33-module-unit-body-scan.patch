@@ -1,0 +1,162 @@
+From b31484e5a57cd37163d01421ad95cb446c8f3bfe Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 12 Oct 2026 11:25:01 +0900
+Subject: [clangd] Typing in a module unit's body keeps its memoized dependency
+ scan
+
+A draft's body is scanned as its preamble plus the imports it adds when it
+holds no directive and no module declaration, so that typing in it replays a
+memoized scan. A module unit's body starts with its module declaration (the
+preamble ends there), which made every module unit scanned whole on every
+keystroke and every completion: the global module fragment's headers -- a
+platform or framework header, hundreds of files -- preprocessed again each
+time.
+
+The module declaration the body starts with, and the import declarations right
+after it, now belong to the scanned prefix. A private module fragment or a
+directive later in the body is still scanned whole.
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 54 +++++++++++++++++--
+ .../unittests/PrerequisiteModulesTest.cpp     | 49 +++++++++++++++++
+ 2 files changed, 100 insertions(+), 3 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 4a1640b..e5e8bd6 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -108,7 +108,9 @@ private:
+ // module declaration: preprocessing it reads no file and defines nothing an
+ // import depends on. Such a draft is scanned as its preamble -- a scan that
+ // stays memoized while only the body changes, keystroke after keystroke -- plus
+-// those imports. A body this cannot vouch for is scanned whole.
++// those imports. A module unit's own declaration, and the imports right after
++// it, belong to the scanned part (moduleDeclarationsEnd). A body this cannot
++// vouch for is scanned whole.
+ struct DraftParts {
+   llvm::StringRef Prefix;
+   std::vector<std::string> BodyImports;
+@@ -121,13 +123,59 @@ LangOptions draftLangOptions() {
+   return Lang;
+ }
+ 
++// How far a module unit's declarations run into its body: the module
++// declaration the body of a module unit starts with (its preamble ends there),
++// and the import declarations right after it, through the line the last one
++// ends. They are what the scanner needs of the body besides its directives,
++// and they stay as they are while the rest of the body is typed in. 0 when the
++// body starts with no module declaration.
++size_t moduleDeclarationsEnd(llvm::StringRef Body, const LangOptions &Lang) {
++  if (!Lang.CPlusPlusModules)
++    return 0;
++  Lexer Lex(SourceLocation::getFromRawEncoding(1), Lang, Body.begin(),
++            Body.begin(), Body.end());
++  size_t End = 0;
++  bool First = true;
++  Token Tok;
++  Lex.LexFromRawLexer(Tok);
++  while (Tok.isNot(tok::eof) && Tok.isAtStartOfLine()) {
++    if (Tok.is(tok::raw_identifier) && Tok.getRawIdentifier() == "export")
++      Lex.LexFromRawLexer(Tok);
++    if (!Tok.is(tok::raw_identifier) ||
++        Tok.getRawIdentifier() != (First ? "module" : "import"))
++      break;
++    Lex.LexFromRawLexer(Tok);
++    // `module;` opens a global module fragment and `module :private;` a
++    // private one: neither names the unit.
++    if (First && Tok.isOneOf(tok::semi, tok::colon))
++      break;
++    while (Tok.isNoneOf(tok::semi, tok::eof, tok::hash))
++      Lex.LexFromRawLexer(Tok);
++    if (Tok.isNot(tok::semi))
++      break;
++    // Locations count from 1 at the body's start: this is the offset past `;`.
++    End = Tok.getLocation().getRawEncoding();
++    First = false;
++    Lex.LexFromRawLexer(Tok);
++  }
++  if (!End)
++    return 0;
++  // The rest of the line, when it holds nothing but blanks.
++  size_t LineEnd = Body.find_first_not_of(" \t\r", End);
++  if (LineEnd != llvm::StringRef::npos && Body[LineEnd] == '\n')
++    End = LineEnd + 1;
++  return End;
++}
++
+ std::optional<DraftParts> splitDraft(llvm::StringRef Contents,
+                                      const LangOptions &Lang) {
+   auto Bounds = Lexer::ComputePreamble(Contents, Lang);
+   if (Bounds.Size && !Bounds.PreambleEndsAtStartOfLine)
+     return std::nullopt;
+-  DraftParts Parts{Contents.take_front(Bounds.Size), {}};
+-  llvm::StringRef Body = Contents.drop_front(Bounds.Size);
++  const size_t Declarations =
++      moduleDeclarationsEnd(Contents.drop_front(Bounds.Size), Lang);
++  DraftParts Parts{Contents.take_front(Bounds.Size + Declarations), {}};
++  llvm::StringRef Body = Contents.drop_front(Bounds.Size + Declarations);
+   Lexer Lex(SourceLocation::getFromRawEncoding(1), Lang, Body.begin(),
+             Body.begin(), Body.end());
+   Token Tok;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 4f1b46d..3bc6056 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -4298,6 +4298,55 @@ TEST_F(PrerequisiteModulesTests, BodyEditsReuseThePreambleScan) {
+   EXPECT_GT(getModuleDependencyScanCache().stats().Misses, After.Misses);
+ }
+ 
++TEST_F(PrerequisiteModulesTests, BodyEditsInAModuleUnitReuseItsScan) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  VerifiedScanCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("M.cppm", "export module M;\n");
++  CDB.addFile("N.cppm", "export module N;\n");
++  CDB.addFile("Header.hpp", "int from_header;\n");
++  // A global module fragment, the unit's declaration and its imports.
++  const std::string Head =
++      "module;\n#include \"Header.hpp\"\nexport module Unit;\nimport M;\n";
++  CDB.addFile("Unit.cppm", Head + "export int f() { return 0; }\n");
++  ModulesBuilder Builder(CDB);
++  const auto Unit = getFullPath("Unit.cppm");
++  auto Names = [&](llvm::StringRef Draft) {
++    return Builder.getRequiredModuleNames(Unit, FS, Draft);
++  };
++  EXPECT_THAT(Names(Head + "export int f() { return 0; }\n"),
++              testing::ElementsAre("M"));
++  // Typing in the unit's body is the same scan again, memoized.
++  auto Before = getModuleDependencyScanCache().stats();
++  EXPECT_THAT(Names(Head + "export int f() { return 1; }\n"),
++              testing::ElementsAre("M"));
++  EXPECT_THAT(Names(Head + "export int f() { return 12; }\nint g();\n"),
++              testing::ElementsAre("M"));
++  auto After = getModuleDependencyScanCache().stats();
++  EXPECT_EQ(After.Misses, Before.Misses);
++  EXPECT_GT(After.Hits, Before.Hits);
++  // An import added right after the declaration is part of the scan.
++  EXPECT_THAT(Names("module;\n#include \"Header.hpp\"\nexport module Unit;\n"
++                    "import M;\nimport N;\nexport int f() { return 1; }\n"),
++              testing::ElementsAre("M", "N"));
++  // So is a unit without a global module fragment.
++  EXPECT_THAT(Names("export module Unit;\nimport N;\nint f();\n"),
++              testing::ElementsAre("N"));
++  Before = getModuleDependencyScanCache().stats();
++  EXPECT_THAT(Names("export module Unit;\nimport N;\nint f() { return 3; }\n"),
++              testing::ElementsAre("N"));
++  EXPECT_EQ(getModuleDependencyScanCache().stats().Misses, Before.Misses);
++  // A private module fragment, or a directive in the body, is scanned whole.
++  Before = getModuleDependencyScanCache().stats();
++  EXPECT_THAT(Names(Head + "export int f();\nmodule :private;\nint f() { return 4; }\n"),
++              testing::ElementsAre("M"));
++  EXPECT_GT(getModuleDependencyScanCache().stats().Misses, Before.Misses);
++  Before = getModuleDependencyScanCache().stats();
++  EXPECT_THAT(Names(Head + "#define LATER 1\nexport int f();\n"),
++              testing::ElementsAre("M"));
++  EXPECT_GT(getModuleDependencyScanCache().stats().Misses, Before.Misses);
++}
++
+ TEST_F(PrerequisiteModulesTests, ScanReplayEpochReplaysOncePerOperation) {
+   if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
+     GTEST_SKIP() << "scan memo admission covers this host's test commands only";
+-- 
+2.53.0
+
