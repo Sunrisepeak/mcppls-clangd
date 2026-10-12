@@ -13,7 +13,7 @@ UPSTREAM_REPO="$(awk -F': *' '/^repo:/{print $2}' "$REPO_DIR/UPSTREAM")"
 UPSTREAM_VERSION="${UPSTREAM_REF#llvmorg-}"
 
 # The fork version: upstream version + our suffix (D4).
-FORK_SUFFIX="${FORK_SUFFIX:--mcppls.1}"
+FORK_SUFFIX="${FORK_SUFFIX:--mcppls.2}"
 FORK_VERSION="${UPSTREAM_VERSION}${FORK_SUFFIX}"
 
 # Working tree (gitignored), build dir, dist dir.

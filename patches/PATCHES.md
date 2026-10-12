@@ -124,6 +124,22 @@ Three patches follow the 0.0.12 series, for what running the product on large pr
 `module-rebuild-reasons`, `bounded-module-wait` in `engine.json`). The tree is now
 `d5ff4a25edade769a0a222e72abcdfc72c04fad7`.
 
+## The 0.0.14 additions
+
+One patch, for what the 0.0.13 product's CI found on Windows: typing in a module unit whose global
+module fragment includes a platform header, with an importer open, left the typed file's
+completions at the server's one-second deadline. The engine reports itself as `23.1.0-mcppls.2`.
+
+- 0029, a module unit's body: a draft's body is scanned as its preamble plus its imports when it
+  holds no directive and no module declaration; a module unit's body starts with its module
+  declaration, so every module unit was scanned whole on every keystroke and completion, its
+  global module fragment's headers preprocessed again each time. The declaration, and the imports
+  right after it, now belong to the scanned prefix (a module unit typed in: completion's module
+  validation 37 ms to 0.1 ms on Linux).
+
+No feature is declared for it: it changes how fast, not what, the engine answers. The tree is now
+`8992c4ec675d717eaef4c4a59dbaa73789da5ae2`.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
@@ -154,3 +170,4 @@ Three patches follow the 0.0.12 series, for what running the product on large pr
 | 0026-UP-32-module-rebuild-reasons.patch | UP-32 | steady | ci/module_resilience_canary.py | upstream logs why a prerequisite BMI is rebuilt and what a file's prerequisites cost at the default level |
 | 0027-UP-31-bounded-module-completion-wait.patch | UP-31, UP-25 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_resilience_canary.py; tests/e2e/module_cold_completion.py | upstream completion in module importers answers within a bound while the first preamble or a new import is still being built |
 | 0028-UP-30-partial-prerequisite-modules.patch | UP-30 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_resilience_canary.py | upstream serves an importer with the prerequisite modules that did build when one fails |
+| 0029-UP-33-module-unit-body-scan.patch | UP-33, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | upstream keeps a module unit's dependency scan memoized while its body is typed in |
