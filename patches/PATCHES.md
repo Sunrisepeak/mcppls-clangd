@@ -149,7 +149,8 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
 - 0030, where inputs come from: under a store given with `--managed-input-root`, a file belongs to a
   package version (`<store>/<package>/<version>/`) checked by the version's markers, which its package
   manager rewrites whenever it changes the version; under a system root of the command (`-isystem`,
-  `-idirafter`, the sysroot, the driver's toolchain) an input is replayed once per session, as clang's
+  `-idirafter`, the sysroot, the driver's toolchain, `INCLUDE`, the Windows SDK and Visual Studio's
+  headers) an input is replayed once per session, as clang's
   own module input validation skips system inputs; everything else is checked every time, as before,
   and what the command searches as user headers, its directory and the file's win over the toolchain's
   root, which is no system root when the project lies within it.
@@ -161,7 +162,7 @@ a handle and resolves its final path. The engine reports itself as `23.1.0-mcppl
 
 `ci/module_inputs_canary.py` proves them on the package (`managed-input-roots`,
 `persistent-module-memos`, `retained-asts-option` in `engine.json`). The tree is now
-`3c54212c934b1d3f664854a302f10da26cc58d6c`.
+`7836a3337f72b370ce26141aadb2d2808eb9d3f0`.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
