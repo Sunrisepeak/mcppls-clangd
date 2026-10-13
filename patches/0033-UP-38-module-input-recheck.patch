@@ -1,0 +1,394 @@
+From 3a745fed6954a9d45e93285d205d752495b27a9f Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 13 Oct 2026 18:36:57 +0900
+Subject: [PATCH 1/3] [clangd] A check that found a module's inputs as they
+ were holds for a while
+
+A memoized dependency scan and a BMI's validation verdict are reused after
+every input they read is checked again, and a project's own inputs are
+checked one by one for every request: a file importing modules whose global
+module fragments include a large header set re-stats them all on every
+completion, nearly a second on Windows for a few dozen modules.
+
+With --module-input-recheck=<seconds>, a check that found the inputs of a
+scan or a verdict as they were holds for that long while the client reports
+no file change: a saved document, or a watched file, makes the next check
+read them all again (an edit too, with --use-dirty-headers, where modules
+are built from drafts). A change the client does not see is found at the
+next check after the interval, as clang's own once-per-build-session module
+validation finds one at the next session. The BMI itself is checked every
+time. The default, 0, checks every time, as before.
+
+A slow completion's cost line counts the checks that still held.
+---
+ clang-tools-extra/clangd/ClangdLSPServer.cpp  |  8 +++
+ clang-tools-extra/clangd/CodeComplete.cpp     |  6 +-
+ .../clangd/ModuleDependencyScanCache.h        | 11 +++
+ clang-tools-extra/clangd/ModuleInputSources.h | 65 +++++++++++++++++-
+ .../clangd/ModuleValidationCache.h            | 11 +++
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  | 17 +++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 68 +++++++++++++++++++
+ 7 files changed, 182 insertions(+), 4 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdLSPServer.cpp b/clang-tools-extra/clangd/ClangdLSPServer.cpp
+index d1b764bcf..c96b4cb98 100644
+--- a/clang-tools-extra/clangd/ClangdLSPServer.cpp
++++ b/clang-tools-extra/clangd/ClangdLSPServer.cpp
+@@ -7,6 +7,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "ClangdLSPServer.h"
++#include "ModuleInputSources.h"
+ #include "ClangdServer.h"
+ #include "CodeComplete.h"
+ #include "CompileCommands.h"
+@@ -750,6 +751,10 @@ void ClangdLSPServer::onDocumentDidChange(
+     return;
+   }
+   std::string NewCode(*Code);
++  // Module inputs are read from drafts only with dirty headers; then an edit
++  // is a change of what a module was built from.
++  if (Opts.UseDirtyHeaders)
++    ModuleInputSources::noteInputsChanged();
+   for (const auto &Change : Params.contentChanges) {
+     if (auto Err = applyChange(NewCode, Change)) {
+       // If this fails, we are most likely going to be not in sync anymore with
+@@ -766,6 +771,7 @@ void ClangdLSPServer::onDocumentDidChange(
+ 
+ void ClangdLSPServer::onDocumentDidSave(
+     const DidSaveTextDocumentParams &Params) {
++  ModuleInputSources::noteInputsChanged();
+   Server->reparseOpenFilesIfNeeded([](llvm::StringRef) { return true; });
+ }
+ 
+@@ -774,6 +780,8 @@ void ClangdLSPServer::onFileEvent(const DidChangeWatchedFilesParams &Params) {
+   //  - this could be frequent, and revalidating all the preambles isn't free
+   //  - this is useful e.g. when switching git branches, but we're likely to see
+   //    fresh headers but still have the old-branch main-file content
++  if (!Params.changes.empty())
++    ModuleInputSources::noteInputsChanged();
+   Server->onFileEvent(Params);
+   // FIXME: observe config files, immediately expire time-based caches, reparse:
+   //  - compile_commands.json and compile_flags.txt
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 12a4cfe28..64fbc3bb9 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -1471,12 +1471,12 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+         return;
+       const auto Counted = moduleInputCounters() - Before;
+       log("Completion in {0}: {1} ms (module input checks {2} ms: {3} one by "
+-          "one, {4} by {5} package checks, {6} system already checked; "
+-          "waited {7} ms for modules)",
++          "one, {4} by {5} package checks, {6} system already checked, {7} "
++          "checks still holding; waited {8} ms for modules)",
+           File, duration_cast<milliseconds>(Total).count(),
+           duration_cast<milliseconds>(Checks).count(), Counted.Project,
+           Counted.Package, Counted.PackageChecks, Counted.System,
+-          duration_cast<milliseconds>(Waited).count());
++          Counted.Recent, duration_cast<milliseconds>(Waited).count());
+     }
+   } Cost{Input.FileName, Input.ParseInput.ModulesManager != nullptr};
+ 
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index d6d8bf40d..ffb74e1ac 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -190,6 +190,9 @@ public:
+   // sources every input is the project's.
+   std::shared_ptr<const ModuleInputSources> Sources;
+   std::map<std::string, std::optional<ModuleInputSources::Identity>> Packages;
++  // When its inputs were last replayed as they were (a recheck interval,
++  // ModuleInputSources.h). Not part of the manifest's identity.
++  RecentInputCheck Recent;
+   uint64_t NextDirectory = 0;
+   size_t OpenFiles = 0;
+   size_t AuxiliaryBytes = 0;
+@@ -363,6 +366,13 @@ public:
+     auto CWD = FS.getCurrentWorkingDirectory();
+     if (!CWD || *CWD != WorkingDirectory)
+       return false;
++    // Replayed as it was within the recheck interval, with no change reported
++    // since: not replayed again.
++    const uint64_t Epoch = ModuleInputSources::currentInputEpoch();
++    if (Recent.holds(Epoch)) {
++      ++moduleInputCounters().Recent;
++      return true;
++    }
+     // Overlay snapshots assign fresh IDs to immutable buffers. Require the
+     // SAME alias partition, rather than accepting arbitrary ID changes or
+     // requiring a particular overlay instance. This preserves pragma-once and
+@@ -556,6 +566,7 @@ public:
+     if (!Release() || isCancelled())
+       return false;
+     ModuleInputSources::noteSystemChecked(SystemReplayed);
++    Recent.held(Epoch);
+     return true;
+   }
+ 
+diff --git a/clang-tools-extra/clangd/ModuleInputSources.h b/clang-tools-extra/clangd/ModuleInputSources.h
+index df7e4927b..4f6a72ece 100644
+--- a/clang-tools-extra/clangd/ModuleInputSources.h
++++ b/clang-tools-extra/clangd/ModuleInputSources.h
+@@ -30,6 +30,13 @@
+ //   root at all when the project lies within it (a driver in /usr/bin and a
+ //   project in /usr/src). A wrong guess costs a check, never a missed change.
+ //
++// A client that reports the changes of the files it watches can ask for a
++// recheck interval (--module-input-recheck): a check that found the inputs of
++// a scan or a verdict as they were then holds for that long, until a change is
++// reported (a saved document, a watched file). A change the client does not
++// see is found at the next check after the interval, as clang's own
++// once-per-build-session module validation finds it at the next session.
++//
+ //===----------------------------------------------------------------------===//
+ 
+ #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULEINPUTSOURCES_H
+@@ -45,6 +52,7 @@
+ #include "llvm/Support/SHA256.h"
+ #include <array>
+ #include <atomic>
++#include <chrono>
+ #include <cstdint>
+ #include <memory>
+ #include <mutex>
+@@ -61,9 +69,10 @@ struct ModuleInputCounters {
+   uint64_t Package = 0;       // of a package version whose markers held
+   uint64_t System = 0;        // under a system root already checked
+   uint64_t PackageChecks = 0; // package versions checked by their markers
++  uint64_t Recent = 0;        // scans and verdicts whose last check still holds
+   ModuleInputCounters operator-(const ModuleInputCounters &O) const {
+     return {Project - O.Project, Package - O.Package, System - O.System,
+-            PackageChecks - O.PackageChecks};
++            PackageChecks - O.PackageChecks, Recent - O.Recent};
+   }
+ };
+ inline ModuleInputCounters &moduleInputCounters() {
+@@ -247,6 +256,20 @@ public:
+       systemPaths().insert(Path);
+   }
+ 
++  /// --module-input-recheck: how long a check that found a scan's or a
++  /// verdict's inputs as they were holds while no change is reported; zero
++  /// (the default) checks them every time.
++  static void setRecheckInterval(std::chrono::milliseconds Interval) {
++    recheckMillis().store(Interval.count());
++  }
++  static std::chrono::milliseconds recheckInterval() {
++    return std::chrono::milliseconds(recheckMillis().load());
++  }
++  /// A file may have changed on disk (a saved document, a watched file): the
++  /// checks made before are not taken as holding any more.
++  static void noteInputsChanged() { ++inputEpoch(); }
++  static uint64_t currentInputEpoch() { return inputEpoch().load(); }
++
+   /// `Path` made absolute against `WorkingDirectory`, with `/` separators,
+   /// no `.` or `..`, and lower case where the filesystem ignores it.
+   static std::string normalized(llvm::StringRef Path,
+@@ -293,6 +316,46 @@ private:
+     static llvm::StringSet<> Paths;
+     return Paths;
+   }
++  static std::atomic<int64_t> &recheckMillis() {
++    static std::atomic<int64_t> Millis{0};
++    return Millis;
++  }
++  static std::atomic<uint64_t> &inputEpoch() {
++    static std::atomic<uint64_t> Epoch{0};
++    return Epoch;
++  }
++};
++
++/// When a check of one scan's or verdict's inputs last found them as they
++/// were. Copies share it: they describe the same inputs.
++class RecentInputCheck {
++public:
++  /// The last check still holds: it is within the recheck interval, and no
++  /// change was reported since the check began (`Epoch` is now's).
++  bool holds(uint64_t Epoch) const {
++    const auto Interval = ModuleInputSources::recheckInterval();
++    if (Interval.count() <= 0 || State->Epoch.load() != Epoch)
++      return false;
++    const int64_t Now = nowMillis();
++    return Now - State->At.load() < Interval.count();
++  }
++  /// A check that began at `Epoch` found every input as it was.
++  void held(uint64_t Epoch) const {
++    State->At.store(nowMillis());
++    State->Epoch.store(Epoch);
++  }
++
++private:
++  static int64_t nowMillis() {
++    return std::chrono::duration_cast<std::chrono::milliseconds>(
++               std::chrono::steady_clock::now().time_since_epoch())
++        .count();
++  }
++  struct Shared {
++    std::atomic<uint64_t> Epoch{~uint64_t(0)};
++    std::atomic<int64_t> At{0};
++  };
++  std::shared_ptr<Shared> State = std::make_shared<Shared>();
+ };
+ 
+ } // namespace clang::clangd
+diff --git a/clang-tools-extra/clangd/ModuleValidationCache.h b/clang-tools-extra/clangd/ModuleValidationCache.h
+index fd609bfdc..5f022432b 100644
+--- a/clang-tools-extra/clangd/ModuleValidationCache.h
++++ b/clang-tools-extra/clangd/ModuleValidationCache.h
+@@ -25,6 +25,10 @@
+ // is not memoized at all, because its outcome depends on the buffer rather
+ // than the file the fast path re-stats.
+ //
++// With a recheck interval (ModuleInputSources.h), a verdict whose inputs were
++// found as they were within it, with no change reported since, is reused
++// without re-statting them; the BMI itself is statted every time.
++//
+ // An input of a package version (ModuleInputSources.h) is not re-statted while
+ // the version's markers are as they were when the verdict was recorded: the
+ // package manager rewrites a marker whenever it changes the version. The
+@@ -114,6 +118,11 @@ public:
+     if (identityOf(BMIPath) != Found->BMI)
+       return Stale();
+     auto &Counters = moduleInputCounters();
++    const uint64_t Epoch = ModuleInputSources::currentInputEpoch();
++    if (Found->Recent.holds(Epoch)) {
++      ++Counters.Recent;
++      return true;
++    }
+     llvm::StringSet<> HeldPackages;
+     for (const auto &[Package, Recorded] : Found->Packages) {
+       ++Counters.PackageChecks;
+@@ -133,6 +142,7 @@ public:
+           identityOf(Input.Path) != Input.Identity)
+         return Stale();
+     }
++    Found->Recent.held(Epoch);
+     return true;
+   }
+ 
+@@ -177,6 +187,7 @@ public:
+     std::vector<Input> Inputs;
+     std::map<std::string, std::optional<ModuleInputSources::Identity>>
+         Packages;
++    RecentInputCheck Recent; // when its inputs were last found as they were
+   };
+ 
+   /// For the store (ModuleMemoStore.h): every entry, by key, and how many
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index f7fa72582..43adc25a8 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -241,6 +241,16 @@ list<std::string> ManagedInputRoots{
+     Hidden,
+ };
+ 
++opt<unsigned> ModuleInputRecheck{
++    "module-input-recheck",
++    cat(Features),
++    desc("Seconds a check that found a module's inputs as they were holds "
++         "while the client reports no file change (saved documents, watched "
++         "files); 0 checks them for every request"),
++    init(0),
++    Hidden,
++};
++
+ opt<std::string> ModuleMemoDir{
+     "module-memo-dir",
+     cat(Features),
+@@ -1033,6 +1043,13 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+         "markers",
+         ManagedInputRoots.size());
+   }
++  if (ModuleInputRecheck) {
++    ModuleInputSources::setRecheckInterval(
++        std::chrono::seconds(ModuleInputRecheck.getValue()));
++    log("Module inputs: a check holds for {0} s while no file change is "
++        "reported",
++        ModuleInputRecheck.getValue());
++  }
+   if (!ModuleMemoDir.empty())
+     startModuleMemoStore(ModuleMemoDir);
+   Opts.StrongWorkspaceMode = StrongWorkspaceMode;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 1a53cfe2d..bc94baae3 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -4488,6 +4488,74 @@ TEST_F(PrerequisiteModulesTests, ValidationVerdictsCheckPackagesByTheirMarkers)
+   EXPECT_FALSE(Cache.isFresh(BMI, "chain", *RealFS));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ValidationVerdictsHoldWithinTheRecheckInterval) {
++  writeTestFile(TestDir, "own.h", "int own;\n");
++  writeTestFile(TestDir, "M.pcm", "bmi\n");
++  const std::string Own = getFullPath("own.h");
++  const std::string BMI = getFullPath("M.pcm");
++  auto RealFS = llvm::vfs::getRealFileSystem();
++  auto Reset = llvm::make_scope_exit([] {
++    ModuleInputSources::setRecheckInterval(std::chrono::milliseconds(0));
++  });
++  // Without an interval, a project input is checked every time.
++  {
++    ModuleValidationCache Cache;
++    Cache.markFresh(BMI, "chain", {{Own, *ModuleValidationCache::identityOf(Own)}});
++    EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++    writeTestFile(TestDir, "own.h", "int own_changed;\n");
++    EXPECT_FALSE(Cache.isFresh(BMI, "chain", *RealFS));
++  }
++  ModuleInputSources::setRecheckInterval(std::chrono::seconds(60));
++  ModuleValidationCache Cache;
++  Cache.markFresh(BMI, "chain", {{Own, *ModuleValidationCache::identityOf(Own)}});
++  // The first lookup checks the inputs; the next ones, within the interval
++  // and with no change reported, take that check as holding.
++  EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++  writeTestFile(TestDir, "own.h", "int own_changed_again;\n");
++  const auto Before = moduleInputCounters();
++  EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++  EXPECT_EQ((moduleInputCounters() - Before).Recent, 1u);
++  EXPECT_EQ((moduleInputCounters() - Before).Project, 0u);
++  // A reported change: the inputs are checked again, and the change found.
++  ModuleInputSources::noteInputsChanged();
++  EXPECT_FALSE(Cache.isFresh(BMI, "chain", *RealFS));
++  // The BMI itself is checked every time.
++  Cache.markFresh(BMI, "chain", {{Own, *ModuleValidationCache::identityOf(Own)}});
++  EXPECT_TRUE(Cache.isFresh(BMI, "chain", *RealFS));
++  writeTestFile(TestDir, "M.pcm", "rebuilt bmi\n");
++  EXPECT_FALSE(Cache.isFresh(BMI, "chain", *RealFS));
++}
++
++TEST_F(PrerequisiteModulesTests, ScansHoldWithinTheRecheckInterval) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  writeTestFile(TestDir, "include/dep.h", "import M;\n");
++  ModuleInputSources::setRecheckInterval(std::chrono::seconds(60));
++  auto Reset = llvm::make_scope_exit([] {
++    ModuleInputSources::setRecheckInterval(std::chrono::milliseconds(0));
++  });
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include \"dep.h\"\n", {"-I" + getFullPath("include")});
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Scan = [&] {
++    WithContextValue Once(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(getFullPath("Use.cpp"));
++  };
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  // Replayed once as it was: within the interval, with no change reported,
++  // the project's header is not replayed again.
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  writeTestFile(TestDir, "include/dep.h", "import N;\n");
++  const auto Before = moduleInputCounters();
++  EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  EXPECT_GT((moduleInputCounters() - Before).Recent, 0u);
++  // The change reported (a saved document, a watched file): replayed, found.
++  ModuleInputSources::noteInputsChanged();
++  EXPECT_THAT(Scan(), testing::ElementsAre("N"));
++}
++
+ TEST_F(PrerequisiteModulesTests, MemosKeptForTheNextSession) {
+   if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
+     GTEST_SKIP() << "scan memo admission covers this host's test commands only";
+-- 
+2.53.0
+

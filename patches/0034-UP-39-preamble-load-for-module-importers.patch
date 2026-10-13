@@ -1,0 +1,37 @@
+From de95ba5aa14285ca579351654ec1f306856ae531 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 13 Oct 2026 18:36:58 +0900
+Subject: [PATCH 2/3] [clangd] Completion loads preamble declarations itself
+ only in a module importer
+
+With module support on, Sema was made to load the preamble's declarations
+for every completion, since the index has no symbols of imported modules.
+A file that imports no module has every preamble symbol in the index, as
+without module support, and its completions paid for the load for nothing:
+in a header-heavy file, about a third of the time each completion took.
+
+The load is now forced only when the preamble's file imports modules.
+---
+ clang-tools-extra/clangd/CodeComplete.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
+index 64fbc3bb9..7b31f7453 100644
+--- a/clang-tools-extra/clangd/CodeComplete.cpp
++++ b/clang-tools-extra/clangd/CodeComplete.cpp
+@@ -2582,6 +2582,12 @@ CodeCompleteResult codeComplete(PathRef FileName, Position Pos,
+     elog("Code completion position was invalid {0}", Offset.takeError());
+     return CodeCompleteResult();
+   }
++  // Sema loads the preamble's declarations itself only for what the index
++  // cannot give: a file that imports no module has every preamble symbol in
++  // the index, as without module support.
++  if (Opts.ForceLoadPreamble && Preamble && Preamble->RequiredModules &&
++      Preamble->RequiredModules->getRequiredModuleNames().empty())
++    Opts.ForceLoadPreamble = false;
+ 
+   auto Content = llvm::StringRef(ParseInput.Contents).take_front(*Offset);
+   if (auto OffsetBeforeComment = maybeFunctionArgumentCommentStart(Content)) {
+-- 
+2.53.0
+

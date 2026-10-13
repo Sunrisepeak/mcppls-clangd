@@ -1,0 +1,168 @@
+From 87b08ceba4f967a01e3fe8d81cdbdb2ece1ee60b Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 13 Oct 2026 18:36:58 +0900
+Subject: [PATCH 3/3] [clangd] Completion and signature help do not queue
+ behind other files' builds
+
+Actions on a preamble -- code completion, signature help -- took a slot of
+the same semaphore as AST and preamble builds: while other files were being
+prepared, a completion a person waits for queued behind them, for minutes
+when many files were opened at once.
+
+With --interactive-actions=<N>, up to N of them run at once on slots of
+their own. The default, 0, counts them with the others, as before.
+---
+ clang-tools-extra/clangd/ClangdServer.cpp     |  1 +
+ clang-tools-extra/clangd/ClangdServer.h       |  3 ++
+ clang-tools-extra/clangd/TUScheduler.cpp      |  6 +++-
+ clang-tools-extra/clangd/TUScheduler.h        |  7 +++++
+ clang-tools-extra/clangd/tool/ClangdMain.cpp  | 11 ++++++++
+ .../clangd/unittests/TUSchedulerTests.cpp     | 28 +++++++++++++++++++
+ 6 files changed, 55 insertions(+), 1 deletion(-)
+
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index ec4bdac07..0ee2768e1 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -186,6 +186,7 @@ ClangdServer::Options ClangdServer::optsForTest() {
+ ClangdServer::Options::operator TUScheduler::Options() const {
+   TUScheduler::Options Opts;
+   Opts.AsyncThreadsCount = AsyncThreadsCount;
++  Opts.InteractiveActionsCount = InteractiveActionsCount;
+   Opts.RetentionPolicy = RetentionPolicy;
+   Opts.StorePreamblesInMemory = StorePreamblesInMemory;
+   Opts.UpdateDebounce = UpdateDebounce;
+diff --git a/clang-tools-extra/clangd/ClangdServer.h b/clang-tools-extra/clangd/ClangdServer.h
+index 7c4e79910..2353a1625 100644
+--- a/clang-tools-extra/clangd/ClangdServer.h
++++ b/clang-tools-extra/clangd/ClangdServer.h
+@@ -104,6 +104,9 @@ public:
+     /// thread, and callbacks are invoked before "async" functions return.
+     unsigned AsyncThreadsCount = getDefaultAsyncThreadsCount();
+ 
++    /// TUScheduler::Options::InteractiveActionsCount.
++    unsigned InteractiveActionsCount = 0;
++
+     /// AST caching policy. The default is to keep up to 3 ASTs in memory.
+     ASTRetentionPolicy RetentionPolicy;
+ 
+diff --git a/clang-tools-extra/clangd/TUScheduler.cpp b/clang-tools-extra/clangd/TUScheduler.cpp
+index 9b4173698..516dec8bd 100644
+--- a/clang-tools-extra/clangd/TUScheduler.cpp
++++ b/clang-tools-extra/clangd/TUScheduler.cpp
+@@ -1677,6 +1677,9 @@ TUScheduler::TUScheduler(const GlobalCompilationDatabase &CDB,
+       IdleASTs(
+           std::make_unique<ASTCache>(Opts.RetentionPolicy.MaxRetainedASTs)),
+       HeaderIncluders(std::make_unique<HeaderIncluderCache>()) {
++  if (Opts.InteractiveActionsCount > 0 && Opts.AsyncThreadsCount > 0)
++    InteractiveBarrier =
++        std::make_unique<Semaphore>(Opts.InteractiveActionsCount);
+   // Avoid null checks everywhere.
+   if (!Opts.ContextProvider) {
+     this->Opts.ContextProvider = [](llvm::StringRef) {
+@@ -1853,7 +1856,8 @@ void TUScheduler::runWithPreamble(llvm::StringRef Name, PathRef File,
+     std::shared_ptr<const ASTSignals> Signals;
+     Preamble = Worker->getPossiblyStalePreamble(&Signals);
+ 
+-    std::lock_guard<Semaphore> BarrierLock(Barrier);
++    std::lock_guard<Semaphore> BarrierLock(
++        InteractiveBarrier ? *InteractiveBarrier : Barrier);
+     WithContext Guard(std::move(Ctx));
+     trace::Span Tracer(Name);
+     SPAN_ATTACH(Tracer, "file", File);
+diff --git a/clang-tools-extra/clangd/TUScheduler.h b/clang-tools-extra/clangd/TUScheduler.h
+index 7befd49d0..cbc39d954 100644
+--- a/clang-tools-extra/clangd/TUScheduler.h
++++ b/clang-tools-extra/clangd/TUScheduler.h
+@@ -219,6 +219,12 @@ public:
+     /// If 0, executes actions synchronously on the calling thread.
+     unsigned AsyncThreadsCount = getDefaultAsyncThreadsCount();
+ 
++    /// Concurrent actions on a preamble (code completion, signature help)
++    /// counted apart from the others, so that one a person waits for does not
++    /// queue behind AST and preamble builds of other files. 0: counted with
++    /// them, within AsyncThreadsCount.
++    unsigned InteractiveActionsCount = 0;
++
+     /// Cache (large) preamble data in RAM rather than temporary files on disk.
+     bool StorePreamblesInMemory = false;
+ 
+@@ -374,6 +380,7 @@ private:
+   std::unique_ptr<ParsingCallbacks> Callbacks; // not nullptr
+   Semaphore Barrier;
+   Semaphore QuickRunBarrier;
++  std::unique_ptr<Semaphore> InteractiveBarrier; // InteractiveActionsCount
+   llvm::StringMap<std::unique_ptr<FileData>> Files;
+   std::unique_ptr<ASTCache> IdleASTs;
+   std::unique_ptr<HeaderIncluderCache> HeaderIncluders;
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 43adc25a8..873c62599 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -269,6 +269,16 @@ opt<unsigned> MaxRetainedASTs{
+     Hidden,
+ };
+ 
++opt<unsigned> InteractiveActions{
++    "interactive-actions",
++    cat(Features),
++    desc("Code completions and signature helps that may run at once, counted "
++         "apart from AST and preamble builds so that they do not queue behind "
++         "them (0: counted with them, within -j)"),
++    init(0),
++    Hidden,
++};
++
+ opt<std::string> CrashDumpsDir{
+     "crash-dumps-dir",
+     cat(Features),
+@@ -1036,6 +1046,7 @@ clangd accepts flags on the commandline, and in the CLANGD_FLAGS environment var
+   if (!ResourceDir.empty())
+     Opts.ResourceDir = ResourceDir;
+   Opts.RetentionPolicy.MaxRetainedASTs = std::max(1u, MaxRetainedASTs.getValue());
++  Opts.InteractiveActionsCount = InteractiveActions;
+   if (!ManagedInputRoots.empty()) {
+     ModuleInputSources::setManagedRoots(
+         std::vector<std::string>(ManagedInputRoots.begin(), ManagedInputRoots.end()));
+diff --git a/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp b/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp
+index 8c1cf54be..3cbc0c406 100644
+--- a/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp
++++ b/clang-tools-extra/clangd/unittests/TUSchedulerTests.cpp
+@@ -980,6 +980,34 @@ TEST_F(TUSchedulerTests, Run) {
+   }
+ }
+ 
++TEST_F(TUSchedulerTests, InteractiveActionsDoNotQueueBehindOthers) {
++  auto Opts = optsForTest();
++  Opts.AsyncThreadsCount = 1;
++  Opts.InteractiveActionsCount = 1;
++  TUScheduler S(CDB, Opts);
++  auto File = testPath("foo.cpp");
++  FS.Files[File] = "int x;";
++  S.update(File, getInputs(File, "int x;"), WantDiagnostics::No);
++  ASSERT_TRUE(S.blockUntilIdle(timeoutSeconds(60)));
++  // The one slot of the other actions is taken...
++  Notification Started, Release;
++  S.run("busy", /*Path=*/"", [&] {
++    Started.notify();
++    Release.wait();
++  });
++  Started.wait();
++  // ...and an action on the preamble runs all the same.
++  Notification Completed;
++  S.runWithPreamble("complete", File, TUScheduler::Stale,
++                    [&](Expected<InputsAndPreamble> Preamble) {
++                      EXPECT_TRUE(bool(Preamble));
++                      Completed.notify();
++                    });
++  EXPECT_TRUE(Completed.wait(timeoutSeconds(60)));
++  Release.notify();
++  ASSERT_TRUE(S.blockUntilIdle(timeoutSeconds(60)));
++}
++
+ TEST_F(TUSchedulerTests, TUStatus) {
+   class CaptureTUStatus : public ClangdServer::Callbacks {
+   public:
+-- 
+2.53.0
+
