@@ -189,7 +189,9 @@ for completions that wait behind other files' builds. The engine reports itself 
 - 0034, the preamble's declarations: with module support, Sema was made to load the preamble's
   declarations for every completion, since the index has no symbols of imported modules; a file that
   imports no module has them all in the index, and now completes as without module support (a
-  header-heavy file: 0.59-0.70 s per completion to about 0.4 s).
+  header-heavy file: 0.59-0.70 s per completion to about 0.4 s). "Imports" is what the request sees:
+  a module imported since the preamble was built, typed in the file or brought in by a header it
+  includes, is built for the request alone and still loaded by Sema.
 - 0035, interactive actions: with `--interactive-actions=<N>`, code completion and signature help run
   on N slots of their own instead of queueing behind AST and preamble builds of other files. The
   default, 0, counts them with the others.
@@ -197,7 +199,7 @@ for completions that wait behind other files' builds. The engine reports itself 
 `ci/module_inputs_canary.py` proves 0033 and 0035 on the package (`module-input-recheck`,
 `interactive-actions` in `engine.json`) and 0034 (a file that imports no module gets as many results
 from Sema with module support as without); 0034 changes how fast, not what, the engine answers, and
-declares nothing. The tree is now `b94b1ac503630ed900cb939cf73f94be986b7cc7`.
+declares nothing. The tree is now `534729c792963c194c4afd6675f6befa89e63c62`.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
@@ -234,5 +236,5 @@ declares nothing. The tree is now `b94b1ac503630ed900cb939cf73f94be986b7cc7`.
 | 0031-UP-36-module-completion-costs.patch | UP-36 | steady | ci/module_inputs_canary.py | upstream logs where a slow module completion's time went, and makes the retained AST count an option |
 | 0032-UP-37-reduced-bmi-linkage-spec-in-gmf.patch | UP-37 | steady | clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm | upstream elides the unreachable declarations of a linkage specification in the global module fragment from the reduced BMI |
 | 0033-UP-38-module-input-recheck.patch | UP-38, UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream lets a client that reports file changes have module input checks hold between them |
-| 0034-UP-39-preamble-load-for-module-importers.patch | UP-39, UP-25 | steady | ci/module_inputs_canary.py | upstream forces Sema to load preamble declarations only where the index lacks them (module importers) |
+| 0034-UP-39-preamble-load-for-module-importers.patch | UP-39, UP-25 | steady | ci/module_inputs_canary.py; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py; tests/e2e/module_request_inputs.py | upstream forces Sema to load preamble declarations only where the index lacks them (module importers) |
 | 0035-UP-40-interactive-action-slots.patch | UP-40 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_inputs_canary.py | upstream schedules completion and signature help apart from AST and preamble builds |

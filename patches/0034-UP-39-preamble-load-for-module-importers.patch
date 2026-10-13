@@ -1,4 +1,4 @@
-From de95ba5aa14285ca579351654ec1f306856ae531 Mon Sep 17 00:00:00 2001
+From 83678cd10d1a2628aacdcf8b26e68592073e1b53 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Tue, 13 Oct 2026 18:36:58 +0900
 Subject: [PATCH 2/3] [clangd] Completion loads preamble declarations itself
@@ -10,28 +10,165 @@ A file that imports no module has every preamble symbol in the index, as
 without module support, and its completions paid for the load for nothing:
 in a header-heavy file, about a third of the time each completion took.
 
-The load is now forced only when the preamble's file imports modules.
+The load is now forced only when the file imports modules: the preamble's
+file, or the draft as the request sees it. A module imported since the
+preamble was built -- typed in the file, or brought in by a header it
+includes -- is built for the request alone, and the index knows nothing of
+it yet. An import line in the draft answers without a scan; otherwise the
+request's own module scan, replayed once for the whole completion, does.
 ---
- clang-tools-extra/clangd/CodeComplete.cpp | 6 ++++++
- 1 file changed, 6 insertions(+)
+ clang-tools-extra/clangd/CodeComplete.cpp     | 58 ++++++++++++++++++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 46 +++++++++++++++
+ 2 files changed, 102 insertions(+), 2 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/CodeComplete.cpp b/clang-tools-extra/clangd/CodeComplete.cpp
-index 64fbc3bb9..7b31f7453 100644
+index 64fbc3bb9..c1a2d3938 100644
 --- a/clang-tools-extra/clangd/CodeComplete.cpp
 +++ b/clang-tools-extra/clangd/CodeComplete.cpp
-@@ -2582,6 +2582,12 @@ CodeCompleteResult codeComplete(PathRef FileName, Position Pos,
+@@ -1513,9 +1513,11 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
+            inModuleDeclarations(Input.ParseInput.Contents, Input.Offset,
+                                 CI->getLangOpts());
+   }();
+-  // The completion's module queries share one replay of each memoized scan.
++  // The completion's module queries share one replay of each memoized scan
++  // (codeComplete may have begun it).
+   std::optional<WithContextValue> ReplayOnce;
+-  if (Input.ParseInput.ModulesManager)
++  if (Input.ParseInput.ModulesManager &&
++      !Context::current().get(ModuleScanReplayEpoch))
+     ReplayOnce.emplace(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
+   if (RequiredModules && Input.ParseInput.ModulesManager &&
+       !InDirectiveRegion) {
+@@ -2437,6 +2439,47 @@ clang::CodeCompleteOptions CodeCompleteOptions::getClangCompleteOpts() const {
+   return Result;
+ }
+ 
++// Whether a line of the text begins an import declaration (`import`, or
++// `export import`, then a name, a partition or a header). A lexical guess that
++// errs towards yes: a line that only looks like one costs a load that would
++// have happened anyway.
++static bool mayImportModules(llvm::StringRef Content) {
++  while (!Content.empty()) {
++    auto [Line, Rest] = Content.split('\n');
++    Content = Rest;
++    Line = Line.ltrim();
++    if (Line.consume_front("export") && !Line.empty() &&
++        !isAsciiIdentifierContinue(Line.front()))
++      Line = Line.ltrim();
++    if (Line.consume_front("import") &&
++        (Line.empty() || !isAsciiIdentifierContinue(Line.front())))
++      return true;
++  }
++  return false;
++}
++
++// Whether the draft imports a module now, itself or through a header: one
++// imported since the preamble is built for the request alone, and the index
++// knows nothing of it. An import line in the draft answers without a scan;
++// the scan is the one the request's own module check replays.
++static bool importsModulesNow(PathRef File, const ParseInputs &Input,
++                              size_t Offset) {
++  if (mayImportModules(Input.Contents))
++    return true;
++  if (!Input.ModulesManager)
++    return false;
++  // Inside a directive the preamble is not used: nothing to decide, no scan.
++  if (llvm::StringRef(Input.Contents)
++          .take_front(Offset)
++          .rsplit('\n')
++          .second.ltrim()
++          .starts_with("#"))
++    return true;
++  return !Input.ModulesManager
++              ->getRequiredModuleNames(File, *Input.TFS, Input.Contents)
++              .empty();
++}
++
+ CompletionPrefix guessCompletionPrefix(llvm::StringRef Content,
+                                        unsigned Offset) {
+   assert(Offset <= Content.size());
+@@ -2582,6 +2625,17 @@ CodeCompleteResult codeComplete(PathRef FileName, Position Pos,
      elog("Code completion position was invalid {0}", Offset.takeError());
      return CodeCompleteResult();
    }
++  // The completion's module queries share one replay of each memoized scan.
++  std::optional<WithContextValue> ReplayOnce;
++  if (ParseInput.ModulesManager)
++    ReplayOnce.emplace(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
 +  // Sema loads the preamble's declarations itself only for what the index
 +  // cannot give: a file that imports no module has every preamble symbol in
 +  // the index, as without module support.
 +  if (Opts.ForceLoadPreamble && Preamble && Preamble->RequiredModules &&
-+      Preamble->RequiredModules->getRequiredModuleNames().empty())
++      Preamble->RequiredModules->getRequiredModuleNames().empty() &&
++      !importsModulesNow(FileName, ParseInput, *Offset))
 +    Opts.ForceLoadPreamble = false;
  
    auto Content = llvm::StringRef(ParseInput.Contents).take_front(*Offset);
    if (auto OffsetBeforeComment = maybeFunctionArgumentCommentStart(Content)) {
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index bc94baae3..47d981ce7 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -38,6 +38,7 @@
+ #include "ProjectModules.h"
+ #include "TestFS.h"
+ #include "TestTU.h"
++#include "index/MemIndex.h"
+ #include "support/Cancellation.h"
+ #include "support/Path.h"
+ #include "support/ThreadsafeFS.h"
+@@ -2708,6 +2709,51 @@ void func() {
+   EXPECT_EQ(Result.Completions[0].Name, "printA");
+ }
+ 
++// A preamble built before the file imported anything loads no module; the
++// import typed since is built for the completion itself, and Sema has to read
++// what it exports even with an index, which knows nothing of it.
++TEST_F(PrerequisiteModulesTests, CompletionLoadsModulesImportedSinceThePreamble) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++
++  CDB.addFile("A.cppm", R"cpp(
++export module A;
++export void printA();
++  )cpp");
++  CDB.addFile("Use.cpp", R"cpp(
++void func() {
++}
++)cpp");
++
++  ModulesBuilder Builder(CDB);
++  ParseInputs Use = getInputs("Use.cpp", CDB);
++  Use.ModulesManager = &Builder;
++  std::unique_ptr<CompilerInvocation> CI =
++      buildCompilerInvocation(Use, DiagConsumer);
++  ASSERT_TRUE(CI);
++  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Use,
++                                /*InMemory=*/true, /*Callback=*/nullptr);
++  ASSERT_TRUE(Preamble);
++  ASSERT_TRUE(Preamble->RequiredModules);
++  EXPECT_TRUE(Preamble->RequiredModules->getRequiredModuleNames().empty());
++
++  Annotations Draft(R"cpp(
++import A;
++void func() {
++  print^
++}
++)cpp");
++  Use.Contents = Draft.code().str();
++  auto Index = MemIndex::build(SymbolSlab(), RefSlab(), RelationSlab());
++  CodeCompleteOptions Opts;
++  Opts.Index = Index.get();
++  Opts.ForceLoadPreamble = true;
++  auto Result = codeComplete(getFullPath("Use.cpp"), Draft.point(),
++                             Preamble.get(), Use, Opts);
++  EXPECT_TRUE(llvm::any_of(Result.Completions, [](const CodeCompletion &C) {
++    return C.Name == "printA";
++  }));
++}
++
+ // Typing an import line changes the draft's imports at every key. Completion
+ // there parses the draft alone, without the preamble, so it must not rebuild
+ // the prerequisites on each keystroke the way a body completion after a
 -- 
 2.53.0
 
