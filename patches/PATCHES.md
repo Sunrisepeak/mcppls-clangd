@@ -173,6 +173,34 @@ carried every declaration of it. The engine reports itself as `23.1.0-mcppls.3`.
 `clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm` covers 0032. The tree is now
 `79b44aac3cc120f9d2cf52a7c1f02e84a7113bff`.
 
+## The 0.0.16 additions
+
+Three patches, for what keeps a completion in a module importer slow once its modules are built, and
+for completions that wait behind other files' builds. The engine reports itself as `23.1.0-mcppls.4`.
+
+- 0033, a check that holds: with `--module-input-recheck=<seconds>`, a check that found the inputs
+  of a memoized scan or a BMI verdict as they were holds for that long while the client reports no
+  file change; a saved document, or a watched file, makes the next check read them all again (an edit
+  too, with `--use-dirty-headers`). The BMI itself is checked every time. A change the client does not
+  see is found after the interval, as clang's once-per-build-session validation finds one at the next
+  session. The default, 0, checks every time. A slow completion's cost line counts the checks that
+  held (an importer of 25 modules: its project inputs, re-statted for every completion, 0.7-1.0 s
+  on Windows).
+- 0034, the preamble's declarations: with module support, Sema was made to load the preamble's
+  declarations for every completion, since the index has no symbols of imported modules; a file that
+  imports no module has them all in the index, and now completes as without module support (a
+  header-heavy file: 0.59-0.70 s per completion to about 0.4 s). "Imports" is what the request sees:
+  a module imported since the preamble was built, typed in the file or brought in by a header it
+  includes, is built for the request alone and still loaded by Sema.
+- 0035, interactive actions: with `--interactive-actions=<N>`, code completion and signature help run
+  on N slots of their own instead of queueing behind AST and preamble builds of other files. The
+  default, 0, counts them with the others.
+
+`ci/module_inputs_canary.py` proves 0033 and 0035 on the package (`module-input-recheck`,
+`interactive-actions` in `engine.json`) and 0034 (a file that imports no module gets as many results
+from Sema with module support as without); 0034 changes how fast, not what, the engine answers, and
+declares nothing. The tree is now `534729c792963c194c4afd6675f6befa89e63c62`.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
@@ -207,3 +235,6 @@ carried every declaration of it. The engine reports itself as `23.1.0-mcppls.3`.
 | 0030-UP-35-module-input-sources-and-memos.patch | UP-35, UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream checks module inputs by where they come from, and keeps scan and validation memos across sessions |
 | 0031-UP-36-module-completion-costs.patch | UP-36 | steady | ci/module_inputs_canary.py | upstream logs where a slow module completion's time went, and makes the retained AST count an option |
 | 0032-UP-37-reduced-bmi-linkage-spec-in-gmf.patch | UP-37 | steady | clang/test/Modules/reduced-bmi-linkage-spec-in-gmf.cppm | upstream elides the unreachable declarations of a linkage specification in the global module fragment from the reduced BMI |
+| 0033-UP-38-module-input-recheck.patch | UP-38, UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream lets a client that reports file changes have module input checks hold between them |
+| 0034-UP-39-preamble-load-for-module-importers.patch | UP-39, UP-25 | steady | ci/module_inputs_canary.py; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py; tests/e2e/module_request_inputs.py | upstream forces Sema to load preamble declarations only where the index lacks them (module importers) |
+| 0035-UP-40-interactive-action-slots.patch | UP-40 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_inputs_canary.py | upstream schedules completion and signature help apart from AST and preamble builds |

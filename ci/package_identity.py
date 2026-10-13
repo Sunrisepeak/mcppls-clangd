@@ -138,7 +138,8 @@ def main():
                              'module-directive-diagnostic-ranges', 'module-directive-recovery',
                              'const-correctness-views', 'unresolved-import-recovery',
                              'partial-prerequisite-modules', 'module-rebuild-reasons', 'bounded-module-wait',
-                             'managed-input-roots', 'persistent-module-memos', 'retained-asts-option'],
+                             'managed-input-roots', 'persistent-module-memos', 'retained-asts-option',
+                             'module-input-recheck', 'interactive-actions'],
                 'build-binary-sha256': stamp['build-binary-sha256'],
                 'llvm-tree-commit': stamp['llvm-tree-commit'],
                 'cmake-cache-sha256': stamp['cmake-cache-sha256']}
