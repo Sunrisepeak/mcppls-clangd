@@ -1,0 +1,273 @@
+From 97d12a8cf294816194c0aacc141e5b8c61d3b926 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 23 Oct 2026 06:37:40 +0900
+Subject: [PATCH] [clangd] Module memos that did not change are not serialized
+ again
+
+The memo store (--module-memo-dir) wrote every 30 seconds by copying both
+caches and building the JSON of every memo, and only then found that nothing
+had changed since the last write. A process left idle did this all the time:
+with a project's memos (30 MB of JSON), the allocator kept what each write
+built and freed, and an idle clangd grew by hundreds of megabytes in ten
+minutes.
+
+A write now first compares the counts the caches' snapshots report with those
+it last wrote, and copies and serializes nothing when they are the same. A
+change made after the counts are read is written by the next write, as one
+made after a snapshot was.
+---
+ .../clangd/ModuleDependencyScanCache.h        |  3 +
+ clang-tools-extra/clangd/ModuleMemoStore.cpp  | 94 +++++++++++--------
+ clang-tools-extra/clangd/ModuleMemoStore.h    | 14 +++
+ .../clangd/ModuleValidationCache.h            |  6 ++
+ .../unittests/PrerequisiteModulesTest.cpp     | 39 ++++++++
+ 5 files changed, 115 insertions(+), 41 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index ffb74e1ac..ce1354410 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -1296,6 +1296,9 @@ public:
+     }
+     return Hash.final();
+   }
++  /// For the store: how many scans have been stored so far, the count
++  /// snapshot() reports, without copying any.
++  uint64_t stored() const { return Stores.load(); }
+   /// What the store writes: every live scan whose manifest can be replayed
+   /// in another session, and the kept ones not yet replayed in this one.
+   std::vector<KeptScan> snapshot(uint64_t &StoredSoFar) {
+diff --git a/clang-tools-extra/clangd/ModuleMemoStore.cpp b/clang-tools-extra/clangd/ModuleMemoStore.cpp
+index fb911d799..1d4669819 100644
+--- a/clang-tools-extra/clangd/ModuleMemoStore.cpp
++++ b/clang-tools-extra/clangd/ModuleMemoStore.cpp
+@@ -439,6 +439,13 @@ Adopted adopt(const Object &Root) {
+ 
+ // ---- the store ---------------------------------------------------------------
+ 
++std::string memoPath(llvm::StringRef Directory) {
++  llvm::SmallString<256> P(Directory);
++  llvm::sys::path::append(P, FileName);
++  return P.str().str();
++}
++
++
+ class Store {
+ public:
+   explicit Store(std::string Directory) : Directory(std::move(Directory)) {}
+@@ -470,11 +477,7 @@ public:
+   }
+ 
+ private:
+-  std::string path() const {
+-    llvm::SmallString<256> P(Directory);
+-    llvm::sys::path::append(P, FileName);
+-    return P.str().str();
+-  }
++  std::string path() const { return memoPath(Directory); }
+ 
+   void load() {
+     const auto Began = std::chrono::steady_clock::now();
+@@ -508,48 +511,14 @@ private:
+             .count());
+   }
+ 
+-  void write() {
+-    uint64_t Verdicts = 0, Scans = 0;
+-    Value Root = memos(Verdicts, Scans);
+-    if (Verdicts == WrittenVerdicts && Scans == WrittenScans)
+-      return;
+-    if (std::error_code EC = llvm::sys::fs::create_directories(Directory)) {
+-      log("Module memos: cannot write {0}: {1}", Directory, EC.message());
+-      return;
+-    }
+-    llvm::SmallString<256> Temporary(path());
+-    Temporary += ".tmp-%%%%%%";
+-    int FD;
+-    llvm::SmallString<256> Made;
+-    if (llvm::sys::fs::createUniqueFile(Temporary, FD, Made)) {
+-      log("Module memos: cannot write {0}", path());
+-      return;
+-    }
+-    {
+-      llvm::raw_fd_ostream OS(FD, /*shouldClose=*/true);
+-      OS << Root;
+-      OS.flush();
+-      if (OS.has_error()) {
+-        OS.clear_error();
+-        llvm::sys::fs::remove(Made);
+-        return;
+-      }
+-    }
+-    if (llvm::sys::fs::rename(Made, path())) {
+-      llvm::sys::fs::remove(Made);
+-      return;
+-    }
+-    WrittenVerdicts = Verdicts;
+-    WrittenScans = Scans;
+-    vlog("Module memos written to {0}", path());
+-  }
++  void write() { writeModuleMemos(Directory, Written); }
+ 
+   const std::string Directory;
+   std::thread Worker;
+   std::mutex Mu;
+   std::condition_variable Wake;
+   bool Stopping = false;
+-  uint64_t WrittenVerdicts = 0, WrittenScans = 0;
++  ModuleMemoVersions Written;
+ };
+ 
+ Store *&theStore() {
+@@ -571,6 +540,49 @@ void flushModuleMemoStore() {
+     S->flush();
+ }
+ 
++bool writeModuleMemos(llvm::StringRef Directory, ModuleMemoVersions &Written) {
++  // Neither cache made or dropped an entry: nothing to copy or serialize. The
++  // counts are those snapshot() reports; one that moves after they are read
++  // is written by the next call.
++  if (getModuleValidationCache().changes() == Written.Verdicts &&
++      getModuleDependencyScanCache().stored() == Written.Scans)
++    return false;
++  uint64_t Verdicts = 0, Scans = 0;
++  Value Root = memos(Verdicts, Scans);
++  if (Verdicts == Written.Verdicts && Scans == Written.Scans)
++    return true;
++  if (std::error_code EC = llvm::sys::fs::create_directories(Directory)) {
++    log("Module memos: cannot write {0}: {1}", Directory, EC.message());
++    return true;
++  }
++  const std::string Path = memoPath(Directory);
++  llvm::SmallString<256> Temporary(Path);
++  Temporary += ".tmp-%%%%%%";
++  int FD;
++  llvm::SmallString<256> Made;
++  if (llvm::sys::fs::createUniqueFile(Temporary, FD, Made)) {
++    log("Module memos: cannot write {0}", Path);
++    return true;
++  }
++  {
++    llvm::raw_fd_ostream OS(FD, /*shouldClose=*/true);
++    OS << Root;
++    OS.flush();
++    if (OS.has_error()) {
++      OS.clear_error();
++      llvm::sys::fs::remove(Made);
++      return true;
++    }
++  }
++  if (llvm::sys::fs::rename(Made, Path)) {
++    llvm::sys::fs::remove(Made);
++    return true;
++  }
++  Written = {Verdicts, Scans};
++  vlog("Module memos written to {0}", Path);
++  return true;
++}
++
+ llvm::json::Value moduleMemosJSON() {
+   uint64_t Verdicts, Scans;
+   return memos(Verdicts, Scans);
+diff --git a/clang-tools-extra/clangd/ModuleMemoStore.h b/clang-tools-extra/clangd/ModuleMemoStore.h
+index e9cf8ee4d..0b931bbea 100644
+--- a/clang-tools-extra/clangd/ModuleMemoStore.h
++++ b/clang-tools-extra/clangd/ModuleMemoStore.h
+@@ -38,6 +38,20 @@ void startModuleMemoStore(llvm::StringRef Directory);
+ /// the end of the process; a no-op without a directory.
+ void flushModuleMemoStore();
+ 
++/// The counts of entries the two caches had made when the memos were last
++/// written.
++struct ModuleMemoVersions {
++  uint64_t Verdicts = 0, Scans = 0;
++};
++
++/// Writes the memos to `Directory` as the store does every 30 seconds and at
++/// the end, and moves `Written` on when it did. When neither cache changed
++/// since `Written`, nothing is copied or serialized: the store runs in a
++/// process that may be idle for hours, where building the JSON of every memo
++/// only to find it unchanged is memory the allocator keeps. Returns whether
++/// the memos were serialized. Exposed for tests.
++bool writeModuleMemos(llvm::StringRef Directory, ModuleMemoVersions &Written);
++
+ /// The memos as the store writes them, and taking them back as it reads
+ /// them (returns how many were readable). The store's own format; exposed
+ /// for tests.
+diff --git a/clang-tools-extra/clangd/ModuleValidationCache.h b/clang-tools-extra/clangd/ModuleValidationCache.h
+index 5f022432b..16442a846 100644
+--- a/clang-tools-extra/clangd/ModuleValidationCache.h
++++ b/clang-tools-extra/clangd/ModuleValidationCache.h
+@@ -190,6 +190,12 @@ public:
+     RecentInputCheck Recent; // when its inputs were last found as they were
+   };
+ 
++  /// For the store (ModuleMemoStore.h): how many entries have been made or
++  /// dropped so far, the count snapshot() reports, without copying any.
++  uint64_t changes() {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    return Changes;
++  }
+   /// For the store (ModuleMemoStore.h): every entry, by key, and how many
+   /// entries have been made so far.
+   std::vector<std::pair<std::string, std::shared_ptr<const Entry>>>
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 47d981ce7..7947ea634 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -52,6 +52,8 @@
+ #include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/JSON.h"
++#include "llvm/Support/MemoryBuffer.h"
++#include "llvm/Support/Path.h"
+ #include "llvm/Support/Process.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include "llvm/Support/raw_ostream.h"
+@@ -4602,6 +4604,43 @@ TEST_F(PrerequisiteModulesTests, ScansHoldWithinTheRecheckInterval) {
+   EXPECT_THAT(Scan(), testing::ElementsAre("N"));
+ }
+ 
++// The store writes every 30 seconds, also in a process that is idle for hours:
++// memos that did not change are neither copied nor serialized again, and a
++// change after them is written by the next write.
++TEST_F(PrerequisiteModulesTests, UnchangedMemosAreNotSerializedAgain) {
++  writeTestFile(TestDir, "memo-input.cpp", "int a;\n");
++  writeTestFile(TestDir, "memo.pcm", "a BMI");
++  const std::string Input = getFullPath("memo-input.cpp");
++  const std::string BMI = getFullPath("memo.pcm");
++  llvm::SmallString<256> Directory(TestDir);
++  llvm::sys::path::append(Directory, "memo-store"); // made by the first write
++  llvm::SmallString<256> File(Directory);
++  llvm::sys::path::append(File, "module-memos.json");
++  auto Fresh = [&] {
++    auto Identity = ModuleValidationCache::identityOf(Input);
++    ASSERT_TRUE(Identity);
++    getModuleValidationCache().markFresh(BMI, "unchanged-memos",
++                                         {{Input, *Identity}});
++  };
++  auto Bytes = [&] {
++    auto Buffer = llvm::MemoryBuffer::getFile(File);
++    EXPECT_TRUE(bool(Buffer));
++    return Buffer ? (*Buffer)->getBuffer().str() : std::string();
++  };
++  Fresh();
++  ModuleMemoVersions Written;
++  // The caches are the process's: this takes what other tests left too.
++  EXPECT_TRUE(writeModuleMemos(Directory, Written));
++  const std::string First = Bytes();
++  EXPECT_FALSE(First.empty());
++  for (unsigned I = 0; I != 10; ++I)
++    EXPECT_FALSE(writeModuleMemos(Directory, Written));
++  EXPECT_EQ(Bytes(), First);
++  Fresh();
++  EXPECT_TRUE(writeModuleMemos(Directory, Written));
++  EXPECT_FALSE(writeModuleMemos(Directory, Written));
++}
++
+ TEST_F(PrerequisiteModulesTests, MemosKeptForTheNextSession) {
+   if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
+     GTEST_SKIP() << "scan memo admission covers this host's test commands only";
+-- 
+2.53.0
+

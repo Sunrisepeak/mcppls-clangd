@@ -201,6 +201,29 @@ for completions that wait behind other files' builds. The engine reports itself 
 from Sema with module support as without); 0034 changes how fast, not what, the engine answers, and
 declares nothing. The tree is now `534729c792963c194c4afd6675f6befa89e63c62`.
 
+## The 0.0.17 additions
+
+Two patches, for what an idle clangd costs and for what sanitizer builds of the module workers could
+not do. The engine reports itself as `23.1.0-mcppls.5`.
+
+- 0036, memos that did not change: the memo store (0030, `--module-memo-dir`) wrote every 30 seconds
+  by copying both caches and building the JSON of every memo, and only then found nothing had changed
+  since the last write. An idle clangd did this all the time; with a project's 30 MB of memos the
+  allocator kept what each write built and freed, and an idle clangd grew by hundreds of megabytes in
+  ten minutes (mcpp-language-server#59, U13). A write now compares the counts the caches' snapshots
+  report first, and copies and serializes nothing when they are those it last wrote.
+- 0037, module workers under sanitizers: a module worker (0017) sets `RLIMIT_AS` to its share of the
+  address-space budget; under ASan, HWASan, MSan or TSan the runtime had already mapped terabytes of
+  shadow memory, so the worker's first mmap failed and every module built through a worker failed.
+  The soak job's sanitizer lit runs had not built a module since the workers landed. Under a
+  sanitizer on Linux the ceiling now bounds what the worker maps beyond what it has.
+
+`clangd/unittests/PrerequisiteModulesTest.cpp` proves 0036 (`UnchangedMemosAreNotSerializedAgain`,
+which fails on the store without it); the soak job's ASan+UBSan lit runs of `modules.test`,
+`modules-stale-lock.test` and `modules-validation-cache.test` prove 0037. Neither declares a feature:
+they change what the engine costs and where it can be tested, not what it answers. The tree is now
+`d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |
@@ -238,3 +261,5 @@ declares nothing. The tree is now `534729c792963c194c4afd6675f6befa89e63c62`.
 | 0033-UP-38-module-input-recheck.patch | UP-38, UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; ci/module_inputs_canary.py | upstream lets a client that reports file changes have module input checks hold between them |
 | 0034-UP-39-preamble-load-for-module-importers.patch | UP-39, UP-25 | steady | ci/module_inputs_canary.py; clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_scan_memo.py; tests/e2e/module_request_inputs.py | upstream forces Sema to load preamble declarations only where the index lacks them (module importers) |
 | 0035-UP-40-interactive-action-slots.patch | UP-40 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_inputs_canary.py | upstream schedules completion and signature help apart from AST and preamble builds |
+| 0036-UP-35-unchanged-memos-not-serialized.patch | UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | dropped with 0030 when upstream keeps module memos across sessions |
+| 0037-UP-03-module-workers-under-sanitizers.patch | UP-03 | steady | tests/soak_loop.py and the soak job's ASan+UBSan lit run of the module suite (modules, modules-stale-lock, modules-validation-cache) | dropped with 0017 when upstream isolates module compilation in supervised workers |

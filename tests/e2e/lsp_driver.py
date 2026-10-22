@@ -196,8 +196,11 @@ def scenario_diagnostics():
             for m in list(notifications):
                 if m.get("method") == "textDocument/publishDiagnostics":
                     ds = m["params"].get("diagnostics", [])
+                    # A server may leave the optional version out (mcppls does: what it
+                    # publishes merges its own diagnostics with clangd's); the broken line
+                    # exists only in the latest text, so a diagnostic on it is for that text.
                     if (m["params"].get("uri") == uri and
-                        m["params"].get("version") == doc_version and
+                        m["params"].get("version") in (doc_version, None) and
                         any(d.get("range", {}).get("start", {}).get("line") == base.count("\n")+1 for d in ds)):
                         diags.extend(ds)
                         return "ok"

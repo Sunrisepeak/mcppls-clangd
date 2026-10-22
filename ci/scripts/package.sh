@@ -18,6 +18,17 @@ case "$PLATFORM" in
   *)       TARGET="clangd" ;;
 esac
 cp "$CLANGD" "$OUT/clangd/bin/$TARGET"
+# The release ships clangd stripped. Its symbol table, which costs no build time (the build has no
+# debug information to keep), goes beside the part as the unstripped binary: a crash's module
+# offsets in a mcpp-language-server incident (the stack clangd printed, with "??" for every frame)
+# are named with `llvm-symbolizer --obj=<symbols>/clangd/bin/clangd`. Windows has its PDB instead
+# (ci/windows-symbols.md). The part, and so engine.json, is unchanged by it.
+SYMBOLS="$OUT-symbols"
+rm -rf "$SYMBOLS"
+if [[ "$PLATFORM" != win32-* ]]; then
+  mkdir -p "$SYMBOLS/clangd/bin"
+  cp "$CLANGD" "$SYMBOLS/clangd/bin/clangd"
+fi
 if command -v strip >/dev/null 2>&1; then
   strip "$OUT/clangd/bin/clangd"* 2>/dev/null || true
 fi
@@ -49,5 +60,11 @@ if [[ -n "${RUNTIME_LICENSE_DIR:-}" ]]; then
 fi
 python3 "$REPO_DIR/ci/package_identity.py" --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --directory "$OUT/clangd" \
   --version "$FORK_VERSION" --platform "$PLATFORM" --checksums "$OUT"
+if [[ -d "$SYMBOLS" ]]; then
+  # Which shipped binary these symbols are of: its SHA-256, as engine.json and the incident record it.
+  if command -v sha256sum >/dev/null 2>&1; then SHIPPED=$(sha256sum "$OUT/clangd/bin/clangd" | cut -d' ' -f1)
+  else SHIPPED=$(shasum -a 256 "$OUT/clangd/bin/clangd" | cut -d' ' -f1); fi
+  printf 'The unstripped clangd %s (%s) whose stripped binary has SHA-256 %s.\n' "$FORK_VERSION" "$PLATFORM" "$SHIPPED" > "$SYMBOLS/README.txt"
+fi
 
 echo "package.sh: $OUT"

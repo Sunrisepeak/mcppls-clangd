@@ -57,7 +57,7 @@ jobs:
       - name: A/B comparison — vanilla (payload) vs fork, through mcppls
         run: |
           PAYLOAD_DIR=$(dirname "$(find /tmp/mcppls-rel/unpacked -name mcppls -type f | head -1)")
-          FORK_CLANGD=$(find "$DIST_DIR" -path "*linux-x64*/clangd/bin/clangd" | head -1)
+          FORK_CLANGD=$(find "$DIST_DIR" -path "*-linux-x64/clangd/bin/clangd" | head -1)   # the part, not its -symbols copy
           VANILLA_CLANGD=$(find /tmp/mcppls-rel/unpacked -path "*clangd/bin/clangd" | head -1)
           echo "payload at $PAYLOAD_DIR"
           echo "vanilla: $VANILLA_CLANGD"; "$VANILLA_CLANGD" --version | head -1

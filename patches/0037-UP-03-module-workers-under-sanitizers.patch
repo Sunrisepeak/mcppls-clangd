@@ -1,0 +1,70 @@
+From 68802d66a1fa9c62fcfaeaff9f2d3e0185031b41 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Fri, 23 Oct 2026 07:38:20 +0900
+Subject: [PATCH] [clangd] Module workers keep their address-space ceiling
+ under sanitizers
+
+A module worker sets RLIMIT_AS to its share of the address-space budget before
+it compiles. A sanitizer's runtime has mapped terabytes of shadow and allocator
+space by then, so in an ASan, HWASan, MSan or TSan build the ceiling was below
+what the process already had, the worker's first mmap failed, and every module
+built through a worker failed: the sanitizer runs of the module lit tests could
+not build a single prerequisite.
+
+Under a sanitizer on Linux the ceiling now bounds what the worker maps beyond
+what it has mapped when the limit is applied. Other builds are unchanged.
+---
+ .../clangd/ModuleBuildWorker.cpp              | 23 +++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 7de87e83d..0a294e2b5 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -19,6 +19,7 @@
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/StringMap.h"
+ #include "llvm/Config/llvm-config.h"
++#include "llvm/Support/Compiler.h"
+ #include "llvm/Support/ErrorHandling.h"
+ #include "llvm/Support/Process.h"
+ #include <array>
+@@ -56,6 +57,24 @@ constexpr int OwnedProtocolVersion = 4;
+ constexpr llvm::StringLiteral CapturedFileSystem =
+     "disk-with-captured-overlays";
+ 
++#if defined(__linux__) &&                                                      \
++    (LLVM_ADDRESS_SANITIZER_BUILD || LLVM_HWADDRESS_SANITIZER_BUILD ||         \
++     LLVM_MEMORY_SANITIZER_BUILD || LLVM_THREAD_SANITIZER_BUILD)
++// A sanitizer's runtime maps its shadow memory and allocator space before main,
++// terabytes of address space: a ceiling below what is mapped already fails the
++// worker's first mmap. Under one, the ceiling bounds what the worker maps beyond
++// it. (/proc/self/statm's first field is the mapped size, in pages.)
++uint64_t addressSpaceMappedAlready() {
++  auto Statm = llvm::MemoryBuffer::getFileAsStream("/proc/self/statm");
++  uint64_t Pages = 0;
++  if (!Statm || (*Statm)->getBuffer().split(' ').first.getAsInteger(10, Pages))
++    return 0;
++  return Pages * static_cast<uint64_t>(llvm::sys::Process::getPageSizeEstimate());
++}
++#else
++uint64_t addressSpaceMappedAlready() { return 0; }
++#endif
++
+ llvm::Error applyAddressSpaceLimit(uint64_t Bytes) {
+   if (!Bytes)
+     return llvm::Error::success();
+@@ -64,6 +83,10 @@ llvm::Error applyAddressSpaceLimit(uint64_t Bytes) {
+   if (getrlimit(RLIMIT_AS, &Previous))
+     return llvm::errorCodeToError(
+         std::error_code(errno, std::generic_category()));
++  const uint64_t Mapped = addressSpaceMappedAlready();
++  if (Mapped > (std::numeric_limits<uint64_t>::max)() - Bytes)
++    return llvm::createStringError("module worker address limit is too large");
++  Bytes += Mapped;
+   if (Bytes > (std::numeric_limits<rlim_t>::max)())
+     return llvm::createStringError("module worker address limit is too large");
+   const rlim_t Limit = (std::min)(static_cast<rlim_t>(Bytes), Previous.rlim_max);
+-- 
+2.53.0
+
