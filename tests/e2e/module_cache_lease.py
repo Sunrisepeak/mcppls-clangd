@@ -15,11 +15,11 @@ import time
 
 
 class Engine:
-    def __init__(self, binary, root, cache_mode="legacy"):
+    def __init__(self, binary, root, cache_mode="legacy", extra=()):
         self.root = root
         cache_flags = ['--modules-builder-owned-cache-payload-mib=0'] if cache_mode == 'legacy' else []
         self.proc = subprocess.Popen([str(binary), '--experimental-modules-support',
-            '--background-index=false', '--modules-builder-versioned-gc-threshold-seconds=0', '-j=2', *cache_flags],
+            '--background-index=false', '--modules-builder-versioned-gc-threshold-seconds=0', '-j=2', *cache_flags, *extra],
             cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, start_new_session=os.name != 'nt')
         self.replies = queue.Queue()
@@ -185,14 +185,47 @@ def main():
         peer_copies = {p: value for p, value in live_copies().items() if p not in live}
         peer_live = set(peer_copies)
         reader.stop(kill=True)
-        collector = Engine(engine, root, mode); clients.append(collector); collector.ready()
+        # Verbose: what it reuses and what its maintenance collects is in the report when a copy is not reclaimed.
+        collector = Engine(engine, root, mode, ['--log=verbose']); clients.append(collector); collector.ready()
         # Owned maintenance visits bounded slot batches independently of AST work.
         # Observe its existing reclamation deadline; never force or invoke GC here.
+        # A copy the killed reader left is either reclaimed or, being a valid copy of the published BMI, taken over
+        # by a live engine that reuses it (acquireGeneration leases a Copy slot as well as a Stable one): which of the
+        # two happens depends on which payload the collector reuses. What may not remain is an orphan, a copy no live
+        # engine holds the slot lease of (`lease-<slot>`, an OFD lock beside the generations).
+        def holders(copy):
+            if mode != 'owned':
+                return []
+            slot = copy.parent.name.split('-')[1]
+            lease = os.path.realpath(copy.parent.parent / f'lease-{slot}')
+            pids = {collector.proc.pid, peer.proc.pid}
+            for entry in os.listdir('/proc'):
+                if entry.isdigit():
+                    try:
+                        if int(Path(f'/proc/{entry}/stat').read_text().rsplit(')', 1)[1].split()[1]) in pids:
+                            pids.add(int(entry))
+                    except (OSError, IndexError, ValueError):
+                        pass
+            held = []
+            for pid in sorted(pids):
+                try:
+                    if any(os.path.realpath(f'/proc/{pid}/fd/{fd}') == lease for fd in os.listdir(f'/proc/{pid}/fd')):
+                        held.append(pid)
+                except OSError:
+                    pass
+            return held
+        def held_by_live_engine(copy):
+            return bool(holders(copy))
+        def orphans():
+            return [p for p in live if (p.exists() or copies[p].exists()) and not held_by_live_engine(copies[p])]
         if mode == 'owned':
             deadline = time.monotonic() + 15
-            while any(p.exists() or copies[p].exists() for p in live) and time.monotonic() < deadline:
+            while orphans() and time.monotonic() < deadline:
                 time.sleep(0.05)
-        report['checks']['killed_reader_copies_reclaimed'] = all(not p.exists() and not copies[p].exists() for p in live)
+        report['adopted'] = [str(copies[p]) for p in live if copies[p].exists() and held_by_live_engine(copies[p])]
+        report['remaining'] = {str(copies[p]): holders(copies[p]) for p in live if p.exists() or copies[p].exists()}
+        report['engines'] = {'reader': reader.proc.pid, 'peer': peer.proc.pid, 'collector': collector.proc.pid}
+        report['checks']['killed_reader_copies_reclaimed'] = not orphans()
         report['checks']['other_live_reader_kept'] = bool(peer_live) and all(p.exists() and peer_copies[p].exists() for p in peer_live)
         report['checks']['published_survives_reclamation'] = published.exists() and published.stat().st_ino == before.st_ino
         report['copies'] = {'killed_reader': [str(p) for p in copies.values()], 'live_peer': [str(p) for p in peer_copies.values()]}
