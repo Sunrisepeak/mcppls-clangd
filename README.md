@@ -17,11 +17,11 @@ bumped.
 
 ## Status
 
-The 0.0.16 engine carries 35 patches ([patches/PATCHES.md](patches/PATCHES.md))
-on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.4`. Each patch maps
+The 0.0.17 engine carries 37 patches ([patches/PATCHES.md](patches/PATCHES.md))
+on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.5`. Each patch maps
 to rows of the upstream-defects register and has a drop condition; every patch
 is `steady`, which `ci/check_ledger.py --release` requires before a release.
-The engine ships in mcpp-language-server 0.0.15, which pins it by binary SHA-256
+The engine ships in mcpp-language-server 0.0.17, which pins it by binary SHA-256
 and by the source identity in `engine.json`.
 
 | Platform | Built on | Runs on |
@@ -32,7 +32,11 @@ and by the source identity in `engine.json`.
 | `win32-x64` | Windows Server 2022, MSVC | Windows x64; static CRT, no separate runtime |
 
 A release tag `v<version>` builds and publishes each platform's
-`clangd-<engine version>-<platform>.tar.gz` (`.github/workflows/release.yml`).
+`clangd-<engine version>-<platform>.tar.gz` (`.github/workflows/release.yml`), and
+for Linux and macOS `clangd-<engine version>-<platform>-symbols.tar.gz`: the same
+clangd unstripped, which names the frames of a crash stack the shipped binary
+prints as module offsets (`llvm-symbolizer --obj=…/clangd/bin/clangd`; Windows
+publishes its PDB, see `ci/windows-symbols.md`).
 Raw evidence is not kept in the repository: `tests/evidence/README.md` says
 where each release's archive is, and `patches/HISTORY.md` maps the incremental
 patch numbers older notes use to the current series. The plan and architecture

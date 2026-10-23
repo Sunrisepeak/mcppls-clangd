@@ -156,8 +156,11 @@ rows.append(("UP-25 mechanism: memo hits in log", str(v["memo"]["memo_hits"]),
              str(f["memo"]["memo_hits"]),
              "preamble re-validation served by the validation cache"))
 
-md = ["### e2e A/B comparison — vanilla clangd 23.1.0 vs fork (same project)", "",
-      "| probe | vanilla | fork | note |", "|---|---|---|---|"]
+# `--vanilla` is whatever clangd the side to compare against is: since mcppls bundles this
+# engine, the latest mcppls release's own clangd is the released engine, not upstream's.
+md = [f"### e2e A/B comparison — {v['identity']['version'] or 'the baseline clangd'} (the latest mcppls release's)"
+      f" vs this build ({f['identity']['version']}), same project", "",
+      "| probe | baseline | this build | note |", "|---|---|---|---|"]
 for name, a, b, note in rows:
     md.append(f"| {name} | {a} | {b} | {note} |")
 md += ["", "Gates: " + ", ".join(f"`{k}`={'PASS' if ok else 'FAIL'}" for k, ok in gates.items()),
