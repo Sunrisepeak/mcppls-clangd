@@ -208,10 +208,12 @@ not do. The engine reports itself as `23.1.0-mcppls.5`.
 
 - 0036, memos that did not change: the memo store (0030, `--module-memo-dir`) wrote every 30 seconds
   by copying both caches and building the JSON of every memo, and only then found nothing had changed
-  since the last write. An idle clangd did this all the time; with a project's 30 MB of memos the
-  allocator kept what each write built and freed, and an idle clangd grew by hundreds of megabytes in
-  ten minutes (mcpp-language-server#59, U13). A write now compares the counts the caches' snapshots
-  report first, and copies and serializes nothing when they are those it last wrote.
+  since the last write. An idle clangd did this all the time, with a project's 30 MB of memos. A write
+  now compares the counts the caches' snapshots report first, and copies and serializes nothing when
+  they are those it last wrote: an idle clangd's CPU fell by an order of magnitude in mcppls's nightly.
+  Its resident memory can still grow over ten idle minutes when the allocator gave memory back just
+  before them (mcpp-language-server#59, U13); 0036 did not change that growth, so the memo writes were
+  not its cause, and it is not attributed yet.
 - 0037, module workers under sanitizers: a module worker (0017) sets `RLIMIT_AS` to its share of the
   address-space budget; under ASan, HWASan, MSan or TSan the runtime had already mapped terabytes of
   shadow memory, so the worker's first mmap failed and every module built through a worker failed.
