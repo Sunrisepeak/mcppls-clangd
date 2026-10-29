@@ -40,6 +40,10 @@ joined = []
 it = iter(flags)
 for a in it:
     joined.append(a + " " + next(it) if a == "-Xclang" else a)
+# openkal-musl 0.22.6's port/include/features.h defines `restrict' as a macro in C++,
+# which clang's own sources use as a token name (tok::kw_restrict). A self-referential
+# definition keeps the name an identifier (probe workaround; the defect is openkal-musl's).
+joined.append("-Drestrict=restrict")
 flags = " ".join(joined)
 inc = " ".join(f"-isystem {d}" for d in includes)
 

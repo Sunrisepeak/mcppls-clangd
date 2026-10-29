@@ -420,6 +420,8 @@ jobs:
 
   linux-portability:
     name: Linux Ubuntu 20.04 package and runtime (${{ matrix.platform }})
+    # PROBE BRANCH ONLY: not part of the openkal probe.
+    if: github.head_ref != 'probe/clangd-openkal-image'
     strategy:
       fail-fast: false
       matrix:

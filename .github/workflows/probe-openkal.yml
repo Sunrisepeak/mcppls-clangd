@@ -49,10 +49,11 @@ jobs:
           mcpp --version
           mcpp self config --mirror GLOBAL
       - name: Restore ccache
-        uses: actions/cache@v4
+        id: ccache
+        uses: actions/cache/restore@v4
         with:
           path: .ccache
-          key: probe-openkal-ccache-${{ matrix.arch }}-${{ github.sha }}
+          key: probe-openkal-ccache-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: probe-openkal-ccache-${{ matrix.arch }}-
       - name: llvm-project with the series and the probe's patch
         run: |
@@ -72,6 +73,12 @@ jobs:
           ccache -s || true
           df -h /
           exit $rc
+      - name: Keep ccache, whatever the build did
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
       - name: Smoke (x86_64 on this machine)
         if: matrix.arch == 'x86_64'
         run: |
