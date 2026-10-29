@@ -8,6 +8,10 @@ on:
   push:
     branches: [probe/clangd-openkal-image]
   workflow_dispatch:
+    inputs:
+      images_run:
+        description: Take the images from this run instead of building them (empty builds them)
+        default: ''
 
 env:
   MCPP_VERSION: 2026.10.29.1
@@ -20,6 +24,7 @@ env:
 jobs:
   image:
     name: image ${{ matrix.arch }}-openkal
+    if: inputs.images_run == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 340
     strategy:
@@ -93,12 +98,15 @@ jobs:
   bundle:
     name: okb of both images
     needs: image
+    if: always()
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: image-*
           path: images
+          run-id: ${{ inputs.images_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: okld bundle
         run: |
           set -euo pipefail
@@ -153,6 +161,8 @@ jobs:
         with:
           name: image-${{ matrix.arch }}
           path: image
+          run-id: ${{ inputs.images_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Native clangd and okrun
         env:
           GH_TOKEN: ${{ github.token }}

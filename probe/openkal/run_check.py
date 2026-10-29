@@ -29,7 +29,10 @@ windows = os.name == "nt"
 
 def run(argv, cwd=None, timeout=900):
     t0 = time.perf_counter()
-    p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # Output to a file, not a pipe: a pipe nobody reads while the process runs fills
+    # (4 KiB on Windows) and the process blocks writing its log.
+    log = tempfile.TemporaryFile()
+    p = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
     peak = 0
     try:
         ps = psutil.Process(p.pid)
@@ -47,7 +50,10 @@ def run(argv, cwd=None, timeout=900):
                 break
     except psutil.Error:
         pass
-    out = p.communicate()[0].decode("utf-8", "replace")
+    p.wait()
+    log.seek(0)
+    out = log.read().decode("utf-8", "replace")
+    log.close()
     return {"rc": p.returncode, "seconds": round(time.perf_counter() - t0, 3),
             "peak_rss_mib": round(peak / 1048576, 1), "tail": out[-3000:]}
 
