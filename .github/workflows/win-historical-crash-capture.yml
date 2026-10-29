@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   capture:
+    # PROBE BRANCH ONLY: not part of the openkal probe.
+    if: github.head_ref != 'probe/clangd-openkal-image'
     runs-on: windows-2022
     timeout-minutes: 20
     steps:

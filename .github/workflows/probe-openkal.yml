@@ -1,0 +1,195 @@
+name: probe-openkal
+
+# PROBE (temporary, not to be merged): can this clangd be an ok image (<arch>-openkal) that every
+# system's okrun starts, and what does it cost against the native clangd of the same source?
+# probe/openkal/ holds the scripts; the result is written to the pull request.
+
+on:
+  push:
+    branches: [probe/clangd-openkal-image]
+  workflow_dispatch:
+
+env:
+  MCPP_VERSION: 2026.10.29.1
+  XLINGS_VERSION: v2026.10.26.1
+  XLINGS_NON_INTERACTIVE: '1'
+  NATIVE_RELEASE: v0.0.17
+  NATIVE_ENGINE: 23.1.0-mcppls.5
+  OKRUN_RELEASE: v0.1.1
+
+jobs:
+  image:
+    name: image ${{ matrix.arch }}-openkal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Room for LLVM
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+      - name: Tools
+        run: sudo bash ci/scripts/apt-install.sh ninja-build ccache
+      - name: mcpp
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-all-errors https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
+          export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+          for attempt in 1 2 3 4 5; do
+            xlings update > /dev/null 2>&1 || true
+            if xlings install "mcpp@$MCPP_VERSION" -y -g; then break; fi
+            [ "$attempt" = 5 ] && exit 1
+            sleep 30
+          done
+          mcpp --version
+          mcpp self config --mirror GLOBAL
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: probe-openkal-ccache-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: probe-openkal-ccache-${{ matrix.arch }}-
+      - name: llvm-project with the series and the probe's patch
+        run: |
+          set -euo pipefail
+          ./ci/scripts/fetch.sh
+          ./ci/scripts/apply.sh
+          git -C llvm-project apply --verbose "$PWD/probe/openkal/openkal-llvm.patch"
+      - name: Build the image
+        env:
+          LLVM_DIR: ${{ github.workspace }}/llvm-project
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CCACHE_MAXSIZE: 6G
+        run: |
+          ccache -z || true
+          rc=0
+          bash probe/openkal/build-image.sh ${{ matrix.arch }} || rc=$?
+          ccache -s || true
+          df -h /
+          exit $rc
+      - name: Smoke (x86_64 on this machine)
+        if: matrix.arch == 'x86_64'
+        run: |
+          cd link-x86_64 && mcpp run --release --target x86_64-openkal -- --version 2>&1 | tail -5 | tee ../out/smoke-x86_64.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-${{ matrix.arch }}
+          path: out/
+          if-no-files-found: warn
+
+  bundle:
+    name: okb of both images
+    needs: image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: images
+      - name: okld bundle
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
+          export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          xlings install "mcpp@$MCPP_VERSION" -y -g
+          mkdir -p h/src && cd h
+          printf '[package]\nname = "h"\nversion = "0.1.0"\n' > mcpp.toml
+          printf 'int main() { return 0; }\n' > src/main.cpp
+          mcpp build --target x86_64-openkal > /dev/null
+          okld="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okld | head -1)"
+          cd ..
+          "$okld" bundle clangd.okb images/image-x86_64/clangd-x86_64.oke images/image-aarch64/clangd-aarch64.oke
+          "$okld" bundle check clangd.okb
+          ls -l images/*/clangd-*.oke clangd.okb | tee sizes.txt
+          gzip -9 -k clangd.okb && ls -l clangd.okb.gz | tee -a sizes.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: okb
+          path: |
+            clangd.okb
+            sizes.txt
+
+  run:
+    name: run ${{ matrix.platform }}
+    needs: image
+    if: always()
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux-x64, os: ubuntu-24.04, arch: x86_64, okrun: linux-x86_64/okrun, std: '' }
+          - { platform: linux-arm64, os: ubuntu-24.04-arm, arch: aarch64, okrun: linux-aarch64/okrun, std: '' }
+          - { platform: darwin-arm64, os: macos-14, arch: aarch64, okrun: macos-aarch64/okrun, std: 'mac' }
+          - { platform: win32-x64, os: windows-2022, arch: x86_64, okrun: windows-x86_64/okrun.exe, std: 'msvc' }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install psutil
+      - name: MSVC environment
+        if: matrix.std == 'msvc'
+        uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: image-${{ matrix.arch }}
+          path: image
+      - name: Native clangd and okrun
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download "$NATIVE_RELEASE" -R Sunrisepeak/mcppls-clangd -p "clangd-$NATIVE_ENGINE-${{ matrix.platform }}.tar.gz" -O native.tgz
+          mkdir native && tar xzf native.tgz -C native
+          gh release download "$OKRUN_RELEASE" -R mcpp-community/mcpp-ide -p "mcpp-ide-${OKRUN_RELEASE#v}-openkal.tar.gz" -O ide.tgz
+          mkdir ide && tar xzf ide.tgz -C ide
+          native_root="$(ls -d native/clangd-*/clangd)"
+          echo "NATIVE=$native_root/bin/clangd" >> "$GITHUB_ENV"
+          echo "OKRUN=$(ls -d ide/*/libexec/okrun)/${{ matrix.okrun }}" >> "$GITHUB_ENV"
+          # The image finds clang's builtin headers as clangd does: <image dir>/../lib/clang/<major>.
+          mkdir -p stage/bin stage/lib
+          cp -R "$native_root/lib/clang" stage/lib/
+          if [ -f image/clangd-${{ matrix.arch }}.oke ]; then cp image/clangd-${{ matrix.arch }}.oke stage/bin/clangd.oke; fi
+          chmod +x ide/*/libexec/okrun/*/okrun* || true
+          ls -l stage/bin "$native_root/bin"
+      - name: Arguments of the standard-library case
+        run: |
+          set -euo pipefail
+          args=""
+          case "${{ matrix.std }}" in
+            mac) args="--target=arm64-apple-macos14 -isysroot $(xcrun --show-sdk-path)" ;;
+            msvc)
+              args="--target=x86_64-pc-windows-msvc -fms-compatibility -fms-extensions"
+              IFS=';' read -ra dirs <<< "$INCLUDE"
+              for d in "${dirs[@]}"; do [ -n "$d" ] && args="$args -imsvc$(cygpath -m "$d")"; done ;;
+          esac
+          echo "STD_ARGS=$args" >> "$GITHUB_ENV"
+      - name: Native clangd
+        run: python probe/openkal/run_check.py --label native-${{ matrix.platform }} --out native.json --std --std-args="$STD_ARGS" ${{ startsWith(matrix.platform, 'linux') && '--workers' || '' }} -- "$NATIVE"
+      - name: Image under okrun
+        if: hashFiles('stage/bin/clangd.oke') != ''
+        continue-on-error: true
+        run: python probe/openkal/run_check.py --label image-${{ matrix.platform }} --out image.json --std --std-args="$STD_ARGS" ${{ startsWith(matrix.platform, 'linux') && '--workers' || '' }} -- "$OKRUN" stage/bin/clangd.oke
+      - name: Image under okrun, resource directory named
+        if: hashFiles('stage/bin/clangd.oke') != '' && matrix.std == 'msvc'
+        continue-on-error: true
+        run: |
+          rd="$(cygpath -w "$PWD/stage/lib/clang/23")"
+          python probe/openkal/run_check.py --label image-resource-dir-${{ matrix.platform }} --out image-rd.json --std --std-args="$STD_ARGS" --clangd-arg="--resource-dir=$rd" -- "$OKRUN" stage/bin/clangd.oke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: run-${{ matrix.platform }}
+          path: '*.json'
