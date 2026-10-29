@@ -60,6 +60,15 @@ echo "::group::link and seal with mcpp"
 (cd "$root/link-$arch" && mcpp build --release --target "$arch-openkal") > "$out/link-$arch.log" 2>&1
 link_rc=$?
 tail -60 "$out/link-$arch.log"
+# What the image imports beyond openkal's interface: okld check names the first only.
+unsealed="$(ls "$root"/link-"$arch"/target/"$arch"-openkal/*/obj/platform/bin/clangd.oke.unsealed 2>/dev/null | head -1)"
+if [[ -n "$unsealed" ]]; then
+  llvm_bin="$(dirname "$(grep -m1 'CMAKE_CXX_COMPILER ' "$root/openkal-$arch.cmake" | awk '{print $2}' | tr -d ')')")"
+  "$llvm_bin/llvm-readelf" --dyn-syms -W "$unsealed" | awk '$7 == "UND" && $8 != "" {print $8}' | sort -u \
+    | grep -v '^kal_' > "$out/imports-beyond-kal-$arch.txt" || true
+  echo "imports beyond kal_*: $(wc -l < "$out/imports-beyond-kal-$arch.txt")"
+  head -50 "$out/imports-beyond-kal-$arch.txt"
+fi
 echo "::endgroup::"
 [[ $link_rc -eq 0 ]] || exit 3
 

@@ -20,11 +20,38 @@ for w in link:
 if not libs:
     sys.exit("no static library in clangd's link line")
 
+MAIN = r"""// clangd's own main (ClangdToolMain.cpp), as an ok image.
+#include <pthread.h>
+#include <stdlib.h>
+
+namespace clang::clangd { int clangdMain(int argc, char* argv[]); }
+int main(int argc, char* argv[]) { return clang::clangd::clangdMain(argc, argv); }
+
+// PROBE WORKAROUND. openkal-llvm-runtime 0.16.6 exports __cxa_thread_atexit (a thread_local
+// with a destructor) on __linux__, __Fuchsia__, OPENKAL_TARGET_WINDOWS and __APPLE__, and an ok
+// image is none of them (libcxxabi/src/cxa_thread_atexit.cpp); okld check then refuses the import.
+// The same per-thread list libc++abi keeps, here; the main thread's list is not run at exit.
+namespace {
+struct Dtor { void (*fn)(void*); void* obj; Dtor* next; };
+pthread_key_t key;
+pthread_once_t once = PTHREAD_ONCE_INIT;
+void run(void* p) {
+  for (auto* d = static_cast<Dtor*>(p); d;) { auto* n = d->next; d->fn(d->obj); free(d); d = n; }
+}
+void make() { pthread_key_create(&key, run); }
+}
+extern "C" int __cxa_thread_atexit(void (*fn)(void*), void* obj, void*) {
+  pthread_once(&once, make);
+  auto* d = static_cast<Dtor*>(malloc(sizeof(Dtor)));
+  if (!d) return -1;
+  *d = Dtor{fn, obj, static_cast<Dtor*>(pthread_getspecific(key))};
+  return pthread_setspecific(key, d);
+}
+"""
+
 os.makedirs(os.path.join(out, "src"), exist_ok=True)
 with open(os.path.join(out, "src", "main.cpp"), "w") as f:
-    f.write("// clangd's own main (ClangdToolMain.cpp), as an ok image.\n"
-            "namespace clang::clangd { int clangdMain(int argc, char* argv[]); }\n"
-            "int main(int argc, char* argv[]) { return clang::clangd::clangdMain(argc, argv); }\n")
+    f.write(MAIN)
 words = ", ".join(f'"{l}"' for l in libs)
 with open(os.path.join(out, "mcpp.toml"), "w") as f:
     f.write(f"""# clangd as an ok image: mcpp links its main over the static libraries CMake
