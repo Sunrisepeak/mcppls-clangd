@@ -119,7 +119,11 @@ jobs:
           mcpp build --target x86_64-openkal > /dev/null
           okld="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okld | head -1)"
           cd ..
-          "$okld" bundle clangd.okb images/image-x86_64/clangd-x86_64.oke images/image-aarch64/clangd-aarch64.oke
+          # okld bundle wants one image name across the architectures.
+          mkdir -p x86_64 aarch64
+          cp images/image-x86_64/clangd-x86_64.oke x86_64/clangd.oke
+          cp images/image-aarch64/clangd-aarch64.oke aarch64/clangd.oke
+          "$okld" bundle clangd.okb x86_64/clangd.oke aarch64/clangd.oke
           "$okld" bundle check clangd.okb
           ls -l images/*/clangd-*.oke clangd.okb | tee sizes.txt
           gzip -9 -k clangd.okb && ls -l clangd.okb.gz | tee -a sizes.txt

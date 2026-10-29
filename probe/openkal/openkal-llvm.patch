@@ -1,5 +1,5 @@
 diff --git a/llvm/include/llvm/ADT/bit.h b/llvm/include/llvm/ADT/bit.h
-index 3ac23d6d..ccfa337b 100644
+index 3ac23d6d4..ccfa337b2 100644
 --- a/llvm/include/llvm/ADT/bit.h
 +++ b/llvm/include/llvm/ADT/bit.h
 @@ -30,7 +30,8 @@
@@ -13,7 +13,7 @@ index 3ac23d6d..ccfa337b 100644
  #elif defined(_AIX)
  #include <sys/machine.h>
 diff --git a/llvm/lib/Support/Unix/Path.inc b/llvm/lib/Support/Unix/Path.inc
-index d0196733..8241b27b 100644
+index d01967330..36e85cbb2 100644
 --- a/llvm/lib/Support/Unix/Path.inc
 +++ b/llvm/lib/Support/Unix/Path.inc
 @@ -16,6 +16,9 @@
@@ -63,3 +63,14 @@ index d0196733..8241b27b 100644
  #elif defined(__HAIKU__)
    // Haiku doesn't expose this information.
    return false;
+@@ -1031,7 +1048,9 @@ ErrorOr<basic_file_status> directory_entry::status() const {
+ // FreeBSD optionally provides /proc/self/fd, but it is incompatible with
+ // Linux. The thing to use is realpath.
+ //
+-#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
++// An ok image's descriptors are its C library's, not the loader process's: /proc/self/fd
++// names the loader's (openkal clause 12), so a name read there is another file's.
++#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__OPENKAL__)
+ #define TRY_PROC_SELF_FD
+ #endif
+ 
