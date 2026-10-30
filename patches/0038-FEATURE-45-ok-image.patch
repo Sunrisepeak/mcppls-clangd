@@ -9,7 +9,10 @@ from the host has to be decided when the image starts:
 
 - the native path style is the system's, which the image learns from
   kal_env_system: `is_style_posix` and `is_style_windows` read it for
-  Style::native, and clangd's `absoluteParent` and case folding follow it;
+  Style::native, and clangd's `absoluteParent` and case folding follow it; on
+  Windows a file's real name is made absolute and its dots removed in that
+  style rather than read through the C library's POSIX realpath, which reads
+  `D:/x` as relative;
 - the program's own name is the image the loader started (kal_env_image), not
   /proc/self/exe, which names the loader; the loader states the name it was
   given, which is made absolute against the directory the program started in,
@@ -208,7 +211,7 @@ index d019673..1d8802d 100644
  #elif defined(__HAIKU__)
    // Haiku doesn't expose this information.
    return false;
-@@ -1031,7 +1053,9 @@ ErrorOr<basic_file_status> directory_entry::status() const {
+@@ -1031,10 +1053,32 @@ ErrorOr<basic_file_status> directory_entry::status() const {
  // FreeBSD optionally provides /proc/self/fd, but it is incompatible with
  // Linux. The thing to use is realpath.
  //
@@ -219,6 +222,47 @@ index d019673..1d8802d 100644
  #define TRY_PROC_SELF_FD
  #endif
  
++// The real name of a file. On an ok image running on Windows a name is the
++// system's (`D:/x`, `D:\x`), which the C library's POSIX realpath reads as
++// relative: it is made absolute and its dots removed in the Windows style, and
++// it names an existing file (links are not followed there).
++static char *realPathOf(const char *Name, char *Buffer) {
++#if defined(__OPENKAL__)
++  if (llvm::sys::path::detail::native_style_is_windows()) {
++    SmallString<256> Abs(Name);
++    if (llvm::sys::fs::make_absolute(Abs))
++      return nullptr;
++    llvm::sys::path::remove_dots(Abs, /*remove_dot_dot=*/true);
++    if (Abs.size() >= PATH_MAX || ::access(Abs.c_str(), F_OK) != 0)
++      return nullptr;
++    memcpy(Buffer, Abs.c_str(), Abs.size() + 1);
++    return Buffer;
++  }
++#endif
++  return ::realpath(Name, Buffer);
++}
++
+ #if !defined(F_GETPATH) && defined(TRY_PROC_SELF_FD)
+ static bool hasProcSelfFD() {
+   // If we have a /proc filesystem mounted, we can quickly establish the
+@@ -1247,7 +1291,7 @@ std::error_code openFileForRead(const Twine &Name, int &ResultFD,
+     StringRef P = Name.toNullTerminatedStringRef(Storage);
+ 
+     // Use ::realpath to get the real path name
+-    if (::realpath(P.begin(), Buffer) != nullptr)
++    if (realPathOf(P.begin(), Buffer) != nullptr)
+       RealPath->append(Buffer, Buffer + strlen(Buffer));
+ #if defined(TRY_PROC_SELF_FD)
+   }
+@@ -1442,7 +1486,7 @@ std::error_code real_path(const Twine &path, SmallVectorImpl<char> &dest,
+   SmallString<128> Storage;
+   StringRef P = path.toNullTerminatedStringRef(Storage);
+   char Buffer[PATH_MAX];
+-  if (::realpath(P.begin(), Buffer) == nullptr)
++  if (realPathOf(P.begin(), Buffer) == nullptr)
+     return errnoAsErrorCode();
+   dest.append(Buffer, Buffer + strlen(Buffer));
+   return std::error_code();
 diff --git a/llvm/lib/TargetParser/Unix/Host.inc b/llvm/lib/TargetParser/Unix/Host.inc
 index 38b942d..e64bb39 100644
 --- a/llvm/lib/TargetParser/Unix/Host.inc
