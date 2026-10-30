@@ -1,0 +1,319 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SPeak <speakshen@163.com>
+Date: Fri, 30 Oct 2026 21:00:00 +0900
+Subject: [PATCH] [Support][clangd] Run as an openkal ok image
+
+An ok image (openkal clause 12) is one ELF program per architecture that a
+loader starts on every system it serves, so what LLVM decides at compile time
+from the host has to be decided when the image starts:
+
+- the native path style is the system's, which the image learns from
+  kal_env_system: `is_style_posix` and `is_style_windows` read it for
+  Style::native, and clangd's `absoluteParent` and case folding follow it;
+- the program's own name is the image the loader started (kal_env_image), not
+  /proc/self/exe, which names the loader; the loader states the name it was
+  given, which is made absolute against the directory the program started in,
+  before anything is resolved against another directory (the resource
+  directory beside the program is);
+- the default target is the system's, on the image's architecture;
+- a module worker is started by the loader that started this image, and an
+  address-space ceiling, which openkal does not state, is not set (the
+  parent's memory budget bounds the worker);
+- /proc/self/fd names the loader's descriptors and is not read; a file system
+  is local; <endian.h> is the C library's.
+
+Everything is under __OPENKAL__; other builds are unchanged.
+---
+diff --git a/clang-tools-extra/clangd/support/Path.cpp b/clang-tools-extra/clangd/support/Path.cpp
+index 1dd107c..3c5533c 100644
+--- a/clang-tools-extra/clangd/support/Path.cpp
++++ b/clang-tools-extra/clangd/support/Path.cpp
+@@ -8,10 +8,31 @@
+ 
+ #include "support/Path.h"
+ #include "llvm/Support/Path.h"
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++#endif
+ namespace clang {
+ namespace clangd {
+ 
+-#ifdef CLANGD_PATH_CASE_INSENSITIVE
++#if defined(__OPENKAL__)
++// An ok image runs on every system: whether names differ only in case is the
++// system's convention (Windows and macOS fold case), learnt when it starts.
++static bool caseInsensitivePaths() {
++  static const bool Insensitive = [] {
++    char System[16];
++    kal_intptr N = kal_env_system(System, sizeof(System));
++    llvm::StringRef Name(System, N > 0 ? static_cast<size_t>(N) : 0);
++    return Name == "windows" || Name == "macos";
++  }();
++  return Insensitive;
++}
++std::string maybeCaseFoldPath(PathRef Path) {
++  return caseInsensitivePaths() ? Path.lower() : Path.str();
++}
++bool pathEqual(PathRef A, PathRef B) {
++  return caseInsensitivePaths() ? A.equals_insensitive(B) : A == B;
++}
++#elif defined(CLANGD_PATH_CASE_INSENSITIVE)
+ std::string maybeCaseFoldPath(PathRef Path) { return Path.lower(); }
+ bool pathEqual(PathRef A, PathRef B) { return A.equals_insensitive(B); }
+ #else  // NOT CLANGD_PATH_CASE_INSENSITIVE
+@@ -21,10 +42,11 @@ bool pathEqual(PathRef A, PathRef B) { return A == B; }
+ 
+ PathRef absoluteParent(PathRef Path) {
+   assert(llvm::sys::path::is_absolute(Path));
+-#if defined(_WIN32)
++#if defined(_WIN32) || defined(__OPENKAL__)
+   // llvm::sys says "C:\" is absolute, and its parent is "C:" which is relative.
+   // This unhelpful behavior seems to have been inherited from boost.
+-  if (llvm::sys::path::relative_path(Path).empty()) {
++  if (llvm::sys::path::is_style_windows(llvm::sys::path::Style::native) &&
++      llvm::sys::path::relative_path(Path).empty()) {
+     return PathRef();
+   }
+ #endif
+diff --git a/llvm/include/llvm/ADT/bit.h b/llvm/include/llvm/ADT/bit.h
+index 3ac23d6..ccfa337 100644
+--- a/llvm/include/llvm/ADT/bit.h
++++ b/llvm/include/llvm/ADT/bit.h
+@@ -30,7 +30,8 @@
+ 
+ #if defined(__linux__) || defined(__GNU__) || defined(__HAIKU__) ||            \
+     defined(__Fuchsia__) || defined(__EMSCRIPTEN__) || defined(__NetBSD__) ||  \
+-    defined(__OpenBSD__) || defined(__DragonFly__) || defined(__managarm__)
++    defined(__OpenBSD__) || defined(__DragonFly__) || defined(__managarm__) || \
++    defined(__OPENKAL__)
+ #include <endian.h>
+ #elif defined(_AIX)
+ #include <sys/machine.h>
+diff --git a/llvm/include/llvm/Support/Path.h b/llvm/include/llvm/Support/Path.h
+index 28e1e8b..ddbce43 100644
+--- a/llvm/include/llvm/Support/Path.h
++++ b/llvm/include/llvm/Support/Path.h
+@@ -33,6 +33,26 @@ enum class Style {
+   windows = windows_backslash, // deprecated
+ };
+ 
++#if defined(__OPENKAL__)
++namespace detail {
++/// An ok image runs on every system (openkal clause 12): the native style is the
++/// system's, which the image learns when it starts (kal_env_system), not when it
++/// is compiled.
++LLVM_ABI bool native_style_is_windows();
++} // namespace detail
++
++/// Check if \p S uses POSIX path rules.
++inline bool is_style_posix(Style S) {
++  if (S == Style::posix)
++    return true;
++  if (S != Style::native)
++    return false;
++  return !detail::native_style_is_windows();
++}
++
++/// Check if \p S uses Windows path rules.
++inline bool is_style_windows(Style S) { return !is_style_posix(S); }
++#else
+ /// Check if \p S uses POSIX path rules.
+ constexpr bool is_style_posix(Style S) {
+   if (S == Style::posix)
+@@ -48,6 +68,7 @@ constexpr bool is_style_posix(Style S) {
+ 
+ /// Check if \p S uses Windows path rules.
+ constexpr bool is_style_windows(Style S) { return !is_style_posix(S); }
++#endif
+ 
+ /// @name Lexical Component Iterator
+ /// @{
+diff --git a/llvm/lib/Support/Path.cpp b/llvm/lib/Support/Path.cpp
+index 65e2940..d921c56 100644
+--- a/llvm/lib/Support/Path.cpp
++++ b/llvm/lib/Support/Path.cpp
+@@ -33,6 +33,19 @@
+ using namespace llvm;
+ using namespace llvm::support::endian;
+ 
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++
++bool llvm::sys::path::detail::native_style_is_windows() {
++  static const bool Windows = [] {
++    char System[16];
++    kal_intptr N = kal_env_system(System, sizeof(System));
++    return N == 7 && StringRef(System, 7) == "windows";
++  }();
++  return Windows;
++}
++#endif
++
+ namespace {
+   using llvm::StringRef;
+   using llvm::sys::path::is_separator;
+diff --git a/llvm/lib/Support/Unix/Path.inc b/llvm/lib/Support/Unix/Path.inc
+index d019673..1d8802d 100644
+--- a/llvm/lib/Support/Unix/Path.inc
++++ b/llvm/lib/Support/Unix/Path.inc
+@@ -16,6 +16,9 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "Unix.h"
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++#endif
+ 
+ #include "llvm/Support/IOSandbox.h"
+ 
+@@ -130,7 +133,7 @@ const file_t kInvalidFile = -1;
+     defined(__CYGWIN__) || defined(__DragonFly__) || defined(_AIX) ||          \
+     defined(__GNU__) ||                                                        \
+     (defined(__sun__) && defined(__svr4__) || defined(__HAIKU__)) ||           \
+-    defined(__managarm__)
++    defined(__managarm__) || defined(__OPENKAL__)
+ static int test_dir(char ret[PATH_MAX], const char *dir, const char *bin) {
+   struct stat sb;
+   char fullpath[PATH_MAX];
+@@ -253,6 +256,22 @@ std::string getMainExecutable(const char *argv0, void *MainAddr) {
+   // If we don't have procfs mounted, fall back to argv[0]
+   if (getprogpath(exe_path, argv0) != NULL)
+     return exe_path;
++#elif defined(__OPENKAL__)
++  // An ok image: the name of the image the loader started (openkal clause 12),
++  // not /proc/self/exe, which names the loader. The name is the one the loader
++  // was given, relative to the directory the program started in where it was
++  // given so; made absolute here, before anything is resolved against another
++  // directory (the resource directory beside the program is).
++  char exe_path[PATH_MAX];
++  kal_intptr n = kal_env_image(exe_path, sizeof(exe_path));
++  if (n > 0 && n < (kal_intptr)sizeof(exe_path)) {
++    SmallString<256> image(StringRef(exe_path, static_cast<size_t>(n)));
++    if (!fs::make_absolute(image))
++      return std::string(image);
++    return std::string(exe_path, static_cast<size_t>(n));
++  }
++  if (getprogpath(exe_path, argv0))
++    return exe_path;
+ #elif defined(__linux__) || defined(__CYGWIN__) || defined(__gnu_hurd__) ||    \
+     defined(__managarm__)
+   char exe_path[PATH_MAX];
+@@ -522,6 +541,9 @@ static bool is_local_impl(struct STATVFS &Vfs) {
+ #elif defined(__EMSCRIPTEN__)
+   // Emscripten doesn't currently support remote filesystem mounts.
+   return true;
++#elif defined(__OPENKAL__)
++  // openkal states no file system kind; local is the answer mmap decisions need.
++  return true;
+ #elif defined(__HAIKU__)
+   // Haiku doesn't expose this information.
+   return false;
+@@ -1031,7 +1053,9 @@ ErrorOr<basic_file_status> directory_entry::status() const {
+ // FreeBSD optionally provides /proc/self/fd, but it is incompatible with
+ // Linux. The thing to use is realpath.
+ //
+-#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
++// An ok image's descriptors are its C library's, not the loader process's: /proc/self/fd
++// names the loader's (openkal clause 12), so a name read there is another file's.
++#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__OPENKAL__)
+ #define TRY_PROC_SELF_FD
+ #endif
+ 
+diff --git a/llvm/lib/TargetParser/Unix/Host.inc b/llvm/lib/TargetParser/Unix/Host.inc
+index 38b942d..e64bb39 100644
+--- a/llvm/lib/TargetParser/Unix/Host.inc
++++ b/llvm/lib/TargetParser/Unix/Host.inc
+@@ -92,9 +92,37 @@ static std::string updateTripleOSVersion(std::string TargetTripleString) {
+   return TargetTripleString;
+ }
+ 
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++
++// An ok image runs on every system it serves: the default target is the
++// system's (kal_env_system), on this architecture, not the configured one.
++static std::string openkalDefaultTriple() {
++  char System[16];
++  const kal_intptr N = kal_env_system(System, sizeof(System));
++  const StringRef Name(System, N > 0 ? static_cast<size_t>(N) : 0);
++#if defined(__aarch64__)
++  const bool Arm = true;
++#else
++  const bool Arm = false;
++#endif
++  if (Name == "linux")
++    return Arm ? "aarch64-unknown-linux-gnu" : "x86_64-unknown-linux-gnu";
++  if (Name == "macos")
++    return Arm ? "arm64-apple-darwin" : "x86_64-apple-darwin";
++  if (Name == "windows")
++    return Arm ? "aarch64-pc-windows-msvc" : "x86_64-pc-windows-msvc";
++  return LLVM_DEFAULT_TARGET_TRIPLE;
++}
++#endif
++
+ std::string sys::getDefaultTargetTriple() {
++#if defined(__OPENKAL__)
++  std::string TargetTripleString = openkalDefaultTriple();
++#else
+   std::string TargetTripleString =
+       updateTripleOSVersion(LLVM_DEFAULT_TARGET_TRIPLE);
++#endif
+ 
+   // Override the default target with an environment variable named by
+   // LLVM_TARGET_TRIPLE_ENV.
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 0a294e2..a389c2d 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -38,6 +38,9 @@
+ #include <sys/wait.h>
+ #include <unistd.h>
+ #endif
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++#endif
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/JSON.h"
+ #include "llvm/Support/MemoryBuffer.h"
+@@ -78,7 +81,11 @@ uint64_t addressSpaceMappedAlready() { return 0; }
+ llvm::Error applyAddressSpaceLimit(uint64_t Bytes) {
+   if (!Bytes)
+     return llvm::Error::success();
+-#if defined(RLIMIT_AS) && !defined(_WIN32)
++#if defined(__OPENKAL__)
++  // openkal states no address-space ceiling; the parent's memory budget, which
++  // admits workers by what they hold, is the bound of an ok image's worker.
++  return llvm::Error::success();
++#elif defined(RLIMIT_AS) && !defined(_WIN32)
+   struct rlimit Previous;
+   if (getrlimit(RLIMIT_AS, &Previous))
+     return llvm::errorCodeToError(
+@@ -660,12 +667,25 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+       StringRef(""), StringRef(""), StringRef(DiagnosticsPath)};
+   const std::string MemoryToken =
+       MemoryBudget ? MemoryBudget->bootstrapToken() : "";
+-  std::array<StringRef, 5> Args{Options.Executable, "--module-build-worker",
+-                                RequestPath, OwnerToken, MemoryToken};
++  std::vector<StringRef> Args{Options.Executable, "--module-build-worker",
++                              RequestPath, OwnerToken, MemoryToken};
++  StringRef Program = Options.Executable;
++#if defined(__OPENKAL__)
++  // An ok image is started by the loader that started this one (openkal
++  // clause 12): the loader, then the image and its arguments.
++  char LoaderName[4096];
++  const kal_intptr LoaderLength = kal_env_loader(LoaderName, sizeof(LoaderName));
++  std::string Loader;
++  if (LoaderLength > 0 && LoaderLength < (kal_intptr)sizeof(LoaderName)) {
++    Loader.assign(LoaderName, static_cast<size_t>(LoaderLength));
++    Program = Loader;
++    Args.insert(Args.begin(), Loader);
++  }
++#endif
+   std::string LaunchError;
+   bool Failed = false;
+   auto Process =
+-      llvm::sys::ExecuteNoWait(Options.Executable, Args, std::nullopt,
++      llvm::sys::ExecuteNoWait(Program, Args, std::nullopt,
+                                Redirects, 0, &LaunchError, &Failed);
+   if (Failed || Process.Pid == llvm::sys::ProcessInfo::InvalidPid)
+     return llvm::createStringError("failed to launch module worker: " +

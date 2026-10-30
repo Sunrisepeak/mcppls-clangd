@@ -1,0 +1,21 @@
+# clangd as an ok image (`<arch>-openkal`): one ELF program per architecture that each system's
+# okrun starts (mcpp design 2026-10-30 part 2 §25.3). Its main is clangd's own; the libraries
+# below it are llvm-project's, built by CMake for the target as mcpp's contract states it (okgen,
+# run by build.mcpp), and linked and sealed by mcpp.
+#
+#   MCPPLS_LLVM_DIR=<llvm-project with the series> MCPPLS_HOST_TOOLS=<host tablegen bin> \
+#     mcpp build --release --target x86_64-openkal
+[package]
+name    = "clangd"
+version = "23.1.0"
+mcpp    = ">=2026.11.1.1"
+
+[targets.clangd]
+kind = "bin"
+main = "src/main.cpp"
+
+[build]
+cxxflags = ["-fno-rtti", "-fno-exceptions"]
+
+[build-dependencies]
+okgen = { path = "../okgen", tools = ["okgen"] }

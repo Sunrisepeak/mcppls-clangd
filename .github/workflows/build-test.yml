@@ -35,6 +35,10 @@ jobs:
             echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"linux-arm64","os":"ubuntu-22.04-arm"},{"platform":"darwin-arm64","os":"macos-14"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
           fi
 
+  # clangd as an ok image: the images, clangd.okb and where it is accepted (openkal.yml).
+  openkal:
+    uses: ./.github/workflows/openkal.yml
+
   build:
     needs: setup
     strategy:
