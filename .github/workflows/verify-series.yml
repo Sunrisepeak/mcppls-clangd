@@ -28,6 +28,10 @@ jobs:
       - name: Apply patch series
         run: ./ci/scripts/apply.sh
 
+      # The openkal series applies on top, then the tree is reset: it is the ok image's only.
+      - name: Apply the openkal series on top
+        run: ./ci/scripts/apply.sh --verify-openkal
+
       - name: Check patch ledger
         run: python3 ci/check_ledger.py --release
 
@@ -49,6 +53,6 @@ jobs:
           {
             echo "### Series verification"
             echo "- UPSTREAM: \`$(awk -F': *' '/^ref:/{print $2}' UPSTREAM)\`"
-            echo "- patches: $(grep -c '^[0-9]' patches/series) applied cleanly"
+            echo "- patches: $(grep -c '^[0-9]' patches/series) applied cleanly; the openkal series: $(grep -c '^[0-9]' openkal/patches/series)"
             echo "- ledger: $(python3 ci/check_ledger.py)"
           } >> "$GITHUB_STEP_SUMMARY"

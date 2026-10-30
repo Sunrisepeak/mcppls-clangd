@@ -58,15 +58,15 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .ccache
-          key: openkal-ccache-${{ matrix.arch }}-${{ hashFiles('UPSTREAM', 'patches/**') }}-${{ github.run_id }}
+          key: openkal-ccache-${{ matrix.arch }}-${{ hashFiles('UPSTREAM', 'patches/**', 'overlay/**', 'openkal/patches/**') }}-${{ github.run_id }}
           restore-keys: |
-            openkal-ccache-${{ matrix.arch }}-${{ hashFiles('UPSTREAM', 'patches/**') }}-
+            openkal-ccache-${{ matrix.arch }}-${{ hashFiles('UPSTREAM', 'patches/**', 'overlay/**', 'openkal/patches/**') }}-
             openkal-ccache-${{ matrix.arch }}-
-      - name: llvm-project with the series
+      - name: llvm-project with the series and the openkal series
         run: |
           set -euo pipefail
           ./ci/scripts/fetch.sh
-          ./ci/scripts/apply.sh
+          ./ci/scripts/apply.sh --openkal
       - name: The host's tablegen
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
@@ -145,11 +145,11 @@ jobs:
           cp -R images/openkal-image-x86_64/clang "dist/$part/clangd/lib/clang"
           echo "PART=$part" >> "$GITHUB_ENV"
           echo "OKRUN=$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun | sort -V | tail -1)" >> "$GITHUB_ENV"
-      - name: llvm-project with the series (the identity's canaries read its tests)
+      - name: llvm-project with the series and the openkal series (the identity's canaries read its tests)
         run: |
           set -euo pipefail
           ./ci/scripts/fetch.sh
-          ./ci/scripts/apply.sh
+          ./ci/scripts/apply.sh --openkal
       # The part a native engine is, for the ok image: the license and notice, and engine.json, the
       # identity mcppls checks (S4-4-10), written after every capability canary passed on
       # clangd.okb as okrun starts it.

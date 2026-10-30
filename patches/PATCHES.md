@@ -10,6 +10,11 @@ Only `steady` rides a release. Row ids never appear inside patch code or tests â
 they live here and in patch *filenames* only; a filename carries the patch's
 primary row, the `rows` column every row it serves.
 
+This series carries upstream defects and product features of every engine. What
+only an openkal ok image needs is the openkal series, `openkal/patches/`
+(its ledger and boundary are in `openkal/patches/README.md`), applied after this
+series for the ok image alone.
+
 A patch is **steady** when the series it belongs to, applied to the pinned
 tarball, builds on every release platform (`build-test`), every test its row
 maps passes in that run, the Ubuntu 20.04 floor package passes its runtime
@@ -265,4 +270,3 @@ they change what the engine costs and where it can be tested, not what it answer
 | 0035-UP-40-interactive-action-slots.patch | UP-40 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_inputs_canary.py | upstream schedules completion and signature help apart from AST and preamble builds |
 | 0036-UP-35-unchanged-memos-not-serialized.patch | UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | dropped with 0030 when upstream keeps module memos across sessions |
 | 0037-UP-03-module-workers-under-sanitizers.patch | UP-03 | steady | tests/soak_loop.py and the soak job's ASan+UBSan lit run of the module suite (modules, modules-stale-lock, modules-validation-cache) | dropped with 0017 when upstream isolates module compilation in supervised workers |
-| 0038-FEATURE-45-ok-image.patch | FEATURE-45 | stabilizing | .github/workflows/openkal.yml (the four acceptance columns on Linux x64 and arm64, macOS arm64 and Windows x64; ci/openkal_check.py, ci/openkal_accept.py) | dropped when upstream decides the native path style, the program's own name and the default target when an image for several systems starts, or when clangd stops shipping as an ok image |

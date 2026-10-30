@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-"""Digest ordered patch bytes and overlay paths/content for applied-tree identity."""
+"""Digest ordered patch bytes and overlay paths/content for applied-tree identity.
+
+With --openkal, the openkal series (openkal/patches/series, applied after the
+overlay) is part of the identity: the tree an ok image is built from.
+"""
 import hashlib
+import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
@@ -22,4 +27,9 @@ for line in (root / 'patches/series').read_text().splitlines():
 for path in sorted((root / 'overlay').rglob('*')):
     if path.is_file():
         add('overlay/' + path.relative_to(root / 'overlay').as_posix(), path.read_bytes())
+if '--openkal' in sys.argv[1:]:
+    for line in (root / 'openkal/patches/series').read_text().splitlines():
+        entry = line.split('#', 1)[0].strip()
+        if entry:
+            add('openkal/patches/' + entry, (root / 'openkal/patches' / entry).read_bytes())
 print(digest.hexdigest())

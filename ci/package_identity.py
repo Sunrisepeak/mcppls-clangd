@@ -77,7 +77,9 @@ def main():
                     'tests/e2e/module_directive_diagnostics.py'], check=True,
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')], text=True).strip()
+    # An ok image's tree is the series and the openkal series (openkal/patches/README.md).
+    series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')] + (['--openkal'] if openkal else []),
+                                     text=True).strip()
     if openkal:
         # The image is built by mcpp from the patched tree (openkal/clangd), which has no CMake
         # build of its own: the tree is the one the series made, and clean.

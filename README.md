@@ -24,9 +24,11 @@ is `steady`, which `ci/check_ledger.py --release` requires before a release.
 The engine ships in mcpp-language-server, which pins it by binary SHA-256
 and by the source identity in `engine.json`.
 
-From 0.0.18 the engine is also an ok image (`openkal`, patch 0038): one
-`clangd.okb` of `x86_64-openkal` and `aarch64-openkal` that each system's okrun
-starts. `openkal/clangd` is the mcpp project that builds it: its build program
+From 0.0.18 the engine is also an ok image (`openkal`): one `clangd.okb` of
+`x86_64-openkal` and `aarch64-openkal` that each system's okrun starts. Its tree
+is `patches/series` and then the openkal series, `openkal/patches/`, which only
+adapts LLVM to an ok image and is kept apart from the upstream defects and
+features of `patches/` (`openkal/patches/README.md`). `openkal/clangd` is the mcpp project that builds it: its build program
 runs `openkal/okgen`, which reads mcpp's contract for the target, builds
 llvm-project's libraries with it through CMake, and names them for the link
 mcpp performs and seals. The release measures it against the native engine on
