@@ -12,7 +12,8 @@ from the host has to be decided when the image starts:
   Style::native, and clangd's `absoluteParent` and case folding follow it; on
   Windows a file's real name is made absolute and its dots removed in that
   style rather than read through the C library's POSIX realpath, which reads
-  `D:/x` as relative;
+  `D:/x` as relative; the in-memory preamble's name is absolute in that style,
+  as the reader resolves it;
 - the program's own name is the image the loader started (kal_env_image), not
   /proc/self/exe, which names the loader; the loader states the name it was
   given, which is made absolute against the directory the program started in,
@@ -78,6 +79,25 @@ index 1dd107c..3c5533c 100644
      return PathRef();
    }
  #endif
+diff --git a/clang/lib/Frontend/PrecompiledPreamble.cpp b/clang/lib/Frontend/PrecompiledPreamble.cpp
+--- a/clang/lib/Frontend/PrecompiledPreamble.cpp
++++ b/clang/lib/Frontend/PrecompiledPreamble.cpp
+@@ -41,7 +41,14 @@ namespace {
+ namespace {
+ 
+ StringRef getInMemoryPreamblePath() {
+-#if defined(LLVM_ON_UNIX)
++#if defined(__OPENKAL__)
++  // Absolute in the system's path style, which an ok image learns when it
++  // starts: a POSIX name is relative on Windows, where the reader resolves it
++  // against the current drive and the overlay holding the preamble does not.
++  return llvm::sys::path::is_style_windows(llvm::sys::path::Style::native)
++             ? "C:\\__clang_tmp\\___clang_inmemory_preamble___"
++             : "/__clang_tmp/___clang_inmemory_preamble___";
++#elif defined(LLVM_ON_UNIX)
+   return "/__clang_tmp/___clang_inmemory_preamble___";
+ #elif defined(_WIN32)
+   return "C:\\__clang_tmp\\___clang_inmemory_preamble___";
 diff --git a/llvm/include/llvm/ADT/bit.h b/llvm/include/llvm/ADT/bit.h
 index 3ac23d6..ccfa337 100644
 --- a/llvm/include/llvm/ADT/bit.h
