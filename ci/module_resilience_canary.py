@@ -29,8 +29,11 @@ USER = 'export module user;\nimport bad;\nexport int use() { return broken(); }\
 MAIN = 'import good;\nimport bad;\nimport user;\nint main() { return answer(); }\n'
 
 
+# The program that starts an ok-image engine (`okrun clangd.okb`); empty for a program engine.
+RUNNER = []
+
 def check(engine, root):
-    run = subprocess.run([str(engine), '--experimental-modules-support', '--check=main.cpp'],
+    run = subprocess.run([*RUNNER, str(engine), '--experimental-modules-support', '--check=main.cpp'],
                          cwd=root, text=True, capture_output=True, timeout=300)
     return run.stdout + run.stderr
 
@@ -45,7 +48,10 @@ def fail(message, output=''):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
-    engine = parser.parse_args().engine.resolve()
+    parser.add_argument('--runner', type=Path, help='the program that starts an ok-image engine (okrun clangd.okb)')
+    args = parser.parse_args()
+    RUNNER[:] = [str(args.runner.resolve())] if args.runner else []
+    engine = args.engine.resolve()
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         for name, text in (('good.cppm', GOOD), ('bad.cppm', BAD), ('user.cppm', USER), ('main.cpp', MAIN)):
@@ -74,7 +80,7 @@ def main():
         if not changed or 'good.cppm' not in changed[0]:
             fail('the rebuild after an edit does not name the file that changed', second)
 
-    options = subprocess.run([str(engine), '--help-hidden'], text=True, capture_output=True, timeout=60).stdout
+    options = subprocess.run([*RUNNER, str(engine), '--help-hidden'], text=True, capture_output=True, timeout=60).stdout
     for option in ('--completion-first-preamble-wait-ms', '--completion-module-wait-ms'):
         if option not in options:
             fail(f'the engine has no {option}')

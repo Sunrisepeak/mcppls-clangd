@@ -204,7 +204,7 @@ declares nothing. The tree is now `534729c792963c194c4afd6675f6befa89e63c62`.
 ## The 0.0.17 additions
 
 Two patches, for what an idle clangd costs and for what sanitizer builds of the module workers could
-not do. The engine reports itself as `23.1.0-mcppls.5`.
+not do. The engine reports itself as `23.1.0-mcppls.6`.
 
 - 0036, memos that did not change: the memo store (0030, `--module-memo-dir`) wrote every 30 seconds
   by copying both caches and building the JSON of every memo, and only then found nothing had changed

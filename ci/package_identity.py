@@ -8,7 +8,9 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
-PLATFORMS = {'linux-x64', 'linux-arm64', 'win32-x64', 'darwin-arm64'}
+# `openkal` is the ok image (clangd.okb of both architectures, mcpp design 2026-10-30 part 2
+# §25.3), which every system's okrun starts: its canaries run through the runner.
+PLATFORMS = {'linux-x64', 'linux-arm64', 'win32-x64', 'darwin-arm64', 'openkal'}
 
 
 def sha(path):
@@ -38,13 +40,17 @@ def verify_build_source(llvm_dir, build_dir, stamp, series):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--build-dir', type=Path, required=True)
+    parser.add_argument('--build-dir', type=Path, help='the CMake build of a native engine (not of openkal)')
     parser.add_argument('--llvm-dir', type=Path, required=True)
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--platform', choices=sorted(PLATFORMS), required=True)
     parser.add_argument('--checksums', type=Path, required=True)
+    parser.add_argument('--runner', type=Path, help='okrun, which starts the openkal engine')
     args = parser.parse_args()
+    openkal = args.platform == 'openkal'
+    if openkal != (args.runner is not None) or openkal == (args.build_dir is not None):
+        parser.error('openkal takes --runner and no --build-dir; a native platform takes --build-dir and no --runner')
     pin = dict(line.split(':', 1) for line in (ROOT / 'UPSTREAM').read_text().splitlines()
                if ':' in line and not line.startswith('#'))
     pin = {key.strip(): value.strip() for key, value in pin.items()}
@@ -54,12 +60,15 @@ def main():
     base = pin['ref'][len('llvmorg-'):] if pin['ref'].startswith('llvmorg-') else pin['ref']
     if not re.fullmatch(re.escape(base) + r'-mcppls\.[0-9]+', args.version):
         parser.error('engine version must retain its maintained-engine identity')
-    engine = args.directory / 'bin' / ('clangd.exe' if args.platform.startswith('win32-') else 'clangd')
+    engine = args.directory / 'bin' / ('clangd.okb' if openkal else 'clangd.exe' if args.platform.startswith('win32-') else 'clangd')
+    # How the engine is started: by itself, or as the runner's first argument.
+    launch = [str(args.runner.resolve()), str(engine.resolve())] if openkal else [str(engine.resolve())]
+    runner = ['--runner', str(args.runner.resolve())] if openkal else []
     for path in (engine, args.directory / 'LICENSE.TXT', args.directory / 'NOTICE.txt',
                  args.directory / 'lib/clang' / base.split('.')[0] / 'include/stddef.h'):
         if not path.is_file():
             parser.error(f'missing required package file: {path}')
-    version = subprocess.check_output([str(engine.resolve()), '--version'], text=True, timeout=20)
+    version = subprocess.check_output([*launch, '--version'], text=True, timeout=20)
     if not re.search(r'clangd version ' + re.escape(args.version) + r'(?:\s|$)', version):
         parser.error(f'binary does not report expected identity: {version.strip()}')
     subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', 'HEAD', '--',
@@ -69,26 +78,36 @@ def main():
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     series = subprocess.check_output(['python3', str(ROOT / 'ci/series_identity.py')], text=True).strip()
-    stamp = json.loads((args.build_dir / 'engine-build.json').read_text())
-    original = args.build_dir / 'bin' / engine.name
-    if (stamp.get('fork-commit') != fork or stamp.get('platform') != args.platform or
-            stamp.get('patch-series-sha256') != series or
-            stamp.get('build-binary-sha256') != sha(original) or
-            stamp.get('cmake-cache-sha256') != sha(args.build_dir / 'CMakeCache.txt')):
-        parser.error('build stamp does not identify this source, platform, configuration and binary')
-    try:
-        source = verify_build_source(args.llvm_dir, args.build_dir, stamp, series)
-    except (ValueError, OSError, subprocess.CalledProcessError) as error:
-        parser.error(str(error))
+    if openkal:
+        # The image is built by mcpp from the patched tree (openkal/clangd), which has no CMake
+        # build of its own: the tree is the one the series made, and clean.
+        source = args.llvm_dir.resolve()
+        marker = source / '.mcppls-clangd-patched'
+        if not marker.is_file() or marker.read_text().strip() != series:
+            parser.error('package source marker does not match the ordered patch series')
+        subprocess.run(['git', '-C', str(source), 'diff', '--quiet', 'HEAD'], check=True)
+        stamp = {'llvm-tree-commit': subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()}
+    else:
+        stamp = json.loads((args.build_dir / 'engine-build.json').read_text())
+        original = args.build_dir / 'bin' / engine.name
+        if (stamp.get('fork-commit') != fork or stamp.get('platform') != args.platform or
+                stamp.get('patch-series-sha256') != series or
+                stamp.get('build-binary-sha256') != sha(original) or
+                stamp.get('cmake-cache-sha256') != sha(args.build_dir / 'CMakeCache.txt')):
+            parser.error('build stamp does not identify this source, platform, configuration and binary')
+        try:
+            source = verify_build_source(args.llvm_dir, args.build_dir, stamp, series)
+        except (ValueError, OSError, subprocess.CalledProcessError) as error:
+            parser.error(str(error))
     # Prove the declared capability against the final stripped package bytes.
     canary = source / 'clang-tools-extra/clangd/test/semantic-tokens-range.test'
-    response = subprocess.run([str(engine.resolve()), '-lit-test'], input=canary.read_text(),
+    response = subprocess.run([*launch, '-lit-test'], input=canary.read_text(),
                               text=True, capture_output=True, timeout=20)
     data = re.search(r'"id":\s*1,.*?"data":\s*(\[.*?\])', response.stdout, re.S)
     if response.returncode != 0 or not data or json.loads(data.group(1)) != [1, 4, 1, 0, 131075, 1, 4, 1, 0, 131075]:
         parser.error('final package bytes failed semantic-tokens-range capability canary')
     format_canary = source / 'clang-tools-extra/clangd/test/mcpp-format-fallback.test'
-    formatted = subprocess.run([str(engine.resolve()), '-lit-test', '-fallback-style=mcpp'],
+    formatted = subprocess.run([*launch, '-lit-test', '-fallback-style=mcpp'],
                                input=format_canary.read_text(), text=True,
                                capture_output=True, timeout=20)
     if (formatted.returncode != 0 or not re.search(
@@ -97,32 +116,32 @@ def main():
     # `import hello.` and other malformed directives recover instead of hanging the file.
     recovery_canary = source / 'clang-tools-extra/clangd/test/module-directive-recovery.test'
     try:
-        recovered = subprocess.run([str(engine.resolve()), '-lit-test'], input=recovery_canary.read_text(),
+        recovered = subprocess.run([*launch, '-lit-test'], input=recovery_canary.read_text(),
                                    text=True, capture_output=True, timeout=30)
     except subprocess.TimeoutExpired:
         parser.error('final package bytes hang on a malformed module directive')
     if recovered.returncode != 0 or recovered.stdout.count('"name": "marker"') != 2:
         parser.error('final package bytes failed module directive recovery canary')
-    views = subprocess.run(['python3', str(ROOT / 'ci/const_views_canary.py'), '--engine', str(engine.resolve())],
+    views = subprocess.run(['python3', str(ROOT / 'ci/const_views_canary.py'), '--engine', str(engine.resolve()), *runner],
                            text=True, capture_output=True, timeout=120)
     if views.returncode != 0:
         parser.error('final package bytes failed misc-const-correctness view canary: ' + views.stdout.strip())
     unresolved = subprocess.run(['python3', str(ROOT / 'ci/unresolved_import_canary.py'),
-                                 '--engine', str(engine.resolve())], text=True, capture_output=True, timeout=120)
+                                 '--engine', str(engine.resolve()), *runner], text=True, capture_output=True, timeout=120)
     if unresolved.returncode != 0:
         parser.error('final package bytes failed unresolved import canary: ' + unresolved.stdout.strip())
     resilience = subprocess.run(['python3', str(ROOT / 'ci/module_resilience_canary.py'),
-                                 '--engine', str(engine.resolve())], text=True, capture_output=True, timeout=900)
+                                 '--engine', str(engine.resolve()), *runner], text=True, capture_output=True, timeout=900)
     if resilience.returncode != 0:
         parser.error('final package bytes failed module resilience canary: ' + resilience.stdout.strip())
     inputs = subprocess.run(['python3', str(ROOT / 'ci/module_inputs_canary.py'),
-                             '--engine', str(engine.resolve())], text=True, capture_output=True, timeout=900)
+                             '--engine', str(engine.resolve()), *runner], text=True, capture_output=True, timeout=900)
     if inputs.returncode != 0:
         parser.error('final package bytes failed module inputs canary: ' + inputs.stdout.strip())
-    directive_report = args.build_dir / 'module-directive-package-canary.json'
+    directive_report = (args.build_dir or args.checksums) / 'module-directive-package-canary.json'
     directive = subprocess.run([
         'python3', str(ROOT / 'tests/e2e/module_directive_diagnostics.py'),
-        '--engine', str(engine.resolve()), '--output', str(directive_report.resolve())],
+        '--engine', str(engine.resolve()), *runner, '--output', str(directive_report.resolve())],
         text=True, capture_output=True, timeout=30)
     if directive.returncode != 0:
         parser.error('final package bytes failed module directive diagnostic range canary: '
@@ -140,10 +159,13 @@ def main():
                              'partial-prerequisite-modules', 'module-rebuild-reasons', 'bounded-module-wait',
                              'managed-input-roots', 'persistent-module-memos', 'retained-asts-option',
                              'module-input-recheck', 'interactive-actions'],
-                'build-binary-sha256': stamp['build-binary-sha256'],
-                'llvm-tree-commit': stamp['llvm-tree-commit'],
-                'cmake-cache-sha256': stamp['cmake-cache-sha256']}
+                'llvm-tree-commit': stamp['llvm-tree-commit']}
+    if not openkal:
+        metadata['build-binary-sha256'] = stamp['build-binary-sha256']
+        metadata['cmake-cache-sha256'] = stamp['cmake-cache-sha256']
     (args.directory / 'engine.json').write_text(json.dumps(metadata, indent=2) + '\n')
+    if openkal:
+        directive_report.unlink(missing_ok=True)   # written beside the part; not a part of it
     # A sorted portable list; the output can never hash itself.
     entries = [f'{sha(path)}  ./{path.relative_to(args.checksums).as_posix()}'
                for path in sorted(args.checksums.rglob('*'))

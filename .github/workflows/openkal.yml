@@ -90,6 +90,9 @@ jobs:
           set -euo pipefail
           ccache -z || true
           export JOBS="$(nproc)"
+          # The engine's version is the native builds' (FORK_SUFFIX, okgen reads it).
+          source ci/scripts/env.sh
+          export FORK_SUFFIX
           (cd openkal/clangd && mcpp build --release --target ${{ matrix.arch }}-openkal)
           ccache -s || true
           mkdir -p out
@@ -140,9 +143,35 @@ jobs:
           "$okld" bundle "dist/$part/clangd/bin/clangd.okb" --name clangd --version "$FORK_VERSION" --entry clangd x86_64/clangd.oke aarch64/clangd.oke
           "$okld" bundle check "dist/$part/clangd/bin/clangd.okb"
           cp -R images/openkal-image-x86_64/clang "dist/$part/clangd/lib/clang"
+          echo "PART=$part" >> "$GITHUB_ENV"
+          echo "OKRUN=$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun | sort -V | tail -1)" >> "$GITHUB_ENV"
+      - name: llvm-project with the series (the identity's canaries read its tests)
+        run: |
+          set -euo pipefail
+          ./ci/scripts/fetch.sh
+          ./ci/scripts/apply.sh
+      # The part a native engine is, for the ok image: the license and notice, and engine.json, the
+      # identity mcppls checks (S4-4-10), written after every capability canary passed on
+      # clangd.okb as okrun starts it.
+      - name: The identity of clangd.okb
+        run: |
+          set -euo pipefail
+          source ci/scripts/env.sh
+          cp "$LLVM_DIR/llvm/LICENSE.TXT" "dist/$PART/clangd/LICENSE.TXT"
+          cat > "dist/$PART/clangd/NOTICE.txt" <<EOF
+          mcppls-clangd is based on LLVM/Clang $UPSTREAM_VERSION.
+          Upstream: https://github.com/llvm/llvm-project
+          Modifications: https://github.com/Sunrisepeak/mcppls-clangd
+          LLVM is distributed under Apache-2.0 WITH LLVM-exception; see LICENSE.TXT.
+          Engine source and ordered patch identities are recorded in engine.json.
+          This engine is an openkal ok image of x86_64 and aarch64, which okrun starts on Linux, macOS and Windows.
+          EOF
+          python3 ci/package_identity.py --platform openkal --runner "$OKRUN" --llvm-dir "$LLVM_DIR" \
+            --directory "dist/$PART/clangd" --version "$FORK_VERSION" --checksums "dist/$PART"
+          cat "dist/$PART/clangd/engine.json"
           cd dist
-          tar czf "$part.tar.gz" "$part"
-          sha256sum "$part.tar.gz" > "$part.tar.gz.sha256"
+          tar czf "$PART.tar.gz" "$PART"
+          sha256sum "$PART.tar.gz" > "$PART.tar.gz.sha256"
           ls -l
       - uses: actions/upload-artifact@v4
         with:

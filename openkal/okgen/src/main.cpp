@@ -157,6 +157,9 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
         fail(std::format("the contract is for {}, not an ok image (<arch>-openkal)", target));
     const auto arch = target.substr(0, dash);
 
+    // The engine's version suffix, the native builds' (ci/scripts/env.sh): one engine version.
+    const auto suffix = os::env::get("FORK_SUFFIX");
+    if (!suffix || suffix->empty()) fail("FORK_SUFFIX names the engine's version suffix (ci/scripts/env.sh)");
     const auto cmake = os::env::find_executable("cmake");
     const auto ninja = os::env::find_executable("ninja");
     if (!cmake || !ninja) fail("cmake and ninja are needed on PATH");
@@ -187,7 +190,7 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
             "-DLLVM_INCLUDE_TESTS=OFF", "-DLLVM_INCLUDE_BENCHMARKS=OFF", "-DLLVM_INCLUDE_EXAMPLES=OFF",
             "-DLLVM_BUILD_TOOLS=OFF", "-DLLVM_INCLUDE_UTILS=OFF",
             "-DCLANG_ENABLE_ARCMT=OFF", "-DCLANG_PLUGIN_SUPPORT=OFF",
-            "-DLLVM_VERSION_SUFFIX=" + os::env::get("FORK_SUFFIX").value_or("-mcppls.5"),
+            "-DLLVM_VERSION_SUFFIX=" + *suffix,
         });
     }
 

@@ -32,6 +32,9 @@ int sum(int *First, int *Last) {
 '''
 
 
+# The program that starts an ok-image engine (`okrun clangd.okb`); empty for a program engine.
+RUNNER = []
+
 def send(proc, message):
     body = json.dumps(message).encode()
     proc.stdin.write(b'Content-Length: %d\r\n\r\n' % len(body) + body)
@@ -63,7 +66,7 @@ def flagged(engine, timeout):
         (root / 'compile_flags.txt').write_text('-std=c++20\n')
         source = root / 'views.cpp'
         source.write_text(SOURCE)
-        proc = subprocess.Popen([str(engine), '--sync', '--background-index=false', '--enable-config',
+        proc = subprocess.Popen([*RUNNER, str(engine), '--sync', '--background-index=false', '--enable-config',
                                  '--clang-tidy', '--log=error'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, cwd=tmp)
         messages = queue.Queue()
@@ -99,8 +102,10 @@ def flagged(engine, timeout):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
+    parser.add_argument('--runner', type=Path, help='the program that starts an ok-image engine (okrun clangd.okb)')
     parser.add_argument('--timeout', type=float, default=60)
     args = parser.parse_args()
+    RUNNER[:] = [str(args.runner.resolve())] if args.runner else []
     names = flagged(args.engine.resolve(), args.timeout)
     if names is None or 'Plain' not in names:
         print(f'const views canary: no usable answer ({names})')

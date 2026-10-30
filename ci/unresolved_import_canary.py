@@ -19,6 +19,9 @@ UNIT = 'export module a;\nimport nowhere;\nexport int fa() { return 1; }\n'
 MAIN = 'import a;\nimport missing;\nint main() { return fa(); }\n'
 
 
+# The program that starts an ok-image engine (`okrun clangd.okb`); empty for a program engine.
+RUNNER = []
+
 def send(proc, message):
     body = json.dumps(message).encode()
     proc.stdin.write(b'Content-Length: %d\r\n\r\n' % len(body) + body)
@@ -52,7 +55,7 @@ def answers(engine, timeout):
             {'directory': str(root), 'file': str(root / name),
              'arguments': ['clang++', '-std=c++20', '-c', str(root / name)]}
             for name in ('a.cppm', 'main.cpp')]))
-        proc = subprocess.Popen([str(engine), '--experimental-modules-support', '--background-index=false',
+        proc = subprocess.Popen([*RUNNER, str(engine), '--experimental-modules-support', '--background-index=false',
                                  '--log=error'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, cwd=tmp)
         messages = queue.Queue()
@@ -94,8 +97,10 @@ def answers(engine, timeout):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
+    parser.add_argument('--runner', type=Path, help='the program that starts an ok-image engine (okrun clangd.okb)')
     parser.add_argument('--timeout', type=float, default=60)
     args = parser.parse_args()
+    RUNNER[:] = [str(args.runner.resolve())] if args.runner else []
     status, what = answers(args.engine.resolve(), args.timeout)
     print(f'unresolved import canary: {what}')
     return status
