@@ -36,4 +36,4 @@ the `patch-series-sha256` of `clangd.okb`; a native engine's covers
 
 | patch | rows | state | tests | drop |
 |---|---|---|---|---|
-| 0001-FEATURE-45-ok-image.patch | FEATURE-45 | stabilizing | .github/workflows/openkal.yml (the four acceptance columns on Linux x64 and arm64, macOS arm64 and Windows x64; ci/openkal_check.py, ci/openkal_accept.py) | dropped when upstream decides the native path style, the program's own name and the default target when an image for several systems starts, or when clangd stops shipping as an ok image |
+| 0001-FEATURE-45-ok-image.patch | FEATURE-45 | steady | .github/workflows/openkal.yml (the four acceptance columns on Linux x64 and arm64, macOS arm64 and Windows x64; ci/openkal_check.py, ci/openkal_accept.py) | dropped when upstream decides the native path style, the program's own name and the default target when an image for several systems starts, or when clangd stops shipping as an ok image |
