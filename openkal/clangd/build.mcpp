@@ -1,0 +1,37 @@
+// The libraries clangd links, built by llvm-project's CMake with the conventions of this build's
+// target, as its contract states them (`${mcpp.contract}`): okgen writes the toolchain file,
+// configures, builds clangd's libraries and names them in a response file, which the link reads.
+// A `prepare` action: what it writes is known by directory, not by name.
+#include <cstdlib>
+#include <string>
+import mcpp;
+
+namespace {
+std::string env(const char* name) {
+    const char* v = std::getenv(name);
+    return v ? v : "";
+}
+}  // namespace
+
+int main() {
+    const std::string llvm = env("MCPPLS_LLVM_DIR");
+    const std::string host = env("MCPPLS_HOST_TOOLS");
+    mcpp::rerun_if_env_changed("MCPPLS_LLVM_DIR");
+    mcpp::rerun_if_env_changed("MCPPLS_HOST_TOOLS");
+    if (llvm.empty() || host.empty()) {
+        mcpp::warning("MCPPLS_LLVM_DIR and MCPPLS_HOST_TOOLS name llvm-project with the series and the host's tablegen");
+        return 1;
+    }
+    const std::string dir = std::string(mcpp::out_dir()) + "/llvm";
+    const std::string rsp = dir + "/clangd.rsp";
+    mcpp::action a;
+    a.id = "llvm:clangd-libraries";
+    a.role = mcpp::roles::prepare;
+    a.arg(mcpp::dep_bin("okgen", "okgen"))
+     .arg("build").arg("${mcpp.contract}").arg(llvm.c_str()).arg(host.c_str()).arg(dir.c_str()).arg(rsp.c_str())
+     .output((dir + ".stamp").c_str())
+     .output_dir(dir.c_str())
+     .submit();
+    mcpp::link_flag(("@" + rsp).c_str());
+    return 0;
+}

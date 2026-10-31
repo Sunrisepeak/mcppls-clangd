@@ -37,8 +37,11 @@ GOOD = 'module;\n#include "lib.h"\nexport module good;\nexport int answer() { re
 MAIN = 'import good;\nint main() { return answer(); }\n'
 
 
+# The program that starts an ok-image engine (`okrun clangd.okb`); empty for a program engine.
+RUNNER = []
+
 def check(engine, root, *flags):
-    run = subprocess.run([str(engine), '--experimental-modules-support', '--check=main.cpp', *flags],
+    run = subprocess.run([*RUNNER, str(engine), '--experimental-modules-support', '--check=main.cpp', *flags],
                          cwd=root, text=True, capture_output=True, timeout=300)
     return run.returncode, run.stdout + run.stderr
 
@@ -53,9 +56,12 @@ def fail(message, output=''):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
-    engine = parser.parse_args().engine.resolve()
+    parser.add_argument('--runner', type=Path, help='the program that starts an ok-image engine (okrun clangd.okb)')
+    args = parser.parse_args()
+    RUNNER[:] = [str(args.runner.resolve())] if args.runner else []
+    engine = args.engine.resolve()
 
-    options = subprocess.run([str(engine), '--help-hidden'], text=True, capture_output=True, timeout=60).stdout
+    options = subprocess.run([*RUNNER, str(engine), '--help-hidden'], text=True, capture_output=True, timeout=60).stdout
     for option in ('--managed-input-root', '--module-memo-dir', '--max-retained-asts', '--module-input-recheck',
                    '--interactive-actions'):
         if option not in options:
@@ -119,7 +125,7 @@ def main():
              'arguments': ['clang++', '-std=c++20', '-c', 'main.cpp']}]))
         sema = {}
         for modules in (True, False):
-            run = subprocess.run([str(engine), *(['--experimental-modules-support'] if modules else []),
+            run = subprocess.run([*RUNNER, str(engine), *(['--experimental-modules-support'] if modules else []),
                                   '--check=main.cpp', '--check-completion', '--check-lines=3'],
                                  cwd=headers, text=True, capture_output=True, timeout=300)
             found = re.search(r'Code complete: (\d+) results from Sema', run.stdout + run.stderr)

@@ -23,6 +23,9 @@ CASES = [
 ]
 
 
+# The program that starts an ok-image engine (`okrun clangd.okb`); empty for a program engine.
+RUNNER = []
+
 def probe(engine):
     engine = replay.executable(engine)
     messages = [{'jsonrpc': '2.0', 'id': 0, 'method': 'initialize', 'params': {
@@ -35,7 +38,7 @@ def probe(engine):
     messages.extend([{'jsonrpc': '2.0', 'id': 1, 'method': 'shutdown', 'params': None},
                      {'jsonrpc': '2.0', 'method': 'exit'}])
     frames = '\n---\n'.join(json.dumps(m) for m in messages).encode() + b'\n'
-    result = subprocess.run([str(engine), '-lit-test', '--background-index=false'],
+    result = subprocess.run([*RUNNER, str(engine), '-lit-test', '--background-index=false'],
                             input=frames, capture_output=True, timeout=20)
     stream = io.BytesIO(result.stdout)
     replies = []
@@ -74,8 +77,10 @@ def probe(engine):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
+    parser.add_argument('--runner', type=Path, help='the program that starts an ok-image engine (okrun clangd.okb)')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
+    RUNNER[:] = [str(args.runner.resolve())] if args.runner else []
     result = probe(args.engine)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

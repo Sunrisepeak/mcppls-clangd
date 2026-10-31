@@ -1,0 +1,28 @@
+# okgen: what the clangd ok image's build needs from outside CMake, as a program.
+#
+#   okgen build <mcpp-contract.json> <llvm-project> <host-tools> <build-dir> <response-file>
+#
+# reads the build's contract (mcpp's `${mcpp.contract}`: the compiler, its words and the target
+# side of `<arch>-openkal`), writes a CMake toolchain file from it, configures llvm-project for
+# that target once, builds the static libraries clangd links, and writes them, in clangd's own
+# link order, as a linker response file. openkal/clangd's build program runs it as a `prepare`
+# action, with `${mcpp.contract}` as its first argument.
+[package]
+name    = "okgen"
+version = "0.1.0"
+mcpp    = ">=2026.10.31.2"
+
+[language]
+standard   = "c++23"
+modules    = true
+import_std = true
+
+[targets.okgen]
+kind = "bin"
+main = "src/main.cpp"
+
+[dependencies.mcpplibs]
+os = "0.2.3"
+
+[dependencies.nlohmann]
+json = "3.12.0"

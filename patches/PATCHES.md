@@ -10,6 +10,11 @@ Only `steady` rides a release. Row ids never appear inside patch code or tests â
 they live here and in patch *filenames* only; a filename carries the patch's
 primary row, the `rows` column every row it serves.
 
+This series carries upstream defects and product features of every engine. What
+only an openkal ok image needs is the openkal series, `openkal/patches/`
+(its ledger and boundary are in `openkal/patches/README.md`), applied after this
+series for the ok image alone.
+
 A patch is **steady** when the series it belongs to, applied to the pinned
 tarball, builds on every release platform (`build-test`), every test its row
 maps passes in that run, the Ubuntu 20.04 floor package passes its runtime
@@ -225,6 +230,13 @@ which fails on the store without it); the soak job's ASan+UBSan lit runs of `mod
 `modules-stale-lock.test` and `modules-validation-cache.test` prove 0037. Neither declares a feature:
 they change what the engine costs and where it can be tested, not what it answers. The tree is now
 `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`.
+
+## The 0.0.18 additions
+
+No patch of this series changes, and the tree stays `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`. The
+release adds clangd as an ok image, `clangd.okb`, whose tree is this series and then the openkal series
+(`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
+image.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|

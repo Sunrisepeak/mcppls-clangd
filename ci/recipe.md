@@ -48,7 +48,8 @@ do the same.
 
 ## darwin-arm64
 
-- `macos-14` runner, default system linking, nothing special
+- `macos-15` runner (GitHub retired `macos-14` on 2026-11-02), default system
+  linking; the deployment target is macOS 12.0 (`ci/scripts/configure.sh`)
 
 ## Packaging (all platforms)
 

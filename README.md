@@ -17,19 +17,31 @@ bumped.
 
 ## Status
 
-The 0.0.17 engine carries 37 patches ([patches/PATCHES.md](patches/PATCHES.md))
-on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.5`. Each patch maps
+The 0.0.18 engine carries 37 patches ([patches/PATCHES.md](patches/PATCHES.md))
+on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.6`. Each patch maps
 to rows of the upstream-defects register and has a drop condition; every patch
 is `steady`, which `ci/check_ledger.py --release` requires before a release.
-The engine ships in mcpp-language-server 0.0.17, which pins it by binary SHA-256
+The engine ships in mcpp-language-server, which pins it by binary SHA-256
 and by the source identity in `engine.json`.
+
+From 0.0.18 the engine is also an ok image (`openkal`): one `clangd.okb` of
+`x86_64-openkal` and `aarch64-openkal` that each system's okrun starts. Its tree
+is `patches/series` and then the openkal series, `openkal/patches/`, which only
+adapts LLVM to an ok image and is kept apart from the upstream defects and
+features of `patches/` (`openkal/patches/README.md`). `openkal/clangd` is the mcpp project that builds it: its build program
+runs `openkal/okgen`, which reads mcpp's contract for the target, builds
+llvm-project's libraries with it through CMake, and names them for the link
+mcpp performs and seals. The release measures it against the native engine on
+the four systems and publishes where it is accepted (`openkal-acceptance.json`);
+mcppls uses `clangd.okb` where it is.
 
 | Platform | Built on | Runs on |
 |---|---|---|
 | `linux-x64` | Ubuntu 20.04 rootfs, Clang 12 | glibc 2.31 and later; libstdc++ linked in |
 | `linux-arm64` | Ubuntu 20.04 rootfs, Clang 12 | glibc 2.31 and later; libstdc++ linked in |
-| `darwin-arm64` | macOS 14 | macOS 12 and later |
+| `darwin-arm64` | macOS 15, deployment target 12.0 | macOS 12 and later |
 | `win32-x64` | Windows Server 2022, MSVC | Windows x64; static CRT, no separate runtime |
+| `openkal` | Ubuntu 24.04, mcpp (`openkal/clangd`), clang 23 for `x86_64-openkal` and `aarch64-openkal` | every system an okrun serves: one `clangd.okb` of both architectures (`.github/workflows/openkal.yml`) |
 
 A release tag `v<version>` builds and publishes each platform's
 `clangd-<engine version>-<platform>.tar.gz` (`.github/workflows/release.yml`), and
