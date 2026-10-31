@@ -17,7 +17,7 @@ bumped.
 
 ## Status
 
-The 0.0.18 engine carries 38 patches ([patches/PATCHES.md](patches/PATCHES.md))
+The 0.0.18 engine carries 37 patches ([patches/PATCHES.md](patches/PATCHES.md))
 on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.6`. Each patch maps
 to rows of the upstream-defects register and has a drop condition; every patch
 is `steady`, which `ci/check_ledger.py --release` requires before a release.
@@ -39,7 +39,7 @@ mcppls uses `clangd.okb` where it is.
 |---|---|---|
 | `linux-x64` | Ubuntu 20.04 rootfs, Clang 12 | glibc 2.31 and later; libstdc++ linked in |
 | `linux-arm64` | Ubuntu 20.04 rootfs, Clang 12 | glibc 2.31 and later; libstdc++ linked in |
-| `darwin-arm64` | macOS 14 | macOS 12 and later |
+| `darwin-arm64` | macOS 15, deployment target 12.0 | macOS 12 and later |
 | `win32-x64` | Windows Server 2022, MSVC | Windows x64; static CRT, no separate runtime |
 | `openkal` | Ubuntu 24.04, mcpp (`openkal/clangd`), clang 23 for `x86_64-openkal` and `aarch64-openkal` | every system an okrun serves: one `clangd.okb` of both architectures (`.github/workflows/openkal.yml`) |
 

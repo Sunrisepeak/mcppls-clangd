@@ -209,7 +209,7 @@ declares nothing. The tree is now `534729c792963c194c4afd6675f6befa89e63c62`.
 ## The 0.0.17 additions
 
 Two patches, for what an idle clangd costs and for what sanitizer builds of the module workers could
-not do. The engine reports itself as `23.1.0-mcppls.6`.
+not do. The engine reports itself as `23.1.0-mcppls.5`.
 
 - 0036, memos that did not change: the memo store (0030, `--module-memo-dir`) wrote every 30 seconds
   by copying both caches and building the JSON of every memo, and only then found nothing had changed
@@ -230,6 +230,13 @@ which fails on the store without it); the soak job's ASan+UBSan lit runs of `mod
 `modules-stale-lock.test` and `modules-validation-cache.test` prove 0037. Neither declares a feature:
 they change what the engine costs and where it can be tested, not what it answers. The tree is now
 `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`.
+
+## The 0.0.18 additions
+
+No patch of this series changes, and the tree stays `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`. The
+release adds clangd as an ok image, `clangd.okb`, whose tree is this series and then the openkal series
+(`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
+image.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
