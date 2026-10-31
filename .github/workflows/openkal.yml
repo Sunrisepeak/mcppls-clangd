@@ -27,6 +27,11 @@ jobs:
     name: image ${{ matrix.arch }}-openkal
     runs-on: ubuntu-24.04
     timeout-minutes: 340
+    # The build program reads these (build.mcpp, `rerun-if-env-changed`), so every step that plans
+    # the image -- the build and the smoke run -- states the same ones.
+    env:
+      MCPPLS_LLVM_DIR: ${{ github.workspace }}/llvm-project
+      MCPPLS_HOST_TOOLS: ${{ github.workspace }}/host-tools/bin
     strategy:
       fail-fast: false
       matrix:
@@ -80,8 +85,6 @@ jobs:
             || { tail -60 host-tools.log; exit 1; }
       - name: The image
         env:
-          MCPPLS_LLVM_DIR: ${{ github.workspace }}/llvm-project
-          MCPPLS_HOST_TOOLS: ${{ github.workspace }}/host-tools/bin
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           CCACHE_MAXSIZE: 6G
           CMAKE_C_COMPILER_LAUNCHER: ccache
