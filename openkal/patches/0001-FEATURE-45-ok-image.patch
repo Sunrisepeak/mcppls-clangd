@@ -24,7 +24,16 @@ from the host has to be decided when the image starts:
   address-space ceiling, which openkal does not state, is not set (the
   parent's memory budget bounds the worker);
 - /proc/self/fd names the loader's descriptors and is not read; a file system
-  is local; <endian.h> is the C library's.
+  is local; <endian.h> is the C library's;
+- the number of processors is the system's: physical cores from Linux's
+  /proc/cpuinfo on x86-64, elsewhere the processors the program may run on.
+  LLVM answered -1 for a target it does not know, and every heavyweight pool
+  ran one thread: clangd prepared one module at a time (mcppls's restart was
+  ready after 33 s instead of 4 s);
+- a program's identifier is the environment's (kal_process_info), which a lock
+  file records for its owner, and an owner is dead when openkal finds no such
+  program or reports it ended. The C library answers getpid() with 1 in every
+  program, so every lock file named its reader, and none was broken.
 
 Everything is under __OPENKAL__; other builds are unchanged.
 ---
@@ -381,3 +390,138 @@ index 0a294e2..a389c2d 100644
                                 Redirects, 0, &LaunchError, &Failed);
    if (Failed || Process.Pid == llvm::sys::ProcessInfo::InvalidPid)
      return llvm::createStringError("failed to launch module worker: " +
+diff --git a/llvm/lib/Support/LockFileManager.cpp b/llvm/lib/Support/LockFileManager.cpp
+index 564cfc5..60549cf 100644
+--- a/llvm/lib/Support/LockFileManager.cpp
++++ b/llvm/lib/Support/LockFileManager.cpp
+@@ -33,6 +33,9 @@
+ #if LLVM_ON_UNIX
+ #include <unistd.h>
+ #endif
++#if defined(__OPENKAL__)
++#include <openkal/process.h>
++#endif
+ 
+ #if defined(__APPLE__) && defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ > 1050)
+ #define USE_OSX_GETHOSTUUID 1
+@@ -119,8 +122,27 @@ bool LockFileManager::processStillExecuting(StringRef HostID, int PID) {
+     return true; // Conservatively assume it's executing on error.
+ 
+   // Check whether the process is dead. If so, we're done.
++#if defined(__OPENKAL__)
++  // The owner is the environment's identifier for a program
++  // (sys::Process::getProcessId): openkal finds it, or says there is none.
++  if (StoredHostID == HostID) {
++    struct kal_process Owner;
++    const int Opened = kal_process_open_id(kal_u64(PID), &Owner);
++    if (Opened == kal_err_not_found)
++      return false;
++    if (Opened == kal_ok) {
++      struct kal_program_info Info = {};
++      Info.self_size = sizeof(Info);
++      const int Asked = kal_process_info(Owner, KAL_PINFO_ENDED, &Info);
++      kal_process_close(Owner);
++      if (Asked == kal_ok && (Info.present & KAL_PINFO_ENDED) && Info.ended)
++        return false;
++    }
++  }
++#else
+   if (StoredHostID == HostID && getsid(PID) == -1 && errno == ESRCH)
+     return false;
++#endif
+ #endif
+ 
+   return true;
+diff --git a/llvm/lib/Support/Unix/Process.inc b/llvm/lib/Support/Unix/Process.inc
+index 1c0a297..8e3b915 100644
+--- a/llvm/lib/Support/Unix/Process.inc
++++ b/llvm/lib/Support/Unix/Process.inc
+@@ -60,9 +60,29 @@ getRUsageTimes() {
+ #endif
+ }
+ 
++#if defined(__OPENKAL__)
++#include <limits>
++#include <openkal/process.h>
++#endif
++
+ Process::Pid Process::getProcessId() {
+   static_assert(sizeof(Pid) >= sizeof(pid_t),
+                 "Process::Pid should be big enough to store pid_t");
++#if defined(__OPENKAL__)
++  // openkal-musl answers getpid() with 1 in every program, so an identifier
++  // another program reads --- a lock file's owner --- named no program. The
++  // environment's identifier for this program (kal_process_info) names it.
++  struct kal_process Self;
++  if (kal_process_self(&Self) == kal_ok) {
++    struct kal_program_info Info = {};
++    Info.self_size = sizeof(Info);
++    const int Result = kal_process_info(Self, KAL_PINFO_ID, &Info);
++    kal_process_close(Self);
++    if (Result == kal_ok && (Info.present & KAL_PINFO_ID) &&
++        Info.id <= uint64_t(std::numeric_limits<Pid>::max()))
++      return Pid(Info.id);
++  }
++#endif
+   return Pid(::getpid());
+ }
+ 
+diff --git a/llvm/lib/Support/Unix/Threading.inc b/llvm/lib/Support/Unix/Threading.inc
+index 91dbd12..7554020 100644
+--- a/llvm/lib/Support/Unix/Threading.inc
++++ b/llvm/lib/Support/Unix/Threading.inc
+@@ -361,12 +361,42 @@ llvm::BitVector llvm::get_thread_affinity_mask() {
+ 
+ unsigned llvm::get_cpus() { return 1; }
+ 
+-#if (defined(__linux__) || defined(__CYGWIN__)) &&                             \
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++#include <sched.h>
++#include <thread>
++// An ok image runs on whichever system's loader started it, so what the
++// branches below decide from the compiler's target is decided from the system
++// the loader states (kal_env_system). Unknown (-1) made every heavyweight pool
++// a single thread: clangd prepared one module at a time.
++static bool openkalSystemIsLinux() {
++  char System[16];
++  const kal_intptr N = kal_env_system(System, sizeof(System));
++  return N == 5 && StringRef(System, 5) == "linux";
++}
++// The processors this program may run on, where no system states its cores.
++static int openkalProcessors() {
++  cpu_set_t Affinity;
++  if (sched_getaffinity(0, sizeof(Affinity), &Affinity) == 0)
++    return CPU_COUNT(&Affinity);
++  if (unsigned N = std::thread::hardware_concurrency())
++    return int(N);
++  return -1;
++}
++#endif
++
++#if ((defined(__linux__) || defined(__CYGWIN__)) ||                            \
++     defined(__OPENKAL__)) &&                                                  \
+     (defined(__i386__) || defined(__x86_64__))
+ // On Linux, the number of physical cores can be computed from /proc/cpuinfo,
+ // using the number of unique physical/core id pairs. The following
+ // implementation reads the /proc/cpuinfo format on an x86_64 system.
+ static int computeHostNumPhysicalCores() {
++#if defined(__OPENKAL__)
++  // /proc/cpuinfo is Linux's; elsewhere the processors are counted.
++  if (!openkalSystemIsLinux())
++    return openkalProcessors();
++#endif
+   // Enabled represents the number of physical id/core id pairs with at least
+   // one processor id enabled by the CPU affinity mask.
+   cpu_set_t Affinity, Enabled;
+@@ -433,6 +463,10 @@ static int computeHostNumPhysicalCores() {
+   }
+   return -1;
+ }
++#elif defined(__OPENKAL__)
++// An ok image on another architecture counts the processors it may run on, as
++// Linux on that architecture does.
++static int computeHostNumPhysicalCores() { return openkalProcessors(); }
+ #elif defined(__APPLE__)
+ // Gets the number of *physical cores* on the machine.
+ static int computeHostNumPhysicalCores() {

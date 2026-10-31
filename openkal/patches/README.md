@@ -25,7 +25,14 @@ host is decided when the image starts, from what the loader states:
   (`kal_env_loader`), with no address-space ceiling, which openkal does not
   state;
 - `/proc/self/fd` names the loader's descriptors and is not read; a file system
-  is local; `<endian.h>` is the C library's.
+  is local; `<endian.h>` is the C library's;
+- the number of processors is the system's (physical cores from Linux's
+  `/proc/cpuinfo` on x86-64, elsewhere the processors the program may run on),
+  where LLVM's answer for an unknown target made every heavyweight pool one
+  thread;
+- a program's identifier is the environment's (`kal_process_info`), which a lock
+  file records for its owner, and an owner is dead when openkal finds no such
+  program or reports it ended (the C library answers `getpid()` with 1).
 
 The engine's identity covers both series: `ci/series_identity.py --openkal` is
 the `patch-series-sha256` of `clangd.okb`; a native engine's covers

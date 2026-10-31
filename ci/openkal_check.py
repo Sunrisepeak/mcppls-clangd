@@ -13,6 +13,9 @@ children, sampled), and the tail of what it wrote. A --check case passes when
 clangd reports `All checks completed, 0 errors`. `--version` runs as often as
 each case: its median is the process's start (for the image, okrun admitting and
 placing it), which the acceptance takes off each case's time to compare parsing.
+`module-parallelism` builds twelve independent modules for one file and records
+how many clangd builds at once (its `limit=` in the log): what the host's
+processors allow it, which the image has to be told as the native clangd is.
 """
 import argparse, json, os, platform, re, statistics, subprocess, sys, tempfile, time
 
@@ -32,7 +35,7 @@ prefix = [os.path.abspath(c) if os.path.exists(c) else c for c in a.cmd if c != 
 windows = os.name == "nt"
 
 
-def run(argv, cwd=None, timeout=900):
+def run(argv, cwd=None, timeout=900, whole=False):
     t0 = time.perf_counter()
     # Output to a file, not a pipe: a pipe nobody reads while the process runs fills
     # (4 KiB on Windows) and the process blocks writing its log.
@@ -60,7 +63,7 @@ def run(argv, cwd=None, timeout=900):
     out = log.read().decode("utf-8", "replace")
     log.close()
     return {"rc": p.returncode, "seconds": round(time.perf_counter() - t0, 3),
-            "peak_rss_mib": round(peak / 1048576, 1), "tail": out[-3000:]}
+            "peak_rss_mib": round(peak / 1048576, 1), "tail": out[-3000:]} | ({"log": out} if whole else {})
 
 
 def cdb(d, entries):
@@ -159,10 +162,30 @@ if a.workers:
 if a.std:
     check("check-std-headers", os.path.join(d, "std.cpp"))
 
+# HOW MANY MODULES CLANGD BUILDS AT ONCE, which it takes from the host's
+# processors: twelve modules no other imports, and one file importing them all.
+p = os.path.join(d, "parallel")
+os.makedirs(p, exist_ok=True)
+pentries = []
+for i in range(12):
+    with open(os.path.join(p, f"p{i}.cppm"), "w") as f:
+        f.write(f"export module p{i};\nexport int p{i}_value() {{ return {i}; }}\n")
+    pentries.append((f"p{i}.cppm", ["clang++", "-std=c++20", "-ffreestanding", "-c"]))
+with open(os.path.join(p, "all.cpp"), "w") as f:
+    f.write("".join(f"import p{i};\n" for i in range(12)) + "int main() { return p11_value(); }\n")
+pentries.append(("all.cpp", ["clang++", "-std=c++20", "-ffreestanding", "-c"]))
+cdb(p, pentries)
+r = run(prefix + [f"--check={os.path.join(p, 'all.cpp')}", f"--compile-commands-dir={p}", "--check-locations=false",
+                  "--experimental-modules-support", "--log=verbose"] + a.clangd_arg, cwd=p, whole=True)
+limits = [int(x) for x in re.findall(r"Module build task \S+ started \(active=\d+, limit=(\d+)\)", r["log"])]
+results["cases"]["module-parallelism"] = {"rc": r["rc"], "limit": max(limits) if limits else None, "seconds": r["seconds"]}
+
 with open(a.out, "w") as f:
     json.dump(results, f, indent=1)
 for k, v in results["cases"].items():
-    if k == "version":
+    if k == "module-parallelism":
+        print(f"{a.label} module-parallelism: rc={v['rc']} limit={v['limit']}")
+    elif k == "version":
         print(f"{a.label} version rc={v['rc']} t={v['seconds_median']}s {v['tail'].strip().splitlines()[:2]}")
     else:
         print(f"{a.label} {k}: ok={v['ok']} errors={v['errors']} rc={v['rc']} t={v['seconds_median']}s peak={v['peak_rss_mib_max']}MiB")

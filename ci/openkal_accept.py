@@ -16,6 +16,10 @@ A case's parse time is its median wall time less the median of `--version`,
 the process's start: for the image, okrun admitting the image (its SHA-256)
 and placing it, which a language server pays once per start rather than per
 file. The start of each is reported beside the parse times.
+
+And it builds as many modules at once as the native clangd on the same machine
+(`module-parallelism`): that number is the host's processors, which the image
+learns at run time; LLVM's answer for a target it did not know was one.
 """
 import argparse, json, os, sys
 
@@ -65,6 +69,14 @@ for name in TIMED:
         failures.append(f"{name}: parse time {ratio:.2f}x the native clangd's (at most 1.3x)")
     if rss_gap > segments_mib:
         failures.append(f"{name}: resident set {rss_gap:.1f} MiB above the native clangd's (at most the image's {segments_mib:.1f} MiB)")
+
+np, ip = native.get("module-parallelism", {}), image.get("module-parallelism", {})
+if np.get("limit") is not None:
+    if ip.get("limit") is None:
+        failures.append("module-parallelism: the image built no module")
+    elif ip["limit"] < np["limit"]:
+        failures.append(f"module-parallelism: the image builds {ip['limit']} module(s) at once, the native clangd {np['limit']}")
+measured["module-parallelism"] = {"native_limit": np.get("limit"), "image_limit": ip.get("limit")}
 
 report = {"platform": a.platform, "accepted": not failures, "failures": failures,
           "image_mib": round(segments_mib, 1),
