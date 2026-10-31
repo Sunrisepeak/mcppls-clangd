@@ -21,6 +21,9 @@ host is decided when the image starts, from what the loader states:
 - the program's own name is the image the loader started (`kal_env_image`),
   made absolute against the directory it started in;
 - the default target is the system's, on the image's architecture;
+- on macOS the SDK and the system's clang are what clangd asks `xcrun` for, as
+  every Apple build of clangd does, so a command that names no SDK reaches the
+  system's headers;
 - a module worker is started by the loader that started this image
   (`kal_env_loader`), with no address-space ceiling, which openkal does not
   state;

@@ -241,10 +241,13 @@ image.
 ## The 0.0.19 additions
 
 No patch of this series changes, and the tree stays `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`. The
-openkal series learns at run time what LLVM decides from the compiler's target for a host it knows: the
-number of processors, which sized every heavyweight pool of the ok image to one thread, and a program's
-identifier, which a module lock records for its owner (`openkal/patches/README.md`). The engine reports
-itself as `23.1.0-mcppls.7` on every platform and as the ok image.
+openkal series learns at run time what LLVM and clangd decide at compile time for a host they know: the
+physical cores, which sized every heavyweight pool of the ok image to one thread; a thread's claim on the
+processors; and on macOS the SDK clangd asks `xcrun` for, without which a command naming no SDK reached no
+system header (`openkal/patches/README.md`). The image is built over openkal-platform 0.20.1: a program's
+identifier and its lock files are the environment's (openkal-musl 0.24), and on macOS a context's identity
+costs no system call (openkal-macos 0.17.1), which an image's C library asks for at every thread-local
+access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as the ok image.
 
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|

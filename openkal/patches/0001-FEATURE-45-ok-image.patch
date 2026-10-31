@@ -20,6 +20,11 @@ from the host has to be decided when the image starts:
   before anything is resolved against another directory (the resource
   directory beside the program is);
 - the default target is the system's, on the image's architecture;
+- on macOS the SDK and the system's clang are what clangd asks xcrun for, as
+  every Apple build of clangd does: clangd adds `-isysroot` to a command that
+  names no SDK, and without it a command naming none reached no system
+  header, so the standard library module did not compile ("We don't know how
+  to get the definition of mbstate_t on your platform");
 - a module worker is started by the loader that started this image, and an
   address-space ceiling, which openkal does not state, is not set (the
   parent's memory budget bounds the worker);
@@ -87,6 +92,62 @@ index 1dd107c..3c5533c 100644
      return PathRef();
    }
  #endif
+diff --git a/clang-tools-extra/clangd/CompileCommands.cpp b/clang-tools-extra/clangd/CompileCommands.cpp
+--- a/clang-tools-extra/clangd/CompileCommands.cpp
++++ b/clang-tools-extra/clangd/CompileCommands.cpp
+@@ -35,11 +35,25 @@
+ #include <optional>
+ #include <string>
+ #include <vector>
++#if defined(__OPENKAL__)
++#include <openkal/env.h>
++#endif
+ 
+ namespace clang {
+ namespace clangd {
+ namespace {
+ 
++#if defined(__OPENKAL__)
++// An ok image runs on every system it serves, so what clangd decides for
++// Apple's toolchain layout at compile time is decided here when the system it
++// runs on is macOS (kal_env_system).
++bool onMacOS() {
++  char System[16];
++  const kal_intptr N = kal_env_system(System, sizeof(System));
++  return N > 0 && llvm::StringRef(System, static_cast<size_t>(N)) == "macos";
++}
++#endif
++
+ // Query apple's `xcrun` launcher, which is the source of truth for "how should"
+ // clang be invoked on this system.
+ std::optional<std::string> queryXcrun(llvm::ArrayRef<llvm::StringRef> Argv) {
+@@ -102,9 +116,13 @@
+   // On Mac, `which clang` is /usr/bin/clang. It runs `xcrun clang`, which knows
+   // where the real clang is kept. We need to do the same thing,
+   // because cc1 (not the driver!) will find libc++ relative to argv[0].
+-#ifdef __APPLE__
++#if defined(__APPLE__)
+   if (auto MacClang = queryXcrun({"xcrun", "--find", "clang"}))
+     return resolve(std::move(*MacClang));
++#elif defined(__OPENKAL__)
++  if (onMacOS())
++    if (auto MacClang = queryXcrun({"xcrun", "--find", "clang"}))
++      return resolve(std::move(*MacClang));
+ #endif
+   // On other platforms, just look for compilers on the PATH.
+   for (const char *Name : {"clang", "gcc", "cc"})
+@@ -123,7 +141,10 @@
+ // On mac, /usr/bin/clang sets SDKROOT and then invokes the real clang.
+ // The effect of this is to set -isysroot correctly. We do the same.
+ std::optional<std::string> detectSysroot() {
+-#ifndef __APPLE__
++#if defined(__OPENKAL__)
++  if (!onMacOS())
++    return std::nullopt;
++#elif !defined(__APPLE__)
+   return std::nullopt;
+ #endif
+ 
 diff --git a/clang/lib/Frontend/PrecompiledPreamble.cpp b/clang/lib/Frontend/PrecompiledPreamble.cpp
 --- a/clang/lib/Frontend/PrecompiledPreamble.cpp
 +++ b/clang/lib/Frontend/PrecompiledPreamble.cpp
