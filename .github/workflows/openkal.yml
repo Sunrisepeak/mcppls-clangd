@@ -148,7 +148,7 @@ jobs:
           cp images/openkal-image-aarch64/clangd-aarch64.oke aarch64/clangd.oke
           part="clangd-${FORK_VERSION}-openkal"
           mkdir -p "dist/$part/clangd/bin" "dist/$part/clangd/lib"
-          "$okld" bundle "dist/$part/clangd/bin/clangd.okb" --name clangd --version "$FORK_VERSION" --entry clangd x86_64/clangd.oke aarch64/clangd.oke
+          "$okld" bundle "dist/$part/clangd/bin/clangd.okb" --name clangd --version "$FORK_VERSION" --entry clangd.oke x86_64/clangd.oke aarch64/clangd.oke
           "$okld" bundle check "dist/$part/clangd/bin/clangd.okb"
           cp -R images/openkal-image-x86_64/clang "dist/$part/clangd/lib/clang"
           echo "PART=$part" >> "$GITHUB_ENV"
