@@ -27,6 +27,9 @@ ap.add_argument("--out", required=True)
 ap.add_argument("--repeat", type=int, default=5)
 ap.add_argument("--std", action="store_true", help="also the case over the system's C++ standard library")
 ap.add_argument("--std-args", default="", help="extra compile arguments of the standard-library case")
+ap.add_argument("--std-host", action="store_true",
+                help="also the standard-library case naming no target and no SDK, which the engine completes "
+                     "from the host as the system's own clangd does (macOS: the SDK xcrun names)")
 ap.add_argument("--workers", action="store_true", help="also the module case under supervised workers (Linux)")
 ap.add_argument("--clangd-arg", action="append", default=[], help="an argument added to every --check run")
 ap.add_argument("cmd", nargs=argparse.REMAINDER)
@@ -131,6 +134,10 @@ if a.std:
     with open(os.path.join(d, "std.cpp"), "w") as f:
         f.write(STD)
     entries.append(("std.cpp", ["clang++", "-std=c++20"] + a.std_args.split() + ["-c"]))
+if a.std_host:
+    with open(os.path.join(d, "std-host.cpp"), "w") as f:
+        f.write(STD)
+    entries.append(("std-host.cpp", ["clang++", "-std=c++20", "-c"]))
 cdb(d, entries)
 
 
@@ -161,6 +168,8 @@ if a.workers:
           ["--experimental-modules-support", "--modules-builder-worker-policy=required"])
 if a.std:
     check("check-std-headers", os.path.join(d, "std.cpp"))
+if a.std_host:
+    check("check-std-host", os.path.join(d, "std-host.cpp"))
 
 # HOW MANY MODULES CLANGD BUILDS AT ONCE, which it takes from the host's
 # processors: twelve modules no other imports, and one file importing them all.

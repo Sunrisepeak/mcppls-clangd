@@ -275,19 +275,23 @@ jobs:
         run: |
           set -euo pipefail
           args=""
+          host=""
           case "${{ matrix.std }}" in
-            mac) args="--target=arm64-apple-macos14 -isysroot $(xcrun --show-sdk-path)" ;;
+            mac) args="--target=arm64-apple-macos14 -isysroot $(xcrun --show-sdk-path)"
+                 # The same case naming neither: each engine finds the SDK as the system's clangd does.
+                 host="--std-host" ;;
             msvc)
               args="--target=x86_64-pc-windows-msvc -fms-compatibility -fms-extensions"
               IFS=';' read -ra dirs <<< "$INCLUDE"
               for d in "${dirs[@]}"; do [ -n "$d" ] && args="$args -imsvc$(cygpath -m "$d")"; done ;;
           esac
           echo "STD_ARGS=$args" >> "$GITHUB_ENV"
+          echo "STD_HOST=$host" >> "$GITHUB_ENV"
       - name: Native clangd
-        run: python ci/openkal_check.py --label native-${{ matrix.platform }} --out native.json --std --std-args="$STD_ARGS" -- "$NATIVE"
+        run: python ci/openkal_check.py --label native-${{ matrix.platform }} --out native.json --std --std-args="$STD_ARGS" $STD_HOST -- "$NATIVE"
       - name: clangd.okb under okrun
         continue-on-error: true
-        run: python ci/openkal_check.py --label image-${{ matrix.platform }} --out image.json --std --std-args="$STD_ARGS" -- "$OKRUN" "$OKB"
+        run: python ci/openkal_check.py --label image-${{ matrix.platform }} --out image.json --std --std-args="$STD_ARGS" $STD_HOST -- "$OKRUN" "$OKB"
       - name: Acceptance
         run: python ci/openkal_accept.py --platform ${{ matrix.platform }} --native native.json --image image.json --image-file image/clangd-${{ matrix.arch }}.oke --out acceptance-${{ matrix.platform }}.json
       - uses: actions/upload-artifact@v4

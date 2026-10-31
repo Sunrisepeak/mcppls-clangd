@@ -20,6 +20,11 @@ file. The start of each is reported beside the parse times.
 And it builds as many modules at once as the native clangd on the same machine
 (`module-parallelism`): that number is the host's processors, which the image
 learns at run time; LLVM's answer for a target it did not know was one.
+
+And where the native clangd answers the standard-library case whose command
+names no target and no SDK (`check-std-host`, macOS), the image answers it too:
+what the system's own clangd completes from the host (the SDK xcrun names) the
+image completes at run time.
 """
 import argparse, json, os, sys
 
@@ -47,6 +52,14 @@ for name in COLUMNS:
     ok = (all(r == 0 for r in rc) if isinstance(rc, list) else rc == 0) if name == "version" else case.get("ok", False)
     if not ok:
         failures.append(f"{name}: failed ({case.get('errors')} errors, rc {case.get('rc')})")
+if "check-std-host" in native:
+    n, i = native["check-std-host"], image.get("check-std-host") or {}
+    measured["check-std-host"] = {"native_ok": n.get("ok"), "image_ok": i.get("ok")}
+    if n.get("ok") and not i.get("ok"):
+        failures.append(f"check-std-host: failed ({i.get('errors')} errors, rc {i.get('rc')}) "
+                        "where the native clangd completed the command from the host")
+
+
 def start(cases):
     v = cases.get("version") or {}
     return v.get("seconds_median", v.get("seconds", 0.0))
