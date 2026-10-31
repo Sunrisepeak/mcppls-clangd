@@ -98,7 +98,12 @@ jobs:
           mkdir -p out
           cp "$(ls openkal/clangd/target/${{ matrix.arch }}-openkal/*/bin/clangd.oke | head -1)" out/clangd-${{ matrix.arch }}.oke
           # clang's own headers, which clangd reads beside it (one copy serves both images).
-          cp -R "$(find openkal/clangd/target/${{ matrix.arch }}-openkal -type d -path '*/llvm/lib/clang' | head -1)" out/clang
+          # The libraries are a `prepare` action's output, under the build's out
+          # directory (`target/.build-mcpp/out/<configuration>/clangd/llvm`), not
+          # under the configuration's own directory.
+          res="$(find openkal/clangd/target -type d -path '*/llvm/lib/clang' | head -1)"
+          [ -n "$res" ] || { echo "::error::no llvm/lib/clang under openkal/clangd/target"; exit 1; }
+          cp -R "$res" out/clang
           ls -l out
       - name: Keep ccache, whatever the build did
         if: always()
