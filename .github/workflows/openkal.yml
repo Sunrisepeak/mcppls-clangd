@@ -139,8 +139,18 @@ jobs:
           curl -fsSL --retry 3 https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
           export PATH="$HOME/.xlings/subos/current/bin:$PATH"
           xlings install "mcpp@$MCPP_VERSION" -y -g
-          mkdir -p h/src && (cd h && printf '[package]\nname = "h"\nversion = "0.1.0"\n' > mcpp.toml \
-            && printf 'int main() { return 0; }\n' > src/main.cpp && mcpp build --target x86_64-openkal > /dev/null)
+          # okld and okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
+          mkdir -p h/src
+          cat > h/mcpp.toml <<'TOML'
+          [package]
+          name    = "h"
+          version = "0.1.0"
+
+          [target.'cfg(os = "openkal")']
+          platform = "openkal-platform@0.19.0"
+          TOML
+          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          (cd h && mcpp build --target x86_64-openkal > /dev/null)
           okld="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okld | sort -V | tail -1)"
           # okld bundle wants one image name across the architectures.
           mkdir -p x86_64 aarch64
@@ -242,8 +252,18 @@ jobs:
             [ "$attempt" = 5 ] && exit 1
             sleep 30
           done
-          mkdir -p h/src && (cd h && printf '[package]\nname = "h"\nversion = "0.1.0"\n' > mcpp.toml \
-            && printf 'int main() { return 0; }\n' > src/main.cpp && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
+          # okld and okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
+          mkdir -p h/src
+          cat > h/mcpp.toml <<'TOML'
+          [package]
+          name    = "h"
+          version = "0.1.0"
+
+          [target.'cfg(os = "openkal")']
+          platform = "openkal-platform@0.19.0"
+          TOML
+          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
           okrun="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun* | sort -V | tail -1)"
           echo "OKRUN=$okrun" >> "$GITHUB_ENV"
           gh release download "$NATIVE_RELEASE" -p "clangd-$NATIVE_ENGINE-${{ matrix.platform }}.tar.gz" -O native.tgz

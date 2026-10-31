@@ -19,3 +19,9 @@ cxxflags = ["-fno-rtti", "-fno-exceptions"]
 
 [build-dependencies]
 okgen = { path = "../okgen", tools = ["okgen"] }
+
+# The platform of the ok images: openkal-platform 0.19.0, openkal 0.18 -- the C library's file
+# `mmap` through `openkal.map`, and the okrun that maps the image it runs (mcpp design 2026-10-30
+# part 2 §25.3 B1). mcpp's own openkal rows pin 0.18.0.
+[target.'cfg(os = "openkal")']
+platform = "openkal-platform@0.19.0"
