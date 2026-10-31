@@ -147,7 +147,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.19.0"
+          platform = "openkal-platform@0.19.2"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
@@ -260,7 +260,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.19.0"
+          platform = "openkal-platform@0.19.2"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)

@@ -10,7 +10,9 @@ The cases are the four columns: `--version`; a file of templates with no library
 header; `import m`; the system's C++ standard library. Each records the exit
 status, the wall time, the peak resident set (the started process and its
 children, sampled), and the tail of what it wrote. A --check case passes when
-clangd reports `All checks completed, 0 errors`.
+clangd reports `All checks completed, 0 errors`. `--version` runs as often as
+each case: its median is the process's start (for the image, okrun admitting and
+placing it), which the acceptance takes off each case's time to compare parsing.
 """
 import argparse, json, os, platform, re, statistics, subprocess, sys, tempfile, time
 
@@ -19,7 +21,7 @@ import psutil
 ap = argparse.ArgumentParser()
 ap.add_argument("--label", required=True)
 ap.add_argument("--out", required=True)
-ap.add_argument("--repeat", type=int, default=3)
+ap.add_argument("--repeat", type=int, default=5)
 ap.add_argument("--std", action="store_true", help="also the case over the system's C++ standard library")
 ap.add_argument("--std-args", default="", help="extra compile arguments of the standard-library case")
 ap.add_argument("--workers", action="store_true", help="also the module case under supervised workers (Linux)")
@@ -107,7 +109,9 @@ results = {"label": a.label, "system": platform.system(), "machine": platform.ma
 work = tempfile.mkdtemp(prefix="okprobe-")
 d = os.path.realpath(work)
 
-results["cases"]["version"] = run(prefix + ["--version"])
+versions = [run(prefix + ["--version"]) for _ in range(a.repeat)]
+results["cases"]["version"] = versions[-1] | {"seconds_median": statistics.median(r["seconds"] for r in versions),
+                                             "rc": [r["rc"] for r in versions]}
 
 with open(os.path.join(d, "local.h"), "w") as f:
     f.write("#pragma once\ninline int probe_value() { return 42; }\n")
@@ -159,6 +163,6 @@ with open(a.out, "w") as f:
     json.dump(results, f, indent=1)
 for k, v in results["cases"].items():
     if k == "version":
-        print(f"{a.label} version rc={v['rc']} {v['tail'].strip().splitlines()[:2]}")
+        print(f"{a.label} version rc={v['rc']} t={v['seconds_median']}s {v['tail'].strip().splitlines()[:2]}")
     else:
         print(f"{a.label} {k}: ok={v['ok']} errors={v['errors']} rc={v['rc']} t={v['seconds_median']}s peak={v['peak_rss_mib_max']}MiB")
