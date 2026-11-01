@@ -238,6 +238,17 @@ release adds clangd as an ok image, `clangd.okb`, whose tree is this series and 
 (`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
 image.
 
+## The 0.0.19 additions
+
+No patch of this series changes, and the tree stays `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`. The
+openkal series learns at run time what LLVM and clangd decide at compile time for a host they know: the
+physical cores, which sized every heavyweight pool of the ok image to one thread; a thread's claim on the
+processors; and on macOS the SDK clangd asks `xcrun` for, without which a command naming no SDK reached no
+system header (`openkal/patches/README.md`). The image is built over openkal-platform 0.20.1: a program's
+identifier and its lock files are the environment's (openkal-musl 0.24), and on macOS a context's identity
+costs no system call (openkal-macos 0.17.1), which an image's C library asks for at every thread-local
+access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as the ok image.
+
 | patch | rows | state | tests | drop condition |
 |-------|------|-------|-------|----------------|
 | 0001-UP-05-backport-std-predefined-decl-merge.patch | UP-05 | steady | clang/test/Modules/pr218152.cppm | upstream landed it in 23.1.1 (52774473867e); drop when the base is bumped past 23.1.0 |

@@ -21,11 +21,19 @@ host is decided when the image starts, from what the loader states:
 - the program's own name is the image the loader started (`kal_env_image`),
   made absolute against the directory it started in;
 - the default target is the system's, on the image's architecture;
+- on macOS the SDK and the system's clang are what clangd asks `xcrun` for, as
+  every Apple build of clangd does, so a command that names no SDK reaches the
+  system's headers;
 - a module worker is started by the loader that started this image
   (`kal_env_loader`), with no address-space ceiling, which openkal does not
   state;
 - `/proc/self/fd` names the loader's descriptors and is not read; a file system
-  is local; `<endian.h>` is the C library's.
+  is local; `<endian.h>` is the C library's;
+- the physical cores and a thread's claim on the processors are openkal's
+  (`kal_task_cores`, `kal_task_set_priority`, openkal 0.19), where LLVM's answer
+  for an unknown target made every heavyweight pool one thread and left
+  background threads at the default claim. A lock owner's identifier is the C
+  library's `getpid`, the environment's since openkal-musl 0.24.0.
 
 The engine's identity covers both series: `ci/series_identity.py --openkal` is
 the `patch-series-sha256` of `clangd.okb`; a native engine's covers
