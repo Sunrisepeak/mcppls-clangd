@@ -28,7 +28,7 @@ image completes at run time.
 
 And it indexes a dozen files on four workers at once (`parallel-index`, an LSP
 session with the background index) in at most 1.3 times the native clangd's
-time: the cases above parse one file on one thread, and concurrent, allocating
+time, the least of five runs of each: the cases above parse one file on one thread, and concurrent, allocating
 work is where an image's C library once made clangd.okb several times slower.
 """
 import argparse, json, os, sys
@@ -93,9 +93,10 @@ if n and n.get("ok"):
     if not i or not i.get("ok"):
         failures.append("parallel-index: the image did not finish indexing")
     else:
-        ratio = i["seconds_median"] / max(n["seconds_median"], 1e-3)
-        measured["parallel-index"] = {"time_ratio": round(ratio, 3), "native_seconds": n["seconds_median"],
-                                      "image_seconds": i["seconds_median"]}
+        ratio = i["seconds_min"] / max(n["seconds_min"], 1e-3)
+        measured["parallel-index"] = {"time_ratio": round(ratio, 3), "native_seconds": n["seconds_min"],
+                                      "image_seconds": i["seconds_min"], "native_runs": n["seconds"],
+                                      "image_runs": i["seconds"]}
         if ratio > 1.3:
             failures.append(f"parallel-index: {ratio:.2f}x the native clangd's time (at most 1.3x)")
 

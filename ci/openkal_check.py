@@ -195,7 +195,9 @@ results["cases"]["module-parallelism"] = {"rc": r["rc"], "limit": max(limits) if
 # C library once served every allocation under one lock, and clangd.okb then used
 # less than one of four processors in mcppls's warm start while passing every
 # case above. Timed from `initialized' to the end of `backgroundIndexProgress',
-# over a fresh copy each time, the median of three.
+# over a fresh copy each time. THE LEAST OF FIVE: a shared runner's other work
+# only ever adds to a run, and on macOS the median of three moved between 1.05
+# and 1.33 times the native clangd's for one and the same image.
 def lsp_index(prefix, root, files, timeout=600):
     log = tempfile.TemporaryFile()
     p = subprocess.Popen(prefix + [f"--compile-commands-dir={root}", "-j=4", "--background-index", "--log=error"],
@@ -263,10 +265,11 @@ def index_tree(at):
 
 
 runs = []
-for k in range(3):
+for k in range(5):
     at = os.path.join(d, f"index{k}")
     runs.append(lsp_index(prefix + a.clangd_arg, at, index_tree(at)))
 results["cases"]["parallel-index"] = {"ok": all(r["ok"] for r in runs), "seconds": [r["seconds"] for r in runs],
+                                      "seconds_min": min(r["seconds"] for r in runs),
                                       "seconds_median": statistics.median(r["seconds"] for r in runs)}
 
 with open(a.out, "w") as f:
@@ -275,7 +278,7 @@ for k, v in results["cases"].items():
     if k == "module-parallelism":
         print(f"{a.label} module-parallelism: rc={v['rc']} limit={v['limit']}")
     elif k == "parallel-index":
-        print(f"{a.label} parallel-index: ok={v['ok']} t={v['seconds_median']}s {v['seconds']}")
+        print(f"{a.label} parallel-index: ok={v['ok']} least={v['seconds_min']}s {v['seconds']}")
     elif k == "version":
         print(f"{a.label} version rc={v['rc']} t={v['seconds_median']}s {v['tail'].strip().splitlines()[:2]}")
     else:
