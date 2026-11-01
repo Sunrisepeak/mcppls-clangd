@@ -20,12 +20,14 @@ cxxflags = ["-fno-rtti", "-fno-exceptions"]
 [build-dependencies]
 okgen = { path = "../okgen", tools = ["okgen"] }
 
-# The platform of the ok images: openkal-platform 0.20.1, openkal 0.19 -- the C library's file
+# The platform of the ok images: openkal-platform 0.20.2, openkal 0.19 -- the C library's file
 # `mmap` through `openkal.map`; the host's physical cores and a context's claim on the processors
 # (kal_task_cores, kal_task_set_priority), which the openkal series reads for LLVM's thread pools;
 # a program's identifier and lock files that the environment answers (openkal-musl 0.24.0); and the
 # okrun that releases the image file once loaded and verifies its chunk digests on several contexts
 # (openkal-image 0.1.8); on macOS a context's identity, which the C library asks at every thread-local
-# access, without a system call (openkal-macos 0.17.1; mcpp design 2026-10-30 part 2 §25.3 B1, §25.9).
+# access, without a system call (openkal-macos 0.17.1); and threads that allocate together, each from
+# its own cache, with memcmp and strlen a word or a vector at a time (openkal-musl 0.25.0; mcpp design
+# 2026-10-30 part 2 §25.3 B1, §25.9).
 [target.'cfg(os = "openkal")']
-platform = "openkal-platform@0.20.1"
+platform = "openkal-platform@0.20.2"

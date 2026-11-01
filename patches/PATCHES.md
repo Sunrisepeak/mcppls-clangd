@@ -238,6 +238,15 @@ release adds clangd as an ok image, `clangd.okb`, whose tree is this series and 
 (`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
 image.
 
+## The 0.0.20 additions
+
+No patch of either series changes, and the engine still reports itself as `23.1.0-mcppls.7`: 0.0.20 is
+the same source, its ok image built over openkal-platform 0.20.2, whose C library serves threads that
+allocate together from their own caches and compares strings a word or a vector at a time (openkal-musl
+0.25.0). In mcppls's warm start clangd.okb had used less than one of four processors behind the C
+library's one allocation lock, while passing every acceptance case; the acceptance now indexes a dozen
+files on four workers at once (`parallel-index`), within 1.3 times the native clangd's time.
+
 ## The 0.0.19 additions
 
 No patch of this series changes, and the tree stays `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`. The
