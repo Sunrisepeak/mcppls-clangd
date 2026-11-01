@@ -1,30 +1,48 @@
-From 6ca08cc0fcff9b7e80d6ba6337eabf24e01c6ff3 Mon Sep 17 00:00:00 2001
+From a04d9fb335e4e945409194e17fb9eaf7e26116d0 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Sun, 1 Nov 2026 20:08:19 +0900
 Subject: [PATCH] [clangd] The provider index is built from a mangled inventory
- once, not once per request
+ once per mangler, not once per request
 
 Every request that asks which source provides a module made a new
 CompileCommandsProjectModules, and its first question mangled every command of
 the inventory -- argument parsing, driver and flag adjustments -- before
 getIndex compared the mangled commands with the ones it indexed last and found
-them equal. A server's requests all mangle with one mangler and the inventory
-is one snapshot per database generation, so that work repeated the same result:
-in a project of 481 commands it ran twice for every file a language server
-prepared, a third of the engine's time while 176 modules were made ready.
+them equal. A server's requests all mangle with the one mangler OverlayCDB
+holds, and the inventory is one snapshot per database generation, so that
+work repeated the same result: in a project of 481 commands it ran twice for
+every file a language server prepared, a third of the engine's time while 176
+modules were made ready.
 
-The command cache now keeps the inventory it indexed and its first command as
-mangled. A request whose mangler gives that command the same line is given the
-index without mangling the rest; a request with another mangler, or with
-per-file flag edits from a config, mangles every command as before, and
-building the index again from other commands forgets what was kept.
+A mangler can now be named (ProjectModules::setCommandManglerIdentity), and
+OverlayCDB names its own. The command cache keeps the inventory it indexed and
+the mangler named then; a request naming the same mangler is given the index
+without mangling a command. A request naming another mangler or none, or one
+whose commands per-file flag edits from a config can change, mangles every
+command as before, and building the index again from other commands forgets
+what was kept.
 ---
- clang-tools-extra/clangd/ProjectModules.cpp   | 67 +++++++++++++++++--
- .../unittests/PrerequisiteModulesTest.cpp     | 33 +++++++++
- 2 files changed, 94 insertions(+), 6 deletions(-)
+ .../clangd/GlobalCompilationDatabase.cpp      |  2 +
+ clang-tools-extra/clangd/ProjectModules.cpp   | 69 +++++++++++++++++--
+ clang-tools-extra/clangd/ProjectModules.h     |  5 ++
+ .../unittests/PrerequisiteModulesTest.cpp     | 43 ++++++++++++
+ 4 files changed, 113 insertions(+), 6 deletions(-)
 
+diff --git a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
+index e733c6f4b..bb7ad01eb 100644
+--- a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
++++ b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
+@@ -951,6 +951,8 @@ OverlayCDB::getProjectModules(PathRef File) const {
+     if (Mangler)
+       Mangler(Command, CommandPath);
+   });
++  // Every request mangles with this one object: what it mangled is shared.
++  MDB->setCommandManglerIdentity(&Mangler);
+   return MDB;
+ }
+ 
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 88611112d..8c71241a8 100644
+index 88611112d..fcbe317b9 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
 @@ -8,6 +8,7 @@
@@ -35,35 +53,25 @@ index 88611112d..8c71241a8 100644
  #include "Compiler.h"
  #include "ModuleDependencyScanCache.h"
  #include "support/Logger.h"
-@@ -192,12 +193,61 @@ public:
+@@ -192,12 +193,51 @@ public:
    std::shared_ptr<const ProviderIndex>
    getIndex(std::vector<ProviderCommand> Commands, const ThreadsafeFS &TFS);
  
 +  /// The provider index of the inventory as \p Mangle leaves it, mangling the
-+  /// inventory once rather than once per request. Every request of a server
-+  /// mangles with the same mangler, and the inventory is one snapshot per
-+  /// database generation, so a request whose mangler gives the inventory's
-+  /// first command the line it gave before is given the index built then: one
-+  /// command is mangled, not every command. \p Uniform is false where per-file
-+  /// flag edits can make two requests' commands differ from one inventory;
-+  /// such a request mangles every command, as each request did before.
++  /// inventory once per mangler rather than once per request. Every request of
++  /// a server mangles with the same mangler and the inventory is one snapshot
++  /// per database generation, so a request naming the mangler the index was
++  /// built with (\p Identity) is given that index without mangling a command.
++  /// A request that names none, or whose commands per-file flag edits can
++  /// change, mangles every command, as each request did before.
 +  std::shared_ptr<const ProviderIndex>
 +  getMangledIndex(llvm::function_ref<void(tooling::CompileCommand &, PathRef)>
 +                      Mangle,
-+                  bool Uniform, const ThreadsafeFS &TFS) {
++                  const void *Identity, const ThreadsafeFS &TFS) {
 +    auto Snapshot = getInventory();
-+    std::optional<tooling::CompileCommand> Probe;
-+    if (Uniform)
-+      for (const auto &Entry : *Snapshot)
-+        if (Entry.Command) {
-+          Probe = *Entry.Command;
-+          Mangle(*Probe, Entry.File);
-+          break;
-+        }
-+    if (Probe) {
++    if (Identity) {
 +      std::lock_guard<std::mutex> Lock(Mu);
-+      if (Index && MangledInventory == Snapshot && MangledProbe &&
-+          MangledProbe->CommandLine == Probe->CommandLine) {
++      if (Index && MangledInventory == Snapshot && MangledBy == Identity) {
 +        vlog("Module provider index reused unmangled: {0} commands",
 +             Snapshot->size());
 +        return Index;
@@ -74,11 +82,11 @@ index 88611112d..8c71241a8 100644
 +      if (Entry.Command)
 +        Mangle(*Entry.Command, Entry.File);
 +    auto Result = getIndex(std::move(Commands), TFS);
-+    if (Probe) {
++    if (Identity) {
 +      std::lock_guard<std::mutex> Lock(Mu);
 +      if (Result == Index) {
 +        MangledInventory = Snapshot;
-+        MangledProbe = std::move(Probe);
++        MangledBy = Identity;
 +      }
 +    }
 +    return Result;
@@ -90,14 +98,27 @@ index 88611112d..8c71241a8 100644
    std::shared_ptr<const std::vector<ProviderCommand>> Inventory;
    std::vector<ProviderCommand> IndexedCommands;
    std::shared_ptr<const ProviderIndex> Index;
-+  // The inventory, and its first command as mangled, that Index was built
++  // The inventory, and the mangler named by the request, that Index was built
 +  // from; cleared whenever Index is built again from other commands.
 +  std::shared_ptr<const std::vector<ProviderCommand>> MangledInventory;
-+  std::optional<tooling::CompileCommand> MangledProbe;
++  const void *MangledBy = nullptr;
    const bool ScanInputsKnown;
  };
  
-@@ -744,12 +794,15 @@ private:
+@@ -721,6 +761,12 @@ public:
+ 
+   void setCommandMangler(CommandMangler Mangler) override {
+     this->Mangler = std::move(Mangler);
++    ManglerIdentity = nullptr;
++    Index.reset();
++  }
++
++  void setCommandManglerIdentity(const void *Identity) override {
++    ManglerIdentity = Identity;
+     Index.reset();
+   }
+ 
+@@ -744,17 +790,22 @@ private:
    void indexProducerCommands() {
      if (Index)
        return;
@@ -108,65 +129,109 @@ index 88611112d..8c71241a8 100644
 -        Mangler(*Entry.Command, Entry.File);
 -    Index = CommandCache->getIndex(std::move(Commands), TFS);
 +    // Per-file flag edits (CompileFlags in a config) can give two requests
-+    // different commands from one inventory.
-+    const bool Uniform = Config::current().CompileFlags.Edits.empty();
++    // different commands from one inventory and one mangler.
++    const void *Identity =
++        Config::current().CompileFlags.Edits.empty() ? ManglerIdentity : nullptr;
 +    Index = CommandCache->getMangledIndex(
 +        [&](tooling::CompileCommand &Command, PathRef File) {
 +          if (Mangler)
 +            Mangler(Command, File);
 +        },
-+        Uniform, TFS);
++        Identity, TFS);
    }
  
    std::shared_ptr<const clang::tooling::CompilationDatabase> CDB;
-@@ -775,6 +828,8 @@ ProjectModulesCommandCache::getIndex(std::vector<ProviderCommand> Commands,
+   const ThreadsafeFS &TFS;
+   CommandMangler Mangler;
++  const void *ManglerIdentity = nullptr;
+   std::shared_ptr<ProjectModulesCommandCache> CommandCache;
+   std::shared_ptr<const ProviderIndex> Index;
+ };
+@@ -775,6 +826,8 @@ ProjectModulesCommandCache::getIndex(std::vector<ProviderCommand> Commands,
      vlog("Module provider index reused: {0} commands", Commands.size());
      return Index;
    }
 +  MangledInventory.reset();
-+  MangledProbe.reset();
++  MangledBy = nullptr;
    auto Result = std::make_shared<ProviderIndex>();
    std::vector<ParsedCompileCommandInfo> ParsedCommands;
    ParsedCommands.reserve(Commands.size());
+@@ -901,6 +954,10 @@ public:
+     forwardCommandMangler();
+   }
+ 
++  void setCommandManglerIdentity(const void *Identity) override {
++    CompileCommands->setCommandManglerIdentity(Identity);
++  }
++
+ private:
+   void forwardCommandMangler() {
+     auto ForwardMangler = [this](tooling::CompileCommand &Command,
+diff --git a/clang-tools-extra/clangd/ProjectModules.h b/clang-tools-extra/clangd/ProjectModules.h
+index 4d6df17fa..b4914515c 100644
+--- a/clang-tools-extra/clangd/ProjectModules.h
++++ b/clang-tools-extra/clangd/ProjectModules.h
+@@ -74,6 +74,11 @@ public:
+   }
+ 
+   virtual void setCommandMangler(CommandMangler Mangler) {}
++  /// What the mangler set last is: one object every request of a server
++  /// mangles with, named so that the commands it mangled can be shared between
++  /// requests. Setting a mangler forgets it; a mangler that is not named is
++  /// applied to every command at each request.
++  virtual void setCommandManglerIdentity(const void *Identity) {}
+ 
+   virtual ~ProjectModules() = default;
+ 
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 7947ea634..383998fdf 100644
+index 7947ea634..e94d710b3 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2231,6 +2231,39 @@ TEST_F(PrerequisiteModulesTests, PositiveScanMemoPreservesConfiguredProviders) {
+@@ -2231,6 +2231,49 @@ TEST_F(PrerequisiteModulesTests, PositiveScanMemoPreservesConfiguredProviders) {
    EXPECT_EQ(getModuleDependencyScanCache().stats().Hits, Before.Hits);
  }
  
-+// Every request of a server mangles the inventory with the same mangler, so the
-+// provider index is built from it once: a later request mangles one command to
-+// see that its mangler agrees, not every command. A request whose mangler gives
-+// another line is indexed afresh.
++// Every request of a server mangles the inventory with the one mangler the
++// server has, which names itself, so the provider index is built from it once:
++// a later request naming the same mangler mangles no command for the index. A
++// request naming another mangler, or none, mangles every command again, and
++// the answers follow what each mangler does.
 +TEST_F(PrerequisiteModulesTests, ProviderIndexMangledOncePerInventory) {
 +  PerFileModulesCompilationDatabase CDB(TestDir, FS);
-+  CDB.addFile("M.cppm", "export module M;\n");
-+  CDB.addFile("N.cppm", "export module N;\nimport M;\n");
-+  CDB.addFile("O.cppm", "export module O;\nimport N;\n");
-+  CDB.addFile("Use.cpp", "import O;\n");
++  auto PCM = (TestDir + "/M.pcm").str();
++  CDB.addFile("M.cppm", "export module M;", {"--precompile", "-o", PCM});
++  CDB.addFile("Use.cpp", "import M;", {"-fmodule-file=M=" + PCM});
++  CDB.addFile("Other.cpp", "import M;", {"-fmodule-file=M=" + PCM});
 +  auto Generation = CDB.toolingCDB();
-+  auto Cache = createProjectModulesCommandCache(Generation, true);
-+  const auto Use = getFullPath("Use.cpp");
++  auto Cache = createProjectModulesCommandCache(Generation);
 +  unsigned Mangled = 0;
-+  auto Ask = [&](std::string Flag) {
++  const int Server = 0, Renaming = 0;
++  auto Ask = [&](const void *Identity, bool Rename, llvm::StringRef Name) {
 +    auto Modules = clang::clangd::getProjectModules(Generation, FS, Cache);
 +    Modules->setCommandMangler(
-+        [&Mangled, Flag](tooling::CompileCommand &Cmd, PathRef) {
++        [&Mangled, PCM, Rename](tooling::CompileCommand &Cmd, PathRef) {
 +          ++Mangled;
-+          Cmd.CommandLine.push_back(Flag);
++          if (Rename)
++            for (auto &Arg : Cmd.CommandLine)
++              if (Arg == "-fmodule-file=M=" + PCM)
++                Arg = "-fmodule-file=Configured=" + PCM;
 +        });
-+    return Modules->getSourceForModuleName("M", Use);
++    if (Identity)
++      Modules->setCommandManglerIdentity(Identity);
++    return Modules->getModuleNameState(Name);
 +  };
-+  EXPECT_EQ(Ask("-DA"), getFullPath("M.cppm"));
++  using State = ProjectModules::ModuleNameState;
++  EXPECT_EQ(Ask(&Server, false, "M"), State::Unique);
 +  const unsigned First = Mangled;
-+  EXPECT_EQ(Ask("-DA"), getFullPath("M.cppm"));
-+  const unsigned Same = Mangled - First;
-+  EXPECT_EQ(Ask("-DB"), getFullPath("M.cppm"));
-+  const unsigned Other = Mangled - First - Same;
-+  EXPECT_LT(Same, First) << "the same mangling is not repeated for every command";
-+  EXPECT_GT(Other, Same) << "another mangling indexes every command again";
++  EXPECT_GE(First, 3u);
++  EXPECT_EQ(Ask(&Server, false, "M"), State::Unique);
++  EXPECT_EQ(Mangled, First) << "the same named mangler mangles no command again";
++  EXPECT_EQ(Ask(&Renaming, true, "Configured"), State::Unique);
++  EXPECT_EQ(Mangled, 2 * First) << "another named mangler indexes every command";
++  EXPECT_EQ(Ask(nullptr, false, "M"), State::Unique);
++  EXPECT_EQ(Mangled, 3 * First) << "an unnamed mangler indexes every command";
++  EXPECT_EQ(Ask(&Server, false, "M"), State::Unique);
++  EXPECT_EQ(Mangled, 4 * First) << "an index built since is not taken for the server's";
 +}
 +
  TEST_F(PrerequisiteModulesTests, ExternalProviderUsesImportingProjectCommand) {
