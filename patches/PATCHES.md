@@ -240,12 +240,17 @@ image.
 
 ## The 0.0.20 additions
 
-No patch of either series changes, and the engine still reports itself as `23.1.0-mcppls.7`: 0.0.20 is
-the same source, its ok image built over openkal-platform 0.20.2, whose C library serves threads that
-allocate together from their own caches and compares strings a word or a vector at a time (openkal-musl
-0.25.0). In mcppls's warm start clangd.okb had used less than one of four processors behind the C
-library's one allocation lock, while passing every acceptance case; the acceptance now indexes a dozen
-files on four workers at once (`parallel-index`), within 1.3 times the native clangd's time.
+One patch is added, 0038: the provider index is built from a mangled inventory once rather than once per
+request. Every request that asked which source provides a module mangled every command of the database
+before finding its index unchanged; in mcppls's own project (481 commands) that ran twice for every file
+the server prepared, a third of the engine's time while 176 modules were made ready, and clangd.okb took
+30 s to be ready again in a new session where the native clangd took 5 s. The ok image is built over
+openkal-platform 0.20.2, whose C library serves threads that allocate together from their own caches and
+compares strings a word or a vector at a time (openkal-musl 0.25.0); clangd.okb had passed every
+acceptance case while using less than one of four processors behind the C library's one allocation lock,
+and the acceptance now indexes a dozen files on four workers at once (`parallel-index`), within 1.3 times
+the native clangd's time. The engine reports itself as `23.1.0-mcppls.8` on every platform and as the ok
+image.
 
 ## The 0.0.19 additions
 
@@ -297,3 +302,4 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0035-UP-40-interactive-action-slots.patch | UP-40 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_inputs_canary.py | upstream schedules completion and signature help apart from AST and preamble builds |
 | 0036-UP-35-unchanged-memos-not-serialized.patch | UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | dropped with 0030 when upstream keeps module memos across sessions |
 | 0037-UP-03-module-workers-under-sanitizers.patch | UP-03 | steady | tests/soak_loop.py and the soak job's ASan+UBSan lit run of the module suite (modules, modules-stale-lock, modules-validation-cache) | dropped with 0017 when upstream isolates module compilation in supervised workers |
+| 0038-UP-03-module-provider-index-mangled-once.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_provider_cache.py | dropped with 0013 when upstream reuses provider command facts across requests of one database generation |
