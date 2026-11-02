@@ -267,8 +267,9 @@ main, the kernel refuses a ceiling below that (every worker of the native engine
 argument"), and one above it holds nothing, so clangd watches the worker's physical footprint and ends it past
 its share. The openkal series adds the answers openkal gives
 the owned cache and its workers (`openkal/patches/README.md`), and the image is built over openkal-platform
-0.21.0 (openkal 0.21; openkal-musl 0.26.0, whose allocator is mimalloc and whose open directories report their
-identity; openkal-image 0.3.0, whose loader maps an image's instructions from its file). The ok image's cold
+0.21.1 (openkal 0.21; openkal-musl 0.26.0, whose allocator is mimalloc and whose open directories report their
+identity; openkal-image 0.3.1, whose loader maps an image's instructions from its file and whose runner admits
+an okb member it has compared before without reading it). The ok image's cold
 and warm sessions of the warm-prime workspace are within 1.04--1.12 times the native engine's ready time,
 processor time and page faults (Linux x86_64; `ci/warm_prime.py`, `ci/warm_prime_accept.py`). The engine
 reports itself as `23.1.0-mcppls.9` on every platform and as the ok image.

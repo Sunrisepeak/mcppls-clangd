@@ -20,12 +20,13 @@ cxxflags = ["-fno-rtti", "-fno-exceptions"]
 [build-dependencies]
 okgen = { path = "../okgen", tools = ["okgen"] }
 
-# The platform of the ok images: openkal-platform 0.21.0, openkal 0.21 -- an image's instructions and
-# read-only data mapped from its file (openkal-image 0.3.0, kal_exec_map_part), so that each module
-# worker starts as a native program does; programs started without copying their starter on Linux
+# The platform of the ok images: openkal-platform 0.21.1, openkal 0.21 -- an image's instructions and
+# read-only data mapped from its file (openkal-image 0.3.0, kal_exec_map_part), and an okb member whose
+# admission was remembered admitted without reading it (0.3.1), so that each module worker starts as a
+# native program does; programs started without copying their starter on Linux
 # (openkal-linux 0.22.0) and an ended program's processor time; memory over openkal.region, mimalloc
 # embedded, an open directory's identity and a normal mutex waited for as the system's library waits
 # (openkal-musl 0.26.0); transfers at an offset and a supervised limit on a unit of workers
 # (openkal 0.20; mcpp design 2026-11-02 part 3).
 [target.'cfg(os = "openkal")']
-platform = "openkal-platform@0.21.0"
+platform = "openkal-platform@0.21.1"
