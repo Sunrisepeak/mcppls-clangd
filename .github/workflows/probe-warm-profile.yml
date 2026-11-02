@@ -1,0 +1,63 @@
+# PROBE, NOT MERGED: where the image's warm session spends its time beside the
+# native engine's, sampled by perf on the CI machine whose ratio is over the
+# gate (Linux x64). The engines are the ones run 41467998016 built.
+name: probe-warm-profile
+on:
+  push:
+    branches: ['probe/warm-profile']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  profile:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, platform: linux-x64, arch: x86_64 }
+          - { os: ubuntu-24.04-arm, platform: linux-arm64, arch: aarch64 }
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: '41467998016'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install psutil
+      - name: the engines and okrun 0.3.1
+        run: |
+          set -euo pipefail
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n clangd-${{ matrix.platform }}-portable -D native
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n clangd-openkal -D part
+          native="$(find native -path '*/clangd/bin/clangd' | head -1)"; chmod +x "$(dirname "$native")"/*
+          mkdir okb && tar xzf part/clangd-*-openkal.tar.gz -C okb
+          curl -fsSL -o okrun.zip "https://github.com/mcpplibs/openkal-image/releases/download/0.3.1/okrun-0.3.1-linux-${{ matrix.arch }}.zip"
+          unzip -q okrun.zip -d okrun
+          echo "NATIVE=$PWD/$native" >> "$GITHUB_ENV"
+          echo "OKB=$(ls $PWD/okb/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          echo "OKRUN=$(find $PWD/okrun -path '*/bin/okrun' | head -1)" >> "$GITHUB_ENV"
+          sudo apt-get install -y -qq linux-tools-common "linux-tools-$(uname -r)" > /dev/null || sudo apt-get install -y -qq linux-tools-generic > /dev/null || true
+          sudo sysctl -w kernel.perf_event_paranoid=-1 kernel.kptr_restrict=0
+          perf --version
+      - name: warm sessions, sampled
+        run: |
+          set -euo pipefail
+          # The cold session builds the cache; the warm ones are sampled, the
+          # last one's data kept. The image writes /tmp/perf-<pid>.map for its
+          # addresses (okrun --prof=perfmap).
+          for side in native image; do
+            if [ "$side" = native ]; then cmd=("$NATIVE"); else cmd=("$OKRUN" "$OKB"); fi
+            python ci/warm_prime.py --label "$side" --workdir "wp-$side" --out "$side-warm.json" --sessions 3 -- "${cmd[@]}" | grep -E 'cold:|warm:'
+            OKRUN_PROF=perfmap python ci/warm_prime.py --label "$side-perf" --workdir "wp-$side" --out "$side-perf.json" --sessions 1 \
+              -- perf record -F 1999 -q -o "$PWD/$side.data" -- "${cmd[@]}" | grep -E 'warm:' || true
+          done
+      - name: what each spends its time in
+        run: |
+          for side in native image; do
+            echo "=== $side: by shared object"
+            perf report -i "$side.data" --stdio --sort dso -q 2>/dev/null | head -15
+            echo "=== $side: by symbol"
+            perf report -i "$side.data" --stdio --sort sym -q 2>/dev/null | head -60
+          done
