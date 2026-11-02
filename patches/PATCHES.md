@@ -252,7 +252,8 @@ acceptance case while using less than one of four processors behind the C librar
 and the acceptance now indexes a dozen files on four workers at once (`parallel-index`), within 1.3 times
 the native clangd's time. 0039: the owned module cache and supervised workers follow what the system
 provides (ModuleCachePlatform: open-file locks, relative directories, removal while open), measured once in each
-cache directory, where they were compiled for Linux alone; macOS and the ok image take them, and the native
+cache directory (APFS reports an open directory whose name was removed with the count it had, and a directory
+has one name there), where they were compiled for Linux alone; macOS and the ok image take them, and the native
 Windows engine keeps a copy of each BMI for each reader. A reader holds one open file for each module it reads,
 so the number of files a process may hold open is raised to the system's most, and a worker's leases share one
 open cache of their root (a cache for each lease exceeded macOS's 256 open files and the ok image's 64 open

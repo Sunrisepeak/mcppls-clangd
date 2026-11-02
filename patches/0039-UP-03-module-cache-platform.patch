@@ -1,4 +1,4 @@
-From de9a51cf8828aa8223d1bce026ab4e6058785201 Mon Sep 17 00:00:00 2001
+From b8710ee80243937215995b13c47f6a4959677f23 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 06:49:16 +0900
 Subject: [PATCH] [clangd] The owned module cache and module workers follow
@@ -11,16 +11,19 @@ prerequisite in clangd and copied the published BMI for each reader, although
 macOS and the C library of an ok image provide what the owned cache uses.
 
 ModuleCachePlatform names what the owned cache needs and states which of it
-this system provides: a byte-range lock held by an open file, so that another
-open of the same file excludes it (F_OFD_SETLK; macOS has it under the same
-command numbers without naming them); files and directories made, opened and
-removed relative to an open directory; and a name removed while open. It also
-states how a group of workers can be held to a memory budget (Linux: a
-delegated cgroup v2), and supplies the operations whose form differs between
-systems: the lock, syncing a file's data and a directory's names, the owner
-and permission word, the count of names, and the modification time. The
-owned cache is written against these and is compiled wherever POSIX names
-exist; Windows compiles none of it and answers that it provides none.
+this system provides: a byte-range lock held by an open file, so that
+another open of the same file excludes it (F_OFD_SETLK; macOS has it under
+the same command numbers without naming them); files and directories made,
+opened and removed relative to an open directory; and a name removed while
+open. It also states how a group of workers can be held to a memory budget
+(Linux: a delegated cgroup v2), and supplies the operations whose form
+differs between systems: the lock, syncing a file's data and a directory's
+names, the owner and permission word, the count of names, and the
+modification time. (APFS reports an open directory whose name was removed
+with the count it had; a directory has one name there, so the removal of it
+leaves none.) The owned cache is written against these and is compiled
+wherever POSIX names exist; Windows compiles none of it and answers that it
+provides none.
 
 Where the system provides it, the defaults are supervised workers and 1024
 MiB of owned payloads; elsewhere they remain compilation in clangd and a copy
@@ -52,11 +55,11 @@ MiB").
  clang-tools-extra/clangd/ModuleBuildCache.cpp | 195 ++++++------
  clang-tools-extra/clangd/ModuleBuildCache.h   |   9 +-
  .../clangd/ModuleBuildWorker.cpp              |   3 +
- .../clangd/ModuleCachePlatform.cpp            | 279 ++++++++++++++++++
- .../clangd/ModuleCachePlatform.h              | 116 ++++++++
+ .../clangd/ModuleCachePlatform.cpp            | 287 ++++++++++++++++++
+ .../clangd/ModuleCachePlatform.h              | 116 +++++++
  clang-tools-extra/clangd/ModulesBuilder.cpp   | 121 ++++++--
  .../unittests/PrerequisiteModulesTest.cpp     |  69 ++++-
- 8 files changed, 677 insertions(+), 116 deletions(-)
+ 8 files changed, 685 insertions(+), 116 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleCachePlatform.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleCachePlatform.h
 
@@ -649,10 +652,10 @@ index 0a294e2b5..25f537bc1 100644
      llvm::SmallString<256> Absolute(P);
 diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
 new file mode 100644
-index 000000000..1e4bcff95
+index 000000000..310a998d6
 --- /dev/null
 +++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
-@@ -0,0 +1,279 @@
+@@ -0,0 +1,287 @@
 +//===--- ModuleCachePlatform.cpp - what the owned module cache needs ------===//
 +//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -918,6 +921,14 @@ index 000000000..1e4bcff95
 +}
 +
 +bool ModuleCachePlatform::unnamed(const struct stat &S) {
++#if defined(__APPLE__)
++  // APFS reports an open directory whose name was removed with the count it
++  // had (2, measured on macOS 15); a file's falls to 0. A directory has one
++  // name here, so the removal of that name, which the caller made, leaves it
++  // with none.
++  if (S_ISDIR(S.st_mode))
++    return true;
++#endif
 +  return S.st_nlink == 0;
 +}
 +

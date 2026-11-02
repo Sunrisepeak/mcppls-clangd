@@ -1,4 +1,4 @@
-From d7eb04edeb02d3ebfb382adb4280533246c584af Mon Sep 17 00:00:00 2001
+From 65cf616d5588072ac60b41813296a927ae122309 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 07:03:01 +0900
 Subject: [PATCH] [clangd] As an ok image, the owned module cache and its
@@ -215,7 +215,7 @@ index 7e0422f71..9b208487f 100644
    if (!hasMarker(MarkerPath, RootMarker))
      return llvm::createStringError("unrecognized worker unit root");
 diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
-index 8822c6b79..0172139a9 100644
+index 425cf927b..d636a6a93 100644
 --- a/clang-tools-extra/clangd/ModuleCachePlatform.cpp
 +++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
 @@ -24,6 +24,9 @@
@@ -271,8 +271,8 @@ index 8822c6b79..0172139a9 100644
  int ModuleCachePlatform::syncDirectory(int FD) { return fsync(FD) ? errno : 0; }
  
  bool ModuleCachePlatform::thisUser(const struct stat &S) {
-@@ -295,6 +325,7 @@ bool ModuleCachePlatform::singleName(const struct stat &S) {
- bool ModuleCachePlatform::unnamed(const struct stat &S) {
+@@ -303,6 +333,7 @@ bool ModuleCachePlatform::unnamed(const struct stat &S) {
+ #endif
    return S.st_nlink == 0;
  }
 +#endif

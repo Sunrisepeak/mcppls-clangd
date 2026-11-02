@@ -1,4 +1,4 @@
-From 0ceb5a366b1ca5f186688b001945820ea4b82ead Mon Sep 17 00:00:00 2001
+From 9656df13909d9aae9c7379ef8fbc8c2a7af8246a Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 16:51:11 +0900
 Subject: [PATCH] [clangd] A module worker is held to its share of the bound by
@@ -67,7 +67,7 @@ index eff4a6b04..f715f378f 100644
      if (WasCancelled || std::chrono::steady_clock::now() >= Deadline) {
        Child.terminate();
 diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
-index 1e4bcff95..8822c6b79 100644
+index 310a998d6..425cf927b 100644
 --- a/clang-tools-extra/clangd/ModuleCachePlatform.cpp
 +++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
 @@ -21,6 +21,9 @@
