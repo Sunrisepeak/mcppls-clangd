@@ -1,4 +1,4 @@
-From 9656df13909d9aae9c7379ef8fbc8c2a7af8246a Mon Sep 17 00:00:00 2001
+From 289a38908ed273d041208dce5934a51c89b33ba1 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 16:51:11 +0900
 Subject: [PATCH] [clangd] A module worker is held to its share of the bound by
@@ -163,7 +163,7 @@ index 833911539..39dd92ed9 100644
    /// Takes the whole-file lock of the open file \p FD: exclusive or shared,
    /// waiting or not. A lock this open file holds already is converted in one
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index 9fae33c11..8287077fe 100644
+index 841aecabd..b7d2b243c 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -278,7 +278,9 @@ llvm::cl::opt<unsigned> ModuleWorkerTimeoutSeconds(

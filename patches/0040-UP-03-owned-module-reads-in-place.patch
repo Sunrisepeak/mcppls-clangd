@@ -1,4 +1,4 @@
-From 64b6cce7acdafd4d38bb9a2f48d3d1abfc7799c1 Mon Sep 17 00:00:00 2001
+From f107d621798a2657ee8978ee8250c04545e8adb5 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 06:52:05 +0900
 Subject: [PATCH] [clangd] A module in the owned cache is read where it was
@@ -240,7 +240,7 @@ index 5ce78e2a4..406a67979 100644
  public:
    llvm::Expected<unsigned> collect(unsigned MaxSlots = 32);
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index d82bb18fd..9fae33c11 100644
+index 0e2349077..841aecabd 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -296,10 +296,10 @@ llvm::cl::opt<unsigned> ModuleWorkerCaptureMiB(
@@ -294,7 +294,7 @@ index d82bb18fd..9fae33c11 100644
    void retain(PathRef File, const ReusablePrerequisiteModules &Built) {
      constexpr unsigned MaxFiles = 32;
      const std::string Key = maybeCaseFoldPath(File);
-@@ -2642,19 +2643,11 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+@@ -2650,19 +2651,11 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
        *Stable = std::move(*Reservation);
        TallyOk = true;
        log("Built module {0} to {1}", ModuleName, (*Stable)->payload());

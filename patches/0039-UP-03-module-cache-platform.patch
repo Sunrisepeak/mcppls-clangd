@@ -1,4 +1,4 @@
-From b8710ee80243937215995b13c47f6a4959677f23 Mon Sep 17 00:00:00 2001
+From 43fcf004618cb7f598a15c8e686e613272fb46f2 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 06:49:16 +0900
 Subject: [PATCH] [clangd] The owned module cache and module workers follow
@@ -37,6 +37,11 @@ owned cache is not used here: ..."); one that passes logs "Module cache
 <root>: owned". The configuration is logged once, with what the system
 provides.
 
+A root's first modules are built at once, and each asks for its cache: one
+of them measures the root and opens it while the others wait and take what it
+found (three that measured and opened it together failed one of them with
+ENOENT on macOS).
+
 A reader of the owned cache holds an open file for each module it reads (its
 lease), and a worker one for each prerequisite. The number of files a process
 may hold open is raised to the most its system allows (on macOS, OPEN_MAX at
@@ -57,9 +62,9 @@ MiB").
  .../clangd/ModuleBuildWorker.cpp              |   3 +
  .../clangd/ModuleCachePlatform.cpp            | 287 ++++++++++++++++++
  .../clangd/ModuleCachePlatform.h              | 116 +++++++
- clang-tools-extra/clangd/ModulesBuilder.cpp   | 121 ++++++--
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 129 ++++++--
  .../unittests/PrerequisiteModulesTest.cpp     |  69 ++++-
- 8 files changed, 685 insertions(+), 116 deletions(-)
+ 8 files changed, 693 insertions(+), 116 deletions(-)
  create mode 100644 clang-tools-extra/clangd/ModuleCachePlatform.cpp
  create mode 100644 clang-tools-extra/clangd/ModuleCachePlatform.h
 
@@ -1066,7 +1071,7 @@ index 000000000..833911539
 +
 +#endif
 diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
-index e5e8bd6cd..d82bb18fd 100644
+index e5e8bd6cd..0e2349077 100644
 --- a/clang-tools-extra/clangd/ModulesBuilder.cpp
 +++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
 @@ -8,6 +8,7 @@
@@ -1212,7 +1217,7 @@ index e5e8bd6cd..d82bb18fd 100644
    }
  
    void registerModuleCacheRoot(PathRef Root) {
-@@ -2263,17 +2300,49 @@ private:
+@@ -2263,17 +2300,55 @@ private:
        WorkerCollectors.push_back(
            {Root.str(), WorkerRoot.str().str(),
             std::make_shared<ModuleBuildWorkerCollector>(WorkerRoot),
@@ -1229,6 +1234,12 @@ index e5e8bd6cd..d82bb18fd 100644
 +  // Root is measured once (ModuleCachePlatform::measure), and what was found
 +  // is logged.
    llvm::Expected<std::shared_ptr<ModuleBuildCache>> ownedCache(PathRef Root) {
++    // ONE OPENING AT A TIME. A root's first modules are built at once and
++    // each asks for its cache: each measured the root and opened its ledger
++    // while another was making it, and one of three failed with ENOENT on
++    // macOS (module_dag, wide/4). The first now measures and opens the root;
++    // the others wait and take what it found.
++    std::lock_guard<std::mutex> Opening(OwnedCacheOpeningMutex);
 +    {
 +      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
 +      for (auto &Entry : WorkerCollectors)
@@ -1264,7 +1275,7 @@ index e5e8bd6cd..d82bb18fd 100644
          ModuleOwnedCacheSlots);
      if (!Cache) return Cache.takeError();
      {
-@@ -2363,6 +2432,9 @@ private:
+@@ -2363,8 +2438,13 @@ private:
    // use and allow a fan-out edit to spawn an unbounded compilation storm.
    std::atomic<unsigned> ActiveBuildTasks{0};
    ModuleBuildWorkerOptions WorkerConfiguration;
@@ -1273,8 +1284,12 @@ index e5e8bd6cd..d82bb18fd 100644
 +  unsigned OwnedCacheMiB = 0;
    std::string WorkerConfigurationError;
    std::mutex WorkerMaintenanceMutex;
++  // Held while a root's owned cache is measured and opened (ownedCache).
++  std::mutex OwnedCacheOpeningMutex;
    std::condition_variable WorkerMaintenanceCV;
-@@ -2513,10 +2585,11 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+   bool StopWorkerMaintenance = false;
+   uint64_t WorkerRootsGeneration = 0;
+@@ -2513,10 +2593,11 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
      Cache.remove(ModuleName, ModuleSource, CommandHash);
    }
  
