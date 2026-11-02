@@ -1,4 +1,4 @@
-From d53f92297bd912f30c36d302d999459be712ba02 Mon Sep 17 00:00:00 2001
+From e1349ffe8c8acc71b769772241aadd20214da5d3 Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Mon, 2 Nov 2026 07:03:01 +0900
 Subject: [PATCH] [clangd] As an ok image, the owned module cache and its
@@ -26,8 +26,11 @@ five places, each answered here under __OPENKAL__:
   owner's identifier instead, opens the owner (kal_process_open_id) and ends
   when the owner has ended, as a Windows worker does with its owner's handle.
 - openkal makes no second name for a file (its links are symbolic), so a
-  worker root's marker is published by a rename that does not replace
-  (RENAME_NOREPLACE, kal_fs_rename_flags) rather than by a hard link.
+  worker root's marker, and the lock file of llvm::LockFileManager that
+  guards a module's build, are published by a rename that does not replace
+  (RENAME_NOREPLACE, kal_fs_rename_flags) rather than by a hard link. The lock
+  file's hard link failed on every system ("failed to create link"), and a
+  module whose build needed the lock failed with it.
 
 The volume beneath a cache directory is measured by the main series through
 the C library, as on every system; with openkal-musl 0.26.0 an open
@@ -38,7 +41,8 @@ passes.
  .../clangd/ModuleBuildWorker.cpp              | 61 +++++++++++++++----
  .../clangd/ModuleBuildWorkerStorage.cpp       | 15 +++++
  .../clangd/ModuleCachePlatform.cpp            | 33 +++++++++-
- 3 files changed, 97 insertions(+), 12 deletions(-)
+ llvm/lib/Support/LockFileManager.cpp          | 15 +++++
+ 4 files changed, 112 insertions(+), 12 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
 index 95766720c..0f0a133c9 100644
@@ -279,6 +283,41 @@ index 425cf927b..d636a6a93 100644
  
  struct timespec ModuleCachePlatform::modified(const struct stat &S) {
  #if defined(__APPLE__)
+diff --git a/llvm/lib/Support/LockFileManager.cpp b/llvm/lib/Support/LockFileManager.cpp
+index 564cfc5b2..5ca396362 100644
+--- a/llvm/lib/Support/LockFileManager.cpp
++++ b/llvm/lib/Support/LockFileManager.cpp
+@@ -33,6 +33,10 @@
+ #if LLVM_ON_UNIX
+ #include <unistd.h>
+ #endif
++#if defined(__OPENKAL__)
++#include <fcntl.h>
++#include <sys/syscall.h>
++#endif
+ 
+ #if defined(__APPLE__) && defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ > 1050)
+ #define USE_OSX_GETHOSTUUID 1
+@@ -235,8 +239,19 @@ Expected<bool> LockFileManager::tryLock() {
+ 
+   while (true) {
+     // Create a link from the lock file name. If this succeeds, we're done.
++#if defined(__OPENKAL__)
++    // openkal makes no second name for a file (its links are symbolic); a
++    // rename that does not replace (KAL_RENAME_NO_REPLACE, the C library's
++    // RENAME_NOREPLACE) publishes the lock file, owner and all, as atomically,
++    // and leaves the unique file nothing to remove.
++    std::error_code EC;
++    if (::syscall(SYS_renameat2, AT_FDCWD, UniqueLockFileName.c_str(), AT_FDCWD,
++                  LockFileName.c_str(), 1 /* RENAME_NOREPLACE */) != 0)
++      EC = std::error_code(errno, std::generic_category());
++#else
+     std::error_code EC =
+         sys::fs::create_link(UniqueLockFileName, LockFileName);
++#endif
+     if (!EC) {
+       RemoveUniqueFile.lockAcquired();
+       Owner = OwnedByUs{};
 -- 
 2.53.0
 
