@@ -25,7 +25,9 @@ env:
 jobs:
   image:
     name: image ${{ matrix.arch }}-openkal
-    runs-on: ubuntu-24.04
+    # On a machine of the image's architecture: the build measures the image it built
+    # (the order a start executes its code in), which runs where it is built.
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 340
     # The build program reads these (build.mcpp, `rerun-if-env-changed`), so every step that plans
     # the image -- the build and the smoke run -- states the same ones.
@@ -35,7 +37,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        include:
+          - { arch: x86_64, os: ubuntu-24.04 }
+          - { arch: aarch64, os: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
       - name: Room for LLVM
@@ -108,6 +112,55 @@ jobs:
           [ -n "$res" ] || { echo "::error::no llvm/lib/clang under openkal/clangd/target"; exit 1; }
           cp -R "$res" out/clang
           ls -l out
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install psutil
+      # THE ORDER A START EXECUTES THE CODE IN (mcpp design 2026-11-03 part 4 §9.4): a cold
+      # session of warm-prime, every process measured (okrun's `touch'), gives the order of the
+      # functions; the image is relinked in it (its objects are this build's), measured again
+      # on the layout it then has, and the pages its start executes are written as its touch
+      # note, which a runner reads in with the code. A measurement of this build, made and
+      # used in this run: no file of the repository.
+      - name: The layout a start executes the code in, and the touch note
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: |
+          set -euo pipefail
+          export JOBS="$(nproc)"
+          source ci/scripts/env.sh
+          export FORK_SUFFIX
+          t=${{ matrix.arch }}-openkal
+          mkdir -p tools-of/src
+          cat > tools-of/mcpp.toml <<'TOML'
+          [package]
+          name    = "tools-of"
+          version = "0.1.0"
+
+          [target.'cfg(os = "openkal")']
+          platform = "openkal-platform@0.23.0"
+          TOML
+          printf 'int main() { return 0; }\n' > tools-of/src/main.cpp
+          (cd tools-of && mcpp build --target "$t" > /dev/null)
+          (cd tools-of && mcpp self env --target "$t" --format json) > tools.json
+          tool() { python3 -c "import json,sys; d=json.load(open('tools.json'))['data']; print(d['runner']['program'] if sys.argv[1] == 'okrun' else d['tools'][sys.argv[1]])" "$1"; }
+          okrun=$(tool okrun); okprof=$(tool okprof); okld=$(tool okld)
+          img=out/clangd-${{ matrix.arch }}.oke
+          rm -rf touch-order && mkdir touch-order
+          OKRUN_PROF="touch:$PWD/touch-order" OKRUN_SNAPSHOT=0 \
+            python ci/warm_prime.py --label order --workdir wp-order --out order.json --sessions 0 -- "$okrun" "$img"
+          "$okprof" report --order "$img" touch-order > order.txt
+          echo "$(wc -l < order.txt) functions in the order of a start, from $(ls touch-order | wc -l) processes"
+          (cd openkal/clangd && MCPPLS_ORDER_FILE="$PWD/../../order.txt" mcpp build --release --target "$t")
+          cp "$(ls openkal/clangd/target/$t/*/bin/clangd.oke | head -1)" "$img"
+          rm -rf touch-note && mkdir touch-note
+          OKRUN_PROF="touch:$PWD/touch-note" OKRUN_SNAPSHOT=0 \
+            python ci/warm_prime.py --label note --workdir wp-note --out note.json --sessions 0 -- "$okrun" "$img"
+          "$okld" touch "$img" touch-note
+          "$okld" check "$img"
+          "$okld" inspect "$img" | grep -E '^(placement|touches)'
       - name: Keep ccache, whatever the build did
         if: always()
         uses: actions/cache/save@v4
@@ -147,7 +200,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.21.1"
+          platform = "openkal-platform@0.23.0"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
@@ -260,7 +313,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.21.1"
+          platform = "openkal-platform@0.23.0"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)

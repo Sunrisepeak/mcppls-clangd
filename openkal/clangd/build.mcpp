@@ -33,5 +33,15 @@ int main() {
      .output_dir(dir.c_str())
      .submit();
     mcpp::link_flag(("@" + rsp).c_str());
+    // THE ORDER A START FIRST EXECUTES THE FUNCTIONS IN (mcpp design 2026-11-03 part 4 §9.4):
+    // measured by CI on a cold session (okrun's `touch', `okprof report --order'), the link
+    // lays the code out by it, so that the pages a start touches are few and adjacent. Not a
+    // file of this repository: a measurement of a build, made and used in the same run.
+    mcpp::rerun_if_env_changed("MCPPLS_ORDER_FILE");
+    if (const std::string order = env("MCPPLS_ORDER_FILE"); !order.empty()) {
+        mcpp::link_flag(("--symbol-ordering-file=" + order).c_str());
+        mcpp::link_flag("--no-warn-symbol-ordering");
+        mcpp::rerun_if_changed(order.c_str());
+    }
     return 0;
 }
