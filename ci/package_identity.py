@@ -162,6 +162,11 @@ def main():
                              'managed-input-roots', 'persistent-module-memos', 'retained-asts-option',
                              'module-input-recheck', 'interactive-actions'],
                 'llvm-tree-commit': stamp['llvm-tree-commit']}
+    # The owned module cache and its supervised workers, where the system provides what they need
+    # (ModuleCachePlatform): Linux, macOS and the ok image. The native engine of Windows caches a copy
+    # for each reader, and mcppls gives the cache's bound only to an engine that declares it.
+    if not args.platform.startswith('win32-'):
+        metadata['features'].append('owned-module-cache')
     if not openkal:
         metadata['build-binary-sha256'] = stamp['build-binary-sha256']
         metadata['cmake-cache-sha256'] = stamp['cmake-cache-sha256']

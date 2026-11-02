@@ -240,8 +240,9 @@ image.
 
 ## The 0.0.20 additions
 
-One patch is added, 0038: the provider index is built from a mangled inventory once rather than once per
-request. Every request that asked which source provides a module mangled every command of the database
+Four patches are added. 0038: the provider index is built from a mangled inventory once rather than once per
+request; the facade a request is given keeps its mangler's name when ModulesBuilder gives it the request's file
+system, where the first form of the patch lost it and mangled every command again. Every request that asked which source provides a module mangled every command of the database
 before finding its index unchanged; in mcppls's own project (481 commands) that ran twice for every file
 the server prepared, a third of the engine's time while 176 modules were made ready, and clangd.okb took
 30 s to be ready again in a new session where the native clangd took 5 s. The ok image is built over
@@ -249,8 +250,23 @@ openkal-platform 0.20.2, whose C library serves threads that allocate together f
 compares strings a word or a vector at a time (openkal-musl 0.25.0); clangd.okb had passed every
 acceptance case while using less than one of four processors behind the C library's one allocation lock,
 and the acceptance now indexes a dozen files on four workers at once (`parallel-index`), within 1.3 times
-the native clangd's time. The engine reports itself as `23.1.0-mcppls.8` on every platform and as the ok
-image.
+the native clangd's time. 0039: the owned module cache and supervised workers follow what the system
+provides (ModuleCachePlatform: open-file locks, relative directories, removal while open), measured once in each
+cache directory, where they were compiled for Linux alone; macOS and the ok image take them, and the native
+Windows engine keeps a copy of each BMI for each reader. A reader holds one open file for each module it reads,
+so the number of files a process may hold open is raised to the system's most, and a worker's leases share one
+open cache of their root (a cache for each lease exceeded macOS's 256 open files and the ok image's 64 open
+directories for a module importing 175). 0040: a module in the owned cache is read where it was published,
+under its own lease, where each reader was given a copy. 0041: a worker's end is seen when it happens: the
+worker's owner monitor slept ten milliseconds between looks and the worker waited for it on the way out, and
+the parent looked at a running worker every ten milliseconds; a cold build of 176 modules was ready in 3.4 s
+instead of 4.9 s (the median worker 9 ms instead of 20 ms). The openkal series adds the answers openkal gives
+the owned cache and its workers (`openkal/patches/README.md`), and the image is built over openkal-platform
+0.21.0 (openkal 0.21; openkal-musl 0.26.0, whose allocator is mimalloc and whose open directories report their
+identity; openkal-image 0.3.0, whose loader maps an image's instructions from its file). The ok image's cold
+and warm sessions of the warm-prime workspace are within 1.04--1.12 times the native engine's ready time,
+processor time and page faults (Linux x86_64; `ci/warm_prime.py`, `ci/warm_prime_accept.py`). The engine
+reports itself as `23.1.0-mcppls.9` on every platform and as the ok image.
 
 ## The 0.0.19 additions
 
@@ -303,3 +319,6 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0036-UP-35-unchanged-memos-not-serialized.patch | UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | dropped with 0030 when upstream keeps module memos across sessions |
 | 0037-UP-03-module-workers-under-sanitizers.patch | UP-03 | steady | tests/soak_loop.py and the soak job's ASan+UBSan lit run of the module suite (modules, modules-stale-lock, modules-validation-cache) | dropped with 0017 when upstream isolates module compilation in supervised workers |
 | 0038-UP-03-module-provider-index-mangled-once.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_provider_cache.py | dropped with 0013 when upstream reuses provider command facts across requests of one database generation |
+| 0039-UP-03-module-cache-platform.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedCacheDirectoryIsMeasured, OwnedInputLeasesShareTheirRootsCache); tests/e2e/module_cache_lease.py; .github/workflows/build-test.yml (path parity, warm-prime) | dropped with 0017 and 0019 when upstream isolates module compilation in supervised workers and owns its module payloads on every system |
+| 0040-UP-03-owned-module-reads-in-place.patch | UP-03, UP-24 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_cache_lease.py | dropped with 0019 when upstream owns its module payloads |
+| 0041-UP-03-module-worker-end-seen-at-once.patch | UP-03 | stabilizing | ci/warm_prime.py (worker times); tests/e2e/module_cache_lease.py | dropped with 0017 when upstream supervises its module workers |

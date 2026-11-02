@@ -1,0 +1,1379 @@
+From de9a51cf8828aa8223d1bce026ab4e6058785201 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 2 Nov 2026 06:49:16 +0900
+Subject: [PATCH] [clangd] The owned module cache and module workers follow
+ what the system provides, measured in the cache directory
+
+The owned module cache (ModuleBuildCache) and the default of supervised
+module workers were compiled for Linux alone (`#ifdef __linux__`). Every
+other system, and clangd built as an openkal ok image, compiled each
+prerequisite in clangd and copied the published BMI for each reader, although
+macOS and the C library of an ok image provide what the owned cache uses.
+
+ModuleCachePlatform names what the owned cache needs and states which of it
+this system provides: a byte-range lock held by an open file, so that another
+open of the same file excludes it (F_OFD_SETLK; macOS has it under the same
+command numbers without naming them); files and directories made, opened and
+removed relative to an open directory; and a name removed while open. It also
+states how a group of workers can be held to a memory budget (Linux: a
+delegated cgroup v2), and supplies the operations whose form differs between
+systems: the lock, syncing a file's data and a directory's names, the owner
+and permission word, the count of names, and the modification time. The
+owned cache is written against these and is compiled wherever POSIX names
+exist; Windows compiles none of it and answers that it provides none.
+
+Where the system provides it, the defaults are supervised workers and 1024
+MiB of owned payloads; elsewhere they remain compilation in clangd and a copy
+for each reader. Compiling in clangd uses no owned cache unless one is asked
+for. A volume can lack what its system provides, so a module cache directory
+is measured once before its owned cache is opened: a scratch file and
+directory there are locked through two open files, synced and removed while
+open. A directory that fails is cached by the portable path, and the log
+states why ("Module cache <root>: a copy of each BMI for each reader; the
+owned cache is not used here: ..."); one that passes logs "Module cache
+<root>: owned". The configuration is logged once, with what the system
+provides.
+
+A reader of the owned cache holds an open file for each module it reads (its
+lease), and a worker one for each prerequisite. The number of files a process
+may hold open is raised to the most its system allows (on macOS, OPEN_MAX at
+most) and logged with the configuration, and the leases of a worker share one
+open cache of their root, so that a lease adds its own open file alone. A
+cache for each lease opened the root's directory and ledger again for each
+prerequisite, which exceeded the 256 open files macOS gives a process by
+default, and the 64 open directories of an ok image, for a module that
+imports 175. A generation marker that cannot be opened reports why.
+
+Each module built in a worker is logged with the worker's time, processor
+time and peak memory ("Module worker built <module> in N ms: CPU N ms, peak N
+MiB").
+---
+ clang-tools-extra/clangd/CMakeLists.txt       |   1 +
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 195 ++++++------
+ clang-tools-extra/clangd/ModuleBuildCache.h   |   9 +-
+ .../clangd/ModuleBuildWorker.cpp              |   3 +
+ .../clangd/ModuleCachePlatform.cpp            | 279 ++++++++++++++++++
+ .../clangd/ModuleCachePlatform.h              | 116 ++++++++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 121 ++++++--
+ .../unittests/PrerequisiteModulesTest.cpp     |  69 ++++-
+ 8 files changed, 677 insertions(+), 116 deletions(-)
+ create mode 100644 clang-tools-extra/clangd/ModuleCachePlatform.cpp
+ create mode 100644 clang-tools-extra/clangd/ModuleCachePlatform.h
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index 0a2d3c674..ef8258f85 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -101,6 +101,7 @@ add_clang_library(clangDaemon STATIC
+   ModuleBuildCache.cpp
+   ModuleBuildWorkerOutput.cpp
+   ModuleBuildWorkerStorage.cpp
++  ModuleCachePlatform.cpp
+   ModulesBuilder.cpp
+   ModuleMemoStore.cpp
+   PathMapping.cpp
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 355064928..20e0b1e7c 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -3,6 +3,7 @@
+ // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+ #include "ModuleBuildCache.h"
+ #include "ModuleBuildWorkerStorage.h"
++#include "ModuleCachePlatform.h"
+ #include "support/Logger.h"
+ #include "clang/Frontend/CompilerInvocation.h"
+ #include "clang/Lex/HeaderSearchOptions.h"
+@@ -22,7 +23,7 @@
+ #include <optional>
+ #include <vector>
+ #include <thread>
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+ #include <dirent.h>
+ #include <fcntl.h>
+ #include <sys/file.h>
+@@ -47,7 +48,8 @@ std::string path(PathRef Root, StringRef Name) {
+   llvm::sys::path::append(P, Name);
+   return P.str().str();
+ }
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
++using Platform = ModuleCachePlatform;
+ // The format is local to one target ABI. Exact header/layout validation rejects
+ // a different ABI instead of reinterpreting its reservations. Fixed-size banks
+ // bound all reads. No PID, timestamp or arbitrary recursive scan establishes
+@@ -82,9 +84,9 @@ bool valid(const Record &R) {
+          R.Key[64] == 0 && R.Source[1023] == 0 && R.MainPath[11] == 0 &&
+          StringRef(R.MainPath) == "payload.pcm";
+ }
+-llvm::Error ioError() {
++llvm::Error ioError(int Error = errno) {
+   return llvm::errorCodeToError(
+-      std::error_code(errno, std::generic_category()));
++      std::error_code(Error, std::generic_category()));
+ }
+ bool exactRead(int FD, void *Data, size_t N, off_t At) {
+   auto *P = static_cast<char *>(Data);
+@@ -116,9 +118,9 @@ bool exactWrite(int FD, const void *Data, size_t N, off_t At) {
+ }
+ bool owned(int FD, bool Directory) {
+   struct stat S;
+-  return !fstat(FD, &S) && S.st_uid == geteuid() &&
++  return !fstat(FD, &S) &&
+          (Directory ? S_ISDIR(S.st_mode) : S_ISREG(S.st_mode)) &&
+-         !(S.st_mode & 0077) && (Directory || S.st_nlink == 1);
++         Platform::privateTo(S) && (Directory || Platform::singleName(S));
+ }
+ class FD {
+ public:
+@@ -228,8 +230,9 @@ llvm::Expected<BundleInventory> inventoryBundle(int Generation,
+       struct stat S;
+       if (fstatat(Directory, Name.c_str(), &S, AT_SYMLINK_NOFOLLOW))
+         return ioError();
+-      if (S.st_uid != geteuid() ||
+-          (!S_ISDIR(S.st_mode) && (!S_ISREG(S.st_mode) || S.st_nlink != 1)))
++      if (!Platform::thisUser(S) ||
++          (!S_ISDIR(S.st_mode) &&
++           (!S_ISREG(S.st_mode) || !Platform::singleName(S))))
+         return failure("bundle contains foreign, aliased or nonregular output");
+       bool Metadata = false;
+       if (S_ISDIR(S.st_mode)) {
+@@ -275,8 +278,9 @@ llvm::Expected<BundleInventory> inventoryBundle(int Generation,
+       Add(std::to_string(S.st_dev));
+       Add(std::to_string(S.st_ino));
+       Add(std::to_string(S.st_size));
+-      Add(std::to_string(S.st_mtim.tv_sec));
+-      Add(std::to_string(S.st_mtim.tv_nsec));
++      const struct timespec Modified = Platform::modified(S);
++      Add(std::to_string(Modified.tv_sec));
++      Add(std::to_string(Modified.tv_nsec));
+       if (S_ISDIR(S.st_mode)) {
+         FD ChildFD(openat(Directory, Name.c_str(),
+                           O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+@@ -308,7 +312,8 @@ bool bundleNodeMatches(const BundleNode &Node) {
+          uint64_t(Named.st_dev) == Node.Device &&
+          uint64_t(Named.st_ino) == Node.Inode &&
+          bool(S_ISDIR(Named.st_mode)) == Node.Directory &&
+-         (Node.Directory || (S_ISREG(Named.st_mode) && Named.st_nlink == 1));
++         (Node.Directory ||
++          (S_ISREG(Named.st_mode) && Platform::singleName(Named)));
+ }
+ 
+ llvm::Error syncBundle(const BundleInventory &Bundle) {
+@@ -322,8 +327,14 @@ llvm::Error syncBundle(const BundleInventory &Bundle) {
+     struct stat Opened;
+     if (File.Value < 0 || fstat(File.Value, &Opened) ||
+         uint64_t(Opened.st_dev) != Node.Device ||
+-        uint64_t(Opened.st_ino) != Node.Inode || fsync(File.Value))
++        uint64_t(Opened.st_ino) != Node.Inode)
+       return ioError();
++    if (Node.Directory) {
++      if (int Error = Platform::syncDirectory(File.Value))
++        return ioError(Error);
++    } else if (fsync(File.Value)) {
++      return ioError();
++    }
+   }
+   return llvm::Error::success();
+ }
+@@ -336,7 +347,7 @@ public:
+   unsigned Cursor = 0;
+   // Under Mutex: the slot each key was last found in (lookup's first try).
+   llvm::StringMap<unsigned> Hints;
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+   FD Directory, Ledger;
+   Header Description;
+   off_t offset(unsigned Slot, unsigned Bank) const {
+@@ -347,9 +358,9 @@ public:
+     return !fstat(Ledger.Value, &Opened) &&
+            !fstatat(Directory.Value, "ledger-v1", &Named,
+                     AT_SYMLINK_NOFOLLOW) &&
+-           S_ISREG(Named.st_mode) && Named.st_uid == geteuid() &&
+-           Named.st_nlink == 1 && !(Named.st_mode & 0077) &&
+-           Opened.st_dev == Named.st_dev && Opened.st_ino == Named.st_ino;
++           S_ISREG(Named.st_mode) && Platform::privateTo(Named) &&
++           Platform::singleName(Named) && Opened.st_dev == Named.st_dev &&
++           Opened.st_ino == Named.st_ino;
+   }
+   llvm::Expected<Record> read(unsigned Slot) {
+     if (!rootMatches() || !ledgerMatches())
+@@ -376,9 +387,10 @@ public:
+     // An acknowledged update is durable before any dependent payload write.
+     // A torn newer bank leaves the older, conservatively charged state intact.
+     if (!exactWrite(Ledger.Value, &R, sizeof(R),
+-                    offset(Slot, R.Sequence & 1)) ||
+-        fdatasync(Ledger.Value))
++                    offset(Slot, R.Sequence & 1)))
+       return ioError();
++    if (int Error = Platform::syncData(Ledger.Value))
++      return ioError(Error);
+     return llvm::Error::success();
+   }
+   std::string name(unsigned Slot, uint64_t Generation) const {
+@@ -395,15 +407,8 @@ public:
+       return ioError();
+     if (!owned(F.Value, false))
+       return failure("unrecognized lease");
+-    int R;
+-    struct flock Range{};
+-    Range.l_type = Exclusive ? F_WRLCK : F_RDLCK;
+-    Range.l_whence = SEEK_SET;
+-    do {
+-      R = fcntl(F.Value, Try ? F_OFD_SETLK : F_OFD_SETLKW, &Range);
+-    } while (R < 0 && errno == EINTR);
+-    if (R)
+-      return ioError();
++    if (int Error = Platform::lock(F.Value, Exclusive, !Try))
++      return ioError(Error);
+     return F.release();
+   }
+   bool leaseMatches(unsigned Slot, int FD, const Record &R) const {
+@@ -412,18 +417,17 @@ public:
+     return !fstat(FD, &Opened) &&
+            !fstatat(Directory.Value, Name.c_str(), &Named,
+                     AT_SYMLINK_NOFOLLOW) &&
+-           S_ISREG(Named.st_mode) && Named.st_uid == geteuid() &&
+-           Named.st_nlink == 1 && !(Named.st_mode & 0077) &&
+-           Opened.st_dev == Named.st_dev && Opened.st_ino == Named.st_ino &&
++           S_ISREG(Named.st_mode) && Platform::privateTo(Named) &&
++           Platform::singleName(Named) && Opened.st_dev == Named.st_dev &&
++           Opened.st_ino == Named.st_ino &&
+            (!R.LeaseInode || (uint64_t(Opened.st_dev) == R.LeaseDevice &&
+                               uint64_t(Opened.st_ino) == R.LeaseInode));
+   }
+   bool rootMatches() const {
+     struct stat Opened, Current;
+     return !fstat(Directory.Value, &Opened) && !lstat(Root.c_str(), &Current) &&
+-           S_ISDIR(Current.st_mode) && Current.st_uid == geteuid() &&
+-           !(Current.st_mode & 0077) && Opened.st_dev == Current.st_dev &&
+-           Opened.st_ino == Current.st_ino;
++           S_ISDIR(Current.st_mode) && Platform::privateTo(Current) &&
++           Opened.st_dev == Current.st_dev && Opened.st_ino == Current.st_ino;
+   }
+   std::string marker(unsigned Slot, const Record &R) const {
+     return "clangd-owned-generation-v2\n" + std::to_string(Slot) + "\n" +
+@@ -443,10 +447,12 @@ public:
+       return failure("generation identity changed");
+     FD Marker(
+         openat(F.Value, "owned.generation", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
++    if (Marker.Value < 0)
++      return ioError();
+     const std::string Expected = marker(Slot, R);
+     struct stat M;
+     std::array<char, 128> Data{};
+-    if (Marker.Value < 0 || !owned(Marker.Value, false) ||
++    if (!owned(Marker.Value, false) ||
+         fstat(Marker.Value, &M) || uint64_t(M.st_size) != Expected.size() ||
+         Expected.size() > Data.size() ||
+         !exactRead(Marker.Value, Data.data(), Expected.size(), 0) ||
+@@ -467,7 +473,7 @@ public:
+           errno == ENOENT) {
+         // Erased acknowledges removal AND an unlinked directory descriptor.
+         // Missing paths alone (which could be renamed) never release charges.
+-        if (fsync(Directory.Value))
++        if (Platform::syncDirectory(Directory.Value))
+           return false;
+         return true;
+       }
+@@ -483,7 +489,7 @@ public:
+         path(path(Root, name(Slot, R.Generation)), "workers");
+     struct stat W;
+     if (!fstatat(Gen.Value, "workers", &W, AT_SYMLINK_NOFOLLOW)) {
+-      if (!S_ISDIR(W.st_mode) || W.st_uid != geteuid())
++      if (!S_ISDIR(W.st_mode) || !Platform::thisUser(W))
+         return false;
+       if (R.Type != Retired) {
+         ModuleBuildWorkerCollector Collector(UnitRoot);
+@@ -553,7 +559,8 @@ public:
+       if (RetainedBundle && N == "workers")
+         continue; // Every descendant was validated through no-follow FDs.
+       if (fstatat(Gen.Value, E->d_name, &S, AT_SYMLINK_NOFOLLOW) ||
+-          !S_ISREG(S.st_mode) || S.st_uid != geteuid() || S.st_nlink != 1) {
++          !S_ISREG(S.st_mode) || !Platform::thisUser(S) ||
++          !Platform::singleName(S)) {
+         Known = false;
+         break;
+       }
+@@ -605,7 +612,8 @@ public:
+       return false;
+     if (unlinkat(Directory.Value, Name.c_str(), AT_REMOVEDIR))
+       return false;
+-    if (fsync(Directory.Value) || fstat(Gen.Value, &S) || S.st_nlink != 0)
++    if (Platform::syncDirectory(Directory.Value) || fstat(Gen.Value, &S) ||
++        !Platform::unnamed(S))
+       return false;
+     {
+       std::lock_guard<std::mutex> Guard(Mutex);
+@@ -625,7 +633,7 @@ class ModuleBuildCacheLease::Impl {
+ public:
+   std::shared_ptr<ModuleBuildCache> Cache;
+   unsigned Slot = 0;
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+   FD Lease;
+   Record Description;
+   std::shared_ptr<ModuleBuildCacheLease> Companion;
+@@ -637,18 +645,14 @@ ModuleBuildCache::~ModuleBuildCache() = default;
+ ModuleBuildCacheLease::ModuleBuildCacheLease(std::unique_ptr<Impl> I)
+     : State(std::move(I)) {}
+ ModuleBuildCacheLease::~ModuleBuildCacheLease() {
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+   if (State->Description.Type == Stable)
+     return;
+   // A consuming worker owns an independent shared OFD lease. Its parent may
+   // disappear; failure to upgrade preserves the charge for later collection.
+-  if (State->Description.Type == Copy) {
+-    struct flock Range{};
+-    Range.l_type = F_WRLCK;
+-    Range.l_whence = SEEK_SET;
+-    if (fcntl(State->Lease.Value, F_OFD_SETLK, &Range))
+-      return;
+-  }
++  if (State->Description.Type == Copy &&
++      Platform::lock(State->Lease.Value, true, false))
++    return;
+   auto &C = *State->Cache->State;
+   // The still-exclusive reservation protects cleanup; no request waits behind
+   // collector IO. Cleanup failure leaves the durable charge for maintenance.
+@@ -685,7 +689,7 @@ ModuleBuildCacheLease::~ModuleBuildCacheLease() {
+ #endif
+ }
+ std::string ModuleBuildCacheLease::payload() const {
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+   return path(path(State->Cache->root(),
+                    State->Cache->State->name(State->Slot,
+                                              State->Description.Generation)),
+@@ -698,14 +702,14 @@ std::string ModuleBuildCacheLease::workers() const {
+   return path(llvm::sys::path::parent_path(payload()), "workers");
+ }
+ uint64_t ModuleBuildCacheLease::mainBytes() const {
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+   return State->Description.MainBytes;
+ #else
+   return 0;
+ #endif
+ }
+ uint64_t ModuleBuildCacheLease::payloadBytes() const {
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+   return State->Description.Bytes;
+ #else
+   return 0;
+@@ -715,8 +719,8 @@ llvm::StringRef ModuleBuildCache::root() const { return State->Root; }
+ 
+ llvm::Expected<std::shared_ptr<ModuleBuildCache>>
+ ModuleBuildCache::open(PathRef Root, uint64_t Bytes, unsigned Slots) {
+-#ifndef __linux__
+-  return failure("strict payload admission is only supported on Linux");
++#if !CLANGD_OWNED_MODULE_CACHE
++  return failure("this system provides no owned module cache");
+ #else
+   if (!llvm::sys::path::is_absolute(Root) || Root.contains('\0') || !Bytes ||
+       !Slots || Slots > MaximumSlots)
+@@ -792,8 +796,10 @@ ModuleBuildCache::open(PathRef Root, uint64_t Bytes, unsigned Slots) {
+       if (!exactWrite(I->Ledger.Value, &Empty, sizeof(Empty),
+                       I->offset(Slot, 1)))
+         return ioError();
+-    if (fdatasync(I->Ledger.Value) || fsync(I->Directory.Value))
+-      return ioError();
++    if (int Error = Platform::syncData(I->Ledger.Value))
++      return ioError(Error);
++    if (int Error = Platform::syncDirectory(I->Directory.Value))
++      return ioError(Error);
+   } else if (uint64_t(S.st_size) != Size ||
+              !exactRead(I->Ledger.Value, &I->Description, sizeof(Header), 0) ||
+              I->Description.MagicValue != Magic ||
+@@ -806,9 +812,10 @@ ModuleBuildCache::open(PathRef Root, uint64_t Bytes, unsigned Slots) {
+     // Charges above a lowered bound wait for space like any other pressure.
+     I->Description.Limit = Bytes;
+     if (!exactWrite(I->Ledger.Value, &I->Description.Limit,
+-                    sizeof(I->Description.Limit), offsetof(Header, Limit)) ||
+-        fdatasync(I->Ledger.Value))
++                    sizeof(I->Description.Limit), offsetof(Header, Limit)))
+       return ioError();
++    if (int Error = Platform::syncData(I->Ledger.Value))
++      return ioError(Error);
+   }
+   return std::shared_ptr<ModuleBuildCache>(new ModuleBuildCache(std::move(I)));
+ #endif
+@@ -816,7 +823,7 @@ ModuleBuildCache::open(PathRef Root, uint64_t Bytes, unsigned Slots) {
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+ ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
+                           uint64_t OutputEnvelope, uint64_t CaptureEnvelope) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("unsupported admission");
+ #else
+   if (!State->rootMatches())
+@@ -906,14 +913,17 @@ ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
+                        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                        0600));
+   if (MarkerFile.Value < 0 ||
+-      !exactWrite(MarkerFile.Value, Marker.data(), Marker.size(), 0) ||
+-      fdatasync(MarkerFile.Value) || fsync(Gen.Value))
++      !exactWrite(MarkerFile.Value, Marker.data(), Marker.size(), 0))
+     return ioError();
++  if (int Error = Platform::syncData(MarkerFile.Value))
++    return ioError(Error);
++  if (int Error = Platform::syncDirectory(Gen.Value))
++    return ioError(Error);
+   if (auto E = State->write(Candidate, Selected))
+     return std::move(E);
+   ++Selected.Sequence;
+-  if (fsync(State->Directory.Value))
+-    return ioError();
++  if (int Error = Platform::syncDirectory(State->Directory.Value))
++    return ioError(Error);
+   auto I = std::make_unique<ModuleBuildCacheLease::Impl>();
+   I->Cache = shared_from_this();
+   I->Slot = Candidate;
+@@ -960,7 +970,7 @@ ModuleBuildCache::reserveUntil(
+ }
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+ ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("unsupported lookup");
+ #else
+   const std::string K = digest(Key);
+@@ -995,7 +1005,7 @@ ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
+     // generation, and keeps its charge until bounded collection retires it.
+     // Failing the lookup instead would fail the module for good.
+     if (fstatat(Gen.Value, "payload.pcm", &F, AT_SYMLINK_NOFOLLOW) ||
+-        !S_ISREG(F.st_mode) || F.st_nlink != 1 ||
++        !S_ISREG(F.st_mode) || !Platform::singleName(F) ||
+         uint64_t(F.st_size) != R->MainBytes) {
+       log("Owned module generation {0} skipped: its payload changed",
+           State->name(S, R->Generation));
+@@ -1053,7 +1063,7 @@ ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
+ #endif
+ }
+ llvm::Error ModuleBuildCacheLease::publish() {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("unsupported publication");
+ #else
+   auto &C = *State->Cache->State;
+@@ -1111,8 +1121,10 @@ llvm::Error ModuleBuildCacheLease::publish() {
+     return Error;
+   FD Payload(
+       openat(Gen.Value, "payload.pcm", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+-  if (Payload.Value < 0 || fsync(Payload.Value) || fsync(Gen.Value))
++  if (Payload.Value < 0 || fsync(Payload.Value))
+     return ioError();
++  if (int Error = Platform::syncDirectory(Gen.Value))
++    return ioError(Error);
+   auto Confirmed = inventoryBundle(Gen.Value);
+   if (!Confirmed)
+     return Confirmed.takeError();
+@@ -1134,19 +1146,16 @@ llvm::Error ModuleBuildCacheLease::publish() {
+   State->Description = *R;
+   State->Description.Type = Stable;
+   // Never release/reacquire during transfer: downgrade the same kernel lease.
+-  struct flock Range{};
+-  Range.l_type = F_RDLCK;
+-  Range.l_whence = SEEK_SET;
+   // OFD range-lock conversion is one kernel operation, preserving continuous
+   // ownership. Unlike flock conversion it does not drop/reacquire the lease.
+-  if (fcntl(State->Lease.Value, F_OFD_SETLK, &Range))
+-    return ioError();
++  if (int Error = Platform::lock(State->Lease.Value, false, false))
++    return ioError(Error);
+   return llvm::Error::success();
+ #endif
+ }
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+     const std::shared_ptr<ModuleBuildCacheLease> &StableLease) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("unsupported copy");
+ #else
+   if (!StableLease || StableLease->State->Cache.get() != this ||
+@@ -1195,8 +1204,8 @@ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+   }
+   if (Written != R.MainBytes)
+     return failure("copy source size changed");
+-  if (fdatasync(Output.Value))
+-    return ioError();
++  if (int Error = Platform::syncData(Output.Value))
++    return ioError(Error);
+   auto &C = *State;
+   std::lock_guard<std::mutex> Guard(C.Mutex);
+   Lock Ledger(C.Ledger.Value);
+@@ -1211,16 +1220,13 @@ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+     return std::move(E);
+   (*Result)->State->Description.Type = Copy;
+   (*Result)->State->Description.MainBytes = Written;
+-  struct flock Range{};
+-  Range.l_type = F_RDLCK;
+-  Range.l_whence = SEEK_SET;
+-  if (fcntl((*Result)->State->Lease.Value, F_OFD_SETLK, &Range))
+-    return ioError();
++  if (int Error = Platform::lock((*Result)->State->Lease.Value, false, false))
++    return ioError(Error);
+   return Result;
+ #endif
+ }
+ namespace {
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
+ struct ManagedPath {
+   std::string Root;
+   unsigned Slot;
+@@ -1241,8 +1247,21 @@ llvm::Expected<std::optional<ManagedPath>> identifyManaged(PathRef Generation) {
+     return failure("invalid managed generation identifier");
+   return std::optional<ManagedPath>(Result);
+ }
++// One cache for each root in a process. A worker leases every prerequisite
++// of its module, and a lease keeps its cache open (the root's directory and
++// its ledger): a cache for each lease would hold two more open files for each
++// prerequisite, and an open directory, where a system allows a process few
++// (256 open files by default on macOS, 64 open directories in an ok image).
++// A root replaced while its cache is open fails the cache's operations, as
++// for any open cache.
+ llvm::Expected<std::shared_ptr<ModuleBuildCache>>
+ openManaged(const ManagedPath &P) {
++  static std::mutex Mutex;
++  static llvm::StringMap<std::weak_ptr<ModuleBuildCache>> Opened;
++  std::lock_guard<std::mutex> Guard(Mutex);
++  std::weak_ptr<ModuleBuildCache> &Known = Opened[P.Root];
++  if (auto Cache = Known.lock())
++    return Cache;
+   FD Directory(
+       ::open(P.Root.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+   if (Directory.Value < 0 || !owned(Directory.Value, true))
+@@ -1255,14 +1274,17 @@ openManaged(const ManagedPath &P) {
+       H.RecordSize != sizeof(Record) || !H.Slots || H.Slots > MaximumSlots ||
+       !H.Limit)
+     return failure("unrecognized managed ledger");
+-  return ModuleBuildCache::open(P.Root, H.Limit, H.Slots);
++  auto Cache = ModuleBuildCache::open(P.Root, H.Limit, H.Slots);
++  if (Cache)
++    Known = *Cache;
++  return Cache;
+ }
+ #endif
+ } // namespace
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+ ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+                                     bool StableOnly) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("managed read leases unavailable");
+ #else
+   if (Slot >= State->Description.Slots)
+@@ -1290,8 +1312,9 @@ ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+   FD Gen(*G);
+   struct stat Payload;
+   if (fstatat(Gen.Value, "payload.pcm", &Payload, AT_SYMLINK_NOFOLLOW) ||
+-      !S_ISREG(Payload.st_mode) || Payload.st_nlink != 1 ||
+-      Payload.st_uid != geteuid() || uint64_t(Payload.st_size) != R->MainBytes)
++      !S_ISREG(Payload.st_mode) || !Platform::singleName(Payload) ||
++      !Platform::thisUser(Payload) ||
++      uint64_t(Payload.st_size) != R->MainBytes)
+     return failure("managed input payload changed");
+   if (R->Type == Stable) {
+     auto Bundle = inventoryBundle(Gen.Value);
+@@ -1325,7 +1348,7 @@ ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+ }
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+ ModuleBuildCache::acquireInput(PathRef Payload) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   for (auto I = llvm::sys::path::begin(Payload),
+             E = llvm::sys::path::end(Payload);
+        I != E; ++I)
+@@ -1354,7 +1377,7 @@ ModuleBuildCache::acquireInput(PathRef Payload) {
+ }
+ llvm::Error ModuleBuildCache::validateWorker(PathRef Unit,
+                                              uint64_t OutputLimit) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("managed worker admission unavailable");
+ #else
+   auto Identified = identifyManaged(
+@@ -1390,7 +1413,7 @@ llvm::Error ModuleBuildCache::validateWorker(PathRef Unit,
+ }
+ 
+ llvm::Expected<unsigned> ModuleBuildCache::collect(unsigned MaxSlots) {
+-#ifndef __linux__
++#if !CLANGD_OWNED_MODULE_CACHE
+   return failure("unsupported collection");
+ #else
+   if (!State->rootMatches() || !State->ledgerMatches())
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
+index fdbcdf836..5ce78e2a4 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.h
++++ b/clang-tools-extra/clangd/ModuleBuildCache.h
+@@ -43,10 +43,11 @@ private:
+   explicit ModuleBuildCacheLease(std::unique_ptr<Impl>);
+   std::unique_ptr<Impl> State;
+ };
+-// Linux-only, version-marked fixed-slot namespace. Limits bound logical payload
+-// reservations and generation count, not physical allocation, metadata or RSS.
+-// Each record has two checksummed durable banks; ambiguous identity or cleanup
+-// preserves its reservation. No legacy/prebuilt paths are enrolled or removed.
++// A version-marked fixed-slot namespace, where the system provides what
++// ModuleCachePlatform names. Limits bound logical payload reservations and
++// generation count, not physical allocation, metadata or RSS. Each record has
++// two checksummed durable banks; ambiguous identity or cleanup preserves its
++// reservation. No legacy/prebuilt paths are enrolled or removed.
+ class ModuleBuildCache : public std::enable_shared_from_this<ModuleBuildCache> {
+ public:
+   static llvm::Expected<std::shared_ptr<ModuleBuildCache>>
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 0a294e2b5..25f537bc1 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -10,6 +10,7 @@
+ #include "ModuleBuildCache.h"
+ #include "Compiler.h"
+ #include "ModuleBuildMemoryBudget.h"
++#include "ModuleCachePlatform.h"
+ #include "ModuleBuildWorkerOutput.h"
+ #include "ModuleBuildWorkerStorage.h"
+ #include "support/Logger.h"
+@@ -845,6 +846,8 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+   // Independently retain each managed prerequisite and its stable companion
+   // before frontend reads. Parent death can close every parent FD immediately;
+   // the child's leases keep these charges/files alive until frontend teardown.
++  // Each lease is an open file.
++  ModuleCachePlatform::openFiles();
+   std::vector<std::shared_ptr<ModuleBuildCacheLease>> PrerequisiteLeases;
+   auto LeaseInput = [&](PathRef P) -> llvm::Error {
+     llvm::SmallString<256> Absolute(P);
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+new file mode 100644
+index 000000000..1e4bcff95
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+@@ -0,0 +1,279 @@
++//===--- ModuleCachePlatform.cpp - what the owned module cache needs ------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "ModuleCachePlatform.h"
++#include "llvm/ADT/ScopeExit.h"
++#include "llvm/ADT/SmallString.h"
++#include "llvm/Support/FileSystem.h"
++#include <atomic>
++#include <cerrno>
++#include <cstring>
++#if CLANGD_OWNED_MODULE_CACHE
++#include <algorithm>
++#include <climits>
++#include <fcntl.h>
++#include <sys/file.h>
++#include <sys/resource.h>
++#include <unistd.h>
++#endif
++
++namespace clang {
++namespace clangd {
++namespace {
++
++#if CLANGD_OWNED_MODULE_CACHE
++// The lock of an open file description. Linux names it; macOS has it under
++// the same numbers and does not name it in its headers.
++#if defined(F_OFD_SETLK) && defined(F_OFD_SETLKW)
++constexpr int SetLock = F_OFD_SETLK, SetLockWait = F_OFD_SETLKW;
++constexpr bool HasOpenFileLocks = true;
++#elif defined(__APPLE__)
++constexpr int SetLock = 90, SetLockWait = 91;
++constexpr bool HasOpenFileLocks = true;
++#else
++constexpr int SetLock = -1, SetLockWait = -1;
++constexpr bool HasOpenFileLocks = false;
++#endif
++
++std::string errnoText(llvm::StringRef What, int Error) {
++  return (What + ": " + std::strerror(Error)).str();
++}
++
++// A descriptor closed when the measurement ends, however it ends.
++struct Descriptor {
++  int Value = -1;
++  ~Descriptor() {
++    if (Value >= 0)
++      close(Value);
++  }
++};
++
++// The owned cache compares what a name refers to with what an open file or
++// directory is (st_dev and st_ino), before it trusts or removes either.
++bool sameNode(const struct stat &A, const struct stat &B) {
++  return A.st_dev == B.st_dev && A.st_ino == B.st_ino;
++}
++
++std::string measureIn(PathRef Directory, int Dir) {
++  static std::atomic<unsigned> Count{0};
++  const std::string Stem = ".measure-" + std::to_string(getpid()) + "-" +
++                           std::to_string(Count++);
++  const std::string File = Stem + ".file", Sub = Stem + ".directory";
++  Descriptor A, B, D;
++  auto Remove = llvm::scope_exit([&] {
++    unlinkat(Dir, File.c_str(), 0);
++    unlinkat(Dir, Sub.c_str(), AT_REMOVEDIR);
++  });
++  struct stat S, Named;
++  if (fstat(Dir, &S) || stat(Directory.str().c_str(), &Named) ||
++      !sameNode(S, Named))
++    return "an open directory is not the node its name refers to";
++  A.Value = openat(Dir, File.c_str(),
++                   O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
++  if (A.Value < 0)
++    return errnoText("a file is not made relative to an open directory", errno);
++  if (fstat(A.Value, &S) || !S_ISREG(S.st_mode) ||
++      !ModuleCachePlatform::privateTo(S) ||
++      !ModuleCachePlatform::singleName(S))
++    return "a file made private is not reported as this user's alone, with "
++           "one name";
++  if (fstatat(Dir, File.c_str(), &Named, AT_SYMLINK_NOFOLLOW) ||
++      !sameNode(S, Named))
++    return "an open file is not the node its name refers to";
++  B.Value = openat(Dir, File.c_str(), O_RDWR | O_NOFOLLOW | O_CLOEXEC);
++  if (B.Value < 0)
++    return errnoText("a file is not opened relative to an open directory",
++                     errno);
++  // The ledger's lock, then the leases' (never both on one file, where some
++  // systems make the two kinds conflict).
++  if (flock(A.Value, LOCK_EX | LOCK_NB))
++    return errnoText("a file lock is not taken", errno);
++  if (!flock(B.Value, LOCK_EX | LOCK_NB))
++    return "a file lock held through one open file does not exclude another "
++           "open of the same file";
++  if (flock(A.Value, LOCK_UN))
++    return errnoText("a file lock is not released", errno);
++  if (int Error = ModuleCachePlatform::lock(A.Value, true, false))
++    return errnoText("an open-file lock is not taken", Error);
++  int Error = ModuleCachePlatform::lock(B.Value, false, false);
++  if (!Error)
++    return "a lock held through one open file does not exclude another open "
++           "of the same file";
++  if (Error != EAGAIN && Error != EACCES)
++    return errnoText("an open-file lock is not tried", Error);
++  if ((Error = ModuleCachePlatform::lock(A.Value, false, false)) ||
++      (Error = ModuleCachePlatform::lock(B.Value, false, false)))
++    return errnoText("a shared open-file lock is not shared", Error);
++  if (write(A.Value, "m", 1) != 1)
++    return errnoText("a file is not written", errno);
++  if ((Error = ModuleCachePlatform::syncData(A.Value)))
++    return errnoText("a file's data are not synced", Error);
++  if (unlinkat(Dir, File.c_str(), 0))
++    return errnoText("an open file's name is not removed", errno);
++  if (!fstatat(Dir, File.c_str(), &S, AT_SYMLINK_NOFOLLOW) || errno != ENOENT)
++    return "a removed name is still found";
++  if (fstat(A.Value, &S) || !ModuleCachePlatform::unnamed(S))
++    return "an open file whose name was removed still reports a name";
++  if (mkdirat(Dir, Sub.c_str(), 0700))
++    return errnoText("a directory is not made relative to an open directory",
++                     errno);
++  D.Value = openat(Dir, Sub.c_str(),
++                   O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
++  if (D.Value < 0)
++    return errnoText("a directory is not opened relative to an open "
++                     "directory", errno);
++  if (fstat(D.Value, &S) || !S_ISDIR(S.st_mode) ||
++      !ModuleCachePlatform::privateTo(S))
++    return "a directory made private is not reported as this user's alone";
++  if (fstatat(Dir, Sub.c_str(), &Named, AT_SYMLINK_NOFOLLOW) ||
++      !sameNode(S, Named))
++    return "an open directory is not the node its name refers to";
++  if (unlinkat(Dir, Sub.c_str(), AT_REMOVEDIR))
++    return errnoText("an open directory's name is not removed", errno);
++  if (fstat(D.Value, &S) || !ModuleCachePlatform::unnamed(S))
++    return "an open directory whose name was removed still reports a name";
++  if ((Error = ModuleCachePlatform::syncDirectory(Dir)))
++    return errnoText("a directory's names are not synced", Error);
++  return {};
++}
++#endif
++
++} // namespace
++
++const ModuleCachePlatform::Capabilities &ModuleCachePlatform::stated() {
++  static const Capabilities C = [] {
++    Capabilities C;
++#if CLANGD_OWNED_MODULE_CACHE
++    C.OpenFileLocks = HasOpenFileLocks;
++    C.RelativeDirectories = true;
++    C.RemoveOpen = true;
++#if defined(__linux__)
++    // A delegated cgroup v2 group (ModuleBuildMemoryBudget.cpp).
++    C.WorkerBudget = Budget::Hard;
++#endif
++#endif
++    return C;
++  }();
++  return C;
++}
++
++std::string ModuleCachePlatform::describe(const Capabilities &C) {
++  std::string Text;
++  auto Add = [&](bool Has, llvm::StringRef Name) {
++    if (!Text.empty())
++      Text += ", ";
++    Text += (Has ? "" : "no ");
++    Text += Name;
++  };
++  Add(C.OpenFileLocks, "open-file locks");
++  Add(C.RelativeDirectories, "relative directories");
++  Add(C.RemoveOpen, "removal while open");
++  Text += "; worker budget: ";
++  Text += C.WorkerBudget == Budget::Hard         ? "hard"
++          : C.WorkerBudget == Budget::Supervised ? "supervised"
++                                                 : "none";
++  return Text;
++}
++
++uint64_t ModuleCachePlatform::openFiles() {
++#if CLANGD_OWNED_MODULE_CACHE
++  static const uint64_t Count = []() -> uint64_t {
++    struct rlimit Limit;
++    if (getrlimit(RLIMIT_NOFILE, &Limit))
++      return 0;
++    rlim_t Most = Limit.rlim_max;
++#if defined(__APPLE__)
++    // The system refuses a limit above OPEN_MAX, whatever the hard limit is.
++    Most = (std::min)(Most, rlim_t(OPEN_MAX));
++#endif
++    if (Limit.rlim_cur < Most) {
++      struct rlimit Raised = {Most, Limit.rlim_max};
++      if (!setrlimit(RLIMIT_NOFILE, &Raised))
++        Limit.rlim_cur = Most;
++    }
++    return Limit.rlim_cur == RLIM_INFINITY ? UINT64_MAX
++                                           : uint64_t(Limit.rlim_cur);
++  }();
++  return Count;
++#else
++  return 0;
++#endif
++}
++
++std::string ModuleCachePlatform::measure(PathRef Directory) {
++  const Capabilities &C = stated();
++  if (!C.ownedCache())
++    return "this system provides " + describe(C);
++#if CLANGD_OWNED_MODULE_CACHE
++  if (auto EC = llvm::sys::fs::create_directories(Directory))
++    return "the directory is not made: " + EC.message();
++  Descriptor Dir;
++  Dir.Value = open(Directory.str().c_str(),
++                   O_RDONLY | O_DIRECTORY | O_CLOEXEC);
++  if (Dir.Value < 0)
++    return errnoText("the directory is not opened", errno);
++  return measureIn(Directory, Dir.Value);
++#else
++  (void)Directory;
++  return {};
++#endif
++}
++
++#if CLANGD_OWNED_MODULE_CACHE
++int ModuleCachePlatform::lock(int FD, bool Exclusive, bool Wait) {
++  if (!HasOpenFileLocks)
++    return ENOTSUP;
++  struct flock Range;
++  std::memset(&Range, 0, sizeof(Range));
++  Range.l_type = Exclusive ? F_WRLCK : F_RDLCK;
++  Range.l_whence = SEEK_SET;
++  int R;
++  do {
++    R = fcntl(FD, Wait ? SetLockWait : SetLock, &Range);
++  } while (R < 0 && errno == EINTR);
++  return R ? errno : 0;
++}
++
++int ModuleCachePlatform::syncData(int FD) {
++#if defined(__APPLE__)
++  // The system declares no fdatasync; fsync writes the data and metadata.
++  return fsync(FD) ? errno : 0;
++#else
++  return fdatasync(FD) ? errno : 0;
++#endif
++}
++
++int ModuleCachePlatform::syncDirectory(int FD) { return fsync(FD) ? errno : 0; }
++
++bool ModuleCachePlatform::thisUser(const struct stat &S) {
++  return S.st_uid == geteuid();
++}
++
++bool ModuleCachePlatform::privateTo(const struct stat &S) {
++  return thisUser(S) && !(S.st_mode & 0077);
++}
++
++bool ModuleCachePlatform::singleName(const struct stat &S) {
++  return S.st_nlink == 1;
++}
++
++bool ModuleCachePlatform::unnamed(const struct stat &S) {
++  return S.st_nlink == 0;
++}
++
++struct timespec ModuleCachePlatform::modified(const struct stat &S) {
++#if defined(__APPLE__)
++  return S.st_mtimespec;
++#else
++  return S.st_mtim;
++#endif
++}
++#endif
++
++} // namespace clangd
++} // namespace clang
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.h b/clang-tools-extra/clangd/ModuleCachePlatform.h
+new file mode 100644
+index 000000000..833911539
+--- /dev/null
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.h
+@@ -0,0 +1,116 @@
++//===--- ModuleCachePlatform.h - what the owned module cache needs -*- C++-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// The owned module cache (ModuleBuildCache) and the supervised module workers
++// rely on a few facilities of the system. This interface names them, states
++// which of them this system provides, and measures a cache directory once,
++// since a volume can lack what its system provides. Where a facility is
++// missing, modules are compiled in clangd and each reader is given a copy of
++// the published BMI (the portable path).
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULECACHEPLATFORM_H
++#define LLVM_CLANG_TOOLS_EXTRA_CLANGD_MODULECACHEPLATFORM_H
++
++#include "support/Path.h"
++#include <cstdint>
++#include <string>
++
++// The owned cache is written against POSIX names: directory handles, open
++// files and their locks. A system without them (Windows) compiles none of it.
++#if !defined(_WIN32)
++#define CLANGD_OWNED_MODULE_CACHE 1
++#include <sys/stat.h>
++#include <time.h>
++#else
++#define CLANGD_OWNED_MODULE_CACHE 0
++#endif
++
++namespace clang {
++namespace clangd {
++
++class ModuleCachePlatform {
++public:
++  /// How a group of module workers is held to a memory budget.
++  enum class Budget {
++    None,       ///< It is not held.
++    Supervised, ///< The implementation watches the group and ends it.
++    Hard,       ///< The environment holds the group to it.
++  };
++
++  struct Capabilities {
++    /// A byte-range lock is held by the open file that took it: another open
++    /// of the same file, in this process as well, is excluded by it.
++    bool OpenFileLocks = false;
++    /// Files and directories are made, opened and removed by name relative
++    /// to an open directory.
++    bool RelativeDirectories = false;
++    /// A name is removed while its file or directory is open.
++    bool RemoveOpen = false;
++    /// How the supervised workers can be held to a memory budget.
++    Budget WorkerBudget = Budget::None;
++
++    /// The owned cache needs the three facilities above.
++    bool ownedCache() const {
++      return OpenFileLocks && RelativeDirectories && RemoveOpen;
++    }
++  };
++
++  /// What this system provides, as it states it: at compile time, and at run
++  /// time where an environment states it then.
++  static const Capabilities &stated();
++
++  /// Measures \p Directory once, making it if it is absent: a scratch file and
++  /// a scratch directory are made there, locked through two open files,
++  /// synced, and removed while open. Returns an empty string when the owned
++  /// cache can be used there, and otherwise what was found missing.
++  static std::string measure(PathRef Directory);
++
++  /// One line naming the facilities of \p C, for a log.
++  static std::string describe(const Capabilities &C);
++
++  /// Raises the number of files this process may hold open to the most its
++  /// system allows, once, and returns that number (0 where the system states
++  /// none). A reader of the owned cache holds one open file for each module
++  /// it reads (its lease), and a worker one for each prerequisite.
++  static uint64_t openFiles();
++
++#if CLANGD_OWNED_MODULE_CACHE
++  /// Takes the whole-file lock of the open file \p FD: exclusive or shared,
++  /// waiting or not. A lock this open file holds already is converted in one
++  /// step. Returns 0, or an errno value (EAGAIN or EACCES: another open file
++  /// holds a conflicting lock).
++  static int lock(int FD, bool Exclusive, bool Wait);
++  /// Writes the data of \p FD to storage, with the metadata needed to read
++  /// them back. Returns 0 or an errno value.
++  static int syncData(int FD);
++  /// Writes the names in the directory \p FD to storage. Returns 0 or an
++  /// errno value.
++  static int syncDirectory(int FD);
++  /// Whether \p S belongs to this program's user, where the system states an
++  /// owner.
++  static bool thisUser(const struct stat &S);
++  /// Whether \p S is this program's user's alone: its owner, and no access for
++  /// others in its permission word, where the system states them.
++  static bool privateTo(const struct stat &S);
++  /// Whether the file \p S describes has one name, where the system states a
++  /// count of names.
++  static bool singleName(const struct stat &S);
++  /// Whether the open file or directory \p S describes, whose name was
++  /// removed, has no name left, where the system states a count of names.
++  static bool unnamed(const struct stat &S);
++  /// When \p S was last modified.
++  static struct timespec modified(const struct stat &S);
++#endif
++};
++
++} // namespace clangd
++} // namespace clang
++
++#endif
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index e5e8bd6cd..d82bb18fd 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "ModulesBuilder.h"
+ #include "ModuleBuildCache.h"
++#include "ModuleCachePlatform.h"
+ #include "Compiler.h"
+ #include "CompileCommands.h"
+ #include "ModuleValidationCache.h"
+@@ -252,20 +253,24 @@ llvm::cl::opt<unsigned> ModuleBuildWorkers(
+     llvm::cl::init(2));
+ 
+ using WorkerPolicy = ModuleBuildWorkerOptions::Policy;
++// The defaults of the worker policy and of the owned cache follow what the
++// system provides (ModuleCachePlatform): supervised workers and the owned
++// cache where it has the facilities the owned cache needs, compilation in
++// clangd and a copy for each reader where it has not.
++bool ownedCacheProvided() { return ModuleCachePlatform::stated().ownedCache(); }
+ llvm::cl::opt<WorkerPolicy> ModuleWorkerPolicy(
+     "modules-builder-worker-policy",
+-    llvm::cl::desc("Prerequisite compiler isolation policy"),
++    llvm::cl::desc("Prerequisite compiler isolation policy (default: "
++                   "when-supported where the system provides the owned "
++                   "module cache, in-process elsewhere)"),
+     llvm::cl::values(
+         clEnumValN(WorkerPolicy::InProcess, "in-process", "Compile in clangd"),
+         clEnumValN(WorkerPolicy::WhenSupported, "when-supported",
+                    "Use supervised workers for exportable filesystems"),
+         clEnumValN(WorkerPolicy::Required, "required",
+                    "Reject inputs that cannot use a supervised worker")),
+-#ifdef __linux__
+-    llvm::cl::init(WorkerPolicy::WhenSupported));
+-#else
+-    llvm::cl::init(WorkerPolicy::InProcess));
+-#endif
++    llvm::cl::init(ownedCacheProvided() ? WorkerPolicy::WhenSupported
++                                        : WorkerPolicy::InProcess));
+ llvm::cl::opt<unsigned> ModuleWorkerTimeoutSeconds(
+     "modules-builder-worker-timeout-seconds",
+     llvm::cl::desc("Supervised compiler deadline in seconds (must be positive)"),
+@@ -291,13 +296,11 @@ llvm::cl::opt<unsigned> ModuleWorkerCaptureMiB(
+ // excludes physical allocation/metadata and retains legacy/foreign files.
+ llvm::cl::opt<unsigned> ModuleOwnedCacheMiB(
+     "modules-builder-owned-cache-payload-mib",
+-    llvm::cl::desc("Owned module stable/staging/read-copy payload admission in "
+-                   "MiB; 0 disables strict admission (not a filesystem quota)"),
+-#ifdef __linux__
+-    llvm::cl::init(1024));
+-#else
+-    llvm::cl::init(0));
+-#endif
++    llvm::cl::desc("Owned module stable/staging/read-copy payload admission "
++                   "in MiB; 0 disables strict admission (not a filesystem "
++                   "quota; default: 1024 where the system provides the owned "
++                   "module cache and workers are used, 0 elsewhere)"),
++    llvm::cl::init(ownedCacheProvided() ? 1024 : 0));
+ llvm::cl::opt<unsigned> ModuleOwnedCacheSlots(
+     "modules-builder-owned-cache-generations",
+     llvm::cl::desc("Owned cache generation admission slots (1-4096); each "
+@@ -1433,6 +1436,20 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+     }
+     return std::move(Error);
+   }
++  // What a worker used, as the system reports it of the ended child.
++  if (*Worker) {
++    const ModuleBuildWorkerResult &Done = **Worker;
++    if (Done.Statistics)
++      log("Module worker built {0} in {1} ms: CPU {2} ms, peak {3} MiB",
++          ModuleName, Done.WallTime.count(),
++          std::chrono::duration_cast<std::chrono::milliseconds>(
++              Done.Statistics->TotalTime)
++              .count(),
++          Done.Statistics->PeakMemory / 1024);
++    else
++      log("Module worker built {0} in {1} ms", ModuleName,
++          Done.WallTime.count());
++  }
+   // The compile's first error goes into the failure, which is logged at
+   // info; before, only a verbose log said why a module did not compile.
+   FirstProblemConsumer FirstError(DiagnosticsEngine::Error);
+@@ -2197,9 +2214,18 @@ private:
+     std::shared_ptr<ModuleBuildWorkerCollector> Workers;
+     std::shared_ptr<ModuleReadCopyCollector> Copies;
+     std::shared_ptr<ModuleBuildCache> Owned;
++    // Why the owned cache is not used under Root, once Root was measured
++    // (ModuleCachePlatform::measure); empty when it is used.
++    std::optional<std::string> Unusable;
+   };
+   void configureWorkers() {
++    const auto &Platform = ModuleCachePlatform::stated();
+     WorkerConfiguration.Isolation = ModuleWorkerPolicy;
++    // Compiling in clangd uses no owned cache unless one is asked for.
++    OwnedCacheMiB = WorkerConfiguration.Isolation == WorkerPolicy::InProcess &&
++                            !ModuleOwnedCacheMiB.getNumOccurrences()
++                        ? 0u
++                        : unsigned(ModuleOwnedCacheMiB);
+     WorkerConfiguration.Timeout =
+         std::chrono::seconds(unsigned(ModuleWorkerTimeoutSeconds));
+     WorkerConfiguration.Cancelled = [] { return isCancelled() != 0; };
+@@ -2208,21 +2234,23 @@ private:
+         uint64_t(ModuleWorkerOutputMiB) * MiB;
+     WorkerConfiguration.CaptureLimitBytes =
+         uint64_t(ModuleWorkerCaptureMiB) * MiB;
+-    if (ModuleOwnedCacheMiB) {
++    if (OwnedCacheMiB) {
+       // The reservation envelope and actual writer/capture ceilings agree.
+       // Explicit smaller ceilings remain authoritative; no flags are stripped.
+       if (!WorkerConfiguration.OutputLimitBytes)
+         WorkerConfiguration.OutputLimitBytes = 256 * MiB;
+       if (!WorkerConfiguration.CaptureLimitBytes)
+         WorkerConfiguration.CaptureLimitBytes = 64 * MiB;
+-#ifndef __linux__
+-      WorkerConfigurationError = "Strict owned cache admission requires Linux";
+-#endif
++      if (!Platform.ownedCache())
++        WorkerConfigurationError =
++            "The owned module cache needs open-file locks, relative "
++            "directories and removal while open; this system provides " +
++            ModuleCachePlatform::describe(Platform);
+       if (!ModuleOwnedCacheSlots || ModuleOwnedCacheSlots > 4096)
+         WorkerConfigurationError = "Owned generation count must be 1-4096";
+     }
+     if (WorkerConfiguration.Isolation == WorkerPolicy::InProcess &&
+-        (ModuleWorkerOutputMiB || ModuleWorkerCaptureMiB || ModuleOwnedCacheMiB))
++        (ModuleWorkerOutputMiB || ModuleWorkerCaptureMiB || OwnedCacheMiB))
+       WorkerConfigurationError =
+           "Worker payload bounds require worker isolation";
+     WorkerConfiguration.AddressSpaceLimitBytes =
+@@ -2251,6 +2279,15 @@ private:
+     }
+     if (!WorkerConfigurationError.empty())
+       elog("Module worker configuration failed: {0}", WorkerConfigurationError);
++    log("Module builds: {0}; owned module cache {1}; the system provides {2}; "
++        "{3} open files",
++        WorkerConfiguration.Isolation == WorkerPolicy::InProcess
++            ? "in clangd"
++            : "in supervised workers",
++        OwnedCacheMiB ? llvm::formatv("{0} MiB", OwnedCacheMiB).str()
++                      : std::string("not used"),
++        ModuleCachePlatform::describe(Platform),
++        ModuleCachePlatform::openFiles());
+   }
+ 
+   void registerModuleCacheRoot(PathRef Root) {
+@@ -2263,17 +2300,49 @@ private:
+       WorkerCollectors.push_back(
+           {Root.str(), WorkerRoot.str().str(),
+            std::make_shared<ModuleBuildWorkerCollector>(WorkerRoot),
+-           std::make_shared<ModuleReadCopyCollector>(Root), nullptr});
++           std::make_shared<ModuleReadCopyCollector>(Root), nullptr,
++           std::nullopt});
+       ++WorkerRootsGeneration;
+     }
+     WorkerMaintenanceCV.notify_one();
+   }
+ 
++  // The owned cache under Root, or null where Root was measured not to provide
++  // what it needs: modules under Root are then cached by the portable path.
++  // Root is measured once (ModuleCachePlatform::measure), and what was found
++  // is logged.
+   llvm::Expected<std::shared_ptr<ModuleBuildCache>> ownedCache(PathRef Root) {
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      for (auto &Entry : WorkerCollectors)
++        if (Entry.Root == Root) {
++          if (Entry.Owned)
++            return Entry.Owned;
++          if (Entry.Unusable && !Entry.Unusable->empty())
++            return nullptr;
++        }
++    }
++    std::string Unusable = ModuleCachePlatform::measure(Root);
++    {
++      std::lock_guard<std::mutex> Lock(WorkerMaintenanceMutex);
++      for (auto &Entry : WorkerCollectors)
++        if (Entry.Root == Root && !Entry.Unusable) {
++          Entry.Unusable = Unusable;
++          if (Unusable.empty())
++            log("Module cache {0}: owned, {1} MiB of payloads", Root,
++                OwnedCacheMiB);
++          else
++            log("Module cache {0}: a copy of each BMI for each reader; the "
++                "owned cache is not used here: {1}",
++                Root, Unusable);
++        }
++    }
++    if (!Unusable.empty())
++      return nullptr;
+     llvm::SmallString<256> OwnedRoot(Root);
+     llvm::sys::path::append(OwnedRoot, ".owned-payload-v1");
+     auto Cache = ModuleBuildCache::open(
+-        OwnedRoot, uint64_t(ModuleOwnedCacheMiB) * 1024 * 1024,
++        OwnedRoot, uint64_t(OwnedCacheMiB) * 1024 * 1024,
+         ModuleOwnedCacheSlots);
+     if (!Cache) return Cache.takeError();
+     {
+@@ -2363,6 +2432,9 @@ private:
+   // use and allow a fan-out edit to spawn an unbounded compilation storm.
+   std::atomic<unsigned> ActiveBuildTasks{0};
+   ModuleBuildWorkerOptions WorkerConfiguration;
++  // The owned cache's payload admission in MiB (configureWorkers); 0 when it
++  // is not used.
++  unsigned OwnedCacheMiB = 0;
+   std::string WorkerConfigurationError;
+   std::mutex WorkerMaintenanceMutex;
+   std::condition_variable WorkerMaintenanceCV;
+@@ -2513,10 +2585,11 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+     Cache.remove(ModuleName, ModuleSource, CommandHash);
+   }
+ 
+-  if (ModuleOwnedCacheMiB) {
+-    auto Root = getModuleCacheRoot(ModuleSource, getCDB());
+-    auto Owned = ownedCache(Root);
+-    if (!Owned) return Owned.takeError();
++  auto Owned = OwnedCacheMiB
++                   ? ownedCache(getModuleCacheRoot(ModuleSource, getCDB()))
++                   : llvm::Expected<std::shared_ptr<ModuleBuildCache>>(nullptr);
++  if (!Owned) return Owned.takeError();
++  if (*Owned) {
+     const std::string Key = ModuleName.str() + "\n" + ModuleSource.str() +
+                             "\n" + CommandHash;
+     bool Examined = false;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index fdecc1de9..529d6610e 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -13,8 +13,10 @@
+ 
+ #include "Annotations.h"
+ #include "ModuleBuildCache.h"
+-#ifdef __linux__
++#include "ModuleCachePlatform.h"
++#if CLANGD_OWNED_MODULE_CACHE
+ #include <dirent.h>
++#include <fcntl.h>
+ #include <signal.h>
+ #include <sys/stat.h>
+ #include <sys/wait.h>
+@@ -974,7 +976,29 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerCollectionRequiresBothOwnersGone) {
+   EXPECT_LE(Limited->Examined, 2u);
+ }
+ 
+-#ifdef __linux__
++#if CLANGD_OWNED_MODULE_CACHE
++// A directory of this system's own file system provides what the owned cache
++// needs; the measurement leaves nothing behind, and a directory that cannot
++// be made is reported as such.
++TEST_F(PrerequisiteModulesTests, OwnedCacheDirectoryIsMeasured) {
++  ASSERT_TRUE(ModuleCachePlatform::stated().ownedCache())
++      << ModuleCachePlatform::describe(ModuleCachePlatform::stated());
++  const auto Root = (TestDir + "/measured").str();
++  EXPECT_EQ(ModuleCachePlatform::measure(Root), "");
++  EXPECT_EQ(ModuleCachePlatform::measure(Root), "") << "measured again";
++  std::error_code EC;
++  llvm::sys::fs::directory_iterator It(Root, EC), End;
++  ASSERT_FALSE(EC);
++  EXPECT_TRUE(It == End) << "the measurement left " << It->path();
++  const auto File = (TestDir + "/a-file").str();
++  {
++    llvm::raw_fd_ostream Out(File, EC);
++    ASSERT_FALSE(EC);
++  }
++  EXPECT_THAT(ModuleCachePlatform::measure(File + "/below"),
++              testing::HasSubstr("the directory is not made"));
++}
++
+ // A stable generation whose payload changed on disk is skipped, not a failure
+ // of the module: the module builds again into a new generation.
+ TEST_F(PrerequisiteModulesTests, OwnedLookupSkipsAChangedStablePayload) {
+@@ -1219,6 +1243,47 @@ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
+                        llvm::Succeeded());
+ }
+ 
++// A worker's leases on its prerequisites share one open cache of their root:
++// each lease adds one open file, its own, and the root's directory and ledger
++// are opened once, so a module that imports many is not limited by the files
++// a process may hold open.
++TEST_F(PrerequisiteModulesTests, OwnedInputLeasesShareTheirRootsCache) {
++  const auto Root = (TestDir + "/inputs/.owned-payload-v1").str();
++  const auto Anchor = (TestDir + "/inputs-anchor").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  ASSERT_FALSE(
++      llvm::sys::fs::create_directories(llvm::sys::path::parent_path(Root)));
++  auto Cache = ModuleBuildCache::open(Root, 64, 8);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  std::vector<std::string> Payloads;
++  for (const char *Key : {"A", "B", "C", "D"}) {
++    auto Stable = (*Cache)->reserve(Key, Anchor, 8);
++    ASSERT_THAT_EXPECTED(Stable, llvm::Succeeded());
++    { std::error_code EC; llvm::raw_fd_ostream F((*Stable)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
++    ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
++    Payloads.push_back((*Stable)->payload());
++  }
++  auto OpenFiles = [] {
++    unsigned N = 0;
++    for (int FD = 0; FD < 4096; ++FD)
++      N += fcntl(FD, F_GETFD) != -1;
++    return N;
++  };
++  const unsigned Before = OpenFiles();
++  std::vector<std::shared_ptr<ModuleBuildCacheLease>> Inputs;
++  for (const auto &Payload : Payloads) {
++    auto Input = ModuleBuildCache::acquireInput(Payload);
++    ASSERT_THAT_EXPECTED(Input, llvm::Succeeded());
++    ASSERT_TRUE(*Input);
++    Inputs.push_back(std::move(*Input));
++  }
++  // The root's directory and ledger, and a lease for each input.
++  EXPECT_EQ(OpenFiles() - Before, 2u + Payloads.size());
++  Inputs.clear();
++  EXPECT_EQ(OpenFiles(), Before);
++  EXPECT_GE(ModuleCachePlatform::openFiles(), 256u);
++}
++
+ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleChecksOutputAndIdentity) {
+   const auto Root = (TestDir + "/bundle-guards").str();
+   const auto Anchor = (TestDir + "/source-anchor").str();
+-- 
+2.53.0
+

@@ -168,7 +168,15 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
     const auto toolchain = buildDir / "openkal.cmake";
     const auto text = toolchain_of(contract, arch);
     const bool changed = !fs::exists(toolchain) || read_file(toolchain) != text;
-    if (changed) write_file(toolchain, text);
+    if (changed) {
+        write_file(toolchain, text);
+        // CMake reads a toolchain file's `*_FLAGS_INIT` at a directory's first configuration
+        // only, so a changed contract (another platform, C library or openkal) is configured
+        // from the start; ninja then rebuilds what the new commands change.
+        std::error_code ec;
+        fs::remove(buildDir / "CMakeCache.txt", ec);
+        fs::remove_all(buildDir / "CMakeFiles", ec);
+    }
     if (changed || !fs::exists(buildDir / "build.ninja")) {
         const auto tool = [&](std::string_view name) { return (hostTools / name).generic_string(); };
         run(*cmake, {

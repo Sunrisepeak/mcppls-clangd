@@ -1,0 +1,284 @@
+From 1298745b39d66f135bcbf83330447486a93a8477 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 2 Nov 2026 07:03:01 +0900
+Subject: [PATCH] [clangd] As an ok image, the owned module cache and its
+ workers are answered by openkal
+
+The owned module cache and supervised module workers are chosen by what the
+system provides (ModuleCachePlatform). An ok image has the C library's POSIX
+names over openkal, and what openkal states differs from a POSIX system in
+five places, each answered here under __OPENKAL__:
+
+- openkal states no owner, permission word or count of names (a
+  capability-based environment confines a program by what it grants), and the
+  C library reports placeholders for them; the owned cache's checks of them
+  read what openkal states instead: the directory is the program's because it
+  was granted, and a removed name is seen to be gone by the name. openkal has
+  no operation that writes a directory's names to storage, so syncing them is
+  nothing to do.
+- How a worker is held to a memory budget is what kal_process_props states
+  (KAL_PROCESS_PROP_JOB_LIMIT_HARD or _SUPERVISED, openkal 0.20). A worker
+  forms a unit of its own (kal_process_job_enter) and holds it to the bound it
+  is given, as a memory limit (kal_process_job_limit): openkal states no
+  address-space ceiling, and the limit ends a worker whose memory exceeds it.
+- openkal starts a program with its three streams and no other descriptor, so
+  a worker cannot inherit the read end of its owner's pipe. It is given the
+  owner's identifier instead, opens the owner (kal_process_open_id) and ends
+  when the owner has ended, as a Windows worker does with its owner's handle.
+- openkal makes no second name for a file (its links are symbolic), so a
+  worker root's marker is published by a rename that does not replace
+  (RENAME_NOREPLACE, kal_fs_rename_flags) rather than by a hard link.
+
+The volume beneath a cache directory is measured by the main series through
+the C library, as on every system; with openkal-musl 0.26.0 an open
+directory reports the identity of its name, and clangd.okb takes the owned
+cache and its workers on Linux, macOS and Windows where the measurement
+passes.
+---
+ .../clangd/ModuleBuildWorker.cpp              | 61 +++++++++++++++----
+ .../clangd/ModuleBuildWorkerStorage.cpp       | 15 +++++
+ .../clangd/ModuleCachePlatform.cpp            | 33 +++++++++-
+ 3 files changed, 97 insertions(+), 12 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index ebfda4fc8..47808b929 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -43,6 +43,7 @@
+ #endif
+ #if defined(__OPENKAL__)
+ #include <openkal/env.h>
++#include <openkal/process.h>
+ #endif
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/JSON.h"
+@@ -85,8 +86,21 @@ llvm::Error applyAddressSpaceLimit(uint64_t Bytes) {
+   if (!Bytes)
+     return llvm::Error::success();
+ #if defined(__OPENKAL__)
+-  // openkal states no address-space ceiling; the parent's memory budget, which
+-  // admits workers by what they hold, is the bound of an ok image's worker.
++  // openkal states no address-space ceiling. The worker forms a unit of its
++  // own and holds the unit to the bound as a memory limit (openkal 0.20),
++  // which ends the worker when its memory exceeds it; where the environment
++  // holds no unit to a limit, the worker is not bounded.
++  const kal_uintptr Props = kal_process_props();
++  if (!(Props & KAL_PROCESS_PROP_JOB) ||
++      !(Props & (KAL_PROCESS_PROP_JOB_LIMIT_HARD |
++                 KAL_PROCESS_PROP_JOB_LIMIT_SUPERVISED)))
++    return llvm::Error::success();
++  struct kal_job Unit = {0};
++  if (kal_process_job_enter(&Unit) != kal_ok)
++    return llvm::createStringError("module worker did not form its unit");
++  if (kal_process_job_limit(Unit, KAL_JOB_LIMIT_MEMORY, Bytes) != kal_ok)
++    return llvm::createStringError(
++        "module worker's unit was not held to its memory limit");
+   return llvm::Error::success();
+ #elif defined(RLIMIT_AS) && !defined(_WIN32)
+   struct rlimit Previous;
+@@ -174,12 +188,17 @@ llvm::Error validateInvocation(const CompilerInvocation &Invocation,
+ // The child inherits only the read side on POSIX. Keeping another write side
+ // in the child would hide owner death forever. Windows inherits a handle to
+ // the actual parent process object, which remains the same object after PID
+-// reuse. This object is not a replacement for the supervisor's kill/reap.
++// reuse. An ok image's worker is given the parent's identifier, which it opens
++// (kal_process_open_id): openkal starts a program with its three streams and
++// no other descriptor. This object is not a replacement for the supervisor's
++// kill/reap.
+ class WorkerOwner {
+ public:
+   static llvm::Expected<std::unique_ptr<WorkerOwner>> create(PathRef PipePath) {
+     auto Owner = std::unique_ptr<WorkerOwner>(new WorkerOwner);
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++    (void)PipePath;
++#elif defined(_WIN32)
+     if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(),
+                          GetCurrentProcess(), &Owner->Handle, SYNCHRONIZE, TRUE,
+                          0))
+@@ -209,14 +228,17 @@ public:
+     return std::move(Owner);
+   }
+   std::string token() const {
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++    return std::to_string(getpid());
++#elif defined(_WIN32)
+     return std::to_string(reinterpret_cast<uintptr_t>(Handle));
+ #else
+     return std::to_string(Pipe[0]);
+ #endif
+   }
+   ~WorkerOwner() {
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++#elif defined(_WIN32)
+     if (Handle)
+       CloseHandle(Handle);
+ #else
+@@ -230,7 +252,8 @@ public:
+ 
+ private:
+   WorkerOwner() = default;
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++#elif defined(_WIN32)
+   HANDLE Handle = nullptr;
+ #else
+   int Pipe[2] = {-1, -1};
+@@ -246,7 +269,11 @@ public:
+     if (Token.getAsInteger(10, Value) || !Value)
+       return llvm::createStringError("invalid module worker owner token");
+     auto Monitor = std::unique_ptr<WorkerOwnerMonitor>(new WorkerOwnerMonitor);
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++    if (kal_process_open_id(Value, &Monitor->Owner) != kal_ok)
++      return llvm::createStringError("missing module worker owner");
++    Monitor->Opened = true;
++#elif defined(_WIN32)
+     if (Value > (std::numeric_limits<uintptr_t>::max)())
+       return llvm::createStringError("invalid module worker owner handle");
+     Monitor->Handle = reinterpret_cast<HANDLE>(static_cast<uintptr_t>(Value));
+@@ -267,7 +294,13 @@ public:
+     auto *Self = Monitor.get();
+     Monitor->Thread = std::thread([Self] {
+       while (!Self->Stopped.load(std::memory_order_relaxed)) {
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++        struct kal_program_info Info = {};
++        Info.self_size = sizeof(Info);
++        if (kal_process_info(Self->Owner, KAL_PINFO_ENDED, &Info) != kal_ok ||
++            ((Info.present & KAL_PINFO_ENDED) && Info.ended))
++          std::_Exit(1);
++#elif defined(_WIN32)
+         if (WaitForSingleObject(Self->Handle, 0) != WAIT_TIMEOUT)
+           std::_Exit(1);
+ #else
+@@ -295,7 +328,10 @@ public:
+     Wake.notify_all();
+     if (Thread.joinable())
+       Thread.join();
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++    if (Opened)
++      kal_process_close(Owner);
++#elif defined(_WIN32)
+     if (Handle)
+       CloseHandle(Handle);
+ #else
+@@ -310,7 +346,10 @@ private:
+   std::mutex Mutex;
+   std::condition_variable Wake;
+   std::thread Thread;
+-#ifdef _WIN32
++#if defined(__OPENKAL__)
++  struct kal_process Owner = {0};
++  bool Opened = false;
++#elif defined(_WIN32)
+   HANDLE Handle = nullptr;
+ #else
+   int FD = -1;
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+index 7e0422f71..9b208487f 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+@@ -22,6 +22,10 @@
+ #include <unistd.h>
+ #include <sys/stat.h>
+ #endif
++#if defined(__OPENKAL__)
++#include <fcntl.h>
++#include <sys/syscall.h>
++#endif
+ 
+ namespace clang::clangd {
+ using llvm::StringRef;
+@@ -181,9 +185,20 @@ llvm::Error prepareRoot(PathRef Root) {
+       return llvm::errorCodeToError(EC);
+     }
+     // Publish complete contents without replacing another root marker.
++#if defined(__OPENKAL__)
++    // openkal makes no second name for a file (its links are symbolic); a
++    // rename that does not replace (KAL_RENAME_NO_REPLACE, the C library's
++    // RENAME_NOREPLACE) publishes the marker as atomically.
++    if (syscall(SYS_renameat2, AT_FDCWD, Temporary.c_str(), AT_FDCWD,
++                MarkerPath.c_str(), 1 /* RENAME_NOREPLACE */) &&
++        errno != EEXIST)
++      return llvm::errorCodeToError(
++          std::error_code(errno, std::generic_category()));
++#else
+     if (auto EC = llvm::sys::fs::create_hard_link(Temporary, MarkerPath))
+       if (EC != std::errc::file_exists)
+         return llvm::errorCodeToError(EC);
++#endif
+   }
+   if (!hasMarker(MarkerPath, RootMarker))
+     return llvm::createStringError("unrecognized worker unit root");
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+index 1e4bcff95..3b8e41159 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.cpp
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+@@ -21,6 +21,9 @@
+ #include <sys/resource.h>
+ #include <unistd.h>
+ #endif
++#if defined(__OPENKAL__)
++#include <openkal/process.h>
++#endif
+ 
+ namespace clang {
+ namespace clangd {
+@@ -152,7 +155,16 @@ const ModuleCachePlatform::Capabilities &ModuleCachePlatform::stated() {
+     C.OpenFileLocks = HasOpenFileLocks;
+     C.RelativeDirectories = true;
+     C.RemoveOpen = true;
+-#if defined(__linux__)
++#if defined(__OPENKAL__)
++    // A worker forms a unit of its own and holds it to its bound
++    // (kal_process_job_limit, openkal 0.20), as the environment states.
++    const kal_uintptr Props = kal_process_props();
++    if (Props & KAL_PROCESS_PROP_JOB)
++      C.WorkerBudget =
++          (Props & KAL_PROCESS_PROP_JOB_LIMIT_HARD) ? Budget::Hard
++          : (Props & KAL_PROCESS_PROP_JOB_LIMIT_SUPERVISED) ? Budget::Supervised
++                                                            : Budget::None;
++#elif defined(__linux__)
+     // A delegated cgroup v2 group (ModuleBuildMemoryBudget.cpp).
+     C.WorkerBudget = Budget::Hard;
+ #endif
+@@ -248,6 +260,24 @@ int ModuleCachePlatform::syncData(int FD) {
+ #endif
+ }
+ 
++#if defined(__OPENKAL__)
++// openkal has no operation that writes a directory's names to storage: they
++// are as durable as the environment beneath makes them. Nor does it state an
++// owner, a permission word or a count of names (a capability-based
++// environment confines a program by what it is granted), and the C library
++// reports placeholders for them. The owned cache's directory is the program's
++// because the program was granted it, and a removed name is seen to be gone
++// by the name.
++int ModuleCachePlatform::syncDirectory(int) { return 0; }
++
++bool ModuleCachePlatform::thisUser(const struct stat &) { return true; }
++
++bool ModuleCachePlatform::privateTo(const struct stat &) { return true; }
++
++bool ModuleCachePlatform::singleName(const struct stat &) { return true; }
++
++bool ModuleCachePlatform::unnamed(const struct stat &) { return true; }
++#else
+ int ModuleCachePlatform::syncDirectory(int FD) { return fsync(FD) ? errno : 0; }
+ 
+ bool ModuleCachePlatform::thisUser(const struct stat &S) {
+@@ -265,6 +295,7 @@ bool ModuleCachePlatform::singleName(const struct stat &S) {
+ bool ModuleCachePlatform::unnamed(const struct stat &S) {
+   return S.st_nlink == 0;
+ }
++#endif
+ 
+ struct timespec ModuleCachePlatform::modified(const struct stat &S) {
+ #if defined(__APPLE__)
+-- 
+2.53.0
+

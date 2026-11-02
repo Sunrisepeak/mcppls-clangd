@@ -25,8 +25,17 @@ host is decided when the image starts, from what the loader states:
   every Apple build of clangd does, so a command that names no SDK reaches the
   system's headers;
 - a module worker is started by the loader that started this image
-  (`kal_env_loader`), with no address-space ceiling, which openkal does not
-  state;
+  (`kal_env_loader`); it forms a unit of its own and holds it to its bound as
+  a memory limit (`kal_process_job_limit`, openkal 0.20), since openkal states
+  no address-space ceiling; it is given its owner's identifier and ends when
+  the owner has ended (`kal_process_open_id`), since a started program
+  inherits no descriptor but its three streams;
+- the owned module cache reads what openkal states where a POSIX system states
+  an owner, a permission word and a count of names (openkal states none of
+  them), syncs no directory's names (openkal has no such operation), and
+  publishes a worker root's marker by a rename that does not replace, since
+  openkal makes no second name for a file; how a worker group is held to a
+  budget is `kal_process_props`' answer;
 - `/proc/self/fd` names the loader's descriptors and is not read; a file system
   is local; `<endian.h>` is the C library's;
 - the physical cores and a thread's claim on the processors are openkal's
@@ -45,3 +54,4 @@ the `patch-series-sha256` of `clangd.okb`; a native engine's covers
 | patch | rows | state | tests | drop |
 |---|---|---|---|---|
 | 0001-FEATURE-45-ok-image.patch | FEATURE-45 | steady | .github/workflows/openkal.yml (the four acceptance columns on Linux x64 and arm64, macOS arm64 and Windows x64; ci/openkal_check.py, ci/openkal_accept.py) | dropped when upstream decides the native path style, the program's own name and the default target when an image for several systems starts, or when clangd stops shipping as an ok image |
+| 0002-FEATURE-45-ok-image-module-cache.patch | FEATURE-45 | stabilizing | .github/workflows/build-test.yml warm-prime (path parity and the ratios on Linux x64 and arm64, macOS arm64 and Windows x64; ci/warm_prime_accept.py) | dropped with 0001, or when openkal states an owner, a count of names and a descriptor a started program inherits |

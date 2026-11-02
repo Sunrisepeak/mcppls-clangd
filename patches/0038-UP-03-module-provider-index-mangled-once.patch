@@ -1,4 +1,4 @@
-From a04d9fb335e4e945409194e17fb9eaf7e26116d0 Mon Sep 17 00:00:00 2001
+From 776687f3619d4266b1903b9c9273d0a14ca3b0be Mon Sep 17 00:00:00 2001
 From: sunrisepeak <speakshen@163.com>
 Date: Sun, 1 Nov 2026 20:08:19 +0900
 Subject: [PATCH] [clangd] The provider index is built from a mangled inventory
@@ -15,7 +15,9 @@ every file a language server prepared, a third of the engine's time while 176
 modules were made ready.
 
 A mangler can now be named (ProjectModules::setCommandManglerIdentity), and
-OverlayCDB names its own. The command cache keeps the inventory it indexed and
+OverlayCDB names its own. The facade a request is given keeps the name when
+ModulesBuilder gives it the request's file system (setFileSystem, at every
+request), which makes the facade's backends again. The command cache keeps the inventory it indexed and
 the mangler named then; a request naming the same mangler is given the index
 without mangling a command. A request naming another mangler or none, or one
 whose commands per-file flag edits from a config can change, mangles every
@@ -23,10 +25,10 @@ command as before, and building the index again from other commands forgets
 what was kept.
 ---
  .../clangd/GlobalCompilationDatabase.cpp      |  2 +
- clang-tools-extra/clangd/ProjectModules.cpp   | 69 +++++++++++++++++--
+ clang-tools-extra/clangd/ProjectModules.cpp   | 77 ++++++++++++++++--
  clang-tools-extra/clangd/ProjectModules.h     |  5 ++
- .../unittests/PrerequisiteModulesTest.cpp     | 43 ++++++++++++
- 4 files changed, 113 insertions(+), 6 deletions(-)
+ .../unittests/PrerequisiteModulesTest.cpp     | 78 +++++++++++++++++++
+ 4 files changed, 156 insertions(+), 6 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp b/clang-tools-extra/clangd/GlobalCompilationDatabase.cpp
 index e733c6f4b..bb7ad01eb 100644
@@ -42,7 +44,7 @@ index e733c6f4b..bb7ad01eb 100644
  }
  
 diff --git a/clang-tools-extra/clangd/ProjectModules.cpp b/clang-tools-extra/clangd/ProjectModules.cpp
-index 88611112d..fcbe317b9 100644
+index 88611112d..4162e81ef 100644
 --- a/clang-tools-extra/clangd/ProjectModules.cpp
 +++ b/clang-tools-extra/clangd/ProjectModules.cpp
 @@ -8,6 +8,7 @@
@@ -156,17 +158,49 @@ index 88611112d..fcbe317b9 100644
    auto Result = std::make_shared<ProviderIndex>();
    std::vector<ParsedCompileCommandInfo> ParsedCommands;
    ParsedCommands.reserve(Commands.size());
-@@ -901,6 +954,10 @@ public:
+@@ -847,6 +900,7 @@ public:
+         std::make_unique<CompileCommandsProjectModules>(CDB, FS, CommandCache);
+     Scanning = std::make_unique<ScanningAllProjectModules>(
+         CDB, FS, CommandCache->canMemoizeScans());
++    // New backends are given the mangler and its name.
+     forwardCommandMangler();
+   }
+ 
+@@ -898,9 +952,15 @@ public:
+ 
+   void setCommandMangler(CommandMangler Mangler) override {
+     this->Mangler = std::move(Mangler);
++    ManglerIdentity = nullptr;
      forwardCommandMangler();
    }
  
 +  void setCommandManglerIdentity(const void *Identity) override {
++    ManglerIdentity = Identity;
 +    CompileCommands->setCommandManglerIdentity(Identity);
 +  }
 +
  private:
    void forwardCommandMangler() {
      auto ForwardMangler = [this](tooling::CompileCommand &Command,
+@@ -909,6 +969,10 @@ private:
+         this->Mangler(Command, CommandPath);
+     };
+     CompileCommands->setCommandMangler(ForwardMangler);
++    // A backend given a mangler forgets the name of the one before; the name
++    // is still this facade's mangler's.
++    if (ManglerIdentity)
++      CompileCommands->setCommandManglerIdentity(ManglerIdentity);
+     Scanning->setCommandMangler(std::move(ForwardMangler));
+   }
+ 
+@@ -917,6 +981,7 @@ private:
+   std::unique_ptr<CompileCommandsProjectModules> CompileCommands;
+   std::unique_ptr<ScanningAllProjectModules> Scanning;
+   CommandMangler Mangler;
++  const void *ManglerIdentity = nullptr;
+ };
+ 
+ /// Creates the project-modules facade used by clangd.
 diff --git a/clang-tools-extra/clangd/ProjectModules.h b/clang-tools-extra/clangd/ProjectModules.h
 index 4d6df17fa..b4914515c 100644
 --- a/clang-tools-extra/clangd/ProjectModules.h
@@ -184,10 +218,38 @@ index 4d6df17fa..b4914515c 100644
    virtual ~ProjectModules() = default;
  
 diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-index 7947ea634..e94d710b3 100644
+index 7947ea634..fdecc1de9 100644
 --- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
 +++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
-@@ -2231,6 +2231,49 @@ TEST_F(PrerequisiteModulesTests, PositiveScanMemoPreservesConfiguredProviders) {
+@@ -164,12 +164,19 @@ public:
+   }
+ 
+   std::unique_ptr<ProjectModules> getProjectModules(PathRef) const override {
++    if (CommandCache)
++      return clang::clangd::getProjectModules(ToolingCDB, TFS, CommandCache);
+     return clang::clangd::getProjectModules(ToolingCDB, TFS);
+   }
+ 
+   std::shared_ptr<const tooling::CompilationDatabase> toolingCDB() const {
+     return ToolingCDB;
+   }
++  // Every request's facade shares one command cache, as a directory's
++  // database generation does.
++  void shareCommandCache() {
++    CommandCache = createProjectModulesCommandCache(ToolingCDB);
++  }
+   mutable unsigned InventoryReads = 0;
+ 
+ private:
+@@ -198,6 +205,7 @@ private:
+   const ThreadsafeFS &TFS;
+   llvm::StringMap<tooling::CompileCommand> Commands;
+   std::vector<std::string> Files;
++  std::shared_ptr<ProjectModulesCommandCache> CommandCache;
+   std::shared_ptr<IndexedCompilationDatabase> ToolingCDB;
+ };
+ 
+@@ -2231,6 +2239,76 @@ TEST_F(PrerequisiteModulesTests, PositiveScanMemoPreservesConfiguredProviders) {
    EXPECT_EQ(getModuleDependencyScanCache().stats().Hits, Before.Hits);
  }
  
@@ -232,6 +294,33 @@ index 7947ea634..e94d710b3 100644
 +  EXPECT_EQ(Mangled, 3 * First) << "an unnamed mangler indexes every command";
 +  EXPECT_EQ(Ask(&Server, false, "M"), State::Unique);
 +  EXPECT_EQ(Mangled, 4 * First) << "an index built since is not taken for the server's";
++}
++
++// A request of ModulesBuilder gives the facade OverlayCDB made its file system,
++// which makes the facade's backends again; the name OverlayCDB gave its mangler
++// is kept through that, so the inventory is mangled for the provider index once
++// and not again at each request. Only the index mangles Other.cpp's command.
++TEST_F(PrerequisiteModulesTests, ProviderIndexMangledOnceThroughRequests) {
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  auto PCM = (TestDir + "/M.pcm").str();
++  CDB.addFile("M.cppm", "export module M;", {"--precompile", "-o", PCM});
++  CDB.addFile("Use.cpp", "import M;", {"-fmodule-file=M=" + PCM});
++  CDB.addFile("Other.cpp", "import M;", {"-fmodule-file=M=" + PCM});
++  CDB.shareCommandCache();
++  const auto Other = getFullPath("Other.cpp");
++  unsigned OtherMangled = 0;
++  OverlayCDB Overlay(&CDB, {},
++                     [&](tooling::CompileCommand &, PathRef File) {
++                       if (File == Other)
++                         ++OtherMangled;
++                     });
++  ModulesBuilder Builder(Overlay);
++  const auto Use = getFullPath("Use.cpp");
++  EXPECT_TRUE(Builder.isBuildableModule(Use, "M", FS, "import M;"));
++  EXPECT_EQ(OtherMangled, 1u);
++  EXPECT_TRUE(Builder.isBuildableModule(Use, "M", FS, "import M;"));
++  EXPECT_TRUE(Builder.hasBuildableRequiredModules(Use, FS, "import M;"));
++  EXPECT_EQ(OtherMangled, 1u) << "a later request mangled the inventory again";
 +}
 +
  TEST_F(PrerequisiteModulesTests, ExternalProviderUsesImportingProjectCommand) {
