@@ -240,7 +240,7 @@ image.
 
 ## The 0.0.20 additions
 
-Four patches are added. 0038: the provider index is built from a mangled inventory once rather than once per
+Five patches are added. 0038: the provider index is built from a mangled inventory once rather than once per
 request; the facade a request is given keeps its mangler's name when ModulesBuilder gives it the request's file
 system, where the first form of the patch lost it and mangled every command again. Every request that asked which source provides a module mangled every command of the database
 before finding its index unchanged; in mcppls's own project (481 commands) that ran twice for every file
@@ -260,7 +260,11 @@ directories for a module importing 175). 0040: a module in the owned cache is re
 under its own lease, where each reader was given a copy. 0041: a worker's end is seen when it happens: the
 worker's owner monitor slept ten milliseconds between looks and the worker waited for it on the way out, and
 the parent looked at a running worker every ten milliseconds; a cold build of 176 modules was ready in 3.4 s
-instead of 4.9 s (the median worker 9 ms instead of 20 ms). The openkal series adds the answers openkal gives
+instead of 4.9 s (the median worker 9 ms instead of 20 ms). 0042: a worker is held to its share of the address-space
+bound by watching it where the system holds no ceiling: on macOS every process maps hundreds of GiB before
+main, the kernel refuses a ceiling below that (every worker of the native engine failed with "Invalid
+argument"), and one above it holds nothing, so clangd watches the worker's physical footprint and ends it past
+its share. The openkal series adds the answers openkal gives
 the owned cache and its workers (`openkal/patches/README.md`), and the image is built over openkal-platform
 0.21.0 (openkal 0.21; openkal-musl 0.26.0, whose allocator is mimalloc and whose open directories report their
 identity; openkal-image 0.3.0, whose loader maps an image's instructions from its file). The ok image's cold
@@ -322,3 +326,4 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0039-UP-03-module-cache-platform.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedCacheDirectoryIsMeasured, OwnedInputLeasesShareTheirRootsCache); tests/e2e/module_cache_lease.py; .github/workflows/build-test.yml (path parity, warm-prime) | dropped with 0017 and 0019 when upstream isolates module compilation in supervised workers and owns its module payloads on every system |
 | 0040-UP-03-owned-module-reads-in-place.patch | UP-03, UP-24 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_cache_lease.py | dropped with 0019 when upstream owns its module payloads |
 | 0041-UP-03-module-worker-end-seen-at-once.patch | UP-03 | steady | ci/warm_prime.py (worker times); tests/e2e/module_cache_lease.py | dropped with 0017 when upstream supervises its module workers |
+| 0042-UP-03-module-worker-ceiling-watched.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (WorkerCeilingIsOwnOrWatched); the darwin-arm64 lit run of the module suite; warm-prime on macOS | dropped with 0017 when upstream supervises its module workers |

@@ -1,0 +1,211 @@
+From 0ceb5a366b1ca5f186688b001945820ea4b82ead Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 2 Nov 2026 16:51:11 +0900
+Subject: [PATCH] [clangd] A module worker is held to its share of the bound by
+ watching it where the system holds no ceiling
+
+A supervised module worker sets a ceiling on its own address space
+(RLIMIT_AS) at its share of -modules-builder-worker-aggregate-address-space-mib.
+On macOS every process maps hundreds of GiB before main (392 GiB on macOS 15),
+the system's shared libraries and the allocator's reservations among it; the
+kernel refuses a ceiling below what is mapped already (EINVAL), and one above it
+holds nothing: an allocation of 2 GiB under a ceiling 1 GiB above the mapped
+size succeeded, inside space reserved at start. Every worker of the native
+macOS engine therefore failed with "Invalid argument" once the owned cache and
+its workers were taken there.
+
+ModuleCachePlatform states how a worker is held to its share (Ceiling::Own, or
+Ceiling::Watched on macOS) and the memory of a process (memoryOf: the physical
+footprint on macOS). Where it is watched, the worker is given no ceiling, and
+clangd ends it once its footprint exceeds its share, as it ends one past its
+deadline; the log names the form ("worker ceiling: own" or "watched").
+---
+ .../clangd/ModuleBuildWorker.cpp              | 21 ++++++++++++-
+ .../clangd/ModuleCachePlatform.cpp            | 30 +++++++++++++++++++
+ .../clangd/ModuleCachePlatform.h              | 13 ++++++++
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  4 ++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 18 +++++++++++
+ 5 files changed, 84 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index eff4a6b04..f715f378f 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -585,7 +585,10 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+   });
+   auto Path = [&](StringRef Name) { return (*Unit)->file(Name); };
+   ModuleBuildWorkerInputs Inputs;
+-  Inputs.AddressSpaceLimitBytes = Options.AddressSpaceLimitBytes;
++  // A ceiling the worker sets on itself, or one clangd watches (below).
++  const bool Watched = ModuleCachePlatform::stated().WorkerCeiling ==
++                       ModuleCachePlatform::Ceiling::Watched;
++  Inputs.AddressSpaceLimitBytes = Watched ? 0 : Options.AddressSpaceLimitBytes;
+   Inputs.OutputLimitBytes = Options.OutputLimitBytes;
+   Inputs.OwnedPayloadAdmission = Options.OwnedPayloadAdmission;
+   Inputs.FileSystem =
+@@ -704,6 +707,22 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+                                        (*Diagnostics)->text());
+       break;
+     }
++    if (Watched && Options.AddressSpaceLimitBytes &&
++        ModuleCachePlatform::memoryOf(Process.Pid) >
++            Options.AddressSpaceLimitBytes) {
++      Child.terminate();
++      auto Reaped = Child.reap(/*Blocking=*/true);
++      if (!Reaped)
++        return Reaped.takeError();
++      if (auto Err = (*Diagnostics)->drain())
++        return std::move(Err);
++      return llvm::createStringError(
++          llvm::formatv("module worker (pid {0}) exceeded its memory bound of "
++                        "{1} MiB: {2}",
++                        Process.Pid, Options.AddressSpaceLimitBytes >> 20,
++                        (*Diagnostics)->text())
++              .str());
++    }
+     const bool WasCancelled = Cancelled();
+     if (WasCancelled || std::chrono::steady_clock::now() >= Deadline) {
+       Child.terminate();
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+index 1e4bcff95..8822c6b79 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.cpp
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+@@ -21,6 +21,9 @@
+ #include <sys/resource.h>
+ #include <unistd.h>
+ #endif
++#if defined(__APPLE__)
++#include <libproc.h>
++#endif
+ 
+ namespace clang {
+ namespace clangd {
+@@ -156,6 +159,16 @@ const ModuleCachePlatform::Capabilities &ModuleCachePlatform::stated() {
+     // A delegated cgroup v2 group (ModuleBuildMemoryBudget.cpp).
+     C.WorkerBudget = Budget::Hard;
+ #endif
++#if defined(__APPLE__)
++    // Every process here maps hundreds of GiB of address space before main
++    // (392 GiB on macOS 15), the system's shared libraries and the
++    // allocator's reservations among it. The kernel refuses a ceiling below
++    // what is mapped already (EINVAL), and one above it holds nothing: an
++    // allocation of 2 GiB under a ceiling 1 GiB above the mapped size
++    // succeeded, inside space reserved at start. So the worker's footprint is
++    // watched instead.
++    C.WorkerCeiling = Ceiling::Watched;
++#endif
+ #endif
+     return C;
+   }();
+@@ -177,9 +190,26 @@ std::string ModuleCachePlatform::describe(const Capabilities &C) {
+   Text += C.WorkerBudget == Budget::Hard         ? "hard"
+           : C.WorkerBudget == Budget::Supervised ? "supervised"
+                                                  : "none";
++  Text += "; worker ceiling: ";
++  Text += C.WorkerCeiling == Ceiling::Watched ? "watched" : "own";
+   return Text;
+ }
+ 
++uint64_t ModuleCachePlatform::memoryOf(long Pid) {
++#if defined(__APPLE__)
++  // The physical footprint, which is what the system's own memory pressure
++  // accounts a process by.
++  rusage_info_v2 Info;
++  if (proc_pid_rusage(static_cast<int>(Pid), RUSAGE_INFO_V2,
++                      reinterpret_cast<rusage_info_t *>(&Info)))
++    return 0;
++  return Info.ri_phys_footprint;
++#else
++  (void)Pid;
++  return 0;
++#endif
++}
++
+ uint64_t ModuleCachePlatform::openFiles() {
+ #if CLANGD_OWNED_MODULE_CACHE
+   static const uint64_t Count = []() -> uint64_t {
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.h b/clang-tools-extra/clangd/ModuleCachePlatform.h
+index 833911539..39dd92ed9 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.h
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.h
+@@ -44,6 +44,13 @@ public:
+     Hard,       ///< The environment holds the group to it.
+   };
+ 
++  /// How one module worker is held to its share of the address-space bound
++  /// (-modules-builder-worker-aggregate-address-space-mib).
++  enum class Ceiling {
++    Own,     ///< The worker sets it on its own address space (RLIMIT_AS).
++    Watched, ///< clangd watches the worker's memory and ends it at the bound.
++  };
++
+   struct Capabilities {
+     /// A byte-range lock is held by the open file that took it: another open
+     /// of the same file, in this process as well, is excluded by it.
+@@ -55,6 +62,8 @@ public:
+     bool RemoveOpen = false;
+     /// How the supervised workers can be held to a memory budget.
+     Budget WorkerBudget = Budget::None;
++    /// How one worker is held to its share of the address-space bound.
++    Ceiling WorkerCeiling = Ceiling::Own;
+ 
+     /// The owned cache needs the three facilities above.
+     bool ownedCache() const {
+@@ -81,6 +90,10 @@ public:
+   /// it reads (its lease), and a worker one for each prerequisite.
+   static uint64_t openFiles();
+ 
++  /// The memory the process \p Pid holds, in bytes, where the system states
++  /// it (0 otherwise): what a watched ceiling compares with the bound.
++  static uint64_t memoryOf(long Pid);
++
+ #if CLANGD_OWNED_MODULE_CACHE
+   /// Takes the whole-file lock of the open file \p FD: exclusive or shared,
+   /// waiting or not. A lock this open file holds already is converted in one
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 9fae33c11..8287077fe 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -278,7 +278,9 @@ llvm::cl::opt<unsigned> ModuleWorkerTimeoutSeconds(
+ llvm::cl::opt<unsigned> ModuleWorkerAggregateAddressSpaceMiB(
+     "modules-builder-worker-aggregate-address-space-mib",
+     llvm::cl::desc("Total worker virtual address space in MiB, divided by the "
+-                   "build pool concurrency (not an RSS limit)"),
++                   "build pool concurrency (not an RSS limit); where the system "
++                   "holds no address-space ceiling (macOS), each worker's "
++                   "memory footprint is watched against its share"),
+     llvm::cl::init(4096));
+ // These prototype bounds are opt-in: they do not imply a persistent-cache or
+ // filesystem allocation quota, and an explicit bound forbids fallback.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 0a7ab64d8..5ee37d19f 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -999,6 +999,24 @@ TEST_F(PrerequisiteModulesTests, OwnedCacheDirectoryIsMeasured) {
+               testing::HasSubstr("the directory is not made"));
+ }
+ 
++// A worker's share of the address-space bound is a ceiling the worker sets on
++// itself where the system holds one, and is watched by clangd where it does not
++// (macOS, whose processes map hundreds of GiB before main): the system then
++// states the memory of a process.
++TEST_F(PrerequisiteModulesTests, WorkerCeilingIsOwnOrWatched) {
++  const auto &C = ModuleCachePlatform::stated();
++  const auto Text = ModuleCachePlatform::describe(C);
++#if defined(__APPLE__)
++  EXPECT_EQ(C.WorkerCeiling, ModuleCachePlatform::Ceiling::Watched);
++  EXPECT_THAT(Text, testing::HasSubstr("worker ceiling: watched"));
++  EXPECT_GT(ModuleCachePlatform::memoryOf(llvm::sys::Process::getProcessId()),
++            0u);
++#else
++  EXPECT_EQ(C.WorkerCeiling, ModuleCachePlatform::Ceiling::Own);
++  EXPECT_THAT(Text, testing::HasSubstr("worker ceiling: own"));
++#endif
++}
++
+ // A stable generation whose payload changed on disk is skipped, not a failure
+ // of the module: the module builds again into a new generation.
+ TEST_F(PrerequisiteModulesTests, OwnedLookupSkipsAChangedStablePayload) {
+-- 
+2.53.0
+

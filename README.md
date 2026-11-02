@@ -17,7 +17,7 @@ bumped.
 
 ## Status
 
-The 0.0.20 engine carries 41 patches ([patches/PATCHES.md](patches/PATCHES.md))
+The 0.0.20 engine carries 42 patches ([patches/PATCHES.md](patches/PATCHES.md))
 on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.9`. Each patch maps
 to rows of the upstream-defects register and has a drop condition; every patch
 is `steady`, which `ci/check_ledger.py --release` requires before a release.
