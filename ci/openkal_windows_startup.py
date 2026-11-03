@@ -85,7 +85,8 @@ def run_case(args, image, mode, replay):
                   runner_sha256=digest(args.runner), debugger_forced_termination=forced,
                   first_chance_captured=bool(re.search(r'^\s*MCPPLS_OPENKAL_FIRST_CHANCE\s*$', text, re.M)),
                   minidump_bytes=dump.stat().st_size if dump.exists() else 0,
-                  version_reported='clangd version' in text)
+                  version_reported=bool(re.search(r'^clangd version 23\.1\.0-mcppls\.9\s*$',
+                      (output / 'debugger-console.log').read_text(errors='replace'), re.M)))
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps({k: v for k, v in result.items() if k not in ('stderr', 'raw_responses')}))
     return result
@@ -133,7 +134,8 @@ def launch_capture(args, image, mode):
                   debugger_forced_termination=forced,
                   first_chance_captured=bool(re.search(r'^\s*MCPPLS_OPENKAL_FIRST_CHANCE\s*$', text, re.M)),
                   minidump_bytes=dump.stat().st_size if dump.exists() else 0,
-                  version_reported='clangd version' in text)
+                  version_reported=bool(re.search(r'^clangd version 23\.1\.0-mcppls\.9\s*$',
+                      (output / 'debugger-console.log').read_text(errors='replace'), re.M)))
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))
     return result
