@@ -18,7 +18,7 @@ def digest(path):
 
 
 def run_case(args, image, mode, replay):
-    output = args.output.resolve() / (image.suffix[1:] + '-' + mode)
+    output = args.output.resolve() / (image.suffix[1:] + '-' + mode + '-lsp')
     output.mkdir(parents=True)
     environment = os.environ.copy()
     for key in tuple(os.environ):
@@ -84,7 +84,8 @@ def run_case(args, image, mode, replay):
     result.update(diagnostic_only=True, image_sha256=digest(image),
                   runner_sha256=digest(args.runner), debugger_forced_termination=forced,
                   first_chance_captured=bool(re.search(r'^\s*MCPPLS_OPENKAL_FIRST_CHANCE\s*$', text, re.M)),
-                  minidump_bytes=dump.stat().st_size if dump.exists() else 0)
+                  minidump_bytes=dump.stat().st_size if dump.exists() else 0,
+                  version_reported='clangd version' in text)
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps({k: v for k, v in result.items() if k not in ('stderr', 'raw_responses')}))
     return result
@@ -154,8 +155,18 @@ def main():
     results = [launch_capture(args, image.resolve(), mode)
                for image in (args.raw, args.bundle)
                for mode in ('default', 'no-snapshot', 'no-placement')]
-    (args.output / 'summary.json').write_text(json.dumps(results, indent=2) + '\n')
+    versions_pass = all(r['debugger_exit_code'] == 0 and r.get('version_reported')
+                        and not r['first_chance_captured'] for r in results)
+    semantic = [run_case(args, image.resolve(), mode, replay)
+                for image in (args.raw, args.bundle)
+                for mode in ('default', 'no-snapshot', 'no-placement')]
+    status = dict(candidate_runner_source=os.environ.get('RUNNER_SOURCE_HEAD'),
+                  versions=results, semantic=semantic,
+                  accepted=versions_pass and all(r['outcome'] == 'pass' for r in semantic),
+                  scope='Candidate loader correction against unchanged old engine artifacts; final published qualification pending')
+    (args.output / 'summary.json').write_text(json.dumps(status, indent=2) + '\n')
+    return 0 if status['accepted'] else 1
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

@@ -71,8 +71,14 @@ jobs:
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target x86_64-openkal)
-          okrun="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@0.4.3/*/bin/okrun.exe | sort | tail -1)"
+          # Candidate proof only: build the reviewed loader correction with
+          # the released client and unchanged published platform dependencies.
+          git clone --depth 1 --branch fix/partial-map-copy https://github.com/mcpplibs/openkal-image.git runner-fix
+          test "$(git -C runner-fix rev-parse HEAD)" = 80a48ec331976c98aa5f1bc3ccd9badc3c08eb60
+          (cd runner-fix/tools && mcpp build --release --toolchain llvm@23.1.3)
+          okrun="$(find "$PWD/runner-fix/target" -type f -name okrun.exe | head -1)"
           test -f "$okrun"
+          echo "RUNNER_SOURCE_HEAD=80a48ec331976c98aa5f1bc3ccd9badc3c08eb60" >> "$GITHUB_ENV"
           echo "OKRUN=$(cygpath -m "$okrun")" >> "$GITHUB_ENV"
           gh run download 41674777291 -R Sunrisepeak/mcppls-clangd -n clangd-openkal -D part
           gh run download 41674777291 -R Sunrisepeak/mcppls-clangd -n openkal-image-x86_64 -D image
