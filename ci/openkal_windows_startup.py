@@ -90,6 +90,53 @@ def run_case(args, image, mode, replay):
     return result
 
 
+def launch_capture(args, image, mode):
+    """Start under the debugger: attachment cannot observe this early crash."""
+    output = args.output.resolve() / (image.suffix[1:] + '-' + mode)
+    output.mkdir(parents=True)
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith('OKRUN_') or key in ('GH_TOKEN', 'GITHUB_TOKEN'):
+            environment.pop(key)
+    for key in ('LOCALAPPDATA', 'XDG_RUNTIME_DIR', 'OKRUN_CACHE', 'TEMP', 'TMP'):
+        directory = output / key.lower()
+        directory.mkdir()
+        environment[key] = str(directory)
+    if mode != 'default':
+        environment['OKRUN_SNAPSHOT'] = '0'
+    if mode == 'no-placement':
+        environment['OKRUN_PLACE'] = '0'
+    dump, log = output / 'first-chance.dmp', output / 'cdb.log'
+    commands = output / 'launch.cdb'
+    capture = ('.echo MCPPLS_OPENKAL_FIRST_CHANCE; .lastevent; .exr -1; .ecxr; r; '
+               'kv; u @rip-20 L30; !address @rip; !address @rdi; !address @rsi; '
+               '!address @rdx; .dump /m /o ' + dump.as_posix() + '; gn')
+    commands.write_text('sxe -c "' + capture + '" av\n.echo MCPPLS_CDB_LAUNCHED\ng\n')
+    started = time.monotonic()
+    forced = False
+    with (output / 'debugger-console.log').open('wb') as console:
+        debugger = subprocess.Popen([str(args.cdb), '-G', '-logo', str(log),
+            '-cf', str(commands), str(args.runner.resolve()), str(image), '--version'],
+            env=environment, stdin=subprocess.DEVNULL, stdout=console, stderr=subprocess.STDOUT)
+        try:
+            debugger.wait(timeout=90)
+        except subprocess.TimeoutExpired:
+            forced = True
+            subprocess.run(['taskkill', '/PID', str(debugger.pid), '/T', '/F'],
+                           capture_output=True, timeout=15)
+            debugger.wait(timeout=15)
+    text = log.read_text(errors='replace') if log.exists() else ''
+    result = dict(id=output.name, diagnostic_only=True, protocol='--version under CDB from creation',
+                  elapsed_seconds=time.monotonic()-started, debugger_exit_code=debugger.returncode,
+                  image_sha256=digest(image), runner_sha256=digest(args.runner),
+                  debugger_forced_termination=forced,
+                  first_chance_captured=bool(re.search(r'^\s*MCPPLS_OPENKAL_FIRST_CHANCE\s*$', text, re.M)),
+                  minidump_bytes=dump.stat().st_size if dump.exists() else 0)
+    (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+    print(json.dumps(result))
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('runner', 'cdb', 'raw', 'bundle', 'output'):
@@ -104,7 +151,7 @@ def main():
     spec = importlib.util.spec_from_file_location('replay', Path(__file__).resolve().parents[1] / 'tests/crash/replay.py')
     replay = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(replay)
-    results = [run_case(args, image.resolve(), mode, replay)
+    results = [launch_capture(args, image.resolve(), mode)
                for image in (args.raw, args.bundle)
                for mode in ('default', 'no-snapshot', 'no-placement')]
     (args.output / 'summary.json').write_text(json.dumps(results, indent=2) + '\n')
