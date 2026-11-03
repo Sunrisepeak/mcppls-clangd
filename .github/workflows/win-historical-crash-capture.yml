@@ -1,12 +1,11 @@
 name: win-historical-crash-capture
 
-# Stock binary/PDB investigation only: no LLVM source checkout or fork build.
+# Native Windows diagnostic using already-built candidate artifacts.
 on:
-  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: win-historical-crash-capture
+  group: openkal-windows-startup-diagnostic
   cancel-in-progress: false
 
 jobs:
@@ -46,21 +45,49 @@ jobs:
           "READOBJ=$readobj" >> $env:GITHUB_ENV
           "PDBUTIL=$pdbutil" >> $env:GITHUB_ENV
           "SEVENZIP=$sevenzip" >> $env:GITHUB_ENV
-      - uses: actions/cache@v4
-        with:
-          path: stock-windows
-          key: stock-clangd-23.1.0-windows-23412a24-symbols-63ed8692
-      - name: Capture the historical missing-BMI exception with matching upstream symbols
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Install released build client
         shell: pwsh
         run: |
-          python ci/windows_crash_capture.py --stock-directory stock-windows `
-            --sevenzip "$env:SEVENZIP" --cdb "$env:CDB" `
-            --readobj "$env:READOBJ" --pdbutil "$env:PDBUTIL" `
-            --case tests/crash/candidates/up12-galtranslpp.json --output dist/historical-capture
-          if ($LASTEXITCODE -ne 0) { throw "Matching symbols plus a genuine second-chance crash were not captured" }
+          irm https://d2learn.org/xlings-install.ps1.txt | iex
+          "$env:USERPROFILE\.xlings\subos\current\bin" >> $env:GITHUB_PATH
+      - name: Resolve the current released runner and candidate images
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          xlings --version
+          xlings update
+          xlings install mcpp@2026.11.3.1 -y -g
+          mcpp --version
+          mkdir -p h/src
+          cat > h/mcpp.toml <<'TOML'
+          [package]
+          name = "h"
+          version = "0.1.0"
+          [target.'cfg(os = "openkal")']
+          platform = "openkal-platform@0.23.3"
+          TOML
+          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          (cd h && mcpp build --target x86_64-openkal)
+          okrun="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@0.4.3/*/bin/okrun.exe | sort | tail -1)"
+          test -f "$okrun"
+          echo "OKRUN=$(cygpath -m "$okrun")" >> "$GITHUB_ENV"
+          gh run download 41674777291 -R Sunrisepeak/mcppls-clangd -n clangd-openkal -D part
+          gh run download 41674777291 -R Sunrisepeak/mcppls-clangd -n openkal-image-x86_64 -D image
+          mkdir okb
+          tar xzf part/clangd-*-openkal.tar.gz -C okb
+          echo "OKB=$(cygpath -m "$(ls okb/clangd-*/clangd/bin/clangd.okb)")" >> "$GITHUB_ENV"
+      - name: Capture first-chance startup faults
+        shell: pwsh
+        run: |
+          python ci/openkal_windows_startup.py --runner "$env:OKRUN" --cdb "$env:CDB" `
+            --raw image/clangd-x86_64.oke --bundle "$env:OKB" --output dist/startup-capture
+          if ($LASTEXITCODE -ne 0) { throw "Native diagnostic failed" }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: windows-up12-historical-symbolized-capture
-          path: dist/historical-capture
+          name: openkal-windows-startup-capture
+          path: dist/startup-capture
           if-no-files-found: error
