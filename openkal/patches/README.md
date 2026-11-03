@@ -55,6 +55,13 @@ the `patch-series-sha256` of `clangd.okb`; a native engine's covers
 `patches/series` alone. `ci/check_ledger.py` holds this ledger to the rules of
 `patches/PATCHES.md`.
 
+The Windows environment adds a shared lock beside an exclusive lock of the
+same open file rather than converting it. The publication handoff takes the
+shared lock first, then releases only the exclusive one, so ownership remains
+continuous. The cache measurement also releases its shared scratch locks before
+writing: Windows locks are mandatory, and cache payloads and leases are separate
+files. The four-host acceptance and warm-prime jobs qualify this path.
+
 ## Ledger
 
 | patch | rows | state | tests | drop |
@@ -62,3 +69,4 @@ the `patch-series-sha256` of `clangd.okb`; a native engine's covers
 | 0001-FEATURE-45-ok-image.patch | FEATURE-45 | steady | .github/workflows/openkal.yml (the four acceptance columns on Linux x64 and arm64, macOS arm64 and Windows x64; ci/openkal_check.py, ci/openkal_accept.py) | dropped when upstream decides the native path style, the program's own name and the default target when an image for several systems starts, or when clangd stops shipping as an ok image |
 | 0002-FEATURE-45-ok-image-module-cache.patch | FEATURE-45 | stabilizing | .github/workflows/build-test.yml warm-prime (path parity and the ratios on Linux x64 and arm64, macOS arm64 and Windows x64; ci/warm_prime_accept.py) | dropped with 0001, or when openkal states an owner, a count of names and a descriptor a started program inherits |
 | 0003-FEATURE-45-ok-image-absent-names.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (absent-names: on the final clangd.okb under okrun in the identity job, and on Linux x64 and arm64, macOS arm64 and Windows x64 in the acceptance jobs of .github/workflows/openkal.yml) | dropped with 0001, or when clang validates a BMI against the names its header search found absent |
+| 0004-FEATURE-45-continuous-shared-lease.patch | FEATURE-45 | stabilizing | .github/workflows/openkal.yml (four-host absent-names); .github/workflows/build-test.yml (four-host warm-prime); ci/module_inputs_canary.py; ci/warm_prime_accept.py | dropped with 0002 when upstream retains continuous lease ownership with the lock semantics stated by the environment |
