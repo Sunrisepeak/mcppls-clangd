@@ -132,7 +132,8 @@ def launch_capture(args, image, mode):
                   image_sha256=digest(image), runner_sha256=digest(args.runner),
                   debugger_forced_termination=forced,
                   first_chance_captured=bool(re.search(r'^\s*MCPPLS_OPENKAL_FIRST_CHANCE\s*$', text, re.M)),
-                  minidump_bytes=dump.stat().st_size if dump.exists() else 0)
+                  minidump_bytes=dump.stat().st_size if dump.exists() else 0,
+                  version_reported='clangd version' in text)
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))
     return result
