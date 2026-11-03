@@ -148,19 +148,38 @@ jobs:
           tool() { python3 -c "import json,sys; d=json.load(open('tools.json'))['data']; print(d['runner']['program'] if sys.argv[1] == 'okrun' else d['tools'][sys.argv[1]])" "$1"; }
           okrun=$(tool okrun); okprof=$(tool okprof); okld=$(tool okld)
           img=out/clangd-${{ matrix.arch }}.oke
+          # The raw image is not yet in the payload's bin/ and lib/clang layout.
+          # Use this build's headers even when PATH names the host's older clang++.
+          resource="$PWD/out/clang/${UPSTREAM_VERSION%%.*}"
+          test -d "$resource/include"
           rm -rf touch-order && mkdir touch-order
           OKRUN_PROF="touch:$PWD/touch-order" OKRUN_SNAPSHOT=0 \
-            python ci/warm_prime.py --label order --workdir wp-order --out order.json --sessions 0 -- "$okrun" "$img"
+            python ci/warm_prime.py --label order --workdir wp-order --out order.json --sessions 0 -- "$okrun" "$img" "--resource-dir=$resource"
+          python3 -c 'import json; d = json.load(open("order.json")); assert d["sessions"] and all(s["ok"] for s in d["sessions"]), d["sessions"]'
           "$okprof" report --order "$img" touch-order > order.txt
           echo "$(wc -l < order.txt) functions in the order of a start, from $(ls touch-order | wc -l) processes"
           (cd openkal/clangd && MCPPLS_ORDER_FILE="$PWD/../../order.txt" mcpp build --release --target "$t")
           cp "$(ls openkal/clangd/target/$t/*/bin/clangd.oke | head -1)" "$img"
           rm -rf touch-note && mkdir touch-note
           OKRUN_PROF="touch:$PWD/touch-note" OKRUN_SNAPSHOT=0 \
-            python ci/warm_prime.py --label note --workdir wp-note --out note.json --sessions 0 -- "$okrun" "$img"
+            python ci/warm_prime.py --label note --workdir wp-note --out note.json --sessions 0 -- "$okrun" "$img" "--resource-dir=$resource"
+          python3 -c 'import json; d = json.load(open("note.json")); assert d["sessions"] and all(s["ok"] for s in d["sessions"]), d["sessions"]'
           "$okld" touch "$img" touch-note
           "$okld" check "$img"
           "$okld" inspect "$img" | grep -E '^(placement|touches)'
+      - name: Keep layout probe diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkal-layout-${{ matrix.arch }}
+          path: |
+            order.json
+            note.json
+            order.txt
+            wp-order/session-*.log
+            wp-note/session-*.log
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Keep ccache, whatever the build did
         if: always()
         uses: actions/cache/save@v4
