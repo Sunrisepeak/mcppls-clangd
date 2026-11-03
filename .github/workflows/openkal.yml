@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  MCPP_VERSION: 2026.11.2.3
+  MCPP_VERSION: 2026.11.3.1
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
   NATIVE_RELEASE: v0.0.17
@@ -140,7 +140,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.23.1"
+          platform = "openkal-platform@0.23.2"
           TOML
           printf 'int main() { return 0; }\n' > tools-of/src/main.cpp
           (cd tools-of && mcpp build --target "$t" > /dev/null)
@@ -200,7 +200,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.23.1"
+          platform = "openkal-platform@0.23.2"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
@@ -313,7 +313,7 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.23.1"
+          platform = "openkal-platform@0.23.2"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
