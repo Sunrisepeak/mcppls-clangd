@@ -518,7 +518,7 @@ jobs:
           done
           # okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
           mkdir -p h/src
-          printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.%s]\nplatform = "openkal-platform@0.23.2"\n' "'cfg(os = \"openkal\")'" > h/mcpp.toml
+          printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.%s]\nplatform = "openkal-platform@0.23.3"\n' "'cfg(os = \"openkal\")'" > h/mcpp.toml
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           arch=x86_64; case "${{ matrix.platform }}" in *arm64) arch=aarch64 ;; esac
           (cd h && mcpp build --target "$arch-openkal" > /dev/null)
