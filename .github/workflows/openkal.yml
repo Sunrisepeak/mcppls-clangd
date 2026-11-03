@@ -101,7 +101,7 @@ jobs:
           source ci/scripts/env.sh
           export FORK_SUFFIX
           (cd openkal/clangd && mcpp build --release --target ${{ matrix.arch }}-openkal)
-          ccache -s || true
+          ccache --show-stats --verbose | tee ccache-statistics.txt || true
           mkdir -p out
           cp "$(ls openkal/clangd/target/${{ matrix.arch }}-openkal/*/bin/clangd.oke | head -1)" out/clangd-${{ matrix.arch }}.oke
           # clang's own headers, which clangd reads beside it (one copy serves both images).
@@ -173,6 +173,7 @@ jobs:
         with:
           name: openkal-layout-${{ matrix.arch }}
           path: |
+            ccache-statistics.txt
             order.json
             note.json
             order.txt

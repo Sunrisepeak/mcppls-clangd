@@ -1,0 +1,136 @@
+From 68252e1c4c49ef2477589675d3dc8f2483f0a8bb Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Wed, 4 Nov 2026 08:25:42 +0900
+Subject: [PATCH] [clangd] Keep Windows ledger locks outside positional IO
+
+The Windows environment performs positional IO through another open handle. A mandatory whole-file lock on the ledger therefore rejects its own pread and pwrite operations. Serialize through a fixed byte beyond every possible ledger payload, preserving overlap with older whole-file holders. Retain the existing POSIX flock protocol and lease ranges.
+
+Measure actual positional reads and writes while the ledger lock is held, and assert that the bounded ledger never reaches the synchronization byte. A native Windows kernel probe reproduces the old refusal and verifies mutual exclusion, IO admission, file size and overlap with the old protocol.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 13 +++---
+ .../clangd/ModuleCachePlatform.cpp            | 41 ++++++++++++++++---
+ .../clangd/ModuleCachePlatform.h              |  6 +++
+ 3 files changed, 49 insertions(+), 11 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 49e5533..a4baa61 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -85,6 +85,8 @@ struct Record {
+   char Source[1024] = {};
+   uint64_t Checksum = 0;
+ };
++static_assert(sizeof(Header) + uint64_t(MaximumSlots) * 2 * sizeof(Record) <=
++              Platform::LedgerLockByte);
+ uint64_t checksum(const Record &R) {
+   return llvm::xxh3_64bits(reinterpret_cast<const uint8_t *>(&R),
+                            offsetof(Record, Checksum));
+@@ -154,13 +156,12 @@ class Lock {
+ public:
+   explicit Lock(int FD) : Descriptor(FD) {}
+   bool acquire(bool Try = false) {
+-    int R;
+-    do {
+-      R = flock(Descriptor, LOCK_EX | (Try ? LOCK_NB : 0));
+-    } while (R < 0 && errno == EINTR);
+-    return R == 0;
++    const int Error = Platform::lockLedger(Descriptor, !Try);
++    if (Error)
++      errno = Error;
++    return Error == 0;
+   }
+-  ~Lock() { flock(Descriptor, LOCK_UN); }
++  ~Lock() { Platform::unlockLedger(Descriptor); }
+ };
+ std::string digest(StringRef Key) {
+   auto H = llvm::SHA256::hash(llvm::arrayRefFromStringRef(Key));
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+index 3a8682a..f093b09 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.cpp
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+@@ -47,6 +47,25 @@ constexpr int SetLock = -1, SetLockWait = -1;
+ constexpr bool HasOpenFileLocks = false;
+ #endif
+ 
++int ledgerOperation(int FD, bool Release, bool Wait) {
++  int Result;
++  do {
++#if defined(__OPENKAL__)
++    if (llvm::sys::path::is_style_windows(llvm::sys::path::Style::native)) {
++      struct flock Range;
++      std::memset(&Range, 0, sizeof(Range));
++      Range.l_type = Release ? F_UNLCK : F_WRLCK;
++      Range.l_whence = SEEK_SET;
++      Range.l_start = ModuleCachePlatform::LedgerLockByte;
++      Range.l_len = 1;
++      Result = fcntl(FD, Wait ? SetLockWait : SetLock, &Range);
++    } else
++#endif
++      Result = flock(FD, Release ? LOCK_UN : LOCK_EX | (Wait ? 0 : LOCK_NB));
++  } while (Result < 0 && errno == EINTR);
++  return Result ? errno : 0;
++}
++
+ std::string errnoText(llvm::StringRef What, int Error) {
+   return (What + ": " + std::strerror(Error)).str();
+ }
+@@ -98,13 +117,17 @@ std::string measureIn(PathRef Directory, int Dir) {
+                      errno);
+   // The ledger's lock, then the leases' (never both on one file, where some
+   // systems make the two kinds conflict).
+-  if (flock(A.Value, LOCK_EX | LOCK_NB))
+-    return errnoText("a file lock is not taken", errno);
+-  if (!flock(B.Value, LOCK_EX | LOCK_NB))
++  if (int Error = ModuleCachePlatform::lockLedger(A.Value, false))
++    return errnoText("a ledger lock is not taken", Error);
++  if (!ModuleCachePlatform::lockLedger(B.Value, false))
+     return "a file lock held through one open file does not exclude another "
+            "open of the same file";
+-  if (flock(A.Value, LOCK_UN))
+-    return errnoText("a file lock is not released", errno);
++  char Byte = 0;
++  if (pwrite(A.Value, "m", 1, 0) != 1 ||
++      pread(A.Value, &Byte, 1, 0) != 1 || Byte != 'm')
++    return errnoText("positional IO is refused while the ledger is locked", errno);
++  if (int Error = ModuleCachePlatform::unlockLedger(A.Value))
++    return errnoText("a ledger lock is not released", Error);
+   if (int Error = ModuleCachePlatform::lock(A.Value, true, false))
+     return errnoText("an open-file lock is not taken", Error);
+   int Error = ModuleCachePlatform::lock(B.Value, false, false);
+@@ -305,6 +328,14 @@ int ModuleCachePlatform::downgrade(int FD) {
+   return 0;
+ }
+ 
++int ModuleCachePlatform::lockLedger(int FD, bool Wait) {
++  return ledgerOperation(FD, false, Wait);
++}
++
++int ModuleCachePlatform::unlockLedger(int FD) {
++  return ledgerOperation(FD, true, false);
++}
++
+ int ModuleCachePlatform::syncData(int FD) {
+ #if defined(__APPLE__)
+   // The system declares no fdatasync; fsync writes the data and metadata.
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.h b/clang-tools-extra/clangd/ModuleCachePlatform.h
+index ce99ed6..57694ab 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.h
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.h
+@@ -101,6 +101,12 @@ public:
+   /// an existing exclusive lease into a shared one without losing ownership.
+   static int lock(int FD, bool Exclusive, bool Wait);
+   static int downgrade(int FD);
++  /// Serializes ledger readers and writers. Windows locks a byte beyond any
++  /// ledger payload so its mandatory exclusion does not reject positional IO
++  /// through the backend's separate handle. POSIX retains its flock protocol.
++  static constexpr uint64_t LedgerLockByte = 0x7fffffff;
++  static int lockLedger(int FD, bool Wait);
++  static int unlockLedger(int FD);
+   /// Writes the data of \p FD to storage, with the metadata needed to read
+   /// them back. Returns 0 or an errno value.
+   static int syncData(int FD);
+-- 
+2.53.0
+

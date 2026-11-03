@@ -62,6 +62,13 @@ continuous. The cache measurement also releases its shared scratch locks before
 writing: Windows locks are mandatory, and cache payloads and leases are separate
 files. The four-host acceptance and warm-prime jobs qualify this path.
 
+Positional reads and writes on Windows use another open handle to preserve the
+file's stream position. The ledger therefore locks a fixed byte beyond its
+maximum data extent, where mandatory exclusion serializes ledger users without
+blocking their data transfers. This range overlaps an older whole-file lock;
+the cache checks positional IO while holding the lock before using the volume.
+POSIX retains its existing ledger lock protocol.
+
 ## Ledger
 
 | patch | rows | state | tests | drop |
@@ -70,3 +77,4 @@ files. The four-host acceptance and warm-prime jobs qualify this path.
 | 0002-FEATURE-45-ok-image-module-cache.patch | FEATURE-45 | stabilizing | .github/workflows/build-test.yml warm-prime (path parity and the ratios on Linux x64 and arm64, macOS arm64 and Windows x64; ci/warm_prime_accept.py) | dropped with 0001, or when openkal states an owner, a count of names and a descriptor a started program inherits |
 | 0003-FEATURE-45-ok-image-absent-names.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (absent-names: on the final clangd.okb under okrun in the identity job, and on Linux x64 and arm64, macOS arm64 and Windows x64 in the acceptance jobs of .github/workflows/openkal.yml) | dropped with 0001, or when clang validates a BMI against the names its header search found absent |
 | 0004-FEATURE-45-continuous-shared-lease.patch | FEATURE-45 | stabilizing | .github/workflows/openkal.yml (four-host absent-names); .github/workflows/build-test.yml (four-host warm-prime); ci/module_inputs_canary.py; ci/warm_prime_accept.py | dropped with 0002 when upstream retains continuous lease ownership with the lock semantics stated by the environment |
+| 0005-FEATURE-45-ledger-lock-outside-data.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); .github/workflows/openkal.yml (module import and the owned-cache measurement with positional IO) | dropped with 0002 when upstream serializes its ledger without blocking positional IO through the environment's separate handle |
