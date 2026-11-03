@@ -1,0 +1,373 @@
+From a1f7198f059e564a3474e2a693263820e5e93d0a Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Tue, 3 Nov 2026 09:37:48 +0900
+Subject: [PATCH] [clangd] As an ok image, a module is rebuilt when a name its
+ worker found absent exists
+
+clang validates the inputs a BMI was built from (their size, time and
+content), and nothing else. A header created after the BMI was built,
+in a directory searched before the one whose header the BMI read, is not
+one of its inputs: the BMI was reused, and the module went on reading
+the header it would no longer include.
+
+An ok image's module worker records what it reaches of the directories
+it holds (openkal 0.23, KAL_DIR_RECORDED): it asks its C library to
+attenuate each with a record (okm_preopen_attenuate, openkal-musl
+0.27.0), in `inputs-<n>' of its unit, headed by the directory's name.
+When the worker has ended, clangd takes the names its complete records
+say were asked about and found absent, beneath no worker unit, and
+writes them beside the BMI (`<bmi>.inputs', with the wall time before
+the worker began) before the BMI is published; a BMI built without a
+record has none. Before a BMI is reused, a name in that list that now
+exists rebuilds it. A directory last changed before the worker began has
+had no name added since, so a name is asked about only where its
+directory changed; a check that held is not repeated within the recheck
+interval while no change is reported, as validation verdicts are not.
+
+The owned cache knows the list as a payload of its generation, and a
+worker unit knows its records.
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp |  10 +-
+ .../clangd/ModuleBuildWorker.cpp              | 103 ++++++++++++++++-
+ clang-tools-extra/clangd/ModuleBuildWorker.h  |   5 +
+ .../clangd/ModuleBuildWorkerStorage.cpp       |  13 ++-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 108 ++++++++++++++++++
+ 5 files changed, 233 insertions(+), 6 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 501736f02..eb82ac6a1 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -252,7 +252,15 @@ llvm::Expected<BundleInventory> inventoryBundle(int Generation,
+           return failure("unknown bundle directory");
+       } else if (Relative.empty()) {
+         Metadata = Name == "owned.generation";
+-        if (!Metadata && Name != "payload.pcm" &&
++        // An ok image's BMI has the names its worker found absent beside it
++        // (ModulesBuilder.cpp, publishAbsentNames), charged as its payload.
++        const bool AbsentNames =
++#if defined(__OPENKAL__)
++            Name == "payload.pcm.inputs";
++#else
++            false;
++#endif
++        if (!Metadata && Name != "payload.pcm" && !AbsentNames &&
+             !(Retiring && Name == "staged.pcm"))
+           return failure("unknown generation payload");
+         if (Name == "payload.pcm")
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index 0f0a133c9..09a9b5573 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -42,7 +42,10 @@
+ #include <unistd.h>
+ #endif
+ #if defined(__OPENKAL__)
++#include "ModuleInputSources.h"
++#include <okm_preopen.h>
+ #include <openkal/env.h>
++#include <openkal/fs.h>
+ #include <openkal/process.h>
+ #endif
+ #include "llvm/Support/FileSystem.h"
+@@ -574,6 +577,84 @@ serializeModuleBuildWorkerRequest(const CompilerInvocation &Invocation,
+   return llvm::formatv("{0}", llvm::json::Value(std::move(Request))).str();
+ }
+ 
++#if defined(__OPENKAL__)
++// WHAT A WORKER REACHED OF ITS DIRECTORIES (openkal 0.23, KAL_DIR_RECORDED).
++// A worker records each directory it holds, at its own request
++// (okm_preopen_attenuate, openkal-musl 0.27.0), in `inputs-<n>' of its unit,
++// headed by the directory's name: `g<name>\0', then what the implementation
++// appends, `<kind><name beneath>\0', and `e\0' when the worker ends. A
++// directory whose volume does not record keeps its handle, and its record has
++// no end.
++static void recordHeldDirectories(llvm::StringRef UnitDirectory) {
++  const kal_uintptr Count = kal_fs_preopen_count();
++  for (kal_uintptr I = 0; I < Count; ++I) {
++    kal_dir Dir{};
++    char Name[4096];
++    kal_uintptr Length = 0;
++    if (kal_fs_preopen(I, &Dir, Name, sizeof(Name) - 1, &Length) != kal_ok ||
++        Length >= sizeof(Name) - 1)
++      continue;
++    Name[Length] = '\0';
++    llvm::SmallString<256> Record(UnitDirectory);
++    llvm::sys::path::append(Record, "inputs-" + std::to_string(I));
++    {
++      std::error_code EC;
++      llvm::raw_fd_ostream Heading(Record, EC);
++      if (EC)
++        continue;
++      Heading << 'g' << llvm::StringRef(Name, Length) << '\0';
++    }
++    (void)okm_preopen_attenuate(Name, KAL_DIR_RECORDED, Record.c_str());
++  }
++}
++
++// The names an ended worker asked about and found absent, from its complete
++// records, made absolute; those beneath the units' root are its own. The list
++// is `t<ns>\0' --- the wall time before the worker started --- then
++// `a<name>\0' for each name. Empty where nothing was recorded. A name the
++// worker read is an input of the BMI, which clang validates (size, time and
++// content) before the BMI is used; a name it found absent is not, and a header
++// created since, earlier on the search path, is what clang's validation does
++// not see.
++static std::string recordedAbsentNames(llvm::StringRef UnitDirectory,
++                                       llvm::StringRef UnitRoot,
++                                       int64_t BeganNs) {
++  std::string Out;
++  std::error_code EC;
++  for (llvm::sys::fs::directory_iterator It(UnitDirectory, EC), End;
++       It != End && !EC; It.increment(EC)) {
++    if (!llvm::sys::path::filename(It->path()).starts_with("inputs-"))
++      continue;
++    auto Buffer = llvm::MemoryBuffer::getFile(It->path());
++    if (!Buffer)
++      continue;
++    llvm::SmallVector<llvm::StringRef> Entries;
++    (*Buffer)->getBuffer().split(Entries, '\0', -1, /*KeepEmpty=*/false);
++    if (Entries.empty() || !Entries.front().consume_front("g") ||
++        llvm::find(Entries, "e") == Entries.end())
++      continue;
++    const llvm::StringRef Granted = Entries.front();
++    for (llvm::StringRef Entry : llvm::drop_begin(Entries)) {
++      if (!Entry.consume_front("a"))
++        continue;
++      llvm::SmallString<256> Name(Granted);
++      llvm::sys::path::append(Name, Entry);
++      const std::string Normal = ModuleInputSources::normalized(Name, "");
++      if (Normal.empty() ||
++          llvm::StringRef(Normal).starts_with(
++              ModuleInputSources::normalized(UnitRoot, "")))
++        continue;
++      Out += 'a';
++      Out += Normal;
++      Out += '\0';
++    }
++  }
++  if (Out.empty())
++    return Out;
++  return "t" + std::to_string(BeganNs) + '\0' + Out;
++}
++#endif
++
+ llvm::Expected<std::optional<ModuleBuildWorkerResult>>
+ buildModuleInWorker(const CompilerInvocation &Invocation,
+                     StringRef MainContents, const ThreadsafeFS &FS,
+@@ -740,6 +821,11 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+ #endif
+   std::string LaunchError;
+   bool Failed = false;
++#if defined(__OPENKAL__)
++  const int64_t BeganNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                              std::chrono::system_clock::now().time_since_epoch())
++                              .count();
++#endif
+   auto Process =
+       llvm::sys::ExecuteNoWait(Program, Args, std::nullopt,
+                                Redirects, 0, &LaunchError, &Failed);
+@@ -826,10 +912,16 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+     if (auto Error = (*Unit)->retainImplicitOutputs())
+       return std::move(Error);
+   Success = true;
+-  return std::optional<ModuleBuildWorkerResult>(
+-      {std::chrono::duration_cast<std::chrono::milliseconds>(
+-           std::chrono::steady_clock::now() - Started),
+-       Child.Statistics});
++  ModuleBuildWorkerResult Result{
++      std::chrono::duration_cast<std::chrono::milliseconds>(
++          std::chrono::steady_clock::now() - Started),
++      Child.Statistics};
++#if defined(__OPENKAL__)
++  Result.AbsentNames = recordedAbsentNames(
++      llvm::sys::path::parent_path(Path("request.json")), Options.UnitRoot,
++      BeganNs);
++#endif
++  return std::optional<ModuleBuildWorkerResult>(std::move(Result));
+ }
+ 
+ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken) {
+@@ -861,6 +953,9 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+       return Lease.takeError();
+     WorkerLease = std::move(*Lease);
+   }
++#if defined(__OPENKAL__)
++  recordHeldDirectories(UnitDirectory);
++#endif
+   auto Buffer = llvm::MemoryBuffer::getFile(RequestFile);
+   if (!Buffer)
+     return llvm::errorCodeToError(Buffer.getError());
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.h b/clang-tools-extra/clangd/ModuleBuildWorker.h
+index 333552eb9..f224c7c46 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.h
+@@ -77,6 +77,11 @@ struct ModuleBuildWorkerOptions {
+ struct ModuleBuildWorkerResult {
+   std::chrono::milliseconds WallTime;
+   std::optional<llvm::sys::ProcessStatistics> Statistics;
++#if defined(__OPENKAL__)
++  // The names the worker asked about and found absent, as it recorded them
++  // (ModuleBuildWorker.cpp, recordedAbsentNames); empty where none were.
++  std::string AbsentNames;
++#endif
+ };
+ 
+ // nullopt selects the existing in-process implementation, either by explicit
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+index 9b208487f..56c99d242 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerStorage.cpp
+@@ -123,7 +123,18 @@ std::error_code validateUnitContents(PathRef Unit) {
+       Overlay = !Name.getAsInteger(10, N) && N < 4096;
+     }
+     Name = llvm::sys::path::filename(I->path());
+-    bool Known = Overlay || outputTemporary(Name, true) ||
++    // An ok image's worker records what it reaches of each directory it holds
++    // in `inputs-<n>' (ModuleBuildWorker.cpp, recordHeldDirectories).
++    bool Record = false;
++#if defined(__OPENKAL__)
++    {
++      llvm::StringRef Index = Name;
++      unsigned N;
++      Record = Index.consume_front("inputs-") && !Index.empty() &&
++               Index.size() <= 4 && !Index.getAsInteger(10, N);
++    }
++#endif
++    bool Known = Overlay || Record || outputTemporary(Name, true) ||
+                  Name == "parent.lease" || Name == "worker.lease" ||
+                  Name == "owned.unit" || Name == "retired.unit" ||
+                  Name == "bundle.unit" || Name == "main.snapshot" ||
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index b7d2b243c..0a1aa734b 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -1262,10 +1262,114 @@ bool readModuleFileForValidation(
+   return Success;
+ }
+ 
++#if defined(__OPENKAL__)
++// THE NAMES A WORKER FOUND ABSENT ARE ABSENT STILL (openkal 0.23,
++// KAL_DIR_RECORDED; ModuleBuildWorker.cpp records them). clang validates the
++// inputs a BMI was built from, and nothing else: a header created since,
++// earlier on the search path than the one the BMI read, is not one of them,
++// and a BMI that would now include another header was reused. The names sit
++// beside the BMI (`<bmi>.inputs'), written before it is published. A
++// directory last changed before the worker began has had no name added since,
++// so a name is asked about only where its directory changed --- a few
++// directories for a module, not each name its search missed. A check that
++// held is not repeated within the recheck interval while no change is
++// reported, as clang's validation verdicts are not (ModuleInputSources.h).
++std::string absentNamesFile(PathRef ModuleFilePath) {
++  return (ModuleFilePath + ".inputs").str();
++}
++
++void publishAbsentNames(PathRef ModuleFilePath, llvm::StringRef Names) {
++  const std::string Published = absentNamesFile(ModuleFilePath);
++  if (Names.empty()) {
++    // A BMI built without a record has none: an earlier build's would
++    // describe another build.
++    llvm::sys::fs::remove(Published);
++    return;
++  }
++  const std::string Staged = Published + ".staged";
++  {
++    std::error_code EC;
++    llvm::raw_fd_ostream Out(Staged, EC);
++    if (EC)
++      return;
++    Out << Names;
++  }
++  if (llvm::sys::fs::rename(Staged, Published))
++    llvm::sys::fs::remove(Staged);
++}
++
++bool absentNamesHold(PathRef ModuleFilePath, std::string *Why) {
++  const std::string File = absentNamesFile(ModuleFilePath);
++  llvm::sys::fs::file_status Status;
++  if (llvm::sys::fs::status(File, Status))
++    return true;
++  struct Held {
++    uint64_t Size = 0;
++    llvm::sys::TimePoint<> ModTime;
++    RecentInputCheck Check;
++  };
++  static std::mutex Mutex;
++  static llvm::StringMap<Held> Checks;
++  const uint64_t Epoch = ModuleInputSources::currentInputEpoch();
++  RecentInputCheck Check;
++  {
++    std::lock_guard<std::mutex> Lock(Mutex);
++    auto &Entry = Checks[File];
++    if (Entry.Size != Status.getSize() ||
++        Entry.ModTime != Status.getLastModificationTime())
++      Entry = Held{Status.getSize(), Status.getLastModificationTime(), {}};
++    else if (Entry.Check.holds(Epoch))
++      return true;
++    Check = Entry.Check;
++  }
++  auto Buffer = llvm::MemoryBuffer::getFile(File);
++  if (!Buffer)
++    return true;
++  llvm::SmallVector<llvm::StringRef> Entries;
++  (*Buffer)->getBuffer().split(Entries, '\0', -1, /*KeepEmpty=*/false);
++  int64_t BeganNs = 0;
++  if (Entries.empty() || !Entries.front().consume_front("t") ||
++      Entries.front().getAsInteger(10, BeganNs))
++    return true;
++  // Two seconds: the coarsest time of change a volume keeps.
++  const int64_t Slack = 2'000'000'000;
++  llvm::StringMap<std::vector<llvm::StringRef>> ByDirectory;
++  for (llvm::StringRef Entry : llvm::drop_begin(Entries))
++    if (Entry.consume_front("a"))
++      ByDirectory[llvm::sys::path::parent_path(Entry)].push_back(Entry);
++  for (const auto &Directory : ByDirectory) {
++    llvm::sys::fs::file_status DirectoryStatus;
++    if (llvm::sys::fs::status(Directory.getKey(), DirectoryStatus))
++      continue;   // absent, and its names with it
++    const int64_t Changed =
++        std::chrono::duration_cast<std::chrono::nanoseconds>(
++            DirectoryStatus.getLastModificationTime().time_since_epoch())
++            .count();
++    if (Changed + Slack < BeganNs)
++      continue;
++    for (llvm::StringRef Name : Directory.getValue())
++      if (llvm::sys::fs::exists(Name)) {
++        if (Why)
++          *Why = llvm::formatv("{0} was absent when the module was built, and "
++                               "is present now",
++                               Name)
++                     .str();
++        return false;
++      }
++  }
++  Check.held(Epoch);
++  return true;
++}
++#endif
++
+ bool IsModuleFileUpToDate(PathRef ModuleFilePath,
+                           const PrerequisiteModules &RequisiteModules,
+                           llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS,
+                           std::string *Why = nullptr) {
++#if defined(__OPENKAL__)
++  if (!absentNamesHold(ModuleFilePath, Why))
++    return false;
++#endif
+   // Validating a BMI re-hashes all its inputs; the preamble redoes it for
+   // every request reusing the same prerequisite modules. A memoized verdict
+   // (keyed by the BMI, the dependency chain, and the input identities the
+@@ -1505,6 +1609,10 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
+   if (int Reason = isCancelled())
+     return llvm::make_error<CancelledError>(Reason);
+ 
++#if defined(__OPENKAL__)
++  publishAbsentNames(ModuleFilePath,
++                     *Worker ? llvm::StringRef((*Worker)->AbsentNames) : "");
++#endif
+   if (std::error_code EC =
+           llvm::sys::fs::rename(TemporaryModuleFilePath, ModuleFilePath)) {
+     if (!llvm::sys::fs::exists(ModuleFilePath))
+-- 
+2.53.0
+

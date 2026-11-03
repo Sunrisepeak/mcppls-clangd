@@ -20,6 +20,10 @@ Self-contained, on the final package bytes (`clangd --check`, no client):
   (PrerequisiteModulesTests.ValidationVerdictsHoldWithinTheRecheckInterval, ...ScansHold...).
 - interactive-actions: the engine takes --interactive-actions (covered by
   TUSchedulerTests.InteractiveActionsDoNotQueueBehindOthers).
+- absent-names (an ok-image engine, openkal 0.23): a module worker records what it reaches of its
+  directories, and a header created since, earlier on the search path than the one the module read,
+  rebuilds the module. clang's validation of the BMI reads its inputs, of which that header is not one;
+  a program engine reuses the BMI, and the case is asked of an ok-image engine only.
 - With module support, a file that imports no module completes as without it: Sema does not load the
   preamble's declarations, which the index has (as many results from Sema either way).
 
@@ -53,13 +57,48 @@ def fail(message, output=''):
     sys.exit(1)
 
 
+def absent_names(engine, root):
+    """A header created earlier on the search path rebuilds a module that read a later one."""
+    first, second = root / 'first', root / 'second'
+    first.mkdir(parents=True)
+    second.mkdir()
+    (second / 'lib.h').write_text('inline int lib_value = 42;\n')
+    (root / 'good.cppm').write_text(GOOD)
+    (root / 'main.cpp').write_text(MAIN)
+    (root / 'compile_commands.json').write_text(json.dumps([
+        {'directory': str(root), 'file': str(root / name),
+         'arguments': ['clang++', '-std=c++20', f'-I{first}', f'-I{second}', '-c', name]}
+        for name in ('good.cppm', 'main.cpp')]))
+    flags = ('--modules-builder-worker-policy=required',)
+    code, before = check(engine, root, *flags)
+    if code != 0 or not re.search(r'Built module good to ', before):
+        fail('absent names: the module was not built by a worker', before)
+    code, again = check(engine, root, *flags)
+    if code != 0 or not re.search(r'Reusing (owned |persistent )?module good from ', again):
+        fail('absent names: an unchanged module was not reused', again)
+    (first / 'lib.h').write_text('inline int lib_value = 7;\n')
+    code, after = check(engine, root, *flags)
+    if code != 0 or not re.search(r'Rebuilding module good: \S*first.lib\.h was absent when the module was built',
+                                  after):
+        fail('absent names: a header created earlier on the search path did not rebuild the module', after)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--runner', type=Path, help='the program that starts an ok-image engine (okrun clangd.okb)')
+    parser.add_argument('--absent-names-only', action='store_true',
+                        help='the absent-names case alone (an ok-image engine on each system, openkal.yml)')
     args = parser.parse_args()
     RUNNER[:] = [str(args.runner.resolve())] if args.runner else []
     engine = args.engine.resolve()
+    if args.absent_names_only:
+        if not RUNNER:
+            parser.error('the absent-names case is asked of an ok-image engine (--runner)')
+        with tempfile.TemporaryDirectory() as tmp:
+            absent_names(engine, Path(tmp).resolve() / 'shadowed')
+        print('module inputs canary: OK (absent names)')
+        return
 
     options = subprocess.run([*RUNNER, str(engine), '--help-hidden'], text=True, capture_output=True, timeout=60).stdout
     for option in ('--managed-input-root', '--module-memo-dir', '--max-retained-asts', '--module-input-recheck',
@@ -135,6 +174,8 @@ def main():
         if sema[True] != sema[False]:
             fail(f'with module support, Sema loaded the preamble of a file that imports no module '
                  f'({sema[True]} results from Sema, {sema[False]} without module support)')
+        if RUNNER:
+            absent_names(engine, Path(tmp).resolve() / 'shadowed')
     print('module inputs canary: OK')
 
 

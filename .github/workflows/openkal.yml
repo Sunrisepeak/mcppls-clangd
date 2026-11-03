@@ -345,6 +345,10 @@ jobs:
       - name: clangd.okb under okrun
         continue-on-error: true
         run: python ci/openkal_check.py --label image-${{ matrix.platform }} --out image.json --std --std-args="$STD_ARGS" $STD_HOST -- "$OKRUN" "$OKB"
+      # A NAME A MODULE WORKER FOUND ABSENT IS ABSENT STILL (openkal 0003): a header created earlier on
+      # the search path than the one a module read rebuilds the module, on each system.
+      - name: A header created earlier on the search path rebuilds the module
+        run: python ci/module_inputs_canary.py --absent-names-only --engine "$OKB" --runner "$OKRUN"
       - name: Acceptance
         run: python ci/openkal_accept.py --platform ${{ matrix.platform }} --native native.json --image image.json --image-file image/clangd-${{ matrix.arch }}.oke --out acceptance-${{ matrix.platform }}.json
       - uses: actions/upload-artifact@v4
