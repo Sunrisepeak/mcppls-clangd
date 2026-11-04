@@ -58,13 +58,20 @@ def fail(message, output=''):
 
 
 def absent_names(engine, root):
-    """A header created earlier on the search path rebuilds a module that read a later one."""
+    """Only a new shadowing header changes; the imported constant must change with it."""
     first, second = root / 'first', root / 'second'
     first.mkdir(parents=True)
     second.mkdir()
-    (second / 'lib.h').write_text('inline int lib_value = 42;\n')
-    (root / 'good.cppm').write_text(GOOD)
-    (root / 'main.cpp').write_text(MAIN)
+    (second / 'lib.h').write_text('inline constexpr int lib_value = 42;\n')
+    (root / 'good.cppm').write_text('module;\n#include "lib.h"\nexport module good;\n'
+                                    'export constexpr int answer() { return lib_value; }\n')
+    # The source and its command stay byte-identical across all three runs.
+    # A stale BMI still exports 42 after the main file can find the new header,
+    # so it fails the assertion instead of merely printing a plausible reason.
+    (root / 'main.cpp').write_text('import good;\n'
+        '#if __has_include("first/lib.h")\nstatic_assert(answer() == 7);\n'
+        '#else\nstatic_assert(answer() == 42);\n#endif\n'
+        'int main() { return answer(); }\n')
     (root / 'compile_commands.json').write_text(json.dumps([
         {'directory': str(root), 'file': str(root / name),
          'arguments': ['clang++', '-std=c++20', f'-I{first}', f'-I{second}', '-c', name]}
@@ -76,11 +83,13 @@ def absent_names(engine, root):
     code, again = check(engine, root, *flags)
     if code != 0 or not re.search(r'Reusing (owned |persistent )?module good from ', again):
         fail('absent names: an unchanged module was not reused', again)
-    (first / 'lib.h').write_text('inline int lib_value = 7;\n')
+    (first / 'lib.h').write_text('inline constexpr int lib_value = 7;\n')
     code, after = check(engine, root, *flags)
-    if code != 0 or not re.search(r'Rebuilding module good: \S*first.lib\.h was absent when the module was built',
-                                  after):
-        fail('absent names: a header created earlier on the search path did not rebuild the module', after)
+    # A cache miss can also rebuild correctly before the old BMI is examined.
+    # Require the new header's actual value and a real rebuild, independent of
+    # which valid lookup path supplied the diagnostic.
+    if code != 0 or not re.search(r'Built module good to ', after):
+        fail('absent names: the new shadowing header was not rebuilt and observed', after)
 
 
 def main():

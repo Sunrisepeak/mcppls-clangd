@@ -17,10 +17,11 @@ bumped.
 
 ## Status
 
-The 0.0.20 engine carries 42 patches ([patches/PATCHES.md](patches/PATCHES.md))
+The 0.0.20 engine carries 43 main patches ([patches/PATCHES.md](patches/PATCHES.md))
 on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.9`. Each patch maps
-to rows of the upstream-defects register and has a drop condition; every patch
-is `steady`, which `ci/check_ledger.py --release` requires before a release.
+to rows of the upstream-defects register and has a drop condition. A release
+requires every ledger entry in both series to be `steady`, as checked by
+`ci/check_ledger.py --release`.
 The engine ships in mcpp-language-server, which pins it by binary SHA-256
 and by the source identity in `engine.json`.
 
