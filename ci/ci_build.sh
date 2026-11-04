@@ -56,7 +56,7 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
     tools/clang/test/Modules/missing-module-semicolon-location.cpp
   CLANGD_TESTS=./tools/clang/tools/extra/clangd/unittests/ClangdTests
   [[ -x "$CLANGD_TESTS" ]] || CLANGD_TESTS+=.exe
-  "$CLANGD_TESTS" --gtest_filter='CompletionTest.*:PrerequisiteModulesTests.*:FSTests.*:TUSchedulerTests.StaleWithin*:GlobalCompilationDatabaseTest.*:DirectoryBasedGlobalCompilationDatabaseCacheTest.*:OverlayCDBTest.ExpandedResponseFiles:DiagnosticsTest.*-PrerequisiteModulesTests.PositiveScanMemo*'
+  "$CLANGD_TESTS" --gtest_filter='CompletionTest.*:PrerequisiteModulesTests.*:ModuleInputSourcesTest.*:FSTests.*:TUSchedulerTests.StaleWithin*:GlobalCompilationDatabaseTest.*:DirectoryBasedGlobalCompilationDatabaseCacheTest.*:OverlayCDBTest.ExpandedResponseFiles:DiagnosticsTest.*-PrerequisiteModulesTests.PositiveScanMemo*'
   LLVM_SUPPORT_TESTS=./unittests/Support/SupportTests
   [[ -x "$LLVM_SUPPORT_TESTS" ]] || LLVM_SUPPORT_TESTS+=.exe
   "$LLVM_SUPPORT_TESTS" --gtest_filter='VirtualFileSystemTest.*'

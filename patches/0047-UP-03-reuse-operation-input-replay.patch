@@ -1,0 +1,183 @@
+From f711d9d263aceced0e18f9455af9a45197a75939 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 5 Nov 2026 03:51:19 +0900
+Subject: [PATCH] perf: reuse completed dependency input replay within an
+ operation
+
+Count the complete publication audit as the existing operation epoch's first replay. A later operation or preamble audit still replays all inputs. Reject cancellation before any cache fast path.
+
+Reuse consecutive observations' normalized source classification while preserving every operation, alias check, package marker check and observation counter. Compact duplicate facts before repeating classification; package identity remains captured at the first fact.
+
+Add integrated coverage for a newly published scan's operation scope and cancellation after a cache hit. Exact real-header native and public-platform image component controls cover changed bytes, negative inputs and working directories. Their measured gains do not qualify complete-engine performance. Tracks mcpp-community/mcpp#885.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ .../clangd/ModuleDependencyScanCache.h        | 40 +++++++++++++------
+ clang-tools-extra/clangd/ModuleInputSources.h |  8 +++-
+ .../unittests/PrerequisiteModulesTest.cpp     | 31 ++++++++++++++
+ 3 files changed, 64 insertions(+), 15 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleDependencyScanCache.h b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+index ce1354410..0636b42ca 100644
+--- a/clang-tools-extra/clangd/ModuleDependencyScanCache.h
++++ b/clang-tools-extra/clangd/ModuleDependencyScanCache.h
+@@ -203,14 +203,6 @@ public:
+   void add(Observation O) {
+     if (!Complete)
+       return;
+-    if (Sources) {
+-      std::string Package;
+-      if (Sources->classify(O.Path, WorkingDirectory, &Package) ==
+-              ModuleInputSources::Package &&
+-          !Packages.count(Package))
+-        Packages.emplace(Package,
+-                         ModuleInputSources::packageIdentity(Package));
+-    }
+     const bool Indexed =
+         O.Operation != DirectoryBegin && O.Operation != DirectoryNext;
+     // Hash only selects candidates. Equality still compares EVERY recorded
+@@ -222,6 +214,14 @@ public:
+         return;
+       }
+     }
++    if (Sources) {
++      std::string Package;
++      if (Sources->classify(O.Path, WorkingDirectory, &Package) ==
++              ModuleInputSources::Package &&
++          !Packages.count(Package))
++        Packages.emplace(Package,
++                         ModuleInputSources::packageIdentity(Package));
++    }
+     const size_t IndexCapacity = !Indexed            ? FactIndex.size()
+                                  : FactIndex.empty() ? 32
+                                  : (IndexedFacts + 1) * 2 > FactIndex.size()
+@@ -444,11 +444,22 @@ public:
+         HeldPackages.insert(Package);
+     }
+     std::vector<std::string> SystemReplayed;
++    // A file's consecutive observations use the same source classification.
++    // Each observation still replays its own operation and updates counters.
++    bool Classified = false;
++    std::string ClassifiedPath, Normal, Package;
++    ModuleInputSources::Kind Source = ModuleInputSources::Project;
+     auto Skipped = [&](const Observation &O) {
+       if (!Sources)
+         return false;
+-      std::string Package;
+-      switch (Sources->classify(O.Path, WorkingDirectory, &Package)) {
++      if (!Classified || ClassifiedPath != O.Path) {
++        Classified = true;
++        ClassifiedPath = O.Path;
++        Normal = ModuleInputSources::normalized(O.Path, WorkingDirectory);
++        Package.clear();
++        Source = Sources->classifyNormalized(Normal, &Package);
++      }
++      switch (Source) {
+       case ModuleInputSources::Package:
+         if (HeldPackages.contains(Package)) {
+           ++Counters.Package;
+@@ -456,13 +467,11 @@ public:
+         }
+         break;
+       case ModuleInputSources::System: {
+-        std::string Normal =
+-            ModuleInputSources::normalized(O.Path, WorkingDirectory);
+         if (ModuleInputSources::systemChecked(Normal)) {
+           ++Counters.System;
+           return true;
+         }
+-        SystemReplayed.push_back(std::move(Normal));
++        SystemReplayed.push_back(Normal);
+         break;
+       }
+       case ModuleInputSources::Project:
+@@ -1134,6 +1143,8 @@ public:
+   lookup(const std::shared_ptr<const tooling::CompilationDatabase> &CDB,
+          llvm::StringRef File, const tooling::CompileCommand &Command,
+          ModuleScanManifest::Digest MainBytes, llvm::vfs::FileSystem &FS) {
++    if (isCancelled())
++      return std::nullopt;
+     auto Environment = ModuleScanManifest::environment(Command);
+     if (!Environment) {
+       ++Misses;
+@@ -1255,6 +1266,9 @@ public:
+     Added->Result = std::move(Result);
+     Added->Owner = Owner;
+     Added->Bytes = Bytes;
++    // Publication already replayed every input in this operation.
++    if (const auto *Epoch = Context::current().get(ModuleScanReplayEpoch))
++      Added->VerifiedEpoch = *Epoch;
+     if (isCancelled()) {
+       ++Declines;
+       return {};
+diff --git a/clang-tools-extra/clangd/ModuleInputSources.h b/clang-tools-extra/clangd/ModuleInputSources.h
+index 4f6a72ece..73f6c4077 100644
+--- a/clang-tools-extra/clangd/ModuleInputSources.h
++++ b/clang-tools-extra/clangd/ModuleInputSources.h
+@@ -178,8 +178,12 @@ public:
+   /// from; for a package, `PackageDir` is its version directory.
+   Kind classify(llvm::StringRef Path, llvm::StringRef WorkingDirectory,
+                 std::string *PackageDir = nullptr) const {
+-    std::string Normal = normalized(Path, WorkingDirectory);
+-    llvm::StringRef File(Normal);
++    return classifyNormalized(normalized(Path, WorkingDirectory), PackageDir);
++  }
++
++  /// Classify a name already normalized by normalized().
++  Kind classifyNormalized(llvm::StringRef File,
++                          std::string *PackageDir = nullptr) const {
+     for (const auto &Root : Managed) {
+       if (!File.starts_with(Root))
+         continue;
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 067d4c7c8..657817607 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -2007,6 +2007,14 @@ TEST_F(PrerequisiteModulesTests, FailedScanMemoRejectsOversizedAndCanceledEntrie
+     EXPECT_EQ(CanceledCache.stats().Entries, 0u);
+     EXPECT_EQ(CanceledCache.stats().Bytes, 0u);
+   }
++  {
++    WithContextValue Once(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
++    ASSERT_TRUE(Cache.lookup(Generation, Use, Command, MainBytes, *View));
++    auto Task = cancelableTask();
++    WithContext Context(std::move(Task.first));
++    Task.second();
++    EXPECT_FALSE(Cache.lookup(Generation, Use, Command, MainBytes, *View));
++  }
+   auto Task = cancelableTask();
+   Task.second();
+   WithContext Context(std::move(Task.first));
+@@ -4972,6 +4980,29 @@ TEST_F(PrerequisiteModulesTests, ScanReplayEpochReplaysOncePerOperation) {
+   EXPECT_THAT(Scan(), testing::ElementsAre("N"));
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ScanPublicationReplayIsSharedWithinOperation) {
++  if (!llvm::Triple(llvm::sys::getDefaultTargetTriple()).isOSLinux())
++    GTEST_SKIP() << "scan memo admission covers this host's test commands only";
++  PerFileModulesCompilationDatabase CDB(TestDir, FS);
++  CDB.addFile("Use.cpp", "#include \"dep.h\"\n");
++  CDB.addFile("dep.h", "import M;\n");
++  auto Generation = CDB.toolingCDB();
++  auto Commands = createProjectModulesCommandCache(Generation, true);
++  auto Scan = [&] {
++    auto Modules = clang::clangd::getProjectModules(Generation, FS, Commands);
++    return Modules->getRequiredModules(getFullPath("Use.cpp"));
++  };
++  {
++    WithContextValue Once(ModuleScanReplayEpoch, nextModuleScanReplayEpoch());
++    EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++    // Publication replayed the new entry completely. It is the operation's
++    // first replay, just as a successful lookup of an existing entry is.
++    CDB.addFile("dep.h", "import N;\n");
++    EXPECT_THAT(Scan(), testing::ElementsAre("M"));
++  }
++  EXPECT_THAT(Scan(), testing::ElementsAre("N"));
++}
++
+ TEST_F(PrerequisiteModulesTests, PreambleAuditReadsOriginalUnusedFileObjects) {
+   PerFileModulesCompilationDatabase CDB(TestDir, FS);
+   CDB.addFile("Header.hpp", "int old_header;\n");
+-- 
+2.53.0
+
