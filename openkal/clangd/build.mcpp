@@ -33,6 +33,8 @@ int main() {
      .output_dir(dir.c_str())
      .submit();
     mcpp::link_flag(("@" + rsp).c_str());
+    // Bound ThinLTO backend parallelism independently of the build's compile jobs.
+    mcpp::link_flag("--thinlto-jobs=2");
     // THE ORDER A START FIRST EXECUTES THE FUNCTIONS IN (mcpp design 2026-11-03 part 4 §9.4):
     // measured by CI on a cold session (okrun's `touch', `okprof report --order'), the link
     // lays the code out by it, so that the pages a start touches are few and adjacent. Not a
