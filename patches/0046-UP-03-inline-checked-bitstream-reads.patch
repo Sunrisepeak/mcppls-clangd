@@ -1,0 +1,42 @@
+From 8a04f2b744ac917181297144e357bb52f4e74a6c Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Thu, 5 Nov 2026 02:15:16 +0900
+Subject: [PATCH] perf: inline checked bitstream field reads in BMI decoders
+
+Keep the buffered Read and ReadVBR64 paths visible to callers without altering any bit extraction, refill, overflow or error handling. The complete image cold profile identifies these outlined helpers as hot in module worker decoding.
+
+Actual 176-payload component comparisons retain identical decoded values and unchanged security flags. Full native and image qualification remains required. Tracks mcpp-community/mcpp#885.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ llvm/include/llvm/Bitstream/BitstreamReader.h | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/llvm/include/llvm/Bitstream/BitstreamReader.h b/llvm/include/llvm/Bitstream/BitstreamReader.h
+index ff42cda71..299cca3ef 100644
+--- a/llvm/include/llvm/Bitstream/BitstreamReader.h
++++ b/llvm/include/llvm/Bitstream/BitstreamReader.h
+@@ -183,7 +183,9 @@ public:
+     return Error::success();
+   }
+ 
+-  Expected<word_t> Read(unsigned NumBits) {
++  // Keep buffered field reads visible to callers even when the checked
++  // refill and error paths would otherwise raise the inlining cost.
++  LLVM_ATTRIBUTE_ALWAYS_INLINE Expected<word_t> Read(unsigned NumBits) {
+     static const unsigned BitsInWord = sizeof(word_t) * 8;
+ 
+     assert(NumBits && NumBits <= BitsInWord &&
+@@ -261,7 +263,8 @@ public:
+ 
+   // Read a VBR that may have a value up to 64-bits in size. The chunk size of
+   // the VBR must still be <= 32 bits though.
+-  Expected<uint64_t> ReadVBR64(const unsigned NumBits) {
++  LLVM_ATTRIBUTE_ALWAYS_INLINE Expected<uint64_t>
++  ReadVBR64(const unsigned NumBits) {
+     Expected<uint64_t> MaybeRead = Read(NumBits);
+     if (!MaybeRead)
+       return MaybeRead;
+-- 
+2.53.0
+

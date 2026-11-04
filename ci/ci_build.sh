@@ -19,7 +19,7 @@ MCPPLS_CI_ROOT="$PWD"
 
 if [[ "${TEST:-0}" = "1" ]]; then
   # clangd + the clang driver (module lit tests compile with it) + lit helpers
-  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format ClangdTests SupportTests AllClangUnitTests c-index-test clang-repl clangd-validation-overlay-probe FileCheck not count split-file llvm-bcanalyzer llvm-config -j "${JOBS:-4}"
+  cmake --build "$BUILD_DIR" --target clangd clang clang-tidy clang-format ClangdTests SupportTests BitstreamTests AllClangUnitTests c-index-test clang-repl clangd-validation-overlay-probe FileCheck not count split-file llvm-bcanalyzer llvm-config -j "${JOBS:-4}"
 else
   cmake --build "$BUILD_DIR" --target clangd -j "${JOBS:-4}"
 fi
@@ -60,6 +60,9 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   LLVM_SUPPORT_TESTS=./unittests/Support/SupportTests
   [[ -x "$LLVM_SUPPORT_TESTS" ]] || LLVM_SUPPORT_TESTS+=.exe
   "$LLVM_SUPPORT_TESTS" --gtest_filter='VirtualFileSystemTest.*'
+  LLVM_BITSTREAM_TESTS=./unittests/Bitstream/BitstreamTests
+  [[ -x "$LLVM_BITSTREAM_TESTS" ]] || LLVM_BITSTREAM_TESTS+=.exe
+  "$LLVM_BITSTREAM_TESTS"
   CLANG_TESTS=./tools/clang/unittests/AllClangUnitTests
   [[ -x "$CLANG_TESTS" ]] || CLANG_TESTS+=.exe
   "$CLANG_TESTS" --gtest_filter='NamespaceLookupTest.*'
