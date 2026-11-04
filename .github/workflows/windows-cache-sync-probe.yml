@@ -1,0 +1,32 @@
+name: windows-cache-sync-probe
+on:
+  push:
+    branches: [ci/windows-cache-sync-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    name: Windows payload durability handle access
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile the native kernel probe
+        shell: pwsh
+        run: |
+          cl.exe /nologo /EHsc /W4 ci/windows_cache_sync_probe.cpp /Fe:cache-sync-probe.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check read only rejection and writable durability
+        shell: pwsh
+        run: |
+          & .\cache-sync-probe.exe > cache-sync.json
+          $result = $LASTEXITCODE
+          Get-Content cache-sync.json
+          exit $result
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-cache-sync
+          path: cache-sync.json
+          if-no-files-found: error
