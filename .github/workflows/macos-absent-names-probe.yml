@@ -1,0 +1,71 @@
+name: macos-absent-names-probe
+on:
+  push:
+    branches: [ci/macos-absent-names-probe]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: clangd-openkal
+          run-id: 41747171954
+          github-token: ${{ github.token }}
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: clangd-darwin-arm64-portable
+          run-id: 41747171954
+          github-token: ${{ github.token }}
+          path: native
+      - name: The published runner and candidate identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download 0.4.4 --repo mcpplibs/openkal-image -p okrun-0.4.4-macos-aarch64.zip -D runner-archive
+          echo '3ae4a5147ed9ea8aa326b0e9fd9a6d0756c149f9554758b0ddd9a2b736e8f8cc  runner-archive/okrun-0.4.4-macos-aarch64.zip' | shasum -a 256 -c -
+          unzip -q runner-archive/okrun-0.4.4-macos-aarch64.zip -d runner
+          chmod +x runner/okrun-0.4.4-macos-aarch64/bin/okrun
+          mkdir image
+          tar xzf candidate/clangd-*-openkal.tar.gz -C image
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          records = {}
+          for label in ['native', 'image']:
+              files = list(Path(label).rglob('engine.json'))
+              assert len(files) == 1
+              record = json.loads(files[0].read_text())
+              binary = files[0].parent / 'bin' / ('clangd' if label == 'native' else 'clangd.okb')
+              assert record['engine-version'] == '23.1.0-mcppls.9'
+              assert hashlib.file_digest(binary.open('rb'), 'sha256').hexdigest() == record['sha256']
+              records[label] = record
+              if label == 'native': binary.chmod(0o700)
+          Path('identities.json').write_text(json.dumps(records, indent=2))
+          PY
+      - name: Original diagnostic and unchanged-source semantic cases
+        run: |
+          set -euo pipefail
+          native=$(find native -path '*/clangd/bin/clangd' -type f | head -1)
+          image=$(find image -path '*/clangd/bin/clangd.okb' -type f | head -1)
+          python3 ci/absent_names_probe.py --engine "$native" --out native-observations --repeat 5
+          python3 ci/absent_names_probe.py --engine "$image" --runner "$PWD/runner/okrun-0.4.4-macos-aarch64/bin/okrun" --out image-observations --repeat 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-absent-names-observations
+          path: |
+            identities.json
+            native-observations/
+            image-observations/
+          include-hidden-files: true
+          retention-days: 14
