@@ -12,7 +12,9 @@ struct observation {
 
 std::vector<fs::path> directories(const fs::path& base, int levels, bool escaped) {
     std::vector<fs::path> paths;
-    const std::string component = escaped ? std::string("a\\\"") : std::string("a");
+    // Quotes expand in the sandbox grammar without exercising the separate
+    // portable-path treatment of a literal backslash in mcpplibs.os.
+    const std::string component = escaped ? std::string("a\"") : std::string("a");
     std::string segment;
     while (segment.size() < 72) segment += component;
     for (int n = 0; n < 16; ++n) {
@@ -84,7 +86,9 @@ int main() {
     const auto escaped_confined = run("escaped-ro-confined", escaped, true, true, base / "outside-marker");
     check(!escaped_confined.returned && escaped_confined.error == static_cast<int>(os::errc::invalid) && !escaped_confined.marker,
           "escaping can exhaust the read-only profile and refuses before execution");
-    fs::remove_all(base);
-    std::printf("{\"controls\":6,\"failures\":%d}\n", failed);
+    std::error_code cleanup_error;
+    fs::remove_all(base, cleanup_error);
+    check(!cleanup_error, "owned directory cleanup");
+    std::printf("{\"controls\":6,\"failures\":%d,\"cleanup_error\":%d}\n", failed, cleanup_error.value());
     return failed ? 1 : 0;
 }
