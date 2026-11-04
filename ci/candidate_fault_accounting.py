@@ -53,13 +53,24 @@ for lane in ('native', 'image'):
         directory.mkdir(mode=0o700)
         env[key] = str(directory)
     command = [sys.executable, str(probe), '--label', lane, '--workdir', str(out / 'work'),
-               '--out', str(out / 'result.json'), '--sessions', '0', '--std-args=' + args.std_args, '--']
+               '--out', str(out / 'result.json'), '--sessions', '3', '--std-args=' + args.std_args, '--']
     command += [str(args.native)] if lane == 'native' else [str(args.runner), str(args.image)]
     whole = measured(command, env, out, out / 'driver.log')
     result = json.loads((out / 'result.json').read_text())
-    assert result['units'] == 304 and len(result['sessions']) == 1 and result['sessions'][0]['ok']
-    observation = dict(command=command, sampled_to_ready=result['sessions'][0], kernel_whole_run=whole,
+    assert result['units'] == 304 and len(result['sessions']) == 4
+    assert all(session['ok'] and session['waited_usage'] for session in result['sessions'])
+    assert all(session['modules_built'] == 0 for session in result['sessions'][1:])
+    for session in result['sessions']:
+        usage = session['waited_usage']
+        assert usage['minor_faults'] >= 0 and usage['major_faults'] >= 0
+        assert usage['user_seconds'] + usage['system_seconds'] > 0
+    waited_faults = sum(session['waited_usage']['minor_faults'] + session['waited_usage']['major_faults']
+                        for session in result['sessions'])
+    assert whole['minor_faults'] + whole['major_faults'] >= waited_faults
+    observation = dict(command=command, sessions=result['sessions'], kernel_whole_run=whole,
+                       complete_engine_waited_faults=waited_faults,
                        scope='Kernel total includes the Python harness, complete engine lifetime and waited descendants. '
+                             'Each session separately records its engine-only complete-lifetime kernel counters, excluding Python. '
                              'The original sample is at readiness. These differ in boundary; neither the gate '
                              'nor the original probe is changed by this diagnostic.')
     (out / 'observed.json').write_text(json.dumps(observation, indent=2) + '\n')

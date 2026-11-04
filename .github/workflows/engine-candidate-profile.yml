@@ -8,13 +8,16 @@ permissions:
   actions: read
 jobs:
   profile:
-    name: candidate fault accounting ${{ matrix.platform }}
+    name: candidate waited accounting ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         include:
+        - platform: linux-x64
+          os: ubuntu-24.04
+          std: gcc
         - platform: darwin-arm64
           os: macos-15
           std: mac
@@ -43,6 +46,8 @@ jobs:
       with:
         python-version: '3.12'
     - run: pip install psutil
+    - name: Actual-session CPU and waited-descendant accounting controls
+      run: python ci/test_warm_usage.py
     - name: MSVC environment
       if: matrix.std == 'msvc'
       uses: ilammy/msvc-dev-cmd@v1
@@ -129,9 +134,13 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: candidate776-fault-accounting-${{ matrix.platform }}
+        name: candidate776-waited-accounting-${{ matrix.platform }}
         path: |
           candidate-run.json
+          ci/warm_prime.py
+          ci/warm_usage.py
+          ci/test_warm_usage.py
+          ci/candidate_fault_accounting.py
           tools.json
           identities.json
           diagnostic/inputs.json
