@@ -30,11 +30,57 @@ jobs:
           mcpp toolchain default llvm@23.1.3
           mcpp --version | tee compiler-version.txt
           mcpp index update
-      - name: Exercise actual profile limits and positive controls
-        working-directory: ci/macos-profile-boundary
+      - name: Host runtime filesystem control
         run: |
           set -euo pipefail
-          mcpp run --target aarch64-macos --toolchain llvm@23.1.3 2>&1 | tee observation.log
+          mkdir -p observations
+          clang++ -std=c++20 ci/filesystem_cleanup_review.cpp -o "$RUNNER_TEMP/cleanup-native"
+          "$RUNNER_TEMP/cleanup-native" "$RUNNER_TEMP/mcpp-885-cleanup-native" | tee observations/native-cleanup.log
+          grep -q 'review_complete=1' observations/native-cleanup.log
+      - name: Same-host published old and new group observations
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cleanup-consumer/src"
+          cp ci/filesystem_cleanup_review.cpp "$RUNNER_TEMP/cleanup-consumer/src/main.cpp"
+          printf '[package]\nname = "filesystem-cleanup-review"\nversion = "0.1.0"\n' > "$RUNNER_TEMP/cleanup-consumer/mcpp.toml"
+          for group in 0.23.4 0.23.5; do
+            set +e
+            (cd ci/macos-profile-boundary && mcpp run --target aarch64-macos --toolchain llvm@23.1.3 --platform "openkal-platform@$group") \
+              > "observations/$group-profile.log" 2>&1
+            observed=$?
+            set -e
+            printf '%s\n' "$observed" > "observations/$group-profile-exit.txt"
+            cp ci/macos-profile-boundary/mcpp.lock "observations/$group-profile.lock"
+            (cd "$RUNNER_TEMP/cleanup-consumer" && mcpp run --target aarch64-macos --toolchain llvm@23.1.3 \
+              --platform "openkal-platform@$group" -- "$RUNNER_TEMP/mcpp-885-cleanup-$group") \
+              > "observations/$group-cleanup.log" 2>&1
+            grep -q 'review_complete=1' "observations/$group-cleanup.log"
+            cp "$RUNNER_TEMP/cleanup-consumer/mcpp.lock" "observations/$group-cleanup.lock"
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for group in ('0.23.4','0.23.5'):
+              log=Path('observations',group+'-profile.log').read_text()
+              rows=[json.loads(line) for line in log.splitlines() if line.startswith('{"case":')]
+              assert len(rows)==6, 'All six original profile controls must actually execute'
+          PY
+      - name: Retain native filesystem leftovers and clean owned trees
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os,json,shutil
+          from pathlib import Path
+          paths=set(Path(os.environ['RUNNER_TEMP']).glob('mcpp-885-cleanup-*'))
+          paths.update(Path(os.environ.get('TMPDIR','/tmp')).glob('mcpp-885-profile-*'))
+          observations=[]
+          for root in sorted(paths):
+              count=sum(len(dirs)+len(files) for _,dirs,files in os.walk(root))
+              observations.append(dict(root=str(root),remaining_entries=count))
+              shutil.rmtree(root)
+          Path('observations').mkdir(exist_ok=True)
+          Path('observations/native-leftovers.json').write_text(json.dumps(observations,indent=2)+'\n')
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -44,5 +90,6 @@ jobs:
             ci/macos-profile-boundary/mcpp.toml
             ci/macos-profile-boundary/mcpp.lock
             ci/macos-profile-boundary/src/main.cpp
-            ci/macos-profile-boundary/observation.log
+            ci/filesystem_cleanup_review.cpp
+            observations/
           retention-days: 14
