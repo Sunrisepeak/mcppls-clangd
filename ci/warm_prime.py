@@ -25,10 +25,15 @@ it, since a sample misses a worker that lives between two --- the modules built 
 from the engine's log (`Module worker built ...`), and which cache the engine took (`Module cache <root>: owned` or `...: a copy of
 each BMI for each reader`) and where it compiled (`Module builds: ...`). The engine's log of session N is
 <workdir>/session-N-<cold|warm>.log.
+
+`waited_usage` additionally records POSIX kernel totals after the engine ends: its complete lifetime and
+descendants it waited for, including shutdown. It excludes this Python harness and descendants reparented
+elsewhere. These totals have a different boundary from readiness and do not replace the existing fault gate.
 """
 import argparse, json, os, re, statistics, subprocess, sys, threading, time
 
 import psutil
+from warm_usage import WaitedUsage, ready_cpu
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--label", required=True)
@@ -135,6 +140,7 @@ class Session:
         self.clean = {}  # uri -> when its diagnostics were last published with no error; absent while they have one
         self.cv = threading.Condition()
         self.id = 0
+        self.waited_usage = WaitedUsage()
         self.t0 = time.perf_counter()
         self.p = subprocess.Popen(prefix + ["--experimental-modules-support", "--background-index=false", "-j=4",
                                             "--log=info", f"--compile-commands-dir={at}"],
@@ -305,13 +311,13 @@ def session(kind, at, probes, n):
     except Exception as e:   # a session that fails is reported, not raised: the acceptance says what failed
         ready, cpu, faults, error = {}, *s.usage(), str(e)
     log = s.stop()
+    complete_usage = s.waited_usage.finish()
     with open(os.path.join(a.workdir, f"session-{n}-{kind}.log"), "w", encoding="utf-8") as f:
         f.write(log)
     workers = [(m, int(ms), int(c)) for m, ms, c in re.findall(r"Module worker built (\S+) in (\d+) ms: CPU (\d+) ms", log)]
-    if s.reaped() is None and workers:
-        # Elsewhere than Linux a worker that lives between two samples is not seen, so the processor time is
-        # the engine's own and each worker's as the engine reports it (Module worker built ...: CPU N ms).
-        cpu = round(s.own_cpu + sum(w[2] for w in workers) / 1000, 3)
+    # Keep Linux's pre-shutdown kernel reading. /proc is gone after stop(),
+    # which previously selected the sampled fallback even on Linux.
+    cpu = ready_cpu(sys.platform, cpu, s.own_cpu, [w[2] for w in workers])
     cache = re.search(r"Module cache .+?: (owned|a copy of each BMI for each reader)[^\n]*", log)
     builds = re.search(r"Module builds: ([^;\n]+); owned module cache ([^;\n]+)", log)
     return {
@@ -322,6 +328,9 @@ def session(kind, at, probes, n):
         "files": ready,
         "cpu_seconds": cpu,
         "page_faults": faults,
+        # Supplemental complete-lifetime counters. The existing readiness
+        # fault metric and acceptance thresholds remain unchanged.
+        "waited_usage": complete_usage,
         "modules_built": len(re.findall(r"Built module \S+ to ", log)),
         "modules_reused": len(re.findall(r"Reusing (?:owned |persistent )?module \S+ from ", log)),
         "workers": len(workers),
