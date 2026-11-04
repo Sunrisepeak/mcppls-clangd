@@ -1,0 +1,107 @@
+name: runtime-l2-review
+on:
+  push:
+    branches: [ci/runtime-l2-review]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    name: frozen runtime L2 and workload audit on macOS
+    runs-on: macos-15
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: cxx-images
+          repository: mcpplibs/openkal-llvm-runtime
+          run-id: 41708741056
+          github-token: ${{ github.token }}
+          path: old
+      - uses: actions/download-artifact@v4
+        with:
+          name: cxx-images
+          repository: mcpplibs/openkal-llvm-runtime
+          run-id: 41777349050
+          github-token: ${{ github.token }}
+          path: current
+      - name: Frozen provenance and image members
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/mcpplibs/openkal-llvm-runtime/actions/runs/41708741056 > old-run.json
+          gh api repos/mcpplibs/openkal-llvm-runtime/actions/runs/41777349050 > current-run.json
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          assert json.load(open('old-run.json'))['head_sha']=='3e65aa7273810965722ba0cd1381d440057fb947'
+          assert json.load(open('current-run.json'))['head_sha']=='5f3b4b4eef144acb1b92c48761a6579934917f51'
+          assert Path('old/bench.cpp').read_bytes()==Path('current/bench.cpp').read_bytes()
+          for label in ('old','current'):
+              for line in Path(label,'SHA256SUMS').read_text().splitlines():
+                  digest,name=line.split(maxsplit=1)
+                  file=Path(label,name.strip()).resolve()
+                  assert file.is_relative_to(Path(label).resolve())
+                  assert hashlib.sha256(file.read_bytes()).hexdigest()==digest
+          PY
+      - name: Released build tool and the same public runner
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-all-errors https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s v2026.10.26.1
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+      - name: Build the observational image
+        run: |
+          set -euo pipefail
+          xlings install mcpp@2026.11.3.1 -y -g
+          mcpp self config --mirror GLOBAL
+          mcpp toolchain install llvm 23.1.3
+          mcpp toolchain default llvm@23.1.3
+          mkdir -p audit/src
+          cp ci/runtime_l2_input_review.cpp audit/src/main.cpp
+          printf '[package]\nname = "runtime-l2-input-control"\nversion = "0.1.0"\n' > audit/mcpp.toml
+          cd audit
+          mcpp build --release --target aarch64-openkal --platform openkal-platform@0.23.4
+          mcpp self env --target aarch64-openkal --platform openkal-platform@0.23.4 --format json > ../tools.json
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          runner=json.load(open('../tools.json'))['data']['runner']['program']
+          assert '@0.4.4/' in runner
+          images=list(Path('target/aarch64-openkal').glob('*/bin/runtime-l2-input-control.oke'))
+          assert len(images)==1
+          with open(os.environ['GITHUB_ENV'],'a') as stream:
+              stream.write('OKRUN='+runner+'\n')
+              stream.write('AUDIT_IMAGE='+str(images[0].resolve())+'\n')
+          PY
+      - name: The actual host compiler identities and source controls
+        run: |
+          set -euo pipefail
+          { command -v clang++; clang++ --version; command -v c++; c++ --version; mcpp --version; } | tee compiler-identities.txt
+          clang++ -O2 -std=c++20 current/bench.cpp -o bench-clang
+          c++ -O2 -std=c++20 current/bench.cpp -o bench-cc
+          clang++ -O2 -std=c++20 ci/runtime_l2_input_review.cpp -o audit-clang
+          c++ -O2 -std=c++20 ci/runtime_l2_input_review.cpp -o audit-cc
+      - name: Alternating frozen-artifact comparison and input audit
+        run: python3 ci/runtime_l2_review.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-l2-macos-frozen-and-input-review
+          path: |
+            ci/runtime_l2_input_review.cpp
+            ci/runtime_l2_review.py
+            old-run.json
+            current-run.json
+            tools.json
+            compiler-identities.txt
+            timings.json
+            fingerprints.json
+            minimums.json
+            *-*.txt
+            audit/mcpp.lock
+          retention-days: 14
