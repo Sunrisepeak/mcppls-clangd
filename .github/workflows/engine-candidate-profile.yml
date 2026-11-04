@@ -125,11 +125,11 @@ jobs:
         with open(os.environ['GITHUB_ENV'],'a') as out: out.write('OKPROF='+profiler+'\n')
         PYCODE
     - name: Unchanged sessions and separate instrumented sessions
-      run: python ci/candidate_profile.py --native "$NATIVE" --image "$OKB" --runner "$OKRUN" --profiler "$OKPROF" --std-args="$STD_ARGS"
+      run: python ci/candidate_maps.py --native "$NATIVE" --image "$OKB" --runner "$OKRUN"
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: candidate776-profile-${{ matrix.platform }}
+        name: candidate776-maps-${{ matrix.platform }}
         path: |
           candidate-run.json
           tools.json
@@ -140,4 +140,5 @@ jobs:
           diagnostic/*/driver.log
           diagnostic/*/work/session-*.log
           diagnostic/image-profile/profiles/*.json
+          mapping-observations/
         retention-days: 14
