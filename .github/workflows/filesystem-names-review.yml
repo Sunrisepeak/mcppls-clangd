@@ -1,0 +1,62 @@
+name: filesystem-names-review
+on:
+  push:
+    branches: [ci/windows-filesystem-review]
+permissions:
+  contents: read
+jobs:
+  review:
+    name: public runtime filesystem observations on Windows
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Install xlings
+        shell: pwsh
+        run: |
+          irm https://d2learn.org/xlings-install.ps1.txt | iex
+          "$env:USERPROFILE\.xlings\subos\current\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Released mcpp and compiler
+        run: |
+          set -euo pipefail
+          xlings install mcpp@2026.11.3.1 -y -g
+          mcpp --version
+          mcpp self config --mirror GLOBAL
+          mcpp toolchain install llvm 23.1.3
+      - name: The host's native runtime
+        shell: pwsh
+        run: |
+          cl /nologo /std:c++20 /EHsc ci/filesystem_names_review.cpp /Fe:filesystem-native.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./filesystem-native.exe | Tee-Object -FilePath native-observed.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: The exact public image runtime
+        run: |
+          set -euo pipefail
+          mkdir -p filesystem-review/src
+          cp ci/filesystem_names_review.cpp filesystem-review/src/main.cpp
+          printf '[package]\nname = "filesystem-review"\nversion = "0.1.0"\n' > filesystem-review/mcpp.toml
+          cd filesystem-review
+          mcpp run --release --toolchain llvm@23.1.3 --target x86_64-openkal --platform openkal-platform@0.23.4 2>&1 | tee ../image-observed.log
+          mcpp self env --target x86_64-openkal --platform openkal-platform@0.23.4 --format json > ../image-tools.json
+          cp mcpp.lock ../image-dependencies.lock
+      - name: Both controls reached the filesystem observations
+        run: |
+          set -euo pipefail
+          grep -q 'review_complete=1' native-observed.log
+          grep -q 'review_complete=1' image-observed.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-runtime-filesystem-windows-review
+          path: |
+            ci/filesystem_names_review.cpp
+            native-observed.log
+            image-observed.log
+            image-tools.json
+            image-dependencies.lock
+          retention-days: 14
