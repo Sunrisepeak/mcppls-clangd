@@ -1,4 +1,6 @@
 """Accounting boundaries shared by the warm-prime probe and its controls."""
+MEASUREMENT_VERSION = 2
+FAULT_SCOPE = 'complete-engine-and-waited-descendants-v1'
 try:
     import resource
 except ImportError:  # Windows keeps the existing process-tree samples.
@@ -26,5 +28,6 @@ class WaitedUsage:
                     system_seconds=after.ru_stime - self.before.ru_stime,
                     minor_faults=after.ru_minflt - self.before.ru_minflt,
                     major_faults=after.ru_majflt - self.before.ru_majflt,
+                    scope_id=FAULT_SCOPE,
                     scope='Complete engine lifetime including shutdown and waited descendants; '
                           'excludes the Python harness and descendants reparented elsewhere.')

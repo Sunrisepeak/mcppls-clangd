@@ -26,14 +26,15 @@ from the engine's log (`Module worker built ...`), and which cache the engine to
 each BMI for each reader`) and where it compiled (`Module builds: ...`). The engine's log of session N is
 <workdir>/session-N-<cold|warm>.log.
 
-`waited_usage` additionally records POSIX kernel totals after the engine ends: its complete lifetime and
+Measurement version 2 retains `page_faults` as a readiness diagnostic. `waited_usage` records POSIX kernel totals after the engine ends: its complete lifetime and
 descendants it waited for, including shutdown. It excludes this Python harness and descendants reparented
-elsewhere. These totals have a different boundary from readiness and do not replace the existing fault gate.
+elsewhere. Its minor plus major faults form `complete_page_faults`, the fault acceptance metric on POSIX.
+This includes shutdown and has a different boundary from readiness; version 1 reports are not comparable.
 """
 import argparse, json, os, re, statistics, subprocess, sys, threading, time
 
 import psutil
-from warm_usage import WaitedUsage, ready_cpu
+from warm_usage import FAULT_SCOPE, MEASUREMENT_VERSION, WaitedUsage, ready_cpu
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--label", required=True)
@@ -328,9 +329,9 @@ def session(kind, at, probes, n):
         "files": ready,
         "cpu_seconds": cpu,
         "page_faults": faults,
-        # Supplemental complete-lifetime counters. The existing readiness
-        # fault metric and acceptance thresholds remain unchanged.
         "waited_usage": complete_usage,
+        "complete_page_faults": (complete_usage["minor_faults"] + complete_usage["major_faults"]
+                                 if complete_usage is not None else None),
         "modules_built": len(re.findall(r"Built module \S+ to ", log)),
         "modules_reused": len(re.findall(r"Reusing (?:owned |persistent )?module \S+ from ", log)),
         "workers": len(workers),
@@ -352,9 +353,13 @@ probes = probe_files(files)
 sessions = [session("cold" if n == 0 else "warm", at, probes, n) for n in range(a.sessions + 1)]
 warm = [s for s in sessions if s["kind"] == "warm" and s["ok"]]
 median = lambda key: statistics.median(s[key] for s in warm) if warm else None
-result = {"label": a.label, "engine": prefix, "probes": probes, "units": len(files), "sessions": sessions,
+result = {"measurement_version": MEASUREMENT_VERSION, "fault_scope": FAULT_SCOPE,
+          "label": a.label, "engine": prefix, "probes": probes, "units": len(files), "sessions": sessions,
           "warm": {"ready_seconds": median("ready_seconds"), "cpu_seconds": median("cpu_seconds"),
-                   "page_faults": median("page_faults"), "modules_built": median("modules_built")}}
+                   "page_faults": median("page_faults"),
+                   "complete_page_faults": (median("complete_page_faults")
+                                             if warm and warm[0]["complete_page_faults"] is not None else None),
+                   "modules_built": median("modules_built")}}
 with open(a.out, "w") as f:
     json.dump(result, f, indent=1)
 for s in sessions:

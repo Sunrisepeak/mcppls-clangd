@@ -20,7 +20,8 @@ def session_result(source):
 
     class Session:
         own_cpu = 2.0
-        waited_usage = SimpleNamespace(finish=lambda: dict(minor_faults=1000))
+        waited_usage = SimpleNamespace(finish=lambda: dict(minor_faults=1000, major_faults=7,
+                                                          scope_id=warm_usage.FAULT_SCOPE))
 
         def __init__(self, at):
             pass
@@ -48,7 +49,8 @@ class WarmUsageTests(unittest.TestCase):
         self.assertTrue(result['ok'])
         self.assertEqual(result['cpu_seconds'], 12.345)
         self.assertEqual(result['page_faults'], 999)
-        self.assertEqual(result['waited_usage'], dict(minor_faults=1000))
+        self.assertEqual(result['complete_page_faults'], 1007)
+        self.assertEqual(result['waited_usage']['scope_id'], warm_usage.FAULT_SCOPE)
 
     def test_linux_retains_the_kernel_cpu_reading_after_the_process_disappears(self):
         self.assertEqual(warm_usage.ready_cpu('linux', 12.345, 2.0, [10, 20]), 12.345)
