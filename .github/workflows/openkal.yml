@@ -228,7 +228,8 @@ jobs:
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
-          okld="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okld | sort -V | tail -1)"
+          (cd h && mcpp self env --target x86_64-openkal --format json) > tools.json
+          okld="$(python -c "import json; print(json.load(open('tools.json'))['data']['tools']['okld'])")"
           # okld bundle wants one image name across the architectures.
           mkdir -p x86_64 aarch64
           cp images/openkal-image-x86_64/clangd-x86_64.oke x86_64/clangd.oke
@@ -239,7 +240,7 @@ jobs:
           "$okld" bundle check "dist/$part/clangd/bin/clangd.okb"
           cp -R images/openkal-image-x86_64/clang "dist/$part/clangd/lib/clang"
           echo "PART=$part" >> "$GITHUB_ENV"
-          echo "OKRUN=$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun | sort -V | tail -1)" >> "$GITHUB_ENV"
+          python -c "import json; print('OKRUN=' + json.load(open('tools.json'))['data']['runner']['program'])" >> "$GITHUB_ENV"
       - name: llvm-project with the series and the openkal series (the identity's canaries read its tests)
         run: |
           set -euo pipefail
@@ -341,7 +342,8 @@ jobs:
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
-          okrun="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun* | sort -V | tail -1)"
+          (cd h && mcpp self env --target ${{ matrix.arch }}-openkal --format json) > tools.json
+          okrun="$(python -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")"
           echo "OKRUN=$okrun" >> "$GITHUB_ENV"
           gh release download "$NATIVE_RELEASE" -p "clangd-$NATIVE_ENGINE-${{ matrix.platform }}.tar.gz" -O native.tgz
           mkdir native && tar xzf native.tgz -C native

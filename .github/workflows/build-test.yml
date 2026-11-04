@@ -518,11 +518,12 @@ jobs:
           done
           # okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
           mkdir -p h/src
-          printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.%s]\nplatform = "openkal-platform@0.23.3"\n' "'cfg(os = \"openkal\")'" > h/mcpp.toml
+          printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.%s]\nplatform = "openkal-platform@0.23.4"\n' "'cfg(os = \"openkal\")'" > h/mcpp.toml
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           arch=x86_64; case "${{ matrix.platform }}" in *arm64) arch=aarch64 ;; esac
           (cd h && mcpp build --target "$arch-openkal" > /dev/null)
-          echo "OKRUN=$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun* | sort -V | tail -1)" >> "$GITHUB_ENV"
+          (cd h && mcpp self env --target "$arch-openkal" --format json) > tools.json
+          python -c "import json; print('OKRUN=' + json.load(open('tools.json'))['data']['runner']['program'])" >> "$GITHUB_ENV"
           native="$(find native -path '*/clangd/bin/clangd' -o -path '*/clangd/bin/clangd.exe' | head -1)"
           [ -n "$native" ] || { echo "::error::no native clangd in the portable part"; find native -maxdepth 4; exit 1; }
           # An artifact keeps no file's mode: the engine's programs are made executable again.
