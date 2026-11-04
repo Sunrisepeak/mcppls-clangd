@@ -1,0 +1,149 @@
+name: engine-candidate-profile
+'on':
+  push:
+    branches:
+    - ci/engine6fc-cold-profile
+permissions:
+  contents: read
+  actions: read
+jobs:
+  profile:
+    name: frozen candidate parent cold profile ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: darwin-arm64
+          os: macos-15
+          std: mac
+    defaults:
+      run:
+        shell: bash
+    env:
+      MCPP_VERSION: 2026.11.3.1
+      XLINGS_VERSION: v2026.10.26.1
+      XLINGS_NON_INTERACTIVE: '1'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Frozen candidate run and tool identities
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        gh api repos/Sunrisepeak/mcppls-clangd/actions/runs/41807943117 > candidate-run.json
+        python - <<'PYCODE'
+        import json
+        record=json.load(open('candidate-run.json'))
+        assert record['head_sha']=='6fc37a867c4b8022a32d8006d085c8b31e83b4f3' and record['status']=='completed'
+        assert record['conclusion']=='failure'  # This diagnostic does not promote a failed candidate.
+        PYCODE
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - run: pip install psutil
+    - name: Actual-session CPU and waited-descendant accounting controls
+      run: python ci/test_warm_usage.py
+    - name: MSVC environment
+      if: matrix.std == 'msvc'
+      uses: ilammy/msvc-dev-cmd@v1
+    - uses: actions/download-artifact@v4
+      with:
+        name: clangd-${{ matrix.platform }}-portable
+        path: native
+        run-id: 41807943117
+        github-token: ${{ github.token }}
+    - uses: actions/download-artifact@v4
+      with:
+        name: clangd-openkal
+        path: part
+        run-id: 41807943117
+        github-token: ${{ github.token }}
+    - name: xlings (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        irm https://d2learn.org/xlings-install.ps1.txt | iex
+        "$env:USERPROFILE\.xlings\subos\current\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    - name: xlings
+      if: runner.os != 'Windows'
+      run: |
+        curl -fsSL --retry 3 https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
+        echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+    - name: okrun, the native engine and clangd.okb
+      run: |
+        set -euo pipefail
+        for attempt in 1 2 3 4 5; do
+          if xlings install "mcpp@$MCPP_VERSION" -y -g; then break; fi
+          [ "$attempt" = 5 ] && exit 1
+          sleep 30
+        done
+        # okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
+        mkdir -p h/src
+        printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.%s]\nplatform = "openkal-platform@0.23.5"\n' "'cfg(os = \"openkal\")'" > h/mcpp.toml
+        printf 'int main() { return 0; }\n' > h/src/main.cpp
+        arch=x86_64; case "${{ matrix.platform }}" in *arm64) arch=aarch64 ;; esac
+        (cd h && mcpp build --target "$arch-openkal" > /dev/null)
+        (cd h && mcpp self env --target "$arch-openkal" --format json) > tools.json
+        python -c "import json; print('OKRUN=' + json.load(open('tools.json'))['data']['runner']['program'])" >> "$GITHUB_ENV"
+        native="$(find native -path '*/clangd/bin/clangd' -o -path '*/clangd/bin/clangd.exe' | head -1)"
+        [ -n "$native" ] || { echo "::error::no native clangd in the portable part"; find native -maxdepth 4; exit 1; }
+        # An artifact keeps no file's mode: the engine's programs are made executable again.
+        chmod +x "$(dirname "$native")"/*
+        echo "NATIVE=$native" >> "$GITHUB_ENV"
+        mkdir okb && tar xzf part/clangd-*-openkal.tar.gz -C okb
+        echo "OKB=$(ls okb/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+    - name: Arguments of the standard library
+      run: |
+        set -euo pipefail
+        args=""
+        case "${{ matrix.std }}" in
+          mac) args="--target=arm64-apple-macos14 -isysroot $(xcrun --show-sdk-path)" ;;
+          msvc)
+            args="--target=x86_64-pc-windows-msvc -fms-compatibility -fms-extensions"
+            IFS=';' read -ra dirs <<< "$INCLUDE"
+            for d in "${dirs[@]}"; do [ -n "$d" ] && args="$args -imsvc$(cygpath -m "$d")"; done ;;
+        esac
+        echo "STD_ARGS=$args" >> "$GITHUB_ENV"
+    - name: Verify payload and select the declared profiler
+      run: |
+        set -euo pipefail
+        python - <<'PYCODE'
+        import hashlib,json,os
+        from pathlib import Path
+        records={}
+        for label in ('native','okb'):
+            files=list(Path(label).rglob('engine.json')); assert len(files)==1
+            record=json.loads(files[0].read_text())
+            binary=files[0].parent/'bin'/('clangd' if label=='native' else 'clangd.okb')
+            assert record['engine-version']=='23.1.0-mcppls.9'
+            assert hashlib.file_digest(binary.open('rb'),'sha256').hexdigest()==record['sha256']
+            records[label]=record
+        Path('identities.json').write_text(json.dumps(records,indent=2)+'\n')
+        data=json.load(open('tools.json'))['data']
+        assert '@0.4.4/' in data['runner']['program']
+        profiler=data['tools']['okprof']; assert '@0.4.4/' in profiler
+        with open(os.environ['GITHUB_ENV'],'a') as out: out.write('OKPROF='+profiler+'\n')
+        PYCODE
+    - name: Frozen cold baseline and parent CPU sampling
+      run: python ci/candidate_profile.py --native "$NATIVE" --image "$OKB" --runner "$OKRUN" --profiler "$OKPROF" --std-args="$STD_ARGS"
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: candidate6fc-cold-profile-${{ matrix.platform }}
+        path: |
+          candidate-run.json
+          ci/warm_prime.py
+          ci/warm_usage.py
+          ci/test_warm_usage.py
+          ci/candidate_profile.py
+          tools.json
+          identities.json
+          diagnostic/inputs.json
+          diagnostic/*/*.json
+          diagnostic/*/*.txt
+          diagnostic/*/driver.log
+          diagnostic/*/work/session-*.log
+          diagnostic/image-profile/profiles/*.json
+        retention-days: 14
