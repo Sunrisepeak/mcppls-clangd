@@ -1,4 +1,4 @@
-From 1757da0ffc6a3c45116f02ef9bc8832f3f941e0c Mon Sep 17 00:00:00 2001
+From 32df822ca8cc7a720903749aa957aea233c0a296 Mon Sep 17 00:00:00 2001
 From: Sunrisepeak <speakshen@163.com>
 Date: Wed, 4 Nov 2026 23:15:42 +0900
 Subject: [PATCH] perf: batch owned cache ledger scans before acquiring
@@ -15,7 +15,7 @@ Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
  2 files changed, 132 insertions(+), 16 deletions(-)
 
 diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
-index 4b4324a3b..f5069108b 100644
+index 4b4324a3b..ba33cc06e 100644
 --- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
 +++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
 @@ -125,6 +125,12 @@ bool exactRead(int FD, void *Data, size_t N, off_t At) {
@@ -59,7 +59,7 @@ index 4b4324a3b..f5069108b 100644
 +        if (!R)
 +          return failure("ambiguous ledger record");
 +        if (auto E = Visit(Begin + I, *R))
-+          return E;
++          return std::move(E);
 +      }
 +    }
 +    return llvm::Error::success();
