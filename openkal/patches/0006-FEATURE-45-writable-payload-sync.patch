@@ -1,0 +1,99 @@
+From 87f3fe939385ce31c2020b3e1dc56cbbbecbaf0c Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Wed, 4 Nov 2026 09:26:06 +0900
+Subject: [PATCH] fix: open image cache payloads for durable publication
+
+FlushFileBuffers requires write access on Windows. Reopen regular payloads read-write only for durability on a Windows path style, retain no-follow and identity checks, and report the failing publication operation without suppressing flush errors. POSIX and directory access modes remain unchanged.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 45 +++++++++++++------
+ 1 file changed, 31 insertions(+), 14 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index a4baa61..4b4324a 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -57,6 +57,14 @@ std::string path(PathRef Root, StringRef Name) {
+ }
+ #if CLANGD_OWNED_MODULE_CACHE
+ using Platform = ModuleCachePlatform;
++int payloadSyncAccessMode() {
++  // Windows flushes file data through FlushFileBuffers, which requires a
++  // writable handle even when publication only reads an existing payload.
++  // Keep directory and ordinary read-only opens unchanged.
++  return llvm::sys::path::is_style_windows(llvm::sys::path::Style::native)
++             ? O_RDWR
++             : O_RDONLY;
++}
+ // The format is local to one target ABI. Exact header/layout validation rejects
+ // a different ABI instead of reinterpreting its reservations. Fixed-size banks
+ // bound all reads. No PID, timestamp or arbitrary recursive scan establishes
+@@ -96,9 +104,12 @@ bool valid(const Record &R) {
+          R.Key[64] == 0 && R.Source[1023] == 0 && R.MainPath[11] == 0 &&
+          StringRef(R.MainPath) == "payload.pcm";
+ }
+-llvm::Error ioError(int Error = errno) {
+-  return llvm::errorCodeToError(
+-      std::error_code(Error, std::generic_category()));
++llvm::Error ioError(int Error = errno, StringRef Operation = {}) {
++  const std::error_code Code(Error, std::generic_category());
++  if (!Operation.empty())
++    return llvm::createStringError(Code, "%s: %s", Operation.str().c_str(),
++                                   Code.message().c_str());
++  return llvm::errorCodeToError(Code);
+ }
+ bool exactRead(int FD, void *Data, size_t N, off_t At) {
+   auto *P = static_cast<char *>(Data);
+@@ -341,18 +352,22 @@ llvm::Error syncBundle(const BundleInventory &Bundle) {
+       return failure("bundle identity changed before durability");
+     const auto Name = llvm::sys::path::filename(Node.Relative);
+     FD File(openat(Node.Parent->Value, Name.str().c_str(),
+-                   O_RDONLY | O_NOFOLLOW | O_CLOEXEC |
++                   (Node.Directory ? O_RDONLY : payloadSyncAccessMode()) |
++                       O_NOFOLLOW | O_CLOEXEC |
+                        (Node.Directory ? O_DIRECTORY : 0)));
+     struct stat Opened;
+-    if (File.Value < 0 || fstat(File.Value, &Opened) ||
+-        uint64_t(Opened.st_dev) != Node.Device ||
++    if (File.Value < 0)
++      return ioError(errno, "open bundle node for durability");
++    if (fstat(File.Value, &Opened))
++      return ioError(errno, "stat bundle node for durability");
++    if (uint64_t(Opened.st_dev) != Node.Device ||
+         uint64_t(Opened.st_ino) != Node.Inode)
+-      return ioError();
++      return failure("bundle identity changed while opening for durability");
+     if (Node.Directory) {
+       if (int Error = Platform::syncDirectory(File.Value))
+-        return ioError(Error);
++        return ioError(Error, "sync bundle directory");
+     } else if (fsync(File.Value)) {
+-      return ioError();
++      return ioError(errno, "sync bundle payload");
+     }
+   }
+   return llvm::Error::success();
+@@ -1132,12 +1147,14 @@ llvm::Error ModuleBuildCacheLease::publish() {
+     return failure("invalid stable bundle or output envelope");
+   if (auto Error = syncBundle(*Bundle))
+     return Error;
+-  FD Payload(
+-      openat(Gen.Value, "payload.pcm", O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+-  if (Payload.Value < 0 || fsync(Payload.Value))
+-    return ioError();
++  FD Payload(openat(Gen.Value, "payload.pcm",
++                    payloadSyncAccessMode() | O_NOFOLLOW | O_CLOEXEC));
++  if (Payload.Value < 0)
++    return ioError(errno, "open main payload for durability");
++  if (fsync(Payload.Value))
++    return ioError(errno, "sync main payload");
+   if (int Error = Platform::syncDirectory(Gen.Value))
+-    return ioError(Error);
++    return ioError(Error, "sync generation directory");
+   auto Confirmed = inventoryBundle(Gen.Value);
+   if (!Confirmed)
+     return Confirmed.takeError();
+-- 
+2.53.0
+

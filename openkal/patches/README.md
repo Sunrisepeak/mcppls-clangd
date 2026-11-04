@@ -69,6 +69,12 @@ blocking their data transfers. This range overlaps an older whole-file lock;
 the cache checks positional IO while holding the lock before using the volume.
 POSIX retains its existing ledger lock protocol.
 
+Regular payload files reopened for durable publication use a writable handle
+on Windows, whose file flush requires write access. Directory handles and
+ordinary readers retain their existing access mode. Publication still checks
+the opened nodes' identities and reports any failed flush before making the
+generation stable.
+
 ## Ledger
 
 | patch | rows | state | tests | drop |
@@ -78,3 +84,4 @@ POSIX retains its existing ledger lock protocol.
 | 0003-FEATURE-45-ok-image-absent-names.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (absent-names: on the final clangd.okb under okrun in the identity job, and on Linux x64 and arm64, macOS arm64 and Windows x64 in the acceptance jobs of .github/workflows/openkal.yml) | dropped with 0001, or when clang validates a BMI against the names its header search found absent |
 | 0004-FEATURE-45-continuous-shared-lease.patch | FEATURE-45 | stabilizing | .github/workflows/openkal.yml (four-host absent-names); .github/workflows/build-test.yml (four-host warm-prime); ci/module_inputs_canary.py; ci/warm_prime_accept.py | dropped with 0002 when upstream retains continuous lease ownership with the lock semantics stated by the environment |
 | 0005-FEATURE-45-ledger-lock-outside-data.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); .github/workflows/openkal.yml (module import and the owned-cache measurement with positional IO) | dropped with 0002 when upstream serializes its ledger without blocking positional IO through the environment's separate handle |
+| 0006-FEATURE-45-writable-payload-sync.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); ci/openkal_check.py (module import and parallelism through the final image) | dropped with 0002 when upstream opens payloads for durability with the access required by the environment's file flush |
