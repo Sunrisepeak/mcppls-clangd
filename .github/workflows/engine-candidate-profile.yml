@@ -8,7 +8,7 @@ permissions:
   actions: read
 jobs:
   profile:
-    name: warm-prime ${{ matrix.platform }}
+    name: candidate fault accounting ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -124,12 +124,12 @@ jobs:
         profiler=data['tools']['okprof']; assert '@0.4.4/' in profiler
         with open(os.environ['GITHUB_ENV'],'a') as out: out.write('OKPROF='+profiler+'\n')
         PYCODE
-    - name: Unchanged sessions and separate instrumented sessions
-      run: python ci/candidate_maps.py --native "$NATIVE" --image "$OKB" --runner "$OKRUN"
+    - name: Kernel accounting and readiness sampling
+      run: python ci/candidate_fault_accounting.py --native "$NATIVE" --image "$OKB" --runner "$OKRUN" --std-args="$STD_ARGS"
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: candidate776-maps-${{ matrix.platform }}
+        name: candidate776-fault-accounting-${{ matrix.platform }}
         path: |
           candidate-run.json
           tools.json
@@ -141,4 +141,9 @@ jobs:
           diagnostic/*/work/session-*.log
           diagnostic/image-profile/profiles/*.json
           mapping-observations/
+          fault-accounting/*.json
+          fault-accounting/*.log
+          fault-accounting/*/*.json
+          fault-accounting/*/driver.log
+          fault-accounting/*/work/session-*.log
         retention-days: 14
