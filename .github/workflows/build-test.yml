@@ -1,4 +1,4 @@
-name: Frozen engine readiness accounting diagnostic
+name: Frozen engine kernel CPU diagnostic
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   warm-prime:
-    name: warm-prime ${{ matrix.platform }}
+    name: kernel-cpu ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -46,6 +46,25 @@ jobs:
       - name: MSVC environment
         if: matrix.std == 'msvc'
         uses: ilammy/msvc-dev-cmd@v1
+      - name: Locate an installed perf executable
+        run: |
+          python - <<'PERF'
+          import glob, os, shutil, subprocess
+          candidates=[shutil.which('perf'),*sorted(glob.glob('/usr/lib/linux-tools/*/perf'),reverse=True),*sorted(glob.glob('/usr/lib/linux-tools-*/perf'),reverse=True)]
+          found=None
+          for candidate in dict.fromkeys(candidates):
+              if not candidate or not os.access(candidate,os.X_OK): continue
+              probe=subprocess.run([candidate,'version'],text=True,capture_output=True)
+              if probe.returncode==0:
+                  found=candidate
+                  print(probe.stdout.strip())
+                  break
+          assert found, 'No installed perf supports this runner; retain failure without changing kernel settings'
+          subprocess.run(['sudo','-n',found,'version'],check=True)
+          with open(os.environ['GITHUB_ENV'],'a') as env: print('PROFILE_PERF='+found,file=env)
+          PERF
+      - name: Validate inherited sampling and busy-sibling exclusion
+        run: python ci/kernel_cpu_probe.py preflight --output kernel-preflight --perf "$PROFILE_PERF" --sudo-perf
       - name: Frozen input identities and archives
         env:
           GH_TOKEN: ${{ github.token }}
@@ -155,89 +174,28 @@ jobs:
                  'cpu_models':sorted({line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')}),
                  'observer_source_sha256':sha(Path('ci/ready_role_observer.py')),
                  'warm_prime_sha256':sha(Path('ci/warm_prime.py')),'qualification':False,
-                 'plan':'One original native/image cold+3warm pair, then four observed cold sessions N,I,I,N. Stop on validity failure; no added samples, no LLVM rebuild.'}
+                 'plan':'One attached native/image kernel CPU profile pair after sampler validity control; original304unit semantics; no additional samples, no LLVM rebuild or qualification.'}
           Path('role-inputs.json').write_text(json.dumps(proof,indent=2)+'\n')
           CHECK
-      - name: Actual parent and reaped-child accounting control
-        run: python ci/ready_role_observer.py validate --output accounting-control
-      - name: Original native cold and three warm sessions
-        run: python ci/warm_prime.py --label native-linux-x64 --workdir original-native --out native-warm.json --sessions 3 -- "$NATIVE"
-      - name: Original image cold and three warm sessions
-        run: python ci/warm_prime.py --label image-linux-x64 --workdir original-image --out image-warm.json --sessions 3 -- "$OKRUN" "$OKB"
-      - name: Record original acceptance without candidate admission
+      - name: Profile one frozen native and image cold pair
         run: |
-          python - <<'CHECK'
-          import json,subprocess,sys
-          for lane in ['native','image']:
-              data=json.load(open(lane+'-warm.json'))
-              assert data['units']==304 and len(data['probes'])==3
-              assert len(data['sessions'])==4 and all(s['ok'] for s in data['sessions'])
-              assert data['sessions'][0]['workers']==176
-          status=subprocess.run([sys.executable,'ci/warm_prime_accept.py','--platform','linux-x64',
-              '--native','native-warm.json','--image','image-warm.json','--out','original-acceptance.json']).returncode
-          assert status in [0,1]
-          json.dump({'status':status,'diagnostic_only':True,'candidate_admission':False},open('original-acceptance-status.json','w'),indent=2)
-          print('Original acceptance exit status:',status,'; this workflow only collects diagnostics.')
-          CHECK
-      - name: Four cold role observations in the declared order
-        run: |
-          python - <<'OBSERVE'
-          from pathlib import Path
-          import hashlib,json,os,re,subprocess,sys
-          orders=['native','image','image','native']
-          rows=[]
-          for number,lane in enumerate(orders):
-              stem='observed-'+str(number)+'-'+lane
-              prefix=[os.environ['NATIVE']] if lane=='native' else [os.environ['OKRUN'],os.environ['OKB']]
-              command=[sys.executable,'ci/ready_role_observer.py','observe','--output',stem+'-roles','--',
-                       '--label',stem,'--workdir',stem,'--out',stem+'.json','--sessions','0','--']+prefix
-              subprocess.run(command,check=True)
-              report=json.load(open(stem+'.json'))
-              log=Path(stem,'session-0-cold.log').read_text()
-              assert 'incomplete due to errors' not in log
-              assert 'Failed to auto-detect resource directory' not in log
-              assert 'falling back' not in log.lower()
-              stdlib=re.findall(r'Indexed c\+\+23 standard library: ([^\n]+)',log)
-              assert len(stdlib)==1
-              if rows: assert stdlib==rows[0]['stdlib']
-              commands=[line for line in log.splitlines() if ' -resource-dir=' in line]
-              assert len(commands)==3
-              source_files=[Path(entry['file']) for entry in json.load(open(Path(stem,'project/compile_commands.json')))]
-              source_identity={str(p.relative_to(Path(stem,'project').resolve())):hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
-              if rows: assert source_identity==rows[0]['source_identity']
-              paths=sorted(Path(stem,'project/.cache/clangd/modules').rglob('*.pcm'))
-              assert len(paths)==176
-              rows.append({'number':number,'lane':lane,'report':report,'stdlib':stdlib,
-                           'source_identity':source_identity,'actual_commands':commands,
-                           'pcm_bytes':sum(p.stat().st_size for p in paths)})
-              Path('role-summary.json').write_text(json.dumps({'rows':rows,'qualification':False},indent=2)+'\n')
-          OBSERVE
-      - name: Preserve first paired PCM inputs for offline comparison
-        if: always()
-        run: |
-          python - <<'ARCHIVE'
-          from pathlib import Path
-          import tarfile
-          selected=[Path('observed-0-native/project'),Path('observed-1-image/project')]
-          with tarfile.open('paired-pcm-inputs.tar.gz','w:gz') as archive:
-              for tree in selected:
-                  if tree.is_dir(): archive.add(tree,arcname=tree.parent.name)
-          ARCHIVE
+          python ci/kernel_cpu_probe.py pair --output kernel-pair --perf "$PROFILE_PERF" --sudo-perf \
+            --native "$NATIVE" --runner "$OKRUN" --bundle "$OKB"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: frozen-readiness-accounting-linux-x64
+          name: frozen-kernel-cpu-linux-x64
           path: |
             *-input-artifact.json
             role-inputs.json
-            accounting-control/*.json
-            *-warm.json
-            original-acceptance*.json
-            original-*/session-*.log
-            observed-*.json
-            observed-*/session-*.log
-            observed-*-roles/**/*.json
-            observed-*-roles/**/*.gz
-            role-summary.json
-            paired-pcm-inputs.tar.gz
+            kernel-preflight/**/*.json
+            kernel-preflight/**/*.log
+            kernel-preflight/**/*.txt
+            kernel-preflight/**/*.gz
+            kernel-preflight/**/*.data
+            kernel-pair/**/*.json
+            kernel-pair/**/*.log
+            kernel-pair/**/*.txt
+            kernel-pair/**/*.gz
+            kernel-pair/**/*.data
           if-no-files-found: warn

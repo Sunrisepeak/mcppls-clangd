@@ -15,7 +15,10 @@ def sha(path):
 
 
 def save(path, value):
-    Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    path = Path(path)
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    temporary.replace(path)
 
 
 def stat(pid, tid=None):
@@ -227,6 +230,37 @@ def observe(source, output, arguments):
             self.observer = Observer(self.p.pid, self.role_output)
             self.observer.start()
             holders.append(self)
+            gate = os.environ.get('MCPPLS_DIAGNOSTIC_PERF_GATE')
+            if gate:
+                # Only the diagnostic harness waits; the engine's identity and
+                # request/safety contracts are untouched. Timings are not gates.
+                directory = Path(gate)
+                identity = stat(self.p.pid)
+                save(directory / 'engine.json', dict(pid=self.p.pid,
+                     birth=identity['birth'], harness_pid=os.getpid(),
+                     gate_started_ns=time.monotonic_ns()))
+                deadline = time.monotonic() + 30
+                try:
+                    while True:
+                        if (directory / 'abort.json').exists():
+                            raise RuntimeError('profiler preflight aborted')
+                        if (directory / 'go.json').exists():
+                            ready = json.loads((directory / 'go.json').read_text())
+                            assert ready['pid'] == self.p.pid and ready['birth'] == identity['birth']
+                            assert stat(self.p.pid)['birth'] == identity['birth']
+                            save(self.role_output / 'profile-gate.json', dict(
+                                 pid=self.p.pid, birth=identity['birth'],
+                                 enabled_ns=ready['perf_enabled_ns'],
+                                 released_ns=time.monotonic_ns()))
+                            break
+                        if self.p.poll() is not None or time.monotonic() >= deadline:
+                            raise RuntimeError('profiler did not release the owned engine')
+                        time.sleep(.01)
+                except BaseException:
+                    if self.p.poll() is None:
+                        self.p.kill()
+                        self.p.wait()
+                    raise
 
         def reaped(self):
             # Retain the exact Linux formula; save the fields from the SAME read.
