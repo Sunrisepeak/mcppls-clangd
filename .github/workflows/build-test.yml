@@ -1,4 +1,4 @@
-name: Frozen engine platform 237 parity diagnostic
+name: Frozen engine unit memory supervision diagnostic
 
 on:
   workflow_dispatch:
@@ -130,18 +130,88 @@ jobs:
               for d in "${dirs[@]}"; do [ -n "$d" ] && args="$args -imsvc$(cygpath -m "$d")"; done ;;
           esac
           echo "STD_ARGS=$args" >> "$GITHUB_ENV"
+      - name: Candidate Linux backend
+        uses: actions/checkout@v4
+        with:
+          repository: mcpplibs/openkal-linux
+          ref: 6bd65128c53d1bc1fc99f2ddcb984e12325b3490
+          fetch-depth: 0
+          path: candidate-linux
+          persist-credentials: false
+      - name: Published runner source
+        uses: actions/checkout@v4
+        with:
+          repository: mcpplibs/openkal-image
+          ref: fda22ddd9af3c03ebd3996a385bdb0382bbf62c7
+          path: runner-source
+          persist-credentials: false
+      - name: Build matching baseline and filtered runners
+        run: |
+          python - <<'BUILD'
+          from pathlib import Path
+          import hashlib, io, json, os, shutil, subprocess, tarfile
+          root = Path('runner-probe').resolve()
+          root.mkdir()
+          linux = Path('candidate-linux').resolve()
+          assert subprocess.check_output(['git', '-C', str(linux), 'rev-parse', 'HEAD'], text=True).strip() == '6bd65128c53d1bc1fc99f2ddcb984e12325b3490'
+          base = root / 'linux-baseline'
+          base.mkdir()
+          archive = subprocess.check_output(['git', '-C', str(linux), 'archive', '81cab910c9a4717afbaad228fcd1736dad85e960'])
+          with tarfile.open(fileobj=io.BytesIO(archive)) as t:
+              t.extractall(base, filter='data')
+          source = Path('runner-source').resolve()
+          assert subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() == 'fda22ddd9af3c03ebd3996a385bdb0382bbf62c7'
+          proof = {'linux_base': '81cab910c9a4717afbaad228fcd1736dad85e960', 'linux_candidate': '6bd65128c53d1bc1fc99f2ddcb984e12325b3490', 'runner_source': 'fda22ddd9af3c03ebd3996a385bdb0382bbf62c7', 'compiler': subprocess.check_output(['mcpp', '--version'], text=True).strip(), 'runners': [], 'public_runner': {'path': os.environ['OKRUN'], 'sha256': hashlib.file_digest(Path(os.environ['OKRUN']).open('rb'), 'sha256').hexdigest()}}
+          for label, backend in [('baseline', base), ('filtered', linux)]:
+              tree = root / label
+              shutil.copytree(source, tree, ignore=shutil.ignore_patterns('.git', '.xlings', '.xlings.json', 'target', '.mcpp', 'mcpp.lock'))
+              manifest = tree / 'run/mcpp.toml'
+              text = manifest.read_text()
+              assert text.count('openkal-linux = "0.24.1"') == 1
+              manifest.write_text(text.replace('openkal-linux = "0.24.1"', 'openkal-linux = { path = ' + json.dumps(str(backend)) + ' }'))
+              command = ['mcpp', 'build', '-p', 'openkal-tools', '--release', '--toolchain', 'llvm@23.1.3', '-j', '4']
+              subprocess.run(command, cwd=tree, check=True)
+              binaries = list((tree / 'target').rglob('okrun'))
+              binaries = [x for x in binaries if x.is_file() and '/bin/' in str(x)]
+              assert len(binaries) == 1, binaries
+              binary = binaries[0].resolve()
+              sha = hashlib.file_digest(binary.open('rb'), 'sha256').hexdigest()
+              proof['runners'].append({'label': label, 'path': str(binary), 'sha256': sha, 'bytes': binary.stat().st_size, 'command': command, 'source_sha256': {str(x.relative_to(backend)): hashlib.file_digest(x.open('rb'), 'sha256').hexdigest() for x in (backend / 'src/process.cpp', backend / 'src/sys.h')}})
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  print('OKRUN_' + label.upper() + '=' + str(binary), file=f)
+          Path('runner-inputs.json').write_text(json.dumps(proof, indent=2) + '\n')
+          BUILD
       - name: The native engine
         run: python ci/warm_prime.py --label native-${{ matrix.platform }} --workdir wp-native --out native-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$NATIVE"
       - name: clangd.okb under okrun
         run: python ci/warm_prime.py --label image-${{ matrix.platform }} --workdir wp-image --out image-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$OKRUN" "$OKB"
-      - name: Acceptance
-        run: python ci/warm_prime_accept.py --platform ${{ matrix.platform }} --native native-warm.json --image image-warm.json --out warm-prime-${{ matrix.platform }}.json
+      - name: Same-compiler baseline runner
+        run: python ci/warm_prime.py --label baseline-${{ matrix.platform }} --workdir wp-baseline --out baseline-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$OKRUN_BASELINE" "$OKB"
+      - name: Filtered unit observer runner
+        run: python ci/warm_prime.py --label filtered-${{ matrix.platform }} --workdir wp-filtered --out filtered-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$OKRUN_FILTERED" "$OKB"
+      - name: Unchanged acceptance for every runner
+        run: |
+          python - <<'ACCEPT'
+          import json, os, subprocess, sys
+          platform = os.environ['DIAGNOSTIC_PLATFORM']
+          statuses = {}
+          for label, report in [('public', 'image-warm.json'), ('baseline', 'baseline-warm.json'), ('filtered', 'filtered-warm.json')]:
+              command = [sys.executable, 'ci/warm_prime_accept.py', '--platform', platform, '--native', 'native-warm.json', '--image', report, '--out', 'warm-prime-' + label + '-' + platform + '.json']
+              statuses[label] = subprocess.run(command).returncode
+          print(json.dumps(statuses, sort_keys=True))
+          # A passing diagnostic remains source-dependent evidence. It cannot
+          # qualify the original producer cohort or promote the patch ledger.
+          sys.exit(statuses['filtered'])
+          ACCEPT
+        env:
+          DIAGNOSTIC_PLATFORM: ${{ matrix.platform }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: warm-prime-${{ matrix.platform }}
           path: |
             *-input-artifact.json
+            runner-inputs.json
             *-warm.json
             warm-prime-*.json
             wp-*/session-*.log
