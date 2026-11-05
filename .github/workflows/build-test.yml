@@ -1,478 +1,31 @@
-name: build-test
+name: Frozen engine readiness accounting diagnostic
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
     inputs:
-      platform:
-        description: "Platform matrix when `all`, else single platform"
-        required: false
-        default: "linux-x64"
-        type: choice
-        options: [linux-x64, linux-arm64, darwin-arm64, win32-x64, all]
+      bundle_artifact:
+        description: Exact bundle artifact from engine run 41954537459
+        required: true
+        type: string
+      bundle_digest:
+        description: Exact artifact ZIP SHA256 without prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.pick.outputs.matrix }}
-    steps:
-      - id: pick
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
-             && [ "${{ github.event.inputs.platform }}" = "all" ]; then
-            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"linux-arm64","os":"ubuntu-22.04-arm"},{"platform":"darwin-arm64","os":"macos-15"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            case "${{ github.event.inputs.platform }}" in
-              linux-x64)   echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"}]' >> "$GITHUB_OUTPUT" ;;
-              linux-arm64) echo 'matrix=[{"platform":"linux-arm64","os":"ubuntu-22.04-arm"}]' >> "$GITHUB_OUTPUT" ;;
-              darwin-arm64) echo 'matrix=[{"platform":"darwin-arm64","os":"macos-15"}]' >> "$GITHUB_OUTPUT" ;;
-              win32-x64)   echo 'matrix=[{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT" ;;
-            esac
-          else
-            echo 'matrix=[{"platform":"linux-x64","os":"ubuntu-22.04"},{"platform":"linux-arm64","os":"ubuntu-22.04-arm"},{"platform":"darwin-arm64","os":"macos-15"},{"platform":"win32-x64","os":"windows-2022"}]' >> "$GITHUB_OUTPUT"
-          fi
-
-  # clangd as an ok image: the images, clangd.okb and where it is accepted (openkal.yml).
-  openkal:
-    uses: ./.github/workflows/openkal.yml
-
-  build:
-    needs: setup
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
-    name: build ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 300
-    concurrency:
-      # A long Windows build must not queue newer Linux/macOS results.
-      # Preserve active builds and their caches independently per platform.
-      group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install build tools
-        timeout-minutes: 15
-        shell: bash
-        run: |
-          set -e
-          case "${{ matrix.platform }}" in
-            linux-*)
-              sudo bash ci/scripts/apt-install.sh ninja-build ccache
-              ;;
-            darwin-*) brew install ninja ccache ;;
-            win32-*)  pip install ninja ;;
-          esac
-
-      - name: MSVC environment
-        if: matrix.platform == 'win32-x64'
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Install the Windows compiler cache
-        if: matrix.platform == 'win32-x64'
-        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        with:
-          version: v0.18.0
-
-      - name: Restore ccache
-        uses: actions/cache@v4
-        with:
-          path: .ccache
-          key: ccache-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
-          restore-keys: |
-            ccache-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-
-            ccache-${{ matrix.platform }}-
-      - name: Restore llvm tree
-        uses: actions/cache@v4
-        with:
-          path: llvm-project
-          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
-
-      - name: Build and test
-        shell: bash
-        env:
-          PLATFORM: ${{ matrix.platform }}
-          JOBS: 4
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-          TEST: "1"
-          RUN_TESTS: lit-subset
-          SCCACHE_GHA_ENABLED: "true"
-          SCCACHE_IDLE_TIMEOUT: "0"
-          CMAKE_EXTRA: ${{ matrix.platform == 'win32-x64' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }}
-        run: ./ci/ci_build.sh
-
-      - name: Real standard-library const fixes remain compilable
-        if: startsWith(matrix.platform, 'linux-')
-        shell: bash
-        run: |
-          python3 tests/e2e/const_correctness.py \
-            --engine build-${{ matrix.platform }}/bin/clangd --clang-tidy build-${{ matrix.platform }}/bin/clang-tidy \
-            --clang build-${{ matrix.platform }}/bin/clang --workdir "${{ runner.temp }}/const-correctness"
-
-      - uses: actions/upload-artifact@v4
-        if: always() && startsWith(matrix.platform, 'linux-')
-        with:
-          name: const-correctness-${{ matrix.platform }}
-          path: ${{ runner.temp }}/const-correctness/result.json
-          if-no-files-found: error
-
-      - name: Module DAG compilation has shared worker and dependency bounds
-        shell: bash
-        run: |
-          python3 tests/e2e/module_dag.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "build-${{ matrix.platform }}/module-dag"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-dag-${{ matrix.platform }}
-          path: |
-            build-${{ matrix.platform }}/module-dag/results.json
-            build-${{ matrix.platform }}/module-dag/**/replay-result.json
-          if-no-files-found: warn
-
-      - name: Response edits preserve current module symbols
-        shell: bash
-        run: |
-          python3 tests/e2e/module_response_inputs.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-response-inputs"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-response-inputs-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-response-inputs/result.json
-          if-no-files-found: warn
-
-      - name: First module completion has semantic imported symbols
-        shell: bash
-        run: |
-          python3 tests/e2e/module_cold_completion.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-cold-completion"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-cold-completion-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-cold-completion/result.json
-          if-no-files-found: warn
-
-      - name: Current symbols survive header and draft preamble mode changes
-        shell: bash
-        run: |
-          python3 tests/e2e/module_preamble_mode.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-preamble-mode"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-preamble-mode-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-preamble-mode/result.json
-          if-no-files-found: warn
-
-      - name: Default Linux module worker preserves dirty headers
-        if: startsWith(matrix.platform, 'linux-')
-        shell: bash
-        run: |
-          python3 tests/e2e/module_worker_default.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-worker-default" \
-            --dependency-mode MMD
-          python3 tests/e2e/module_worker_default.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-worker-payloads" \
-            --engine-flag=--modules-builder-worker-output-mib=1 \
-            --engine-flag=--modules-builder-worker-capture-mib=1
-          python3 tests/e2e/module_worker_failure.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-worker-failure"
-          python3 tests/e2e/module_worker_diagnostics.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-worker-diagnostics"
-      - uses: actions/upload-artifact@v4
-        if: always() && startsWith(matrix.platform, 'linux-')
-        with:
-          name: module-worker-default-${{ matrix.platform }}
-          path: |
-            ${{ runner.temp }}/module-worker-default/result.json
-            ${{ runner.temp }}/module-worker-payloads/result.json
-            ${{ runner.temp }}/module-worker-failure/result.json
-            ${{ runner.temp }}/module-worker-diagnostics/result.json
-          if-no-files-found: warn
-
-      - name: Provider command facts survive fresh module facades
-        shell: bash
-        run: |
-          python3 tests/e2e/module_provider_cache.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-provider-cache"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-provider-cache-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-provider-cache/result.json
-          if-no-files-found: warn
-
-      - name: Verified module scans replay inputs and observe actual builtins
-        if: startsWith(matrix.platform, 'linux-')
-        shell: bash
-        run: |
-          python3 tests/e2e/module_scan_memo.py \
-            --engine build-${{ matrix.platform }}/bin/clangd --clang build-${{ matrix.platform }}/bin/clang \
-            --workdir "${{ runner.temp }}/module-scan-memo"
-          python3 tests/e2e/module_scan_builtins.py \
-            --engine build-${{ matrix.platform }}/bin/clangd --clang build-${{ matrix.platform }}/bin/clang \
-            --workdir "${{ runner.temp }}/module-scan-builtins"
-      - uses: actions/upload-artifact@v4
-        if: always() && startsWith(matrix.platform, 'linux-')
-        with:
-          name: verified-module-scans-${{ matrix.platform }}
-          path: |
-            ${{ runner.temp }}/module-scan-memo/result.json
-            ${{ runner.temp }}/module-scan-builtins/summary.json
-            ${{ runner.temp }}/module-scan-builtins/case-*/result.json
-          if-no-files-found: warn
-
-      - name: BMI readers read owned generations under leases; portable copies are reclaimed
-        shell: bash
-        run: |
-          python3 tests/e2e/module_cache_lease.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-cache-lease"
-
-      - name: Legacy Linux BMI reader lease contract
-        if: startsWith(matrix.platform, 'linux-')
-        shell: bash
-        run: |
-          python3 tests/e2e/module_cache_lease.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --cache-mode legacy \
-            --workdir "${{ runner.temp }}/module-cache-lease-legacy"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-cache-lease-${{ matrix.platform }}
-          path: |
-            ${{ runner.temp }}/module-cache-lease/results.json
-            ${{ runner.temp }}/module-cache-lease-legacy/results.json
-          if-no-files-found: warn
-
-      - name: Exact request module inputs
-        shell: bash
-        run: |
-          python3 tests/e2e/module_request_inputs.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-request-inputs"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-request-inputs-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-request-inputs/result.json
-          if-no-files-found: error
-
-      - name: Module directive diagnostic ranges
-        shell: bash
-        run: |
-          python3 tests/e2e/module_directive_diagnostics.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --output "${{ runner.temp }}/module-directive-diagnostics.json"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-directive-diagnostics-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-directive-diagnostics.json
-          if-no-files-found: error
-
-      - name: Module member semantic regression
-        shell: bash
-        run: |
-          python3 tests/e2e/completion_quality.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-quality" --async-scheduling
-
-      - name: Unsaved module export regression
-        shell: bash
-        run: |
-          python3 tests/e2e/completion_quality.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-drafts" --unsaved-update --async-scheduling
-
-      - name: Cyclic module dependency recovery
-        shell: bash
-        run: |
-          python3 tests/e2e/module_cycle.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-cycle"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-cycle-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-cycle/results.json
-          if-no-files-found: error
-
-      - name: Third-party imports keep resolvable modules and the preamble
-        shell: bash
-        run: |
-          python3 tests/e2e/third_party_import.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/third-party-import"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: third-party-import-${{ matrix.platform }}
-          path: ${{ runner.temp }}/third-party-import/results.json
-          if-no-files-found: error
-
-      - name: Document close cancels live-owner module lock wait
-        shell: bash
-        run: |
-          python3 tests/e2e/module_lock_close.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-lock-close"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-lock-close-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-lock-close/results.json
-          if-no-files-found: error
-
-      - name: Malformed module directive recovery
-        shell: bash
-        run: |
-          python3 tests/e2e/module_directive_recovery.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/module-directive-recovery"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: module-directive-recovery-${{ matrix.platform }}
-          path: ${{ runner.temp }}/module-directive-recovery/results.json
-          if-no-files-found: error
-
-      - name: Compiler extension semantics and actual insertion
-        shell: bash
-        run: |
-          python3 tests/e2e/compiler_extensions.py \
-            --engine "build-${{ matrix.platform }}/bin/clangd" \
-            --clang "build-${{ matrix.platform }}/bin/clang" \
-            --workdir "${{ runner.temp }}/compiler-extensions"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: compiler-extensions-${{ matrix.platform }}
-          path: ${{ runner.temp }}/compiler-extensions/results.json
-          if-no-files-found: error
-
-      # The packaged part, proved like a release's, for the platforms the floor job does not
-      # package: a product PR's CI assembles its payloads from these before the engine is
-      # released (README.md, "Integrating with mcppls").
-      - name: Package payload part
-        if: "!startsWith(matrix.platform, 'linux-')"
-        shell: bash
-        env:
-          PLATFORM: ${{ matrix.platform }}
-        run: ./ci/scripts/package.sh
-
-      - uses: actions/upload-artifact@v4
-        if: "!startsWith(matrix.platform, 'linux-')"
-        with:
-          name: clangd-${{ matrix.platform }}-portable
-          path: dist/clangd-*-${{ matrix.platform }}/**
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Show ccache stats
-        shell: bash
-        run: ccache --show-stats || true
-        if: matrix.platform != 'win32-x64'
-
-  linux-portability:
-    name: Linux Ubuntu 20.04 package and runtime (${{ matrix.platform }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { platform: linux-x64,   os: ubuntu-24.04,     rootfs: ci/linux-floor-rootfs.json,       cache: '',             minutes: 300 }
-          - { platform: linux-arm64, os: ubuntu-24.04-arm, rootfs: ci/linux-floor-rootfs-arm64.json, cache: '-linux-arm64', minutes: 300 }
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.minutes }}
-    concurrency:
-      group: build-test-floor-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: .ccache-floor
-          key: ccache-floor-clang12${{ matrix.cache }}-${{ hashFiles('UPSTREAM', matrix.rootfs) }}-${{ github.sha }}
-          restore-keys: |
-            ccache-floor-clang12${{ matrix.cache }}-${{ hashFiles('UPSTREAM', matrix.rootfs) }}-
-      - uses: ./.github/actions/linux-floor
-        with:
-          platform: ${{ matrix.platform }}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: clangd-${{ matrix.platform }}-portable
-          path: |
-            dist/clangd-*-${{ matrix.platform }}/**
-            dist/portability-${{ matrix.platform }}.json
-            build-${{ matrix.platform }}-ubuntu20/portable-module-quality/quality-results.json
-            build-${{ matrix.platform }}-ubuntu20/portable-module-*/result*.json
-          if-no-files-found: warn
-          retention-days: 14
-
-  # The ok image against this change's native engine in a large modules workspace (ci/warm_prime.py): a cold
-  # session and three over the cache it left, on the four systems; the image within 1.15 times the native
-  # engine's ready and processor time and twice its page faults where both build in supervised workers over
-  # the owned cache, and on that path everywhere (ci/warm_prime_accept.py; mcpp design 2026-11-02 part 3 §9.4).
   warm-prime:
     name: warm-prime ${{ matrix.platform }}
-    needs: [build, linux-portability, openkal]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { platform: linux-x64, os: ubuntu-24.04, std: '' }
-          - { platform: linux-arm64, os: ubuntu-24.04-arm, std: '' }
-          - { platform: darwin-arm64, os: macos-15, std: 'mac' }
-          - { platform: win32-x64, os: windows-2022, std: 'msvc' }
+          - { platform: linux-x64, os: ubuntu-24.04, std: '', native_artifact: 13382154243, native_digest: 'f08ce7ecce89f18d6fb0d73632b56acccbfff3f736bfae59fc02c497fea41da6' }
     defaults:
       run:
         shell: bash
@@ -493,14 +46,43 @@ jobs:
       - name: MSVC environment
         if: matrix.std == 'msvc'
         uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/download-artifact@v4
-        with:
-          name: clangd-${{ matrix.platform }}-portable
-          path: native
-      - uses: actions/download-artifact@v4
-        with:
-          name: clangd-openkal
-          path: part
+      - name: Frozen input identities and archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NATIVE_ARTIFACT: ${{ matrix.native_artifact }}
+          NATIVE_DIGEST: ${{ matrix.native_digest }}
+          FROZEN_PLATFORM: ${{ matrix.platform }}
+          BUNDLE_ARTIFACT: ${{ inputs.bundle_artifact }}
+          BUNDLE_DIGEST: ${{ inputs.bundle_digest }}
+        run: |
+          gh api "repos/Sunrisepeak/mcppls-clangd/actions/artifacts/$NATIVE_ARTIFACT" > native-input-artifact.json
+          gh api "repos/Sunrisepeak/mcppls-clangd/actions/artifacts/$BUNDLE_ARTIFACT" > bundle-input-artifact.json
+          gh api "repos/Sunrisepeak/mcppls-clangd/actions/artifacts/$NATIVE_ARTIFACT/zip" > native-input.zip
+          gh api "repos/Sunrisepeak/mcppls-clangd/actions/artifacts/$BUNDLE_ARTIFACT/zip" > bundle-input.zip
+          python - <<'CHECK'
+          import hashlib, json, os, stat, zipfile
+          from pathlib import Path
+          for stem, name, digest, directory in [
+              ('native', 'clangd-' + os.environ['FROZEN_PLATFORM'] + '-portable', os.environ['NATIVE_DIGEST'], 'native'),
+              ('bundle', 'clangd-openkal', os.environ['BUNDLE_DIGEST'], 'part')]:
+              part = json.load(open(stem + '-input-artifact.json'))
+              assert part['id'] == int(os.environ['NATIVE_ARTIFACT' if stem == 'native' else 'BUNDLE_ARTIFACT'])
+              assert part['name'] == name and not part['expired'] and part['size_in_bytes'] > 0
+              assert part['digest'] == 'sha256:' + digest
+              assert part['workflow_run']['id'] == 41954537459
+              assert part['workflow_run']['head_sha'] == 'a13953808f4ec4704288adca3ae095ba858bce86'
+              archive = Path(stem + '-input.zip')
+              assert archive.stat().st_size == part['size_in_bytes']
+              assert hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest() == digest
+              root = Path(directory).resolve()
+              with zipfile.ZipFile(archive) as z:
+                  assert z.testzip() is None
+                  for entry in z.infolist():
+                      assert (root / entry.filename).resolve().is_relative_to(root)
+                      assert not stat.S_ISLNK(entry.external_attr >> 16)
+                  z.extractall(root)
+          print('Exact frozen native and bundle SHA256/ZIP inputs verified; diagnostic, not release admission.')
+          CHECK
       - name: xlings (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -547,18 +129,115 @@ jobs:
               for d in "${dirs[@]}"; do [ -n "$d" ] && args="$args -imsvc$(cygpath -m "$d")"; done ;;
           esac
           echo "STD_ARGS=$args" >> "$GITHUB_ENV"
-      - name: The native engine
-        run: python ci/warm_prime.py --label native-${{ matrix.platform }} --workdir wp-native --out native-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$NATIVE"
-      - name: clangd.okb under okrun
-        run: python ci/warm_prime.py --label image-${{ matrix.platform }} --workdir wp-image --out image-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$OKRUN" "$OKB"
-      - name: Acceptance
-        run: python ci/warm_prime_accept.py --platform ${{ matrix.platform }} --native native-warm.json --image image-warm.json --out warm-prime-${{ matrix.platform }}.json
+      - name: Resource and payload identity preflight
+        run: |
+          python - <<'CHECK'
+          from pathlib import Path
+          import hashlib, json, os, platform
+          def sha(p):
+              with p.open('rb') as f: return hashlib.file_digest(f, 'sha256').hexdigest()
+          native=Path(os.environ['NATIVE']).resolve()
+          bundle=Path(os.environ['OKB']).resolve()
+          runner=Path(os.environ['OKRUN']).resolve()
+          assert sha(native)=='176b8da15867a90edf3059ba4ad384920953839477df49f8e2249cce825f3c72'
+          assert sha(bundle)=='72fe2ebb7558ff2bdd5dae2f1bccf65ae2357dff6bcf21d73258a2991bde0e25'
+          trees={}
+          for lane,binary in [('native',native),('image',bundle)]:
+              root=binary.parent.parent/'lib/clang/23'
+              assert root.is_dir()
+              trees[lane]={str(p.relative_to(root)):sha(p) for p in sorted(root.rglob('*')) if p.is_file()}
+          assert trees['native']==trees['image'] and len(trees['native'])==303
+          proof={'engine_source':'a13953808f4ec4704288adca3ae095ba858bce86',
+                 'frozen_producer':41954537459,'native_sha256':sha(native),'bundle_sha256':sha(bundle),
+                 'runner_sha256':sha(runner),'runner_scope':'fresh build of public platform0.23.7 runner; identity recorded, not claimed identical to a retired historical runner',
+                 'resource_tree':trees['native'],'affinity':sorted(os.sched_getaffinity(0)),
+                 'os':platform.platform(),
+                 'cpu_models':sorted({line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')}),
+                 'observer_source_sha256':sha(Path('ci/ready_role_observer.py')),
+                 'warm_prime_sha256':sha(Path('ci/warm_prime.py')),'qualification':False,
+                 'plan':'One original native/image cold+3warm pair, then four observed cold sessions N,I,I,N. Stop on validity failure; no added samples, no LLVM rebuild.'}
+          Path('role-inputs.json').write_text(json.dumps(proof,indent=2)+'\n')
+          CHECK
+      - name: Actual parent and reaped-child accounting control
+        run: python ci/ready_role_observer.py validate --output accounting-control
+      - name: Original native cold and three warm sessions
+        run: python ci/warm_prime.py --label native-linux-x64 --workdir original-native --out native-warm.json --sessions 3 -- "$NATIVE"
+      - name: Original image cold and three warm sessions
+        run: python ci/warm_prime.py --label image-linux-x64 --workdir original-image --out image-warm.json --sessions 3 -- "$OKRUN" "$OKB"
+      - name: Record original acceptance without candidate admission
+        run: |
+          python - <<'CHECK'
+          import json,subprocess,sys
+          for lane in ['native','image']:
+              data=json.load(open(lane+'-warm.json'))
+              assert data['units']==304 and len(data['probes'])==3
+              assert len(data['sessions'])==4 and all(s['ok'] for s in data['sessions'])
+              assert data['sessions'][0]['workers']==176
+          status=subprocess.run([sys.executable,'ci/warm_prime_accept.py','--platform','linux-x64',
+              '--native','native-warm.json','--image','image-warm.json','--out','original-acceptance.json']).returncode
+          assert status in [0,1]
+          json.dump({'status':status,'diagnostic_only':True,'candidate_admission':False},open('original-acceptance-status.json','w'),indent=2)
+          print('Original acceptance exit status:',status,'; this workflow only collects diagnostics.')
+          CHECK
+      - name: Four cold role observations in the declared order
+        run: |
+          python - <<'OBSERVE'
+          from pathlib import Path
+          import hashlib,json,os,re,subprocess,sys
+          orders=['native','image','image','native']
+          rows=[]
+          for number,lane in enumerate(orders):
+              stem='observed-'+str(number)+'-'+lane
+              prefix=[os.environ['NATIVE']] if lane=='native' else [os.environ['OKRUN'],os.environ['OKB']]
+              command=[sys.executable,'ci/ready_role_observer.py','observe','--output',stem+'-roles','--',
+                       '--label',stem,'--workdir',stem,'--out',stem+'.json','--sessions','0','--']+prefix
+              subprocess.run(command,check=True)
+              report=json.load(open(stem+'.json'))
+              log=Path(stem,'session-0-cold.log').read_text()
+              assert 'incomplete due to errors' not in log
+              assert 'Failed to auto-detect resource directory' not in log
+              assert 'falling back' not in log.lower()
+              stdlib=re.findall(r'Indexed c\+\+23 standard library: ([^\n]+)',log)
+              assert len(stdlib)==1
+              if rows: assert stdlib==rows[0]['stdlib']
+              commands=[line for line in log.splitlines() if ' -resource-dir=' in line]
+              assert len(commands)==3
+              source_files=[Path(entry['file']) for entry in json.load(open(Path(stem,'project/compile_commands.json')))]
+              source_identity={str(p.relative_to(Path(stem,'project').resolve())):hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
+              if rows: assert source_identity==rows[0]['source_identity']
+              paths=sorted(Path(stem,'project/.cache/clangd/modules').rglob('*.pcm'))
+              assert len(paths)==176
+              rows.append({'number':number,'lane':lane,'report':report,'stdlib':stdlib,
+                           'source_identity':source_identity,'actual_commands':commands,
+                           'pcm_bytes':sum(p.stat().st_size for p in paths)})
+              Path('role-summary.json').write_text(json.dumps({'rows':rows,'qualification':False},indent=2)+'\n')
+          OBSERVE
+      - name: Preserve first paired PCM inputs for offline comparison
+        if: always()
+        run: |
+          python - <<'ARCHIVE'
+          from pathlib import Path
+          import tarfile
+          selected=[Path('observed-0-native/project'),Path('observed-1-image/project')]
+          with tarfile.open('paired-pcm-inputs.tar.gz','w:gz') as archive:
+              for tree in selected:
+                  if tree.is_dir(): archive.add(tree,arcname=tree.parent.name)
+          ARCHIVE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: warm-prime-${{ matrix.platform }}
+          name: frozen-readiness-accounting-linux-x64
           path: |
+            *-input-artifact.json
+            role-inputs.json
+            accounting-control/*.json
             *-warm.json
-            warm-prime-*.json
-            wp-*/session-*.log
+            original-acceptance*.json
+            original-*/session-*.log
+            observed-*.json
+            observed-*/session-*.log
+            observed-*-roles/**/*.json
+            observed-*-roles/**/*.gz
+            role-summary.json
+            paired-pcm-inputs.tar.gz
           if-no-files-found: warn
