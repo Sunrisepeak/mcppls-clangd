@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded attached kernel-CPU observation of a frozen, unmodified engine."""
+"""Bounded attached CPU or instruction observation of a frozen engine."""
 from pathlib import Path
 import argparse, collections, gzip, hashlib, json, os, re, select
 import signal, subprocess, sys, time
@@ -20,8 +20,9 @@ def digest(path):
 
 
 class AttachedPerf:
-    def __init__(self, directory, identity, perf, sudo, event='cpu-clock:k'):
+    def __init__(self, directory, identity, perf, sudo, event='cpu-clock:k', sample_period=None, callchain=True):
         self.directory, self.identity = directory, identity
+        self.sample_period, self.callchain = sample_period, callchain
         self.prefix = ['sudo', '-n', perf] if sudo else [perf]
         self.sudo = sudo
         self.data = directory / 'perf.data'
@@ -31,8 +32,9 @@ class AttachedPerf:
         self.ctl = os.open(self.ctl_path, os.O_RDWR | os.O_NONBLOCK)
         self.ack = os.open(self.ack_path, os.O_RDWR | os.O_NONBLOCK)
         self.log = (directory / 'perf-record.log').open('w')
-        self.command = self.prefix + ['record', '-e', event, '-F', '499',
-            '--strict-freq', '-g', '-k', 'mono', '--no-buildid-cache', '-m', '1024',
+        sampling = ['-c', str(sample_period)] if sample_period else ['-F', '499', '--strict-freq']
+        self.command = self.prefix + ['record', '-e', event] + sampling + (['-g'] if callchain else []) + [
+            '-k', 'mono', '--no-buildid-cache', '-m', '1024',
             '--max-size=128M', '--delay=-1',
             f'--control=fifo:{self.ctl_path},{self.ack_path}',
             '-p', str(identity['pid']), '-o', str(self.data)]
@@ -70,6 +72,18 @@ class AttachedPerf:
                       data_bytes=self.data.stat().st_size, data_sha256=checksum)
         save(self.directory / 'perf-collection.json', report)
         assert 0 < report['data_bytes'] < 128 * 1024 * 1024
+        if self.sample_period:
+            invalid = collections.Counter()
+            with (self.directory / 'integrity-decode.log').open('w') as errors:
+                decoder = subprocess.Popen(self.prefix + ['script', '-D', '-i', str(self.data)],
+                                           stdout=subprocess.PIPE, stderr=errors, text=True)
+                for line in decoder.stdout:
+                    for kind in ['PERF_RECORD_LOST', 'PERF_RECORD_THROTTLE', 'PERF_RECORD_UNTHROTTLE']:
+                        if kind in line:
+                            invalid[kind] += 1
+                assert decoder.wait(timeout=15) == 0
+            save(self.directory / 'integrity.json', dict(invalid_records=dict(invalid), valid=not invalid))
+            assert not invalid, ('instruction sampling lost or throttled', dict(invalid))
         return report
 
     def close(self):
@@ -94,9 +108,10 @@ class AttachedPerf:
     def decode(self):
         assert self.data.stat().st_uid == (0 if self.sudo else os.getuid())
         output = self.directory / 'events.txt'
+        fields = 'comm,pid,tid,time,event,ip,sym,dso,period' if self.callchain else 'comm,pid,tid,time,event,period'
         command = self.prefix + ['script', '-i', str(self.data), '--ns',
              '--show-task-events', '--show-lost-events',
-             '-F', 'comm,pid,tid,time,event,ip,sym,dso,period']
+             '-F', fields]
         with output.open('w') as stream, (self.directory / 'perf-decode.log').open('w') as errors:
             subprocess.run(command, stdout=stream, stderr=errors, check=True, timeout=60)
         return output
@@ -163,7 +178,7 @@ def analyze(path, root_pid, forbidden=(), event='cpu-clock:k'):
     return report
 
 
-def preflight(directory, perf, sudo, require_symbols, event='cpu-clock:k'):
+def preflight(directory, perf, sudo, require_symbols, event='cpu-clock:k', sample_period=None, callchain=True):
     directory.mkdir(parents=True, exist_ok=False)
     worker = ('import json,os,time\nprint(json.dumps({"worker":os.getpid()}),flush=True)\n'
               'start=time.process_time()\nwhile time.process_time()-start < .35:\n'
@@ -177,7 +192,7 @@ def preflight(directory, perf, sudo, require_symbols, event='cpu-clock:k'):
     outside = None
     recording = None
     try:
-        recording = AttachedPerf(directory, identity, perf, sudo, event)
+        recording = AttachedPerf(directory, identity, perf, sudo, event, sample_period, callchain)
         recording.enable()
         outside = subprocess.Popen([sys.executable, '-c', worker], stdout=subprocess.DEVNULL)
         root.stdin.write('go\n')
@@ -227,7 +242,7 @@ def validate_workload(directory, expected_resource=None):
     return original, stdlib
 
 
-def profile(directory, lane, prefix, perf, sudo, event='cpu-clock:k', expected_resource=None):
+def profile(directory, lane, prefix, perf, sudo, event='cpu-clock:k', expected_resource=None, sample_period=None, callchain=True):
     directory.mkdir(parents=True, exist_ok=False)
     gate = directory / 'gate'
     gate.mkdir()
@@ -250,7 +265,7 @@ def profile(directory, lane, prefix, perf, sudo, event='cpu-clock:k', expected_r
                     raise TimeoutError('engine identity gate')
                 time.sleep(.01)
             identity = json.loads((gate/'engine.json').read_text())
-            recording = AttachedPerf(record, identity, perf, sudo, event)
+            recording = AttachedPerf(record, identity, perf, sudo, event, sample_period, callchain)
             recording.enable()
             save(gate/'go.json', dict(identity, perf_enabled_ns=recording.enabled_ns))
             harness.wait(timeout=1400)
@@ -289,16 +304,23 @@ if __name__ == '__main__':
     parser.add_argument('--perf', default='perf')
     parser.add_argument('--sudo-perf', action='store_true')
     parser.add_argument('--allow-unresolved-preflight', action='store_true')
-    parser.add_argument('--event', choices=['cpu-clock:k', 'cpu-clock'], default='cpu-clock:k')
+    parser.add_argument('--event', choices=['cpu-clock:k', 'cpu-clock', 'cpu_core/instructions/u'], default='cpu-clock:k')
+    parser.add_argument('--sample-period', type=int, help='Fixed event period instead of adaptive 499 Hz sampling')
+    parser.add_argument('--leaf-only', action='store_true', help='Omit call chains; leaf addresses remain in perf.data')
     parser.add_argument('--resource-dir', type=Path)
     parser.add_argument('--native')
     parser.add_argument('--runner')
     parser.add_argument('--bundle')
     args = parser.parse_args()
+    if args.sample_period is not None and args.sample_period <= 0:
+        parser.error('--sample-period must be positive')
+    if args.leaf_only and args.event == 'cpu-clock:k':
+        parser.error('kernel attribution requires call chains')
     output = args.output.resolve()
     if args.mode == 'preflight':
         report = preflight(output, args.perf, args.sudo_perf,
-                           args.event == 'cpu-clock:k' and not args.allow_unresolved_preflight, args.event)
+                           args.event == 'cpu-clock:k' and not args.allow_unresolved_preflight,
+                           args.event, args.sample_period, not args.leaf_only)
         print(json.dumps(dict(valid=report['valid'], known_stack_fraction=report['summary']['known_stack_fraction'])))
     else:
         assert args.native and args.runner and args.bundle
@@ -307,7 +329,8 @@ if __name__ == '__main__':
         inputs = {name:dict(path=str(Path(value).resolve()), sha256=digest(value))
                   for name,value in [('native',args.native),('runner',args.runner),('bundle',args.bundle)]}
         save(output/'plan.json', dict(inputs=inputs, order=['native','image'],
-             frequency=499, event=args.event, only_owned_pid_tree=True,
+             frequency=None if args.sample_period else 499, sample_period=args.sample_period,
+             callchain=not args.leaf_only, event=args.event, only_owned_pid_tree=True,
              gate='perf enable acknowledged before initialize and module workers',
              workload='original304units/3probes/176workers',
              initial_engine_startup_profiled=False, qualification=False))
@@ -317,7 +340,8 @@ if __name__ == '__main__':
             if args.resource_dir:
                 prefix.append('--resource-dir=' + str(args.resource_dir.resolve()))
             row=profile(output/lane,lane,prefix,args.perf,args.sudo_perf,args.event,
-                        args.resource_dir.resolve() if args.resource_dir else None)
+                        args.resource_dir.resolve() if args.resource_dir else None,
+                        args.sample_period, not args.leaf_only)
             rows.append(row)
             if len(rows)==2: assert rows[0]['stdlib']==rows[1]['stdlib']
             save(output/'progress.json', rows)
