@@ -8,6 +8,7 @@
 #include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
+#include "diagnostic_usage.h"
 
 /* Diagnostic interposition of the existing native executable only.  It
  * changes neither argv nor the requested worker ownership/resource policy.
@@ -20,8 +21,7 @@ static main_fn original_main;
 static const char *output_folder;
 static unsigned long long main_started;
 static unsigned long long main_ended;
-struct cpu_usage { unsigned long long user_us, system_us; };
-static struct cpu_usage main_started_usage, main_ended_usage;
+static struct mcpp_diag_usage main_started_usage, main_ended_usage;
 static int main_result;
 static const char *main_boundary;
 static int measured_active;
@@ -34,25 +34,39 @@ static unsigned long long cpu_now(void) {
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &value)) return 0;
     return (unsigned long long)value.tv_sec * 1000000000ull + value.tv_nsec;
 }
-static struct cpu_usage usage_now(void) {
-    struct rusage usage;
-    if (getrusage(RUSAGE_SELF, &usage)) fail_meter();
-    return (struct cpu_usage){
-        (unsigned long long)usage.ru_utime.tv_sec * 1000000ull + usage.ru_utime.tv_usec,
-        (unsigned long long)usage.ru_stime.tv_sec * 1000000ull + usage.ru_stime.tv_usec};
+static struct mcpp_diag_usage usage_now(void) {
+    struct mcpp_diag_usage usage;
+    if (mcpp_diag_read_usage(&usage)) fail_meter();
+    return usage;
+}
+static size_t append_usage(char *data, size_t capacity, const char *stage,
+                           const struct mcpp_diag_usage *usage) {
+    int n = snprintf(data, capacity, ",\"%s_detail\":{", stage);
+    if (n < 0 || (size_t)n >= capacity) fail_meter();
+    size_t used = (size_t)n;
+    int first = 1;
+#define MCPP_DIAG_REPORT(name) \
+    n = snprintf(data+used, capacity-used, "%s\"" #name "\":%llu", first ? "" : ",", usage->name); \
+    if (n < 0 || (size_t)n >= capacity-used) fail_meter(); \
+    used += (size_t)n; first = 0;
+    MCPP_DIAG_USAGE_FIELDS(MCPP_DIAG_REPORT)
+#undef MCPP_DIAG_REPORT
+    if (used+1 >= capacity) fail_meter();
+    data[used++] = '}'; data[used] = 0;
+    return used;
 }
 static void emit_meter(void) {
     if (!measured_active) return;
     const unsigned long long end = cpu_now();
-    const struct cpu_usage end_usage = usage_now();
+    const struct mcpp_diag_usage end_usage = usage_now();
     measured_active = 0;
-    char path[4096], data[1536];
+    char path[4096], data[4096];
     const int path_size = snprintf(path, sizeof path, "%s/native-%ld.json", output_folder, (long)getpid());
     const int data_size = snprintf(data, sizeof data,
         "{\"pid\":%ld,\"before_main_ns\":%llu,\"after_main_ns\":%llu,\"main_ns\":%llu,\"after_exit_callbacks_ns\":%llu,\"cleanup_ns\":%llu,\"result\":%d,\"boundary\":\"%s\","
         "\"before_main_user_us\":%llu,\"before_main_system_us\":%llu,"
         "\"after_main_user_us\":%llu,\"after_main_system_us\":%llu,"
-        "\"after_exit_callbacks_user_us\":%llu,\"after_exit_callbacks_system_us\":%llu}\n",
+        "\"after_exit_callbacks_user_us\":%llu,\"after_exit_callbacks_system_us\":%llu",
         (long)getpid(), main_started, main_ended, main_ended-main_started,
         end, end-main_ended, main_result, main_boundary,
         main_started_usage.user_us, main_started_usage.system_us,
@@ -60,10 +74,16 @@ static void emit_meter(void) {
         end_usage.user_us, end_usage.system_us);
     if (path_size <= 0 || path_size >= (int)sizeof path || data_size <= 0 || data_size >= (int)sizeof data)
         fail_meter();
+    size_t size = (size_t)data_size;
+    size += append_usage(data+size, sizeof data-size, "before_main", &main_started_usage);
+    size += append_usage(data+size, sizeof data-size, "after_main", &main_ended_usage);
+    size += append_usage(data+size, sizeof data-size, "after_exit_callbacks", &end_usage);
+    if (size+2 >= sizeof data) fail_meter();
+    data[size++] = '}'; data[size++] = '\n';
     int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (fd < 0) fail_meter();
-    const ssize_t written = write(fd, data, (size_t)data_size);
-    if (close(fd) || written != data_size) fail_meter();
+    const ssize_t written = write(fd, data, size);
+    if (close(fd) || written != (ssize_t)size) fail_meter();
 }
 /* A preload constructor runs before the executable's constructors. Register
  * this first so the executable's later atexit registrations run before it.

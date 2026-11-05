@@ -1,4 +1,4 @@
-name: Frozen engine user and system CPU stages diagnostic
+name: Frozen engine thread CPU and published backend diagnostic
 
 on:
   workflow_dispatch:
@@ -40,6 +40,11 @@ jobs:
           repository: mcpplibs/openkal-image
           ref: fda22ddd9af3c03ebd3996a385bdb0382bbf62c7
           path: diagnostic-image
+      - uses: actions/checkout@v4
+        with:
+          repository: mcpplibs/openkal-linux
+          ref: '0.24.2'
+          path: diagnostic-linux
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -115,6 +120,11 @@ jobs:
           # Only the small native runner is built. Neither clangd artifact is rebuilt.
           (cd diagnostic-image && mcpp build -p openkal-tools --release --toolchain llvm@23.1.3 -j 4)
           python ci/build_frozen_runner_probe.py --source diagnostic-image --output runner-variants
+          python ci/build_frozen_backend_probe.py --variants runner-variants \
+            --backend-source diagnostic-linux/src/process.cpp \
+            --source-git-blob ebe97612560a538e42c1b96591416ec355f9e69f \
+            --header-git-blob sys.h=dca81ae385c5ae17409971a4fe62e02fb49b212e \
+            --output backend-variants
           echo "OKRUN=$PWD/runner-variants/baseline-okrun" >> "$GITHUB_ENV"
           native="$(find native -path '*/clangd/bin/clangd' -o -path '*/clangd/bin/clangd.exe' | head -1)"
           [ -n "$native" ] || { echo "::error::no native clangd in the portable part"; find native -maxdepth 4; exit 1; }
@@ -164,21 +174,23 @@ jobs:
                  'cpu_models':sorted({line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')}),
                  'observer_source_sha256':sha(Path('ci/ready_role_observer.py')),
                  'warm_prime_sha256':sha(Path('ci/warm_prime.py')),'qualification':False,
-                 'plan':'Phases native/baseline/candidate/candidate-explicittouch/native, each onecoldonewarm, with process CPU and user/system stage counters. Do not repeat the completed uninstrumented totals. Fixed original304unit semantics; no added cases, LLVM rebuild or qualification.'}
+                 'plan':'Phases native/baseline/filtered/filtered/baseline/native, each onecoldonewarm, with SELF/THREAD CPU, faults and context counters. Filtered process.cpp and its syscall-number header match the published0.24.2 Git blobs. Fixed original304unit semantics; no added cases, LLVM rebuild or qualification.'}
           Path('role-inputs.json').write_text(json.dumps(proof,indent=2)+'\n')
           CHECK
-      - name: Record user and system CPU in the fixed stage comparison
+      - name: Attribute thread CPU across the published backend change
         run: |
           python ci/frozen_phase_probe.py --output phase-control --variants runner-variants \
-            --native "$NATIVE" --bundle "$OKB" --phase-only
+            --native "$NATIVE" --bundle "$OKB" --backend-variants backend-variants
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: frozen-cpu-usage-stages-linux-x64
+          name: frozen-thread-stages-linux-x64
           path: |
             *-input-artifact.json
             role-inputs.json
             accounting-control/**/*.json
+            backend-variants/*.json
+            backend-variants/*.log
             phase-control/**/*.json
             phase-control/**/*.log
             phase-control/**/*.trace

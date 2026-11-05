@@ -18,6 +18,8 @@ CURRENT = {}
 PHASE_ORDER = [('native', 'native'), ('baseline', 'default'), ('candidate', 'default'),
                ('candidate', 'touch'), ('native', 'native')]
 MAIN_ORDER = ['native', 'baseline', 'candidate', 'candidate', 'baseline', 'native']
+BACKEND_ORDER = [('native', 'native'), ('baseline', 'default'), ('filtered', 'default'),
+                 ('filtered', 'default'), ('baseline', 'default'), ('native', 'native')]
 
 
 def environment(root, mode):
@@ -38,7 +40,7 @@ def meter_control(output, build):
     output.mkdir()
     executable = Path(build['meter_control']['path']).resolve()
     rows = []
-    for mode in ['return', 'exit', 'quit']:
+    for mode in ['return', 'exit', 'quit', 'threads']:
         folder = output/mode
         folder.mkdir()
         env = ORIGINAL_ENVIRONMENT(output/'loader', 'native')
@@ -55,6 +57,12 @@ def meter_control(output, build):
             assert row['cleanup_ns'] < 5_000_000
         else:
             assert row['cleanup_ns'] >= 30_000_000
+        details = detailed_stages(row, True)
+        if mode == 'threads':
+            own = details['body_thread_user_ns'] + details['body_thread_system_ns']
+            helpers = details['body_other_user_ns'] + details['body_other_system_ns']
+            assert own >= 9_000_000 and helpers >= 45_000_000
+            assert row['main_ns'] >= 60_000_000
         rows.append(dict(mode=mode, result=row))
     probe.save(output/'verified.json', dict(rows=rows, valid=True, qualification=False))
 
@@ -110,6 +118,42 @@ def usage_stages(profile, native):
     return stages
 
 
+def detailed_stages(profile, native):
+    if native:
+        points = [profile[name + '_detail'] for name in
+                  ['before_main', 'after_main', 'after_exit_callbacks']]
+        pid = profile['pid']
+    else:
+        points = [moment['detail'] for moment in profile['moments']]
+        pid = profile['id']
+    assert all(point['tid'] == pid for point in points), 'phase observer changed its thread'
+    result = {}
+    for key in points[0]:
+        if key == 'tid':
+            continue
+        values = [point[key] for point in points]
+        assert values == sorted(values) and values[0] >= 0
+        if native:
+            a, b, c = values
+            stages = dict(startup=a, body=b-a, cleanup=c-b, accounted=c)
+        else:
+            named = {moment['name']: moment['detail'][key] for moment in profile['moments']}
+            stages = dict(startup=named['initialised'], body=named['main']-named['initialised'],
+                          accounted=named['main'], before_admitted=named['admitted'],
+                          load=named['loaded']-named['admitted'],
+                          initialise=named['initialised']-named['loaded'])
+        scale = 1000 if key.endswith('_us') else 1
+        suffix = key[:-3] + '_ns' if key.endswith('_us') else key
+        result.update({stage + '_' + suffix: value*scale for stage, value in stages.items()})
+    # SELF and THREAD are successive syscalls. Keep negative small differences
+    # caused by observation skew; clipping would inflate helper attribution.
+    for stage in stages:
+        for part in ['user_ns', 'system_ns', 'minor_faults', 'major_faults',
+                     'voluntary_switches', 'involuntary_switches', 'input_blocks', 'output_blocks']:
+            result[stage + '_other_' + part] = result[stage + '_' + part] - result[stage + '_thread_' + part]
+    return result
+
+
 def phase_report(folder, label, mode, workload):
     root_ids = {p['bracket']['before']['pid']: p['kind'] + '-parent' for p in workload['phases']}
     assert len(root_ids) == 2
@@ -144,16 +188,19 @@ def phase_report(folder, label, mode, workload):
             assert any(note['point'] == 'snapshot' and note['outcome'] == 'used' for note in profile['runner'])
             boundary = 'image entry including libc guard, C++main, exit callbacks and stdio'
         usage = usage_stages(profile, label == 'native')
+        detail = detailed_stages(profile, label == 'native')
+        assert all(detail[key] == value for key, value in usage.items())
         skew = usage['accounted_user_ns'] + usage['accounted_system_ns'] - stages['accounted_ns']
         records.append(dict(pid=pid, role=role, boundary=boundary, stages=stages,
-                            usage=usage, usage_minus_clock_ns=skew))
+                            usage=usage, detail=detail, usage_minus_clock_ns=skew))
     assert len({record['pid'] for record in records}) == 178
     assert sum(record['role'] == 'worker' for record in records) == 176
     aggregate = {role: aggregate_role(records, role) for role in ['cold-parent', 'worker', 'warm-parent']}
     usage_aggregate = {role: aggregate_role(records, role, 'usage') for role in ['cold-parent', 'worker', 'warm-parent']}
+    detail_aggregate = {role: aggregate_role(records, role, 'detail') for role in ['cold-parent', 'worker', 'warm-parent']}
     cold_accounted = (aggregate['cold-parent']['accounted_ns'] + aggregate['worker']['accounted_ns']) / 1e9
     assert cold_accounted <= workload['phases'][0]['complete_cpu'] + .025
-    return dict(records=records, aggregate=aggregate, usage_aggregate=usage_aggregate,
+    return dict(records=records, aggregate=aggregate, usage_aggregate=usage_aggregate, detail_aggregate=detail_aggregate,
                 cold_complete_minus_accounted_cpu=workload['phases'][0]['complete_cpu'] - cold_accounted,
                 valid=True, qualification=False)
 
@@ -171,6 +218,7 @@ def main():
     parser.add_argument('--variants', type=Path, required=True)
     parser.add_argument('--native', type=Path, required=True)
     parser.add_argument('--bundle', type=Path, required=True)
+    parser.add_argument('--backend-variants', type=Path, help='fixed original/filtered backend phase comparison instead of prefetch comparisons')
     parser.add_argument('--preflight-only', action='store_true', help='one complete candidate cold/warm transport check; not the fixed comparison')
     parser.add_argument('--phase-only', action='store_true', help='the fixed stage comparison without repeating uninstrumented totals')
     args = parser.parse_args()
@@ -179,6 +227,12 @@ def main():
     build = json.loads((args.variants/'verified.json').read_text())
     assert build['baseline_reproduced_exactly'] and build['originals_unchanged']
     runners = {row['label']: {key: row[key] for key in ['path', 'sha256']} for row in build['results']}
+    if args.backend_variants:
+        assert not args.preflight_only
+        backend = json.loads((args.backend_variants/'verified.json').read_text())
+        assert backend['valid'] and backend['original_backend_object_reproduced'] and backend['original_objects_unchanged']
+        assert backend['variants_sha256'] == probe.sha(args.variants/'verified.json')
+        runners.update({row['label']:{key:row[key] for key in ['path','sha256']} for row in backend['results']})
     native = dict(path=str(args.native.resolve()), sha256=probe.sha(args.native))
     bundle = dict(path=str(args.bundle.resolve()), sha256=probe.sha(args.bundle))
     assert native['sha256'] == '176b8da15867a90edf3059ba4ad384920953839477df49f8e2249cce825f3c72'
@@ -189,8 +243,8 @@ def main():
     resource = args.native.resolve().parent.parent/'lib/clang/23'
     resources = {str(p.relative_to(resource)): probe.sha(p) for p in sorted(resource.rglob('*')) if p.is_file()}
     assert len(resources) == 303
-    phase_order = [('candidate', 'default')] if args.preflight_only else PHASE_ORDER
-    main_order = [] if args.preflight_only or args.phase_only else MAIN_ORDER
+    phase_order = BACKEND_ORDER if args.backend_variants else [('candidate', 'default')] if args.preflight_only else PHASE_ORDER
+    main_order = [] if args.preflight_only or args.phase_only or args.backend_variants else MAIN_ORDER
     probe.save(output/'plan.json', dict(native=native, bundle=bundle, runners=runners,
         native_meter=build['meter'], resource_tree=resources, phase_order=phase_order, main_order=main_order,
         workload='Original 304units/3probes/176coldworkers. Phase cases onecoldonewarm; main cases onecoldthreewarm.',

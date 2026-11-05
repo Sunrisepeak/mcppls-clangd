@@ -40,14 +40,16 @@ def replace_once(text, before, after):
 def cpu_moments(text):
     # Linux-only diagnostic build: use the host accounting interface without
     # changing the public OpenKal ABI or recompiling the measured payload.
-    text = replace_once(text, '#include <openkal.h>', '#include <openkal.h>\n#include <sys/resource.h>')
+    text = replace_once(text, '#include <openkal.h>', '#include <openkal.h>\n#include "diagnostic_usage.h"')
     text = replace_once(
         text, 'struct moment { const char* name; kal_u64 ns, faults; };',
-        'struct moment { const char* name; kal_u64 ns, faults, cpu_ns, user_us, system_us; kal_u32 present, usage_present; };')
+        'struct moment { const char* name; kal_u64 ns, faults, cpu_ns, user_us, system_us; kal_u32 present, usage_present; mcpp_diag_usage detail; };')
     first = text.index('kal_u64 faults_now() {')
     last = text.index('\n// --- the touches', first)
     text = text[:first] + '''moment process_moment(const char* name) {
-    moment result{ name, kal_time_monotonic() - g_started, 0, 0, 0, 0, 0, 0 };
+    moment result{};
+    result.name = name;
+    result.ns = kal_time_monotonic() - g_started;
     kal_process self{};
     if (kal_process_self(&self) != kal_ok) return result;
     kal_program_info info{};
@@ -59,10 +61,9 @@ def cpu_moments(text):
         result.faults = info.faults_minor + info.faults_major;
         result.cpu_ns = info.cpu_ns;
     }
-    rusage usage{};
-    if (getrusage(RUSAGE_SELF, &usage) == 0) {
-        result.user_us = static_cast<kal_u64>(usage.ru_utime.tv_sec) * 1000000 + usage.ru_utime.tv_usec;
-        result.system_us = static_cast<kal_u64>(usage.ru_stime.tv_sec) * 1000000 + usage.ru_stime.tv_usec;
+    if (mcpp_diag_read_usage(&result.detail) == 0) {
+        result.user_us = result.detail.user_us;
+        result.system_us = result.detail.system_us;
         result.usage_present = 1;
     }
     return result;
@@ -78,7 +79,13 @@ def cpu_moments(text):
         '        b.put(", \\"present\\": "); b.number(g_moments[i].present);',
         '        b.put(", \\"user_us\\": "); b.number(g_moments[i].user_us);',
         '        b.put(", \\"system_us\\": "); b.number(g_moments[i].system_us);',
-        '        b.put(", \\"usage_present\\": "); b.number(g_moments[i].usage_present);']
+        '        b.put(", \\"usage_present\\": "); b.number(g_moments[i].usage_present);',
+        '        b.put(", \\"detail\\": {");',
+        '        bool detail_first = true;',
+        '#define MCPP_DIAG_REPORT(name) if (!detail_first) b.put(", "); detail_first = false; b.put("\\"" #name "\\": "); b.number(g_moments[i].detail.name);',
+        '        MCPP_DIAG_USAGE_FIELDS(MCPP_DIAG_REPORT)',
+        '#undef MCPP_DIAG_REPORT',
+        '        b.put("}");']
     return '\n'.join(lines) + '\n'
 
 
@@ -140,6 +147,7 @@ def main():
     save(output/'plan.json', plan)
     candidate = output/'candidate'
     candidate.mkdir()
+    shutil.copy2(HERE/'diagnostic_usage.h', candidate/'diagnostic_usage.h')
     original_binding = Path(commands['bindings']['file']).read_text()
     marker = '#define OKRUN_BIND(n, i)'
     assert original_binding.count(marker) == 2
@@ -185,12 +193,13 @@ def main():
     command([*common, '-fPIC', '-shared', '-o', str(meter), str(HERE/'diagnostic_native_main_meter.c'), '-ldl'],
             output, output/'native-meter-compile.log')
     control = output/'native-meter-control'
-    command([*common, '-o', str(control), str(HERE/'diagnostic_native_meter_control.c')],
+    command([*common, '-pthread', '-o', str(control), str(HERE/'diagnostic_native_meter_control.c')],
             output, output/'native-control-compile.log')
     assert all(sha(path) == digest for path, digest in object_hashes.items())
     assert sha(baseline) == plan['original_runner_sha256']
     save(output/'verified.json', dict(results=results, compile_records=compile_records,
         meter=dict(path=str(meter), sha256=sha(meter), source_sha256=sha(HERE/'diagnostic_native_main_meter.c')),
+        usage_header_sha256=sha(HERE/'diagnostic_usage.h'),
         meter_control=dict(path=str(control), sha256=sha(control)),
         baseline_reproduced_exactly=True, originals_unchanged=True, valid=True, qualification=False))
     print(json.dumps(dict(runners={row['label']: row['sha256'] for row in results},
