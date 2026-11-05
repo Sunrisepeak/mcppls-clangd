@@ -60,10 +60,14 @@ class AttachedPerf:
         self.close()
         assert self.process.returncode == 0, 'perf collection failed'
         assert self.data.is_file() and not self.data.is_symlink()
+        if self.sudo:
+            checksum = subprocess.check_output(['sudo', '-n', 'sha256sum', str(self.data)], text=True).split()[0]
+        else:
+            checksum = digest(self.data)
         report = dict(command=self.command, root=self.identity,
                       enable_ack_hex=self.ack_bytes.hex(), exit=self.process.returncode,
                       enabled_ns=self.enabled_ns,
-                      data_bytes=self.data.stat().st_size, data_sha256=digest(self.data))
+                      data_bytes=self.data.stat().st_size, data_sha256=checksum)
         save(self.directory / 'perf-collection.json', report)
         assert 0 < report['data_bytes'] < 128 * 1024 * 1024
         return report
@@ -78,11 +82,17 @@ class AttachedPerf:
         os.close(self.ctl)
         os.close(self.ack)
         self.closed = True
+
+    def release_ownership(self):
+        # perf's decoder checks ownership independently of filesystem access.
+        # Keep the recorder's owner until decoding has finished; never force-read.
         if self.sudo and self.data.is_file() and not self.data.is_symlink():
             subprocess.run(['sudo', '-n', 'chown', f'{os.getuid()}:{os.getgid()}',
                             str(self.data)], check=True)
+            assert self.data.stat().st_uid == os.getuid()
 
     def decode(self):
+        assert self.data.stat().st_uid == (0 if self.sudo else os.getuid())
         output = self.directory / 'events.txt'
         command = self.prefix + ['script', '-i', str(self.data), '--ns',
              '--show-task-events', '--show-lost-events',
@@ -193,6 +203,7 @@ def preflight(directory, perf, sudo, require_symbols):
                 process.wait()
         if recording is not None:
             recording.close()
+            recording.release_ownership()
 
 
 def profile(directory, lane, prefix, perf, sudo):
@@ -251,6 +262,7 @@ def profile(directory, lane, prefix, perf, sudo):
         finally:
             if recording is not None:
                 recording.close()
+                recording.release_ownership()
 
 
 if __name__ == '__main__':

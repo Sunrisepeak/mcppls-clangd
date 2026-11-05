@@ -83,3 +83,16 @@ Neither change is preselected, and the original producer failure remains outstan
 
 References: [perf record control and inheritance](https://man7.org/linux/man-pages/man1/perf-record.1.html),
 [perf script task and lost-event output](https://man7.org/linux/man-pages/man1/perf-script.1.html).
+
+## Hosted preflight correction
+
+Run 42077631033 stopped in the small sampler control before downloading the engine inputs
+or building the runner. Perf 7.0.14 successfully attached, acknowledged enable and recorded
+the control, but decoding exited 255. The controller had already changed perf.data ownership
+from root to the ordinary runner user; perf's root decoder therefore refused the file's owner.
+
+The corrected sequence retains the recorder's ownership during checksum and decoding, then
+returns that one newly created file to the runner for artifact collection, including failure
+cleanup. It does not force-read the file or relax the ownership check. The original 17,279-byte
+artifact and its failure logs remain preserved. No real engine profile or performance result
+was produced by the failed preflight.
