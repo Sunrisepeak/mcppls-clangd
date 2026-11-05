@@ -20,7 +20,7 @@ def digest(path):
 
 
 class AttachedPerf:
-    def __init__(self, directory, identity, perf, sudo):
+    def __init__(self, directory, identity, perf, sudo, event='cpu-clock:k'):
         self.directory, self.identity = directory, identity
         self.prefix = ['sudo', '-n', perf] if sudo else [perf]
         self.sudo = sudo
@@ -31,7 +31,7 @@ class AttachedPerf:
         self.ctl = os.open(self.ctl_path, os.O_RDWR | os.O_NONBLOCK)
         self.ack = os.open(self.ack_path, os.O_RDWR | os.O_NONBLOCK)
         self.log = (directory / 'perf-record.log').open('w')
-        self.command = self.prefix + ['record', '-e', 'cpu-clock:k', '-F', '499',
+        self.command = self.prefix + ['record', '-e', event, '-F', '499',
             '--strict-freq', '-g', '-k', 'mono', '--no-buildid-cache', '-m', '1024',
             '--max-size=128M', '--delay=-1',
             f'--control=fifo:{self.ctl_path},{self.ack_path}',
@@ -102,7 +102,7 @@ class AttachedPerf:
         return output
 
 
-def analyze(path, root_pid, forbidden=()):
+def analyze(path, root_pid, forbidden=(), event='cpu-clock:k'):
     text = path.read_text()
     assert 'PERF_RECORD_LOST' not in text, 'lost perf records'
     forks = [tuple(map(int, groups)) for groups in re.findall(
@@ -118,7 +118,7 @@ def analyze(path, root_pid, forbidden=()):
                 descendants.add(pid)
                 changed = True
     assert any(pid == root_pid and tid == root_pid for pid, tid, _, _ in exits), 'root exit not captured'
-    sample = re.compile(r'^.*?\s(\d+)/(\d+)\s+(\d+\.\d+):\s+(\d+)\s+cpu-clock:k:\s*$', re.M)
+    sample = re.compile(r'^.*?\s(\d+)/(\d+)\s+(\d+\.\d+):\s+(\d+)\s+' + re.escape(event) + r':\s*$', re.M)
     matches = list(sample.finditer(text))
     assert matches, 'no kernel CPU samples'
     counts = collections.Counter()
@@ -148,7 +148,7 @@ def analyze(path, root_pid, forbidden=()):
             for symbol in set(known):
                 inclusive[role][symbol] += period
         samples.append(dict(pid=pid, tid=tid, time=timestamp, period=period,
-                            role=role, kernel_frames=kernel))
+                            role=role, kernel_frames=kernel, frames=frames))
     report = dict(root_pid=root_pid, sampled_pids=dict(pids), process_ids=sorted(descendants),
                   forks=forks, exits=exits, sample_counts=dict(counts),
                   unresolved_stacks=dict(unresolved),
@@ -156,14 +156,14 @@ def analyze(path, root_pid, forbidden=()):
                   leaf_period_ns={role:dict(values.most_common(35)) for role,values in leaf.items()},
                   inclusive_period_ns={role:dict(values.most_common(45)) for role,values in inclusive.items()},
                   scope='Attached target and inherited descendants only; samples are not exact CPU counters',
-                  text_sha256=digest(path))
+                  text_sha256=digest(path), event=event)
     with gzip.open(path.with_name('kernel-samples.json.gz'), 'wt') as stream:
         json.dump(samples, stream)
     save(path.with_name('kernel-summary.json'), report)
     return report
 
 
-def preflight(directory, perf, sudo, require_symbols):
+def preflight(directory, perf, sudo, require_symbols, event='cpu-clock:k'):
     directory.mkdir(parents=True, exist_ok=False)
     worker = ('import json,os,time\nprint(json.dumps({"worker":os.getpid()}),flush=True)\n'
               'start=time.process_time()\nwhile time.process_time()-start < .35:\n'
@@ -177,7 +177,7 @@ def preflight(directory, perf, sudo, require_symbols):
     outside = None
     recording = None
     try:
-        recording = AttachedPerf(directory, identity, perf, sudo)
+        recording = AttachedPerf(directory, identity, perf, sudo, event)
         recording.enable()
         outside = subprocess.Popen([sys.executable, '-c', worker], stdout=subprocess.DEVNULL)
         root.stdin.write('go\n')
@@ -187,7 +187,7 @@ def preflight(directory, perf, sudo, require_symbols):
         recording.finish()
         assert root.returncode == outside.returncode == 0 and not errors
         child = json.loads(output)['worker']
-        summary = analyze(recording.decode(), root.pid, (os.getpid(), outside.pid))
+        summary = analyze(recording.decode(), root.pid, (os.getpid(), outside.pid), event)
         assert child in summary['process_ids'] and summary['sampled_pids'].get(child, 0) >= 10
         valid = not require_symbols or summary['known_stack_fraction'] >= .95
         receipt = dict(control='actual child inheritance and busy sibling exclusion',
@@ -206,7 +206,28 @@ def preflight(directory, perf, sudo, require_symbols):
             recording.release_ownership()
 
 
-def profile(directory, lane, prefix, perf, sudo):
+def validate_workload(directory, expected_resource=None):
+    original = json.loads((directory/'result.json').read_text())
+    engine_log = (directory/'work/session-0-cold.log').read_text()
+    stdlib = re.findall(r'Indexed c\+\+23 standard library: ([^\n]+)', engine_log)
+    assert len(stdlib)==1 and 'incomplete' not in stdlib[0]
+    assert original['units'] == 304 and len(original['probes']) == 3
+    assert len(original['sessions']) == 1
+    session = original['sessions'][0]
+    assert session['ok'] and session['workers'] == session['modules_built'] == 176
+    assert session['cache'] == 'owned' and session['builds'] == 'in supervised workers'
+    if expected_resource is not None:
+        # The image can warn about automatic discovery before applying the
+        # explicit override. Verify every actual frontend command instead.
+        commands = [line for line in engine_log.splitlines() if ' -resource-dir=' in line]
+        assert len(commands) == 3 and all('-resource-dir=' + str(expected_resource) in line for line in commands)
+    else:
+        assert 'Failed to auto-detect resource directory' not in engine_log
+    assert 'falling back' not in engine_log.lower()
+    return original, stdlib
+
+
+def profile(directory, lane, prefix, perf, sudo, event='cpu-clock:k', expected_resource=None):
     directory.mkdir(parents=True, exist_ok=False)
     gate = directory / 'gate'
     gate.mkdir()
@@ -229,21 +250,17 @@ def profile(directory, lane, prefix, perf, sudo):
                     raise TimeoutError('engine identity gate')
                 time.sleep(.01)
             identity = json.loads((gate/'engine.json').read_text())
-            recording = AttachedPerf(record, identity, perf, sudo)
+            recording = AttachedPerf(record, identity, perf, sudo, event)
             recording.enable()
             save(gate/'go.json', dict(identity, perf_enabled_ns=recording.enabled_ns))
             harness.wait(timeout=1400)
             recording.finish()
             assert harness.returncode == 0, 'profiled semantic workload failed'
-            summary = analyze(recording.decode(), identity['pid'], (os.getpid(), harness.pid))
-            assert summary['known_stack_fraction'] >= .95, 'insufficient resolved kernel stacks'
+            summary = analyze(recording.decode(), identity['pid'], (os.getpid(), harness.pid), event)
+            if event == 'cpu-clock:k':
+                assert summary['known_stack_fraction'] >= .95, 'insufficient resolved kernel stacks'
             assert summary['sample_counts'].get('descendants', 0) >= 100
-            original = json.loads((directory/'result.json').read_text())
-            engine_log = (directory/'work/session-0-cold.log').read_text()
-            stdlib = re.findall(r'Indexed c\+\+23 standard library: ([^\n]+)', engine_log)
-            assert len(stdlib)==1 and 'incomplete' not in stdlib[0]
-            assert 'Failed to auto-detect resource directory' not in engine_log
-            assert 'falling back' not in engine_log.lower()
+            original, stdlib = validate_workload(directory, expected_resource)
             report = dict(lane=lane, command=command, stdlib=stdlib,
                           original=original, kernel=summary,
                           qualification=False, engine_unchanged=True)
@@ -272,13 +289,16 @@ if __name__ == '__main__':
     parser.add_argument('--perf', default='perf')
     parser.add_argument('--sudo-perf', action='store_true')
     parser.add_argument('--allow-unresolved-preflight', action='store_true')
+    parser.add_argument('--event', choices=['cpu-clock:k', 'cpu-clock'], default='cpu-clock:k')
+    parser.add_argument('--resource-dir', type=Path)
     parser.add_argument('--native')
     parser.add_argument('--runner')
     parser.add_argument('--bundle')
     args = parser.parse_args()
     output = args.output.resolve()
     if args.mode == 'preflight':
-        report = preflight(output, args.perf, args.sudo_perf, not args.allow_unresolved_preflight)
+        report = preflight(output, args.perf, args.sudo_perf,
+                           args.event == 'cpu-clock:k' and not args.allow_unresolved_preflight, args.event)
         print(json.dumps(dict(valid=report['valid'], known_stack_fraction=report['summary']['known_stack_fraction'])))
     else:
         assert args.native and args.runner and args.bundle
@@ -287,14 +307,17 @@ if __name__ == '__main__':
         inputs = {name:dict(path=str(Path(value).resolve()), sha256=digest(value))
                   for name,value in [('native',args.native),('runner',args.runner),('bundle',args.bundle)]}
         save(output/'plan.json', dict(inputs=inputs, order=['native','image'],
-             frequency=499, event='cpu-clock:k', only_owned_pid_tree=True,
+             frequency=499, event=args.event, only_owned_pid_tree=True,
              gate='perf enable acknowledged before initialize and module workers',
              workload='original304units/3probes/176workers',
              initial_engine_startup_profiled=False, qualification=False))
         rows=[]
         for lane in ['native','image']:
             prefix=[inputs['native']['path']] if lane=='native' else [inputs['runner']['path'],inputs['bundle']['path']]
-            row=profile(output/lane,lane,prefix,args.perf,args.sudo_perf)
+            if args.resource_dir:
+                prefix.append('--resource-dir=' + str(args.resource_dir.resolve()))
+            row=profile(output/lane,lane,prefix,args.perf,args.sudo_perf,args.event,
+                        args.resource_dir.resolve() if args.resource_dir else None)
             rows.append(row)
             if len(rows)==2: assert rows[0]['stdlib']==rows[1]['stdlib']
             save(output/'progress.json', rows)

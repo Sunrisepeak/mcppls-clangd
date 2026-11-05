@@ -1,4 +1,4 @@
-name: Frozen engine CPU stages and child prefetch diagnostic
+name: Frozen engine user and system CPU stages diagnostic
 
 on:
   workflow_dispatch:
@@ -164,17 +164,17 @@ jobs:
                  'cpu_models':sorted({line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')}),
                  'observer_source_sha256':sha(Path('ci/ready_role_observer.py')),
                  'warm_prime_sha256':sha(Path('ci/warm_prime.py')),'qualification':False,
-                 'plan':'Phases native/baseline/candidate/candidate-explicittouch/native, each onecoldonewarm; uninstrumented native/baseline/candidate/candidate/baseline/native, each onecoldthreewarm. Fixed original304unit semantics; no added cases, LLVM rebuild or qualification.'}
+                 'plan':'Phases native/baseline/candidate/candidate-explicittouch/native, each onecoldonewarm, with process CPU and user/system stage counters. Do not repeat the completed uninstrumented totals. Fixed original304unit semantics; no added cases, LLVM rebuild or qualification.'}
           Path('role-inputs.json').write_text(json.dumps(proof,indent=2)+'\n')
           CHECK
-      - name: Run the fixed CPU phase and child prefetch comparisons
+      - name: Record user and system CPU in the fixed stage comparison
         run: |
           python ci/frozen_phase_probe.py --output phase-control --variants runner-variants \
-            --native "$NATIVE" --bundle "$OKB"
+            --native "$NATIVE" --bundle "$OKB" --phase-only
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: frozen-cpu-stages-linux-x64
+          name: frozen-cpu-usage-stages-linux-x64
           path: |
             *-input-artifact.json
             role-inputs.json

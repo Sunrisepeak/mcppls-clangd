@@ -73,10 +73,41 @@ def snapshot_seed(output, runner, bundle):
         time.sleep(.02)
 
 
-def aggregate_role(records, role):
+def aggregate_role(records, role, field='stages'):
     selected = [record for record in records if record['role'] == role]
     assert selected
-    return {key: sum(record['stages'][key] for record in selected) for key in selected[0]['stages']}
+    return {key: sum(record[field][key] for record in selected) for key in selected[0][field]}
+
+
+def usage_stages(profile, native):
+    """Independent RUSAGE_SELF stage deltas, including all process threads.
+
+    Kernel counters are in microseconds and are sampled after the process CPU
+    clock. Keep that boundary skew visible rather than equating the two clocks.
+    """
+    stages = {}
+    for part in ['user', 'system']:
+        if native:
+            points = [profile[name + '_' + part + '_us'] for name in
+                      ['before_main', 'after_main', 'after_exit_callbacks']]
+            assert points == sorted(points) and points[0] >= 0
+            values = dict(startup=points[0], body=points[1]-points[0],
+                          cleanup=points[2]-points[1], accounted=points[2])
+            assert values['startup'] + values['body'] + values['cleanup'] == values['accounted']
+        else:
+            moments = profile['moments']
+            assert all(moment['usage_present'] == 1 for moment in moments)
+            points = [moment[part + '_us'] for moment in moments]
+            assert points == sorted(points) and points[0] >= 0
+            named = {moment['name']: moment[part + '_us'] for moment in moments}
+            values = dict(startup=named['initialised'], body=named['main']-named['initialised'],
+                          accounted=named['main'], before_admitted=named['admitted'],
+                          load=named['loaded']-named['admitted'],
+                          initialise=named['initialised']-named['loaded'])
+            assert values['before_admitted'] + values['load'] + values['initialise'] == values['startup']
+            assert values['startup'] + values['body'] == values['accounted']
+        stages.update({name + '_' + part + '_ns': value*1000 for name, value in values.items()})
+    return stages
 
 
 def phase_report(folder, label, mode, workload):
@@ -112,13 +143,17 @@ def phase_report(folder, label, mode, workload):
             assert any(note['point'] == 'prefetch' and note['outcome'] == expected for note in profile['runner'])
             assert any(note['point'] == 'snapshot' and note['outcome'] == 'used' for note in profile['runner'])
             boundary = 'image entry including libc guard, C++main, exit callbacks and stdio'
-        records.append(dict(pid=pid, role=role, boundary=boundary, stages=stages))
+        usage = usage_stages(profile, label == 'native')
+        skew = usage['accounted_user_ns'] + usage['accounted_system_ns'] - stages['accounted_ns']
+        records.append(dict(pid=pid, role=role, boundary=boundary, stages=stages,
+                            usage=usage, usage_minus_clock_ns=skew))
     assert len({record['pid'] for record in records}) == 178
     assert sum(record['role'] == 'worker' for record in records) == 176
     aggregate = {role: aggregate_role(records, role) for role in ['cold-parent', 'worker', 'warm-parent']}
+    usage_aggregate = {role: aggregate_role(records, role, 'usage') for role in ['cold-parent', 'worker', 'warm-parent']}
     cold_accounted = (aggregate['cold-parent']['accounted_ns'] + aggregate['worker']['accounted_ns']) / 1e9
     assert cold_accounted <= workload['phases'][0]['complete_cpu'] + .025
-    return dict(records=records, aggregate=aggregate,
+    return dict(records=records, aggregate=aggregate, usage_aggregate=usage_aggregate,
                 cold_complete_minus_accounted_cpu=workload['phases'][0]['complete_cpu'] - cold_accounted,
                 valid=True, qualification=False)
 
@@ -137,6 +172,7 @@ def main():
     parser.add_argument('--native', type=Path, required=True)
     parser.add_argument('--bundle', type=Path, required=True)
     parser.add_argument('--preflight-only', action='store_true', help='one complete candidate cold/warm transport check; not the fixed comparison')
+    parser.add_argument('--phase-only', action='store_true', help='the fixed stage comparison without repeating uninstrumented totals')
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -154,7 +190,7 @@ def main():
     resources = {str(p.relative_to(resource)): probe.sha(p) for p in sorted(resource.rglob('*')) if p.is_file()}
     assert len(resources) == 303
     phase_order = [('candidate', 'default')] if args.preflight_only else PHASE_ORDER
-    main_order = [] if args.preflight_only else MAIN_ORDER
+    main_order = [] if args.preflight_only or args.phase_only else MAIN_ORDER
     probe.save(output/'plan.json', dict(native=native, bundle=bundle, runners=runners,
         native_meter=build['meter'], resource_tree=resources, phase_order=phase_order, main_order=main_order,
         workload='Original 304units/3probes/176coldworkers. Phase cases onecoldonewarm; main cases onecoldthreewarm.',
@@ -187,7 +223,8 @@ def main():
         phase_results.append(report)
         probe.save(output/'phase-progress.json', phase_results)
         print(json.dumps(dict(phase=number, label=label, mode=mode, valid=True,
-                              worker_cpu_ms={key: round(value/1e6, 3) for key, value in report['aggregate']['worker'].items()})), flush=True)
+                              worker_cpu_ms={key: round(value/1e6, 3) for key, value in report['aggregate']['worker'].items()},
+                              worker_usage_ms={key: round(value/1e6, 3) for key, value in report['usage_aggregate']['worker'].items()})), flush=True)
     CURRENT['profile'] = None
     results = []
     for number, label in enumerate(main_order):
@@ -211,7 +248,8 @@ def main():
     assert len({tuple(p['stdlib']) for row in workloads for p in row['phases']}) == 1
     probe.save(output/'verified.json', dict(phase_results=phase_results, rows=results,
         input_bytes_unchanged=True, resource_bytes_unchanged=True, snapshot_bytes_unchanged=True,
-        baseline_reproduced_exactly=True, preflight_only=args.preflight_only, valid=True, qualification=False))
+        baseline_reproduced_exactly=True, preflight_only=args.preflight_only, phase_only=args.phase_only,
+        valid=True, qualification=False))
 
 
 if __name__ == '__main__':

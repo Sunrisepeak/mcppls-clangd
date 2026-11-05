@@ -38,13 +38,16 @@ def replace_once(text, before, after):
 
 
 def cpu_moments(text):
+    # Linux-only diagnostic build: use the host accounting interface without
+    # changing the public OpenKal ABI or recompiling the measured payload.
+    text = replace_once(text, '#include <openkal.h>', '#include <openkal.h>\n#include <sys/resource.h>')
     text = replace_once(
         text, 'struct moment { const char* name; kal_u64 ns, faults; };',
-        'struct moment { const char* name; kal_u64 ns, faults, cpu_ns; kal_u32 present; };')
+        'struct moment { const char* name; kal_u64 ns, faults, cpu_ns, user_us, system_us; kal_u32 present, usage_present; };')
     first = text.index('kal_u64 faults_now() {')
     last = text.index('\n// --- the touches', first)
     text = text[:first] + '''moment process_moment(const char* name) {
-    moment result{ name, kal_time_monotonic() - g_started, 0, 0, 0 };
+    moment result{ name, kal_time_monotonic() - g_started, 0, 0, 0, 0, 0, 0 };
     kal_process self{};
     if (kal_process_self(&self) != kal_ok) return result;
     kal_program_info info{};
@@ -56,6 +59,12 @@ def cpu_moments(text):
         result.faults = info.faults_minor + info.faults_major;
         result.cpu_ns = info.cpu_ns;
     }
+    rusage usage{};
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        result.user_us = static_cast<kal_u64>(usage.ru_utime.tv_sec) * 1000000 + usage.ru_utime.tv_usec;
+        result.system_us = static_cast<kal_u64>(usage.ru_stime.tv_sec) * 1000000 + usage.ru_stime.tv_usec;
+        result.usage_present = 1;
+    }
     return result;
 }
 ''' + text[last:]
@@ -66,7 +75,10 @@ def cpu_moments(text):
     index = next(i for i, line in enumerate(lines) if 'b.number(g_moments[i].faults);' in line)
     lines[index + 1:index + 1] = [
         '        b.put(", \\"cpu_ns\\": "); b.number(g_moments[i].cpu_ns);',
-        '        b.put(", \\"present\\": "); b.number(g_moments[i].present);']
+        '        b.put(", \\"present\\": "); b.number(g_moments[i].present);',
+        '        b.put(", \\"user_us\\": "); b.number(g_moments[i].user_us);',
+        '        b.put(", \\"system_us\\": "); b.number(g_moments[i].system_us);',
+        '        b.put(", \\"usage_present\\": "); b.number(g_moments[i].usage_present);']
     return '\n'.join(lines) + '\n'
 
 
