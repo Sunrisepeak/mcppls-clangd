@@ -1,4 +1,4 @@
-name: Frozen engine thread CPU and published backend diagnostic
+name: Frozen engine stable-reap CPU diagnostic
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   warm-prime:
-    name: cpu-stages ${{ matrix.platform }}
+    name: readiness-cpu ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -175,33 +175,26 @@ jobs:
                  'cpu_models':sorted({line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')}),
                  'observer_source_sha256':sha(Path('ci/ready_role_observer.py')),
                  'warm_prime_sha256':sha(Path('ci/warm_prime.py')),'qualification':False,
-                 'plan':'Phases native/baseline/filtered/filtered/baseline/native, each onecoldonewarm, with SELF/THREAD CPU, faults and context counters. Filtered process.cpp and its syscall-number header match the published0.24.2 Git blobs. Fixed original304unit semantics; no added cases, LLVM rebuild or qualification.'}
+                 'plan':'N/F/F/N, onecoldthreewarm each, unchanged delivered engines and corrected stable-reap CPU meter. Same semantics/1.15 limits; diagnostic only.'}
           Path('role-inputs.json').write_text(json.dumps(proof,indent=2)+'\n')
           CHECK
-      - name: Attribute thread CPU across the published backend change
+      - name: Validate stable-reap readiness on the frozen engines
         run: |
-          python ci/frozen_phase_probe.py --output phase-control --variants runner-variants \
+          python ci/frozen_readiness_probe.py --output readiness-control \
             --native "$NATIVE" --bundle "$OKB" --backend-variants backend-variants
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: frozen-thread-stages-linux-x64
+          name: frozen-readiness-linux-x64
           path: |
             *-input-artifact.json
             role-inputs.json
             accounting-control/**/*.json
             backend-variants/*.json
             backend-variants/*.log
-            phase-control/**/*.json
-            phase-control/**/*.log
-            phase-control/**/*.trace
-            phase-control/**/*.stdout
-            phase-control/**/*.stderr
-            phase-control/**/*.gz
             runner-variants/*.json
             runner-variants/*.log
-            runner-variants/*-okrun
-            runner-variants/*.so
-            runner-variants/candidate/*.cpp
-            runner-variants/candidate/*.inc
+            readiness-control/**/*.json
+            readiness-control/**/*.log
           if-no-files-found: warn
+          retention-days: 14
