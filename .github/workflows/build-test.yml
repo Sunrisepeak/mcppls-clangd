@@ -1,8 +1,14 @@
-name: Frozen engine stable-reap CPU diagnostic
+name: Frozen engine CPU diagnostic
 
 on:
   workflow_dispatch:
     inputs:
+      probe:
+        description: Fixed diagnostic cohort (no LLVM rebuild)
+        required: true
+        type: choice
+        default: readiness
+        options: [readiness, worker-stages]
       bundle_artifact:
         description: Exact bundle artifact from engine run 41954537459
         required: true
@@ -18,7 +24,7 @@ permissions:
 
 jobs:
   warm-prime:
-    name: readiness-cpu ${{ matrix.platform }}
+    name: ${{ inputs.probe }} ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -33,6 +39,7 @@ jobs:
       MCPP_VERSION: 2026.11.5.1
       XLINGS_VERSION: v2026.10.26.1
       XLINGS_NON_INTERACTIVE: '1'
+      DIAGNOSTIC_PROBE: ${{ inputs.probe }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -175,17 +182,26 @@ jobs:
                  'cpu_models':sorted({line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')}),
                  'observer_source_sha256':sha(Path('ci/ready_role_observer.py')),
                  'warm_prime_sha256':sha(Path('ci/warm_prime.py')),'qualification':False,
-                 'plan':'N/F/F/N, onecoldthreewarm each, unchanged delivered engines and corrected stable-reap CPU meter. Same semantics/1.15 limits; diagnostic only.'}
+                 'plan':('N/F/F/N, onecoldonewarm each; stage user/system and explicit unaccounted exit remainder; no import-call timing.'
+                         if os.environ['DIAGNOSTIC_PROBE']=='worker-stages' else
+                         'N/F/F/N, onecoldthreewarm each, unchanged delivered engines and corrected stable-reap CPU meter. Same semantics/1.15 limits; diagnostic only.')}
           Path('role-inputs.json').write_text(json.dumps(proof,indent=2)+'\n')
           CHECK
       - name: Validate stable-reap readiness on the frozen engines
+        if: inputs.probe == 'readiness'
         run: |
           python ci/frozen_readiness_probe.py --output readiness-control \
             --native "$NATIVE" --bundle "$OKB" --backend-variants backend-variants
+      - name: Close worker stages against actual waited CPU
+        if: inputs.probe == 'worker-stages'
+        run: |
+          python ci/worker_phase_closure.py --output phase-closure \
+            --native "$NATIVE" --bundle "$OKB" \
+            --variants runner-variants --backend-variants backend-variants
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: frozen-readiness-linux-x64
+          name: frozen-${{ inputs.probe }}-linux-x64
           path: |
             *-input-artifact.json
             role-inputs.json
@@ -196,5 +212,7 @@ jobs:
             runner-variants/*.log
             readiness-control/**/*.json
             readiness-control/**/*.log
+            phase-closure/**/*.json
+            phase-closure/**/*.log
           if-no-files-found: warn
           retention-days: 14
