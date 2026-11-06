@@ -489,6 +489,7 @@ jobs:
       - name: Warm probe accounting controls
         run: |
           python ci/test_warm_usage.py
+          python ci/test_linux_usage.py
           python ci/test_warm_prime_accept.py
       - name: MSVC environment
         if: matrix.std == 'msvc'

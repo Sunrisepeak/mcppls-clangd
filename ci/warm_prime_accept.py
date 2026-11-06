@@ -8,14 +8,15 @@ THE GATE, on every system where both engines build modules in supervised workers
 macOS): the image's time to ready and processor time are at most 1.15 times the native engine's, and its page
 faults at most twice, in the cold session and in the median of the warm ones; every session of both is ready.
 Faults use complete engine lifetimes, including shutdown and waited descendants, from POSIX kernel counters.
-Readiness fault samples remain diagnostic; measurement version 1 reports cannot satisfy this gate.
+Readiness fault samples remain diagnostic. Version 3 requires a stable-reap Linux CPU observation;
+earlier measurement versions cannot satisfy this gate. Limits and workload are unchanged.
 
 PATH PARITY, on every system: the image builds in supervised workers over the owned cache. The native engine does
 so on Linux and macOS; on Windows it compiles in clangd and gives each reader a copy of each BMI (the portable
 path), and the ratios there are recorded and are not the gate, since the two engines take different paths.
 """
-import argparse, json, statistics, sys
-from warm_usage import FAULT_SCOPE, MEASUREMENT_VERSION
+import argparse, json, math, statistics, sys
+from warm_usage import FAULT_SCOPE, MEASUREMENT_VERSION, READY_CPU_SCOPE
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--platform", required=True)
@@ -47,6 +48,19 @@ for name, run in (("native", native), ("image", image)):
     for s in run["sessions"]:
         if not s["ok"]:
             failures.append(f"{name} {s['kind']} session was not ready: {s.get('error') or s.get('files')}")
+        if a.platform.startswith('linux'):
+            sample = s.get('cpu_sample')
+            if (not isinstance(sample, dict) or sample.get('valid') is not True or
+                    sample.get('scope_id') != READY_CPU_SCOPE or
+                    type(sample.get('cpu_seconds')) not in (int, float) or
+                    not math.isfinite(sample['cpu_seconds']) or sample['cpu_seconds'] < 0 or
+                    type(sample.get('page_faults')) is not int or sample['page_faults'] < 0 or
+                    type(sample.get('attempts')) is not int or not 1 <= sample['attempts'] <= 8 or
+                    type(sample.get('processes')) is not int or sample['processes'] < 1 or
+                    type(sample.get('observation_ns')) is not int or sample['observation_ns'] < 0 or
+                    sample.get('cpu_seconds') != s.get('cpu_seconds') or
+                    sample.get('page_faults') != s.get('page_faults')):
+                failures.append(f"{name} {s['kind']} has no consistent stable-reap CPU observation")
         if not windows:
             usage = s.get("waited_usage")
             valid = (isinstance(usage, dict) and usage.get("scope_id") == FAULT_SCOPE and
@@ -60,6 +74,11 @@ for name, run in (("native", native), ("image", image)):
         if (len(values) != 3 or any(type(v) is not int or v < 0 for v in values) or
                 run["warm"].get("complete_page_faults") != statistics.median(values)):
             failures.append(f"{name} warm complete-lifetime fault median does not match the three raw sessions")
+    if a.platform.startswith('linux'):
+        values = [s.get('cpu_seconds') for s in sessions if s.get('kind') == 'warm']
+        if (len(values) != 3 or any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in values) or
+                run['warm'].get('cpu_seconds') != statistics.median(values)):
+            failures.append(f"{name} warm CPU median does not match the three raw sessions")
 
 
 def path(run):

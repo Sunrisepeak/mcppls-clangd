@@ -26,7 +26,10 @@ from the engine's log (`Module worker built ...`), and which cache the engine to
 each BMI for each reader`) and where it compiled (`Module builds: ...`). The engine's log of session N is
 <workdir>/session-N-<cold|warm>.log.
 
-Measurement version 2 retains `page_faults` as a readiness diagnostic. `waited_usage` records POSIX kernel totals after the engine ends: its complete lifetime and
+Measurement version 3 brackets Linux tree reads with stable process identities, parentage and waited-child
+counters. It includes reaped descendants of still-live intermediate processes and refuses an unstable sample.
+`cpu_sample` records this boundary and its observation duration; version-2 CPU readings are not comparable.
+`page_faults` remains a readiness diagnostic. `waited_usage` records POSIX kernel totals after the engine ends: its complete lifetime and
 descendants it waited for, including shutdown. It excludes this Python harness and descendants reparented
 elsewhere. Its minor plus major faults form `complete_page_faults`, the fault acceptance metric on POSIX.
 This includes shutdown and has a different boundary from readiness; version 1 reports are not comparable.
@@ -34,7 +37,7 @@ This includes shutdown and has a different boundary from readiness; version 1 re
 import argparse, json, os, re, statistics, subprocess, sys, threading, time
 
 import psutil
-from warm_usage import FAULT_SCOPE, MEASUREMENT_VERSION, WaitedUsage, ready_cpu
+from warm_usage import FAULT_SCOPE, MEASUREMENT_VERSION, LinuxTreeUsage, WaitedUsage, ready_cpu
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--label", required=True)
@@ -147,6 +150,8 @@ class Session:
                                             "--log=info", f"--compile-commands-dir={at}"],
                                   cwd=at, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.ps = psutil.Process(self.p.pid)
+        self.linux_usage = LinuxTreeUsage(self.ps) if sys.platform.startswith('linux') else None
+        self.cpu_sample = None
         self.seen = {}   # pid -> (cpu seconds, faults) last read: a worker is read while it lives
         self.own_cpu = 0.0   # the engine's own, at the last reading
         self.done_cpu = 0.0
@@ -224,32 +229,20 @@ class Session:
             self.account()
             time.sleep(0.05)
 
-    def reaped(self):
-        """On Linux, the engine's own use and that of every program it started and waited for, which the kernel
-        adds to the engine's record (cutime, cstime, cminflt, cmajflt): exact for workers that live between two
-        samples. None elsewhere."""
-        if not sys.platform.startswith("linux"):
-            return None
-        try:
-            f = open(f"/proc/{self.p.pid}/stat").read().rsplit(")", 1)[1].split()
-        except OSError:
-            return None
-        tick = os.sysconf("SC_CLK_TCK")
-        cpu = sum(int(x) for x in f[11:15]) / tick           # utime, stime, cutime, cstime
-        faults = int(f[7]) + int(f[8]) + int(f[9]) + int(f[10])   # minflt, cminflt, majflt, cmajflt
-        return cpu, faults
-
     def usage(self):
+        if self.linux_usage is not None:
+            try:
+                sample = self.linux_usage.read()
+            finally:
+                self.cpu_sample = self.linux_usage.last
+            self.own_cpu = sample['own_cpu_seconds']
+            return sample['cpu_seconds'], sample['page_faults']
         self.account()
         try:
             t = self.ps.cpu_times()
             self.own_cpu = t.user + t.system
         except psutil.Error:
             pass
-        exact = self.reaped()
-        if exact is not None:
-            live = [v for pid, v in self.seen.items() if pid != self.p.pid]
-            return round(exact[0] + sum(v[0] for v in live), 3), exact[1] + sum(v[1] for v in live)
         return (round(self.done_cpu + sum(v[0] for v in self.seen.values()), 3),
                 self.done_faults + sum(v[1] for v in self.seen.values()))
 
@@ -310,7 +303,11 @@ def session(kind, at, probes, n):
     try:
         ready, cpu, faults = s.run(probes)
     except Exception as e:   # a session that fails is reported, not raised: the acceptance says what failed
-        ready, cpu, faults, error = {}, *s.usage(), str(e)
+        ready, cpu, faults, error = {}, None, None, str(e)
+        try:
+            cpu, faults = s.usage()
+        except Exception as accounting_error:
+            error += '; accounting: ' + str(accounting_error)
     log = s.stop()
     complete_usage = s.waited_usage.finish()
     with open(os.path.join(a.workdir, f"session-{n}-{kind}.log"), "w", encoding="utf-8") as f:
@@ -328,6 +325,7 @@ def session(kind, at, probes, n):
         "ready_seconds": max(ready.values()) if len(ready) == len(probes) else None,
         "files": ready,
         "cpu_seconds": cpu,
+        "cpu_sample": getattr(s, 'cpu_sample', None),
         "page_faults": faults,
         "waited_usage": complete_usage,
         "complete_page_faults": (complete_usage["minor_faults"] + complete_usage["major_faults"]
