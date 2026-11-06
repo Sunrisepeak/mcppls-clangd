@@ -20,6 +20,11 @@ tarball, builds on every release platform (`build-test`), every test its row
 maps passes in that run, the Ubuntu 20.04 floor package passes its runtime
 controls, and no known negative remains open against it. A change to a steady
 patch returns it to `stabilizing` until the same run passes again.
+For the 0.0.20 additions, [build-test run 42155475833](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/42155475833)
+passed every release-platform build and mapped native test, both Ubuntu 20.04
+runtime packages, all four OpenKal acceptances and all four warm-prime gates.
+The macOS warm-prime gate passed on a single-job repeat after one cold timing
+outlier; the threshold was not changed.
 
 ## The 0.0.12 series
 
@@ -329,8 +334,8 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0040-UP-03-owned-module-reads-in-place.patch | UP-03, UP-24 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_cache_lease.py | dropped with 0019 when upstream owns its module payloads |
 | 0041-UP-03-module-worker-end-seen-at-once.patch | UP-03 | steady | ci/warm_prime.py (worker times); tests/e2e/module_cache_lease.py | dropped with 0017 when upstream supervises its module workers |
 | 0042-UP-03-module-worker-ceiling-watched.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (WorkerCeilingIsOwnOrWatched); the darwin-arm64 lit run of the module suite; warm-prime on macOS | dropped with 0017 when upstream supervises its module workers |
-| 0043-UP-03-worker-output-native-paths.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp (ModuleWorkerOutputPathsUseTheirPathStyle); ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime.py | dropped with 0017 and 0019 when upstream bounds worker outputs and owns module payloads using the host path style |
-| 0044-UP-03-physical-fs-initial-cwd.patch | UP-03 | stabilizing | llvm/unittests/Support/VirtualFileSystemTest.cpp; clangd/unittests/FSTests.cpp; ci/warm_prime.py | upstream creates independent filesystem views at the requested working directory without first resolving the process directory |
-| 0045-UP-03-owned-ledger-scan-candidates.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedLookupSeesNewKeysAcrossLedgerChunks, OwnedLookupRejectsTruncatedLedgerOnMiss, OwnedLookupRejectsAmbiguousUnusedLedgerTail); ci/warm_prime.py | upstream filters owned-cache lookup candidates from validated bounded ledger scans before acquiring leases, retaining post-acquisition identity and payload validation |
-| 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | stabilizing | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
-| 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | stabilizing | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |
+| 0043-UP-03-worker-output-native-paths.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ModuleWorkerOutputPathsUseTheirPathStyle); ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime.py | dropped with 0017 and 0019 when upstream bounds worker outputs and owns module payloads using the host path style |
+| 0044-UP-03-physical-fs-initial-cwd.patch | UP-03 | steady | llvm/unittests/Support/VirtualFileSystemTest.cpp; clangd/unittests/FSTests.cpp; ci/warm_prime.py | upstream creates independent filesystem views at the requested working directory without first resolving the process directory |
+| 0045-UP-03-owned-ledger-scan-candidates.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedLookupSeesNewKeysAcrossLedgerChunks, OwnedLookupRejectsTruncatedLedgerOnMiss, OwnedLookupRejectsAmbiguousUnusedLedgerTail); ci/warm_prime.py | upstream filters owned-cache lookup candidates from validated bounded ledger scans before acquiring leases, retaining post-acquisition identity and payload validation |
+| 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | steady | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
+| 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |

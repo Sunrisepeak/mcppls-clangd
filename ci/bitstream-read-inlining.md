@@ -17,5 +17,6 @@ The active native CI entry builds and runs the unchanged upstream reader
 and writer `BitstreamTests`, including the Windows executable suffix. The
 ordinary clangd, Clang and module integration tests remain required, as do
 all native/image builds and the unchanged cold/warm readiness, CPU and
-complete-lifetime fault gates. This patch remains `stabilizing` until that
-qualification succeeds.
+complete-lifetime fault gates. The [0.0.20 qualification run](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/42155475833)
+passed those gates on all four hosts (the macOS cold measurement passed on its
+single-job repeat); patch 0046 is `steady` for this release.

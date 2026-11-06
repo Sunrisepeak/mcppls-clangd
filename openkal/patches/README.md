@@ -12,6 +12,12 @@ apart from `patches/` for that reason:
   as an ok image (`ci/scripts/apply.sh --openkal`, `.github/workflows/openkal.yml`).
   No native engine carries it.
 
+The 0.0.20 OpenKal additions are `steady` after
+[build-test run 42155475833](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/42155475833)
+passed the final image and four-host acceptance, absent-name and warm-prime
+controls. The macOS cold timing passed on a single-job repeat under the same
+threshold.
+
 Every change is under `__OPENKAL__`. What LLVM decides at compile time from the
 host is decided when the image starts, from what the loader states:
 
@@ -80,8 +86,8 @@ generation stable.
 | patch | rows | state | tests | drop |
 |---|---|---|---|---|
 | 0001-FEATURE-45-ok-image.patch | FEATURE-45 | steady | .github/workflows/openkal.yml (the four acceptance columns on Linux x64 and arm64, macOS arm64 and Windows x64; ci/openkal_check.py, ci/openkal_accept.py) | dropped when upstream decides the native path style, the program's own name and the default target when an image for several systems starts, or when clangd stops shipping as an ok image |
-| 0002-FEATURE-45-ok-image-module-cache.patch | FEATURE-45 | stabilizing | .github/workflows/build-test.yml warm-prime (path parity and the ratios on Linux x64 and arm64, macOS arm64 and Windows x64; ci/warm_prime_accept.py) | dropped with 0001, or when openkal states an owner, a count of names and a descriptor a started program inherits |
-| 0003-FEATURE-45-ok-image-absent-names.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (absent-names: on the final clangd.okb under okrun in the identity job, and on Linux x64 and arm64, macOS arm64 and Windows x64 in the acceptance jobs of .github/workflows/openkal.yml) | dropped with 0001, or when clang validates a BMI against the names its header search found absent |
-| 0004-FEATURE-45-continuous-shared-lease.patch | FEATURE-45 | stabilizing | .github/workflows/openkal.yml (four-host absent-names); .github/workflows/build-test.yml (four-host warm-prime); ci/module_inputs_canary.py; ci/warm_prime_accept.py | dropped with 0002 when upstream retains continuous lease ownership with the lock semantics stated by the environment |
-| 0005-FEATURE-45-ledger-lock-outside-data.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); .github/workflows/openkal.yml (module import and the owned-cache measurement with positional IO) | dropped with 0002 when upstream serializes its ledger without blocking positional IO through the environment's separate handle |
-| 0006-FEATURE-45-writable-payload-sync.patch | FEATURE-45 | stabilizing | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); ci/openkal_check.py (module import and parallelism through the final image) | dropped with 0002 when upstream opens payloads for durability with the access required by the environment's file flush |
+| 0002-FEATURE-45-ok-image-module-cache.patch | FEATURE-45 | steady | .github/workflows/build-test.yml warm-prime (path parity and the ratios on Linux x64 and arm64, macOS arm64 and Windows x64; ci/warm_prime_accept.py) | dropped with 0001, or when openkal states an owner, a count of names and a descriptor a started program inherits |
+| 0003-FEATURE-45-ok-image-absent-names.patch | FEATURE-45 | steady | ci/module_inputs_canary.py (absent-names: on the final clangd.okb under okrun in the identity job, and on Linux x64 and arm64, macOS arm64 and Windows x64 in the acceptance jobs of .github/workflows/openkal.yml) | dropped with 0001, or when clang validates a BMI against the names its header search found absent |
+| 0004-FEATURE-45-continuous-shared-lease.patch | FEATURE-45 | steady | .github/workflows/openkal.yml (four-host absent-names); .github/workflows/build-test.yml (four-host warm-prime); ci/module_inputs_canary.py; ci/warm_prime_accept.py | dropped with 0002 when upstream retains continuous lease ownership with the lock semantics stated by the environment |
+| 0005-FEATURE-45-ledger-lock-outside-data.patch | FEATURE-45 | steady | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); .github/workflows/openkal.yml (module import and the owned-cache measurement with positional IO) | dropped with 0002 when upstream serializes its ledger without blocking positional IO through the environment's separate handle |
+| 0006-FEATURE-45-writable-payload-sync.patch | FEATURE-45 | steady | ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime_accept.py (four-host warm-prime); ci/openkal_check.py (module import and parallelism through the final image) | dropped with 0002 when upstream opens payloads for durability with the access required by the environment's file flush |
