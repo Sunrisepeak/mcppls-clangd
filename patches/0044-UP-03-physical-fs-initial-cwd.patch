@@ -1,0 +1,292 @@
+From 829b8adac82ffc8e5baca9dba6b90f48ad235a32 Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Wed, 4 Nov 2026 18:27:19 +0900
+Subject: [PATCH] [Support][clangd] Initialize physical views at the requested
+ working directory
+
+A module scan asks for an independent filesystem view and immediately sets its command directory. Initializing the view from the process directory first repeats metadata and canonical-path queries for every scan, including memo hits.
+
+Provide a checked absolute-directory factory and forward the requested directory through real and request-overlay views. Preserve ordinary creation and custom filesystem fallback, independent views, volatile reads and all module validation.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/ModulesBuilder.cpp   | 12 ++++-
+ .../clangd/support/ThreadsafeFS.cpp           | 13 +++++
+ .../clangd/support/ThreadsafeFS.h             |  9 +++-
+ .../clangd/unittests/FSTests.cpp              | 36 +++++++++++++
+ llvm/include/llvm/Support/VirtualFileSystem.h |  8 +++
+ llvm/lib/Support/VirtualFileSystem.cpp        | 22 ++++++++
+ .../Support/VirtualFileSystemTest.cpp         | 54 +++++++++++++++++++
+ 7 files changed, 152 insertions(+), 2 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 0a1aa734b..e8010d9da 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -88,8 +88,18 @@ public:
+ 
+ private:
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    return withMainFile(Base.view(std::nullopt));
++  }
++
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++  viewWithCWDImpl(PathRef CWD) const override {
++    return withMainFile(Base.view(CWD));
++  }
++
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++  withMainFile(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS) const {
+     auto Overlay = llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+-        Base.view(std::nullopt));
++        std::move(FS));
+     auto Main = llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
+     // DependencyScanningService keeps borrowed VFS buffers across worker
+     // views. Back this buffer with the request-owned string, whose lifetime
+diff --git a/clang-tools-extra/clangd/support/ThreadsafeFS.cpp b/clang-tools-extra/clangd/support/ThreadsafeFS.cpp
+index 7398e4258..8fee03acf 100644
+--- a/clang-tools-extra/clangd/support/ThreadsafeFS.cpp
++++ b/clang-tools-extra/clangd/support/ThreadsafeFS.cpp
+@@ -73,6 +73,11 @@ private:
+ 
+ llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
+ ThreadsafeFS::view(PathRef CWD) const {
++  return viewWithCWDImpl(CWD);
++}
++
++llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++ThreadsafeFS::viewWithCWDImpl(PathRef CWD) const {
+   auto FS = view(std::nullopt);
+   if (auto EC = FS->setCurrentWorkingDirectory(CWD))
+     elog("VFS: failed to set CWD to {0}: {1}", CWD, EC.message());
+@@ -86,5 +91,13 @@ RealThreadsafeFS::viewImpl() const {
+   //        propagation of the 'isVolatile' flag through all layers.
+   return new VolatileFileSystem(llvm::vfs::createPhysicalFileSystem());
+ }
++
++llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++RealThreadsafeFS::viewWithCWDImpl(PathRef CWD) const {
++  if (auto FS = llvm::vfs::createPhysicalFileSystem(CWD))
++    return new VolatileFileSystem(std::move(*FS));
++  // Invalid or relative directories retain the existing fallback and log.
++  return ThreadsafeFS::viewWithCWDImpl(CWD);
++}
+ } // namespace clangd
+ } // namespace clang
+diff --git a/clang-tools-extra/clangd/support/ThreadsafeFS.h b/clang-tools-extra/clangd/support/ThreadsafeFS.h
+index 939747214..9480e9814 100644
+--- a/clang-tools-extra/clangd/support/ThreadsafeFS.h
++++ b/clang-tools-extra/clangd/support/ThreadsafeFS.h
+@@ -54,11 +54,16 @@ public:
+   /// returns the FS anyway.
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> view(PathRef CWD) const;
+ 
+-private:
++protected:
+   /// Overridden by implementations to provide a vfs::FileSystem.
+   /// This is distinct from view(NoneType) to avoid GCC's -Woverloaded-virtual.
+   virtual llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const = 0;
+ 
++  /// An implementation may initialize a view directly at the requested CWD.
++  /// The default retains the ordinary view and set-CWD behavior.
++  virtual llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++  viewWithCWDImpl(PathRef CWD) const;
++
+ public:
+   // nullopt means this view cannot be faithfully exported to a disk-based
+   // compiler worker. It does not authorize replacing the view with real disk.
+@@ -77,6 +82,8 @@ public:
+ 
+ private:
+   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override;
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
++  viewWithCWDImpl(PathRef CWD) const override;
+ };
+ 
+ } // namespace clangd
+diff --git a/clang-tools-extra/clangd/unittests/FSTests.cpp b/clang-tools-extra/clangd/unittests/FSTests.cpp
+index 0b2bc6883..8b249b411 100644
+--- a/clang-tools-extra/clangd/unittests/FSTests.cpp
++++ b/clang-tools-extra/clangd/unittests/FSTests.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "FS.h"
+ #include "TestFS.h"
++#include "llvm/Testing/Support/SupportHelpers.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+ 
+@@ -15,6 +16,41 @@ namespace clang {
+ namespace clangd {
+ namespace {
+ 
++TEST(FSTests, IndependentPhysicalViewsStartAtSpecifiedDirectories) {
++  llvm::unittest::TempDir Root("clangd-views", /*Unique=*/true);
++  llvm::unittest::TempDir ADir(Root.path("a"));
++  llvm::unittest::TempDir BDir(Root.path("b"));
++  llvm::unittest::TempFile AA(ADir.path("value"), "", "aaaa");
++  llvm::unittest::TempFile BB(BDir.path("value"), "", "bbbb");
++  RealThreadsafeFS TFS;
++  auto A = TFS.view(ADir.path());
++  auto B = TFS.view(BDir.path());
++  EXPECT_EQ(ADir.path(), *A->getCurrentWorkingDirectory());
++  EXPECT_EQ(BDir.path(), *B->getCurrentWorkingDirectory());
++  auto ABuffer = A->getBufferForFile("value");
++  auto BBuffer = B->getBufferForFile("value");
++  ASSERT_TRUE(ABuffer);
++  ASSERT_TRUE(BBuffer);
++  EXPECT_EQ("aaaa", (*ABuffer)->getBuffer());
++  EXPECT_EQ("bbbb", (*BBuffer)->getBuffer());
++}
++
++TEST(FSTests, CustomViewsRetainTheirSetWorkingDirectoryBehavior) {
++  MockFS TFS;
++  TFS.Files["a/value"] = "aaaa";
++  TFS.Files["b/value"] = "bbbb";
++  auto A = TFS.view(testPath("a"));
++  auto B = TFS.view(testPath("b"));
++  EXPECT_EQ(testPath("a"), *A->getCurrentWorkingDirectory());
++  EXPECT_EQ(testPath("b"), *B->getCurrentWorkingDirectory());
++  auto ABuffer = A->getBufferForFile("value");
++  auto BBuffer = B->getBufferForFile("value");
++  ASSERT_TRUE(ABuffer);
++  ASSERT_TRUE(BBuffer);
++  EXPECT_EQ("aaaa", (*ABuffer)->getBuffer());
++  EXPECT_EQ("bbbb", (*BBuffer)->getBuffer());
++}
++
+ TEST(FSTests, PreambleStatusCache) {
+   llvm::StringMap<std::string> Files;
+   Files["x"] = "";
+diff --git a/llvm/include/llvm/Support/VirtualFileSystem.h b/llvm/include/llvm/Support/VirtualFileSystem.h
+index d22c53422..0c5e8ccc2 100644
+--- a/llvm/include/llvm/Support/VirtualFileSystem.h
++++ b/llvm/include/llvm/Support/VirtualFileSystem.h
+@@ -383,6 +383,14 @@ LLVM_ABI IntrusiveRefCntPtr<FileSystem> getRealFileSystem();
+ /// This may only be called outside the IO sandbox.
+ LLVM_ABI std::unique_ptr<FileSystem> createPhysicalFileSystem();
+ 
++/// Create an independent real file system directly at an absolute directory.
++/// The specified directory is checked and its symlinks are resolved, without
++/// first querying the process's working directory. Returns an error if the
++/// directory is relative, absent, or cannot be used as a working directory.
++/// This may only be called outside the IO sandbox.
++LLVM_ABI ErrorOr<std::unique_ptr<FileSystem>>
++createPhysicalFileSystem(const Twine &WorkingDirectory);
++
+ /// A file system that allows overlaying one \p AbstractFileSystem on top
+ /// of another.
+ ///
+diff --git a/llvm/lib/Support/VirtualFileSystem.cpp b/llvm/lib/Support/VirtualFileSystem.cpp
+index 42e8bb4f9..f9985f2fd 100644
+--- a/llvm/lib/Support/VirtualFileSystem.cpp
++++ b/llvm/lib/Support/VirtualFileSystem.cpp
+@@ -286,6 +286,17 @@ public:
+     }
+   }
+ 
++  RealFileSystem(const Twine &InitialCWD, std::error_code &EC) {
++    // Engage the independent-directory state without inheriting the process
++    // directory. An absolute name needs no previous directory to resolve it.
++    WD = std::make_error_code(std::errc::invalid_argument);
++    if (!sys::path::is_absolute(InitialCWD)) {
++      EC = std::make_error_code(std::errc::invalid_argument);
++      return;
++    }
++    EC = setCurrentWorkingDirectory(InitialCWD);
++  }
++
+   ErrorOr<Status> status(const Twine &Path) override;
+   ErrorOr<std::unique_ptr<File>> openFileForRead(const Twine &Path) override;
+   ErrorOr<std::unique_ptr<File>>
+@@ -433,6 +444,17 @@ std::unique_ptr<FileSystem> vfs::createPhysicalFileSystem() {
+   return std::make_unique<RealFileSystem>(false);
+ }
+ 
++ErrorOr<std::unique_ptr<FileSystem>>
++vfs::createPhysicalFileSystem(const Twine &WorkingDirectory) {
++  sys::sandbox::violationIfEnabled();
++
++  std::error_code EC;
++  auto FS = std::make_unique<RealFileSystem>(WorkingDirectory, EC);
++  if (EC)
++    return EC;
++  return std::unique_ptr<FileSystem>(std::move(FS));
++}
++
+ namespace {
+ 
+ class RealFSDirIter : public llvm::vfs::detail::DirIterImpl {
+diff --git a/llvm/unittests/Support/VirtualFileSystemTest.cpp b/llvm/unittests/Support/VirtualFileSystemTest.cpp
+index 507a0e410..280b412fc 100644
+--- a/llvm/unittests/Support/VirtualFileSystemTest.cpp
++++ b/llvm/unittests/Support/VirtualFileSystemTest.cpp
+@@ -475,7 +475,57 @@ TEST(VirtualFileSystemTest, BasicRealFSIteration) {
+   EXPECT_EQ(vfs::directory_iterator(), I);
+ }
+ 
++TEST(VirtualFileSystemTest, PhysicalFileSystemInitialWorkingDirectory) {
++  TempDir Root("initial-cwd", /*Unique=*/true);
++  TempDir ADir(Root.path("a"));
++  TempDir BDir(Root.path("b"));
++  TempFile AA(ADir.path("value"), "", "aaaa");
++  TempFile BB(BDir.path("value"), "", "bbbb");
++  SmallString<128> Before, After;
++  ASSERT_FALSE(sys::fs::current_path(Before));
++  auto A = vfs::createPhysicalFileSystem(ADir.path());
++  auto B = vfs::createPhysicalFileSystem(BDir.path());
++  ASSERT_TRUE(A);
++  ASSERT_TRUE(B);
++  EXPECT_EQ(ADir.path(), *(*A)->getCurrentWorkingDirectory());
++  EXPECT_EQ(BDir.path(), *(*B)->getCurrentWorkingDirectory());
++  auto ABuffer = (*A)->getBufferForFile("value");
++  auto BBuffer = (*B)->getBufferForFile("value");
++  ASSERT_TRUE(ABuffer);
++  ASSERT_TRUE(BBuffer);
++  EXPECT_EQ("aaaa", (*ABuffer)->getBuffer());
++  EXPECT_EQ("bbbb", (*BBuffer)->getBuffer());
++  ASSERT_FALSE((*A)->setCurrentWorkingDirectory(BDir.path()));
++  EXPECT_EQ(BDir.path(), *(*B)->getCurrentWorkingDirectory());
++  ASSERT_FALSE(sys::fs::current_path(After));
++  EXPECT_EQ(Before, After);
++}
++
++TEST(VirtualFileSystemTest, PhysicalFileSystemInitialWorkingDirectoryErrors) {
++  TempDir Root("initial-cwd-errors", /*Unique=*/true);
++  TempFile File(Root.path("file"), "", "contents");
++  auto Relative = vfs::createPhysicalFileSystem(".");
++  EXPECT_EQ(errc::invalid_argument, Relative.getError());
++  auto Missing = vfs::createPhysicalFileSystem(Root.path("missing"));
++  EXPECT_EQ(errc::no_such_file_or_directory, Missing.getError());
++  auto NotDirectory = vfs::createPhysicalFileSystem(File.path());
++  EXPECT_EQ(errc::not_a_directory, NotDirectory.getError());
++}
++
+ #ifdef LLVM_ON_UNIX
++TEST(VirtualFileSystemTest, PhysicalFileSystemInitialSymlinkDirectory) {
++  TempDir Root("initial-cwd-link", /*Unique=*/true);
++  TempDir Real(Root.path("real"));
++  TempLink Link(Real.path(), Root.path("link"));
++  TempFile File(Real.path("value"), "", "contents");
++  auto FS = vfs::createPhysicalFileSystem(Link.path());
++  ASSERT_TRUE(FS);
++  EXPECT_EQ(Link.path(), *(*FS)->getCurrentWorkingDirectory());
++  SmallString<128> Resolved;
++  ASSERT_FALSE((*FS)->getRealPath("value", Resolved));
++  EXPECT_EQ(File.path(), Resolved);
++}
++
+ TEST(VirtualFileSystemTest, MultipleWorkingDirs) {
+   // Our root contains a/aa, b/bb, c, where c is a link to a/.
+   // Run tests both in root/b/ and root/c/ (to test "normal" and symlink dirs).
+@@ -569,6 +619,10 @@ TEST(VirtualFileSystemTest, PhysicalFileSystemWorkingDirFailure) {
+             errc::no_such_file_or_directory);
+   SmallString<128> WD2;
+   EXPECT_EQ(sys::fs::current_path(WD2), errc::no_such_file_or_directory);
++  // An absolute initial directory needs no usable process CWD.
++  auto Explicit = vfs::createPhysicalFileSystem(D2.path());
++  ASSERT_TRUE(Explicit);
++  EXPECT_EQ(D2.path(), *(*Explicit)->getCurrentWorkingDirectory());
+ }
+ 
+ TEST(VirtualFileSystemTest, BrokenSymlinkRealFSIteration) {

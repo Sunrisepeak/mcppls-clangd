@@ -25,6 +25,11 @@ And where the native clangd answers the standard-library case whose command
 names no target and no SDK (`check-std-host`, macOS), the image answers it too:
 what the system's own clangd completes from the host (the SDK xcrun names) the
 image completes at run time.
+
+And it indexes a dozen files on four workers at once (`parallel-index`, an LSP
+session with the background index) in at most 1.3 times the native clangd's
+time, the least of five runs of each: the cases above parse one file on one thread, and concurrent, allocating
+work is where an image's C library once made clangd.okb several times slower.
 """
 import argparse, json, os, sys
 
@@ -82,6 +87,18 @@ for name in TIMED:
         failures.append(f"{name}: parse time {ratio:.2f}x the native clangd's (at most 1.3x)")
     if rss_gap > segments_mib:
         failures.append(f"{name}: resident set {rss_gap:.1f} MiB above the native clangd's (at most the image's {segments_mib:.1f} MiB)")
+
+n, i = native.get("parallel-index"), image.get("parallel-index")
+if n and n.get("ok"):
+    if not i or not i.get("ok"):
+        failures.append("parallel-index: the image did not finish indexing")
+    else:
+        ratio = i["seconds_min"] / max(n["seconds_min"], 1e-3)
+        measured["parallel-index"] = {"time_ratio": round(ratio, 3), "native_seconds": n["seconds_min"],
+                                      "image_seconds": i["seconds_min"], "native_runs": n["seconds"],
+                                      "image_runs": i["seconds"]}
+        if ratio > 1.3:
+            failures.append(f"parallel-index: {ratio:.2f}x the native clangd's time (at most 1.3x)")
 
 np, ip = native.get("module-parallelism", {}), image.get("module-parallelism", {})
 if np.get("limit") is not None:

@@ -1,0 +1,217 @@
+From 32df822ca8cc7a720903749aa957aea233c0a296 Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Wed, 4 Nov 2026 23:15:42 +0900
+Subject: [PATCH] perf: batch owned cache ledger scans before acquiring
+ candidate leases
+
+Filter fallback lookup slots from a locked, checksummed two-bank scan before attempting any candidate lease. Revalidate records, namespace, lease identity and payloads after acquisition. Reuse bounded sixteen-slot reads for admission accounting without changing the persistent layout or limits.
+
+Cover partial chunks, independent publication after a miss, held leases, truncation and ambiguous unused banks. Tracks mcpp-community/mcpp#885.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 79 +++++++++++++++----
+ .../unittests/PrerequisiteModulesTest.cpp     | 69 ++++++++++++++++
+ 2 files changed, 132 insertions(+), 16 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 4b4324a3b..ba33cc06e 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -125,6 +125,12 @@ bool exactRead(int FD, void *Data, size_t N, off_t At) {
+   }
+   return true;
+ }
++const Record *newestRecord(const Record &A, const Record &B) {
++  const bool VA = valid(A), VB = valid(B);
++  if (!VA && !VB)
++    return nullptr;
++  return VA && (!VB || A.Sequence >= B.Sequence) ? &A : &B;
++}
+ bool exactWrite(int FD, const void *Data, size_t N, off_t At) {
+   auto *P = static_cast<const char *>(Data);
+   while (N) {
+@@ -409,10 +415,31 @@ public:
+     if (!exactRead(Ledger.Value, &A, sizeof(A), offset(Slot, 0)) ||
+         !exactRead(Ledger.Value, &B, sizeof(B), offset(Slot, 1)))
+       return failure("truncated ledger");
+-    const bool VA = valid(A), VB = valid(B);
+-    if (!VA && !VB)
++    const Record *R = newestRecord(A, B);
++    if (!R)
+       return failure("ambiguous ledger record");
+-    return VA && (!VB || A.Sequence >= B.Sequence) ? A : B;
++    return *R;
++  }
++  // The caller holds the ledger lock and has checked its namespace identity.
++  // Keep the same two-bank validation, but read contiguous bounded chunks
++  // rather than making two positional transfers for every admission slot.
++  template <typename Visitor> llvm::Error scanRecords(Visitor &&Visit) {
++    std::array<std::array<Record, 2>, 16> Chunk;
++    for (unsigned Begin = 0; Begin < Description.Slots; Begin += Chunk.size()) {
++      const unsigned Count =
++          std::min<unsigned>(Chunk.size(), Description.Slots - Begin);
++      if (!exactRead(Ledger.Value, Chunk.data(), Count * sizeof(Chunk[0]),
++                     offset(Begin, 0)))
++        return failure("truncated ledger");
++      for (unsigned I = 0; I < Count; ++I) {
++        const Record *R = newestRecord(Chunk[I][0], Chunk[I][1]);
++        if (!R)
++          return failure("ambiguous ledger record");
++        if (auto E = Visit(Begin + I, *R))
++          return std::move(E);
++      }
++    }
++    return llvm::Error::success();
+   }
+   llvm::Error write(unsigned Slot, Record R) {
+     if (++R.Sequence == 0)
+@@ -869,27 +896,27 @@ ModuleBuildCache::reserve(StringRef Key, PathRef Source, uint64_t Bytes,
+   unsigned Candidate = State->Description.Slots;
+   Record Selected{};
+   FD Lease;
+-  for (unsigned S = 0; S < State->Description.Slots; ++S) {
+-    auto R = State->readRecord(S);
+-    if (!R)
+-      return R.takeError();
+-    if (R->Bytes > UINT64_MAX - Used)
++  auto Account = [&](unsigned S, const Record &R) -> llvm::Error {
++    if (R.Bytes > UINT64_MAX - Used)
+       return failure("invalid charged total");
+-    Used += R->Bytes;
+-    if (R->Type == Free && Candidate == State->Description.Slots) {
++    Used += R.Bytes;
++    if (R.Type == Free && Candidate == State->Description.Slots) {
+       auto L = State->lease(S, true, true, true);
+       if (!L) {
+         llvm::consumeError(L.takeError());
+-        continue;
++        return llvm::Error::success();
+       }
+       FD CandidateLease(*L);
+-      if (!State->leaseMatches(S, CandidateLease.Value, *R))
+-        continue;
++      if (!State->leaseMatches(S, CandidateLease.Value, R))
++        return llvm::Error::success();
+       Lease.Value = CandidateLease.release();
+-      Selected = *R;
++      Selected = R;
+       Candidate = S;
+     }
+-  }
++    return llvm::Error::success();
++  };
++  if (auto E = State->scanRecords(Account))
++    return E;
+   if (Candidate == State->Description.Slots ||
+       Used > State->Description.Limit ||
+       Bytes > State->Description.Limit - Used) {
+@@ -1073,7 +1100,27 @@ ModuleBuildCache::lookup(StringRef Key, std::function<bool(PathRef)> Usable) {
+     if (!Hit || *Hit)
+       return Hit;
+   }
+-  for (unsigned S = 0; S < State->Description.Slots; ++S) {
++  // A miss must not open every lease in the admission table. Read its keys
++  // under the ledger lock, release that lock, then acquire only candidates.
++  // At() rereads and validates each candidate after acquiring its lease, so
++  // this filter grants no trust to a record that changed in the meantime.
++  std::vector<unsigned> Candidates;
++  {
++    std::lock_guard<std::mutex> Guard(State->Mutex);
++    Lock Ledger(State->Ledger.Value);
++    if (!Ledger.acquire())
++      return ioError();
++    if (!State->rootMatches() || !State->ledgerMatches())
++      return failure("namespace or ledger identity changed");
++    auto E = State->scanRecords([&](unsigned S, const Record &R) {
++      if (R.Type == Stable && StringRef(R.Key) == K)
++        Candidates.push_back(S);
++      return llvm::Error::success();
++    });
++    if (E)
++      return std::move(E);
++  }
++  for (unsigned S : Candidates) {
+     if (Hint && S == *Hint)
+       continue;
+     auto Hit = At(S);
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 9f2eda56c..067d4c7c8 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1046,6 +1046,75 @@ TEST_F(PrerequisiteModulesTests, WorkerCeilingIsOwnOrWatched) {
+ #endif
+ }
+ 
++TEST_F(PrerequisiteModulesTests, OwnedLookupSeesNewKeysAcrossLedgerChunks) {
++  const auto Root = (TestDir + "/chunked-lookup").str();
++  const auto Anchor = (TestDir + "/chunked-source").str();
++  { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
++  // Seventeen slots exercises both a complete chunk and its partial tail.
++  auto Cache = ModuleBuildCache::open(Root, 512, 17);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  auto Observer = ModuleBuildCache::open(Root, 512, 17);
++  ASSERT_THAT_EXPECTED(Observer, llvm::Succeeded());
++  auto Missing = (*Observer)->lookup("M16");
++  ASSERT_THAT_EXPECTED(Missing, llvm::Succeeded());
++  EXPECT_FALSE(*Missing);
++  std::vector<std::shared_ptr<ModuleBuildCacheLease>> Held;
++  for (unsigned I = 0; I < 17; ++I) {
++    auto Lease = (*Cache)->reserve("M" + std::to_string(I), Anchor, 8);
++    ASSERT_THAT_EXPECTED(Lease, llvm::Succeeded());
++    { std::error_code EC; llvm::raw_fd_ostream F((*Lease)->payload(), EC);
++      ASSERT_FALSE(EC); F << "MAIN"; }
++    ASSERT_THAT_ERROR((*Lease)->publish(), llvm::Succeeded());
++    Held.push_back(std::move(*Lease));
++  }
++  // Another cache instance's publication invalidates no persistent miss: every
++  // fallback scans the current locked ledger, then validates acquired leases.
++  auto Found = (*Observer)->lookup("M16");
++  ASSERT_THAT_EXPECTED(Found, llvm::Succeeded());
++  ASSERT_TRUE(*Found);
++  EXPECT_EQ((*Found)->mainBytes(), 4u);
++  auto Hint = (*Observer)->lookup("M16");
++  ASSERT_THAT_EXPECTED(Hint, llvm::Succeeded());
++  ASSERT_TRUE(*Hint);
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("full", Anchor, 1), llvm::Failed());
++  auto Collected = (*Cache)->collect(17);
++  ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
++  EXPECT_EQ(*Collected, 0u);
++  auto Unrelated = (*Observer)->lookup("unrelated", [](PathRef) {
++    ADD_FAILURE() << "an unrelated record must not reach payload validation";
++    return false;
++  });
++  ASSERT_THAT_EXPECTED(Unrelated, llvm::Succeeded());
++  EXPECT_FALSE(*Unrelated);
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedLookupRejectsTruncatedLedgerOnMiss) {
++  const auto Root = (TestDir + "/truncated-lookup").str();
++  auto Cache = ModuleBuildCache::open(Root, 64, 17);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  ASSERT_EQ(truncate((Root + "/ledger-v1").c_str(), 1), 0);
++  EXPECT_THAT_EXPECTED((*Cache)->lookup("absent"), llvm::Failed());
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("absent", (TestDir + "/source").str(), 1),
++                       llvm::Failed());
++}
++
++TEST_F(PrerequisiteModulesTests, OwnedLookupRejectsAmbiguousUnusedLedgerTail) {
++  const auto Root = (TestDir + "/ambiguous-lookup").str();
++  auto Cache = ModuleBuildCache::open(Root, 64, 17);
++  ASSERT_THAT_EXPECTED(Cache, llvm::Succeeded());
++  const auto Ledger = Root + "/ledger-v1";
++  auto Contents = llvm::MemoryBuffer::getFile(Ledger);
++  ASSERT_TRUE(Contents);
++  std::string Bytes = (*Contents)->getBuffer().str();
++  ASSERT_FALSE(Bytes.empty());
++  // A newly initialized slot has one valid bank. Corrupt the last bank's
++  // checksum: an empty lease namespace must not hide ambiguous ledger state.
++  Bytes.back() ^= 1;
++  { std::error_code EC; llvm::raw_fd_ostream F(Ledger, EC);
++    ASSERT_FALSE(EC); F << Bytes; }
++  EXPECT_THAT_EXPECTED((*Cache)->lookup("absent"), llvm::Failed());
++}
++
+ // A stable generation whose payload changed on disk is skipped, not a failure
+ // of the module: the module builds again into a new generation.
+ TEST_F(PrerequisiteModulesTests, OwnedLookupSkipsAChangedStablePayload) {

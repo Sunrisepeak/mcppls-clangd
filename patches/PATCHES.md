@@ -20,6 +20,11 @@ tarball, builds on every release platform (`build-test`), every test its row
 maps passes in that run, the Ubuntu 20.04 floor package passes its runtime
 controls, and no known negative remains open against it. A change to a steady
 patch returns it to `stabilizing` until the same run passes again.
+For the 0.0.20 additions, [build-test run 42155475833](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/42155475833)
+passed every release-platform build and mapped native test, both Ubuntu 20.04
+runtime packages, all four OpenKal acceptances and all four warm-prime gates.
+The macOS warm-prime gate passed on a single-job repeat after one cold timing
+outlier; the threshold was not changed.
 
 ## The 0.0.12 series
 
@@ -238,6 +243,42 @@ release adds clangd as an ok image, `clangd.okb`, whose tree is this series and 
 (`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
 image.
 
+## The 0.0.20 additions
+
+Five patches are added. 0038: the provider index is built from a mangled inventory once rather than once per
+request; the facade a request is given keeps its mangler's name when ModulesBuilder gives it the request's file
+system, where the first form of the patch lost it and mangled every command again. Every request that asked which source provides a module mangled every command of the database
+before finding its index unchanged; in mcppls's own project (481 commands) that ran twice for every file
+the server prepared, a third of the engine's time while 176 modules were made ready, and clangd.okb took
+30 s to be ready again in a new session where the native clangd took 5 s. The ok image is built over
+openkal-platform 0.20.2, whose C library serves threads that allocate together from their own caches and
+compares strings a word or a vector at a time (openkal-musl 0.25.0); clangd.okb had passed every
+acceptance case while using less than one of four processors behind the C library's one allocation lock,
+and the acceptance now indexes a dozen files on four workers at once (`parallel-index`), within 1.3 times
+the native clangd's time. 0039: the owned module cache and supervised workers follow what the system
+provides (ModuleCachePlatform: open-file locks, relative directories, removal while open), measured once in each
+cache directory (APFS reports an open directory whose name was removed with the count it had, and a directory
+has one name there), where they were compiled for Linux alone; macOS and the ok image take them, and the native
+Windows engine keeps a copy of each BMI for each reader. A reader holds one open file for each module it reads,
+so the number of files a process may hold open is raised to the system's most, and a worker's leases share one
+open cache of their root (a cache for each lease exceeded macOS's 256 open files and the ok image's 64 open
+directories for a module importing 175). 0040: a module in the owned cache is read where it was published,
+under its own lease, where each reader was given a copy. 0041: a worker's end is seen when it happens: the
+worker's owner monitor slept ten milliseconds between looks and the worker waited for it on the way out, and
+the parent looked at a running worker every ten milliseconds; a cold build of 176 modules was ready in 3.4 s
+instead of 4.9 s (the median worker 9 ms instead of 20 ms). 0042: a worker is held to its share of the address-space
+bound by watching it where the system holds no ceiling: on macOS every process maps hundreds of GiB before
+main, the kernel refuses a ceiling below that (every worker of the native engine failed with "Invalid
+argument"), and one above it holds nothing, so clangd watches the worker's physical footprint and ends it past
+its share. The openkal series adds the answers openkal gives
+the owned cache and its workers (`openkal/patches/README.md`), and the image is built over openkal-platform
+0.21.1 (openkal 0.21; openkal-musl 0.26.0, whose allocator is mimalloc and whose open directories report their
+identity; openkal-image 0.3.1, whose loader maps an image's instructions from its file and whose runner admits
+an okb member it has compared before without reading it). The ok image's cold
+and warm sessions of the warm-prime workspace are within 1.04--1.12 times the native engine's ready time,
+processor time and page faults (Linux x86_64; `ci/warm_prime.py`, `ci/warm_prime_accept.py`). The engine
+reports itself as `23.1.0-mcppls.9` on every platform and as the ok image.
+
 ## The 0.0.19 additions
 
 No patch of this series changes, and the tree stays `d0a555c75fe557cbb2f3ff1de7ab35715b1db4f4`. The
@@ -288,3 +329,13 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0035-UP-40-interactive-action-slots.patch | UP-40 | steady | clangd/unittests/TUSchedulerTests.cpp; ci/module_inputs_canary.py | upstream schedules completion and signature help apart from AST and preamble builds |
 | 0036-UP-35-unchanged-memos-not-serialized.patch | UP-35 | steady | clangd/unittests/PrerequisiteModulesTest.cpp | dropped with 0030 when upstream keeps module memos across sessions |
 | 0037-UP-03-module-workers-under-sanitizers.patch | UP-03 | steady | tests/soak_loop.py and the soak job's ASan+UBSan lit run of the module suite (modules, modules-stale-lock, modules-validation-cache) | dropped with 0017 when upstream isolates module compilation in supervised workers |
+| 0038-UP-03-module-provider-index-mangled-once.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_provider_cache.py | dropped with 0013 when upstream reuses provider command facts across requests of one database generation |
+| 0039-UP-03-module-cache-platform.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedCacheDirectoryIsMeasured, OwnedInputLeasesShareTheirRootsCache); tests/e2e/module_cache_lease.py; .github/workflows/build-test.yml (path parity, warm-prime) | dropped with 0017 and 0019 when upstream isolates module compilation in supervised workers and owns its module payloads on every system |
+| 0040-UP-03-owned-module-reads-in-place.patch | UP-03, UP-24 | steady | clangd/unittests/PrerequisiteModulesTest.cpp; tests/e2e/module_cache_lease.py | dropped with 0019 when upstream owns its module payloads |
+| 0041-UP-03-module-worker-end-seen-at-once.patch | UP-03 | steady | ci/warm_prime.py (worker times); tests/e2e/module_cache_lease.py | dropped with 0017 when upstream supervises its module workers |
+| 0042-UP-03-module-worker-ceiling-watched.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (WorkerCeilingIsOwnOrWatched); the darwin-arm64 lit run of the module suite; warm-prime on macOS | dropped with 0017 when upstream supervises its module workers |
+| 0043-UP-03-worker-output-native-paths.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ModuleWorkerOutputPathsUseTheirPathStyle); ci/module_inputs_canary.py (four-host absent-names); ci/warm_prime.py | dropped with 0017 and 0019 when upstream bounds worker outputs and owns module payloads using the host path style |
+| 0044-UP-03-physical-fs-initial-cwd.patch | UP-03 | steady | llvm/unittests/Support/VirtualFileSystemTest.cpp; clangd/unittests/FSTests.cpp; ci/warm_prime.py | upstream creates independent filesystem views at the requested working directory without first resolving the process directory |
+| 0045-UP-03-owned-ledger-scan-candidates.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedLookupSeesNewKeysAcrossLedgerChunks, OwnedLookupRejectsTruncatedLedgerOnMiss, OwnedLookupRejectsAmbiguousUnusedLedgerTail); ci/warm_prime.py | upstream filters owned-cache lookup candidates from validated bounded ledger scans before acquiring leases, retaining post-acquisition identity and payload validation |
+| 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | steady | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
+| 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |

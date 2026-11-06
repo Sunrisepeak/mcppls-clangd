@@ -17,10 +17,11 @@ bumped.
 
 ## Status
 
-The 0.0.19 engine carries 37 patches ([patches/PATCHES.md](patches/PATCHES.md))
-on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.7`. Each patch maps
-to rows of the upstream-defects register and has a drop condition; every patch
-is `steady`, which `ci/check_ledger.py --release` requires before a release.
+The 0.0.20 engine carries 43 main patches ([patches/PATCHES.md](patches/PATCHES.md))
+on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.9`. Each patch maps
+to rows of the upstream-defects register and has a drop condition. A release
+requires every ledger entry in both series to be `steady`, as checked by
+`ci/check_ledger.py --release`.
 The engine ships in mcpp-language-server, which pins it by binary SHA-256
 and by the source identity in `engine.json`.
 
@@ -34,6 +35,12 @@ llvm-project's libraries with it through CMake, and names them for the link
 mcpp performs and seals. The release measures it against the native engine on
 the four systems and publishes where it is accepted (`openkal-acceptance.json`);
 mcppls uses `clangd.okb` where it is.
+
+The separate warm-prime check records readiness latency, CPU and complete
+page faults. Its [release policy](ci/performance-policy.md) documents the
+one-release 0.0.20 Linux x64 cold-CPU exception and the unchanged gates.
+The remaining OKE/OKB performance work is tracked in
+[mcppls issue 77](https://github.com/Sunrisepeak/mcpp-language-server/issues/77).
 
 | Platform | Built on | Runs on |
 |---|---|---|

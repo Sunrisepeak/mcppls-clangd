@@ -1,0 +1,3572 @@
+{
+ "description": "The module graph of the mcpp repository at d1f1c98fa26d953e084a183a9672fc1e0ce63558 (the commit mcppls's ux-mcpp fixture pins), as `mcpp emit build-database` states it: every translation unit, the module it provides and the modules it imports. ci/warm_prime.py builds a workspace of this shape.",
+ "commit": "d1f1c98fa26d953e084a183a9672fc1e0ce63558",
+ "units": [
+  {
+   "set": "compat.gtest",
+   "source": "third_party/compat.gtest/gtest_main.cc",
+   "provides": null,
+   "requires": []
+  },
+  {
+   "set": "compat.gtest",
+   "source": "third_party/compat.gtest/gtest-all.cc",
+   "provides": null,
+   "requires": []
+  },
+  {
+   "set": "mcpplibs.cmdline",
+   "source": "third_party/mcpplibs.cmdline/parse.cppm",
+   "provides": "mcpplibs.cmdline:parse",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpplibs.cmdline",
+   "source": "third_party/mcpplibs.cmdline/options.cppm",
+   "provides": "mcpplibs.cmdline:options",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpplibs.cmdline",
+   "source": "third_party/mcpplibs.cmdline/cmdline.cppm",
+   "provides": "mcpplibs.cmdline",
+   "requires": [
+    "mcpplibs.cmdline:options",
+    "mcpplibs.cmdline:parse",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.versioning",
+   "source": "modules/versioning/src/version_req.cppm",
+   "provides": "mcpp.version_req",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.versioning",
+   "source": "modules/versioning/src/version.cppm",
+   "provides": "mcpp.version",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.source-kind",
+   "source": "modules/source-kind/src/source_kind.cppm",
+   "provides": "mcpp.source_kind",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/modgraph/graph.cppm",
+   "provides": "mcpp.modgraph.graph",
+   "requires": [
+    "mcpp.source_kind",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/interface.cppm",
+   "provides": "mcpp.pack.interface",
+   "requires": [
+    "mcpp.modgraph.graph",
+    "mcpp.source_kind",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/digest.cppm",
+   "provides": "mcpp.pack.digest",
+   "requires": [
+    "mcpp.toolchain.fingerprint",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/provider.cppm",
+   "provides": "mcpp.toolchain.provider",
+   "requires": [
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/abi.cppm",
+   "provides": "mcpp.toolchain.abi",
+   "requires": [
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/abi_tag.cppm",
+   "provides": "mcpp.pack.abi_tag",
+   "requires": [
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/sysroot_complete.cppm",
+   "provides": "mcpp.fallback.sysroot_complete",
+   "requires": [
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/compat.cppm",
+   "provides": "mcpp.toolchain.compat",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/freestanding/target.cppm",
+   "provides": "mcpp.freestanding.target",
+   "requires": [
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/freestanding/linkline.cppm",
+   "provides": "mcpp.freestanding.linkline",
+   "requires": [
+    "mcpp.freestanding.target",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/distribution.cppm",
+   "provides": "mcpp.build.distribution",
+   "requires": [
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/ui.cppm",
+   "provides": "mcpp.ui",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/diag.cppm",
+   "provides": "mcpp.diag",
+   "requires": [
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/llvm.cppm",
+   "provides": "mcpp.toolchain.llvm",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/home.cppm",
+   "provides": "mcpp.home",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/cenv_probe.cppm",
+   "provides": "mcpp.toolchain.cenv_probe",
+   "requires": [
+    "mcpp.home",
+    "mcpp.platform",
+    "mcpp.toolchain.fingerprint",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/xlings_binary.cppm",
+   "provides": "mcpp.fallback.xlings_binary",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/runner_lookup.cppm",
+   "provides": "mcpp.build.runner_lookup",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/cenv.cppm",
+   "provides": "mcpp.toolchain.cenv",
+   "requires": [
+    "mcpp.targetside",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/scaffold/project_name.cppm",
+   "provides": "mcpp.scaffold.project_name",
+   "requires": [
+    "mcpp.platform.project_name",
+    "mcpp.pm.dependency_selector",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/xpkg_copy.cppm",
+   "provides": "mcpp.fallback.xpkg_copy",
+   "requires": [
+    "mcpp.log",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/install_integrity.cppm",
+   "provides": "mcpp.fallback.install_integrity",
+   "requires": [
+    "mcpp.log",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/hermetic.cppm",
+   "provides": "mcpp.build.hermetic",
+   "requires": [
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/xlings/runtime_selection.cppm",
+   "provides": "mcpp.xlings.runtime_selection",
+   "requires": [
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/xlings/address_set.cppm",
+   "provides": "mcpp.xlings.address_set",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/scaffold/template.cppm",
+   "provides": "mcpp.scaffold",
+   "requires": [
+    "mcpp.libs.toml",
+    "mcpp.manifest",
+    "mcpp.platform.scaffold_fs",
+    "mcpp.pm.dependency_selector",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/project.cppm",
+   "provides": "mcpp.project",
+   "requires": [
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/route.cppm",
+   "provides": "mcpp.pack.route",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.project",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/prebuilt.cppm",
+   "provides": "mcpp.pack.prebuilt",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.pack.abi_tag",
+    "mcpp.pack.digest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/host_requirements.cppm",
+   "provides": "mcpp.pack.host_requirements",
+   "requires": [
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/hooks.cppm",
+   "provides": "mcpp.hooks",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.platform.process",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/schedule/policy.cppm",
+   "provides": "mcpp.build.schedule.policy",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.platform.capacity",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/lock_io.cppm",
+   "provides": "mcpp.pm.lock_io",
+   "requires": [
+    "mcpp.libs.toml",
+    "mcpp.toolchain.fingerprint",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/pm.cppm",
+   "provides": "mcpp.pm",
+   "requires": [
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.index_spec",
+    "mcpp.pm.lock_io"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/lockfile.cppm",
+   "provides": "mcpp.lockfile",
+   "requires": [
+    "mcpp.pm.lock_io",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_sbom.cppm",
+   "provides": "mcpp.cli.cmd_sbom",
+   "requires": [
+    "mcpp.lockfile",
+    "mcpp.manifest",
+    "mcpp.project",
+    "mcpp.ui",
+    "mcpp.version",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/index_contract.cppm",
+   "provides": "mcpp.pm.index_contract",
+   "requires": [
+    "mcpp.libs.toml",
+    "mcpp.platform.fs",
+    "mcpp.version",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/index_snapshot.cppm",
+   "provides": "mcpp.pm.index_snapshot",
+   "requires": [
+    "mcpp.pm.index_contract",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/xlings/xlings.cppm",
+   "provides": "mcpp.xlings",
+   "requires": [
+    "mcpp.home",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.pm.compat",
+    "mcpp.pm.index_contract",
+    "mcpp.pm.index_snapshot",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/probe_sysroot.cppm",
+   "provides": "mcpp.fallback.probe_sysroot",
+   "requires": [
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/probe.cppm",
+   "provides": "mcpp.toolchain.probe",
+   "requires": [
+    "mcpp.fallback.probe_sysroot",
+    "mcpp.fallback.sysroot_complete",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.triple",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/msvc.cppm",
+   "provides": "mcpp.toolchain.msvc",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.probe",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/clang.cppm",
+   "provides": "mcpp.toolchain.clang",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.probe",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/gcc.cppm",
+   "provides": "mcpp.toolchain.gcc",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.probe",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/detect.cppm",
+   "provides": "mcpp.toolchain.detect",
+   "requires": [
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.gcc",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.probe",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/modgraph/p1689.cppm",
+   "provides": "mcpp.modgraph.p1689",
+   "requires": [
+    "mcpp.modgraph.graph",
+    "mcpp.platform",
+    "mcpp.source_kind",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/modgraph/scanner.cppm",
+   "provides": "mcpp.modgraph.scanner",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.modgraph.glob",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.p1689",
+    "mcpp.source_kind",
+    "mcpp.toolchain.detect",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/modgraph/validate.cppm",
+   "provides": "mcpp.modgraph.validate",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/test_targets.cppm",
+   "provides": "mcpp.build.test_targets",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.modgraph.scanner",
+    "mcpp.project",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/prepare_inputs.cppm",
+   "provides": "mcpp.build.prepare_inputs",
+   "requires": [
+    "mcpp.diag",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.platform",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/publisher.cppm",
+   "provides": "mcpp.pm.publisher",
+   "requires": [
+    "mcpp.build.prepare_inputs",
+    "mcpp.diag",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.pack.host_requirements",
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/publish/xpkg_emit.cppm",
+   "provides": "mcpp.publish.xpkg_emit",
+   "requires": [
+    "mcpp.pm.publisher",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/publish/pipeline.cppm",
+   "provides": "mcpp.publish.pipeline",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.modgraph.scanner",
+    "mcpp.platform",
+    "mcpp.project",
+    "mcpp.publish.xpkg_emit",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/resources.cppm",
+   "provides": "mcpp.build.resources",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.triple",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/xlings/subos_info.cppm",
+   "provides": "mcpp.xlings.subos_info",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/runtime/binding.cppm",
+   "provides": "mcpp.runtime.binding",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "mcpp.xlings.runtime_selection",
+    "mcpp.xlings.subos_info",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/runtime/elf.cppm",
+   "provides": "mcpp.runtime.elf",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.runtime.binding",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/symbol_provision.cppm",
+   "provides": "mcpp.build.symbol_provision",
+   "requires": [
+    "mcpp.runtime.elf",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/loader_contract.cppm",
+   "provides": "mcpp.build.loader_contract",
+   "requires": [
+    "mcpp.runtime.elf",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/wire.cppm",
+   "provides": "mcpp.wire",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "mcpp.version",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_xpkg.cppm",
+   "provides": "mcpp.cli.cmd_xpkg",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.platform.axis",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/registry.cppm",
+   "provides": "mcpp.toolchain.registry",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.compat",
+    "mcpp.toolchain.gcc",
+    "mcpp.toolchain.llvm",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.triple",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/hostflags.cppm",
+   "provides": "mcpp.toolchain.hostflags",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/stdmod.cppm",
+   "provides": "mcpp.toolchain.stdmod",
+   "requires": [
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.gcc",
+    "mcpp.toolchain.hostflags",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.msvc",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/cache_key.cppm",
+   "provides": "mcpp.build.cache_key",
+   "requires": [
+    "mcpp.freestanding.target",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.modgraph.scanner",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/bmi_cache.cppm",
+   "provides": "mcpp.bmi_cache",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/bmi_cache/maintenance.cppm",
+   "provides": "mcpp.bmi_cache.maintenance",
+   "requires": [
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_cache.cppm",
+   "provides": "mcpp.cli.cmd_cache",
+   "requires": [
+    "mcpp.bmi_cache.maintenance",
+    "mcpp.libs.json",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/hostprogram.cppm",
+   "provides": "mcpp.build.hostprogram",
+   "requires": [
+    "mcpp.build.directives",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.platform.process",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.hostflags",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/predefines.cppm",
+   "provides": "mcpp.toolchain.predefines",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/zip.cppm",
+   "provides": "mcpp.pack.zip",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/stage_tree.cppm",
+   "provides": "mcpp.pack.stage_tree",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/manifest_emit.cppm",
+   "provides": "mcpp.pack.manifest_emit",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/binfmt.cppm",
+   "provides": "mcpp.pack.binfmt",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/strip.cppm",
+   "provides": "mcpp.pack.strip",
+   "requires": [
+    "mcpp.pack.binfmt",
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/relocate.cppm",
+   "provides": "mcpp.pack.relocate",
+   "requires": [
+    "mcpp.pack.binfmt",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/library.cppm",
+   "provides": "mcpp.pack.library",
+   "requires": [
+    "mcpp.pack.digest",
+    "mcpp.pack.manifest_emit",
+    "mcpp.pack.relocate",
+    "mcpp.pack.strip",
+    "mcpp.pack.zip",
+    "mcpp.platform",
+    "mcpp.source_kind",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/freestanding/runner.cppm",
+   "provides": "mcpp.freestanding.runner",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/legacy_dirs.cppm",
+   "provides": "mcpp.fallback.legacy_dirs",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fallback/config_migration.cppm",
+   "provides": "mcpp.fallback.config_migration",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/config.cppm",
+   "provides": "mcpp.config",
+   "requires": [
+    "mcpp.fallback.config_migration",
+    "mcpp.fallback.install_integrity",
+    "mcpp.fallback.xlings_binary",
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.libs.toml",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.pm.index_spec",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/post_install.cppm",
+   "provides": "mcpp.toolchain.post_install",
+   "requires": [
+    "mcpp.config",
+    "mcpp.libs.json",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.runtime.binding",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.registry",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/refresh_policy.cppm",
+   "provides": "mcpp.pm.refresh_policy",
+   "requires": [
+    "mcpp.config",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.pm.index_contract",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/pack.cppm",
+   "provides": "mcpp.pack",
+   "requires": [
+    "mcpp.build.loader_contract",
+    "mcpp.config",
+    "mcpp.manifest",
+    "mcpp.pack.binfmt",
+    "mcpp.pack.host_requirements",
+    "mcpp.pack.relocate",
+    "mcpp.pack.stage_tree",
+    "mcpp.pack.strip",
+    "mcpp.pack.zip",
+    "mcpp.platform",
+    "mcpp.toolchain.triple",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/version_floor.cppm",
+   "provides": "mcpp.build.version_floor",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/stage.cppm",
+   "provides": "mcpp.build.stage",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/schedule/detach_codegen.cppm",
+   "provides": "mcpp.build.schedule.detach_codegen",
+   "requires": [
+    "mcpp.build.stage",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/refusal.cppm",
+   "provides": "mcpp.build.refusal",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/package_fetcher.cppm",
+   "provides": "mcpp.pm.package_fetcher",
+   "requires": [
+    "mcpp.build.refusal",
+    "mcpp.config",
+    "mcpp.fallback.install_integrity",
+    "mcpp.fallback.legacy_dirs",
+    "mcpp.fallback.xpkg_copy",
+    "mcpp.libs.toml",
+    "mcpp.log",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.pm.compat",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.index_contract",
+    "mcpp.pm.index_spec",
+    "mcpp.pm.refresh_policy",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fetcher.cppm",
+   "provides": "mcpp.fetcher",
+   "requires": [
+    "mcpp.pm.package_fetcher",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/index_route.cppm",
+   "provides": "mcpp.pm.index_route",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher",
+    "mcpp.manifest",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_spec",
+    "mcpp.project",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/resolver.cppm",
+   "provides": "mcpp.pm.resolver",
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.pm.compat",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.index_route",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/index_refresh.cppm",
+   "provides": "mcpp.pm.index_refresh",
+   "requires": [
+    "mcpp.config",
+    "mcpp.log",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_contract",
+    "mcpp.pm.index_route",
+    "mcpp.pm.refresh_policy",
+    "mcpp.pm.resolver",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/fetcher/progress.cppm",
+   "provides": "mcpp.fetcher.progress",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher",
+    "mcpp.log",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/toolchain/lifecycle.cppm",
+   "provides": "mcpp.toolchain.lifecycle",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher",
+    "mcpp.fetcher.progress",
+    "mcpp.libs.json",
+    "mcpp.log",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.runtime.binding",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.post_install",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpp.xlings",
+    "mcpp.xlings.runtime_selection",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_toolchain.cppm",
+   "provides": "mcpp.cli.cmd_toolchain",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher.progress",
+    "mcpp.toolchain.lifecycle",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/scaffold/create.cppm",
+   "provides": "mcpp.scaffold.create",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher",
+    "mcpp.fetcher.progress",
+    "mcpp.manifest",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_route",
+    "mcpp.pm.resolver",
+    "mcpp.scaffold",
+    "mcpp.scaffold.project_name",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_new.cppm",
+   "provides": "mcpp.cli.cmd_new",
+   "requires": [
+    "mcpp.scaffold",
+    "mcpp.scaffold.create",
+    "mcpp.scaffold.project_name",
+    "mcpp.ui",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/index_management.cppm",
+   "provides": "mcpp.pm.index_management",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher",
+    "mcpp.fetcher.progress",
+    "mcpp.lockfile",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.project",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_registry.cppm",
+   "provides": "mcpp.cli.cmd_registry",
+   "requires": [
+    "mcpp.pm.index_management",
+    "mcpp.ui",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pm/commands.cppm",
+   "provides": "mcpp.pm.commands",
+   "requires": [
+    "mcpp.config",
+    "mcpp.fetcher.progress",
+    "mcpp.lockfile",
+    "mcpp.manifest",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_refresh",
+    "mcpp.pm.index_route",
+    "mcpp.pm.resolver",
+    "mcpp.project",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/build_program.cppm",
+   "provides": "mcpp.build.build_program",
+   "requires": [
+    "mcpp.build.directives",
+    "mcpp.build.hostprogram",
+    "mcpp.build.refusal",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.process",
+    "mcpp.pm.mangle",
+    "mcpp.toolchain.cppfly",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.hostflags",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.stdmod",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.version",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/linkage_form.cppm",
+   "provides": "mcpp.build.linkage_form",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/link_line.cppm",
+   "provides": "mcpp.build.link_line",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/graph_shape.cppm",
+   "provides": "mcpp.build.graph_shape",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/plan.cppm",
+   "provides": "mcpp.build.plan",
+   "requires": [
+    "mcpp.build.graph_shape",
+    "mcpp.build.loader_contract",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.pack.prebuilt",
+    "mcpp.platform",
+    "mcpp.platform.runtime_env_contract",
+    "mcpp.platform.runtime_search",
+    "mcpp.runtime.binding",
+    "mcpp.source_kind",
+    "mcpp.targetside",
+    "mcpp.toolchain.cppfly",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.triple",
+    "mcpp.xlings.subos_info",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/runtime_validation.cppm",
+   "provides": "mcpp.build.runtime_validation",
+   "requires": [
+    "mcpp.build.loader_contract",
+    "mcpp.build.plan",
+    "mcpp.build.symbol_provision",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.runtime_search",
+    "mcpp.runtime.binding",
+    "mcpp.runtime.elf",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/flags.cppm",
+   "provides": "mcpp.build.flags",
+   "requires": [
+    "mcpp.build.distribution",
+    "mcpp.build.plan",
+    "mcpp.build.refusal",
+    "mcpp.diag",
+    "mcpp.freestanding.linkline",
+    "mcpp.freestanding.target",
+    "mcpp.manifest.flag_words",
+    "mcpp.manifest.types",
+    "mcpp.modgraph.scanner",
+    "mcpp.platform",
+    "mcpp.platform.runtime_search",
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.hostflags",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.provider",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/compile_commands.cppm",
+   "provides": "mcpp.build.compile_commands",
+   "requires": [
+    "mcpp.build.flags",
+    "mcpp.build.plan",
+    "mcpp.libs.json",
+    "mcpp.manifest.flag_words",
+    "mcpp.platform",
+    "mcpp.platform.fs",
+    "mcpp.source_kind",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/backend.cppm",
+   "provides": "mcpp.build.backend",
+   "requires": [
+    "mcpp.build.plan",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/dep_graph.cppm",
+   "provides": "mcpp.build.dep_graph",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/coff_exports.cppm",
+   "provides": "mcpp.build.coff_exports",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/cmdlimits.cppm",
+   "provides": "mcpp.build.cmdlimits",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/ninja_backend.cppm",
+   "provides": "mcpp.build.ninja",
+   "requires": [
+    "mcpp.build.backend",
+    "mcpp.build.cmdlimits",
+    "mcpp.build.compile_commands",
+    "mcpp.build.distribution",
+    "mcpp.build.flags",
+    "mcpp.build.graph_shape",
+    "mcpp.build.hermetic",
+    "mcpp.build.link_line",
+    "mcpp.build.loader_contract",
+    "mcpp.build.plan",
+    "mcpp.build.runtime_validation",
+    "mcpp.diag",
+    "mcpp.dyndep",
+    "mcpp.freestanding.linkline",
+    "mcpp.log",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.runtime.elf",
+    "mcpp.source_kind",
+    "mcpp.targetside",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.provider",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/prepare.cppm",
+   "provides": "mcpp.build.prepare",
+   "requires": [
+    "mcpp.bmi_cache",
+    "mcpp.build.backend",
+    "mcpp.build.build_program",
+    "mcpp.build.cache_key",
+    "mcpp.build.dep_graph",
+    "mcpp.build.directives",
+    "mcpp.build.distribution",
+    "mcpp.build.flags",
+    "mcpp.build.graph_shape",
+    "mcpp.build.linkage_form",
+    "mcpp.build.ninja",
+    "mcpp.build.plan",
+    "mcpp.build.prepare_inputs",
+    "mcpp.build.provisions",
+    "mcpp.build.refusal",
+    "mcpp.build.resources",
+    "mcpp.build.runner_lookup",
+    "mcpp.build.runtime_validation",
+    "mcpp.build.schedule.policy",
+    "mcpp.build.tool_store",
+    "mcpp.build.version_floor",
+    "mcpp.config",
+    "mcpp.diag",
+    "mcpp.fallback.install_integrity",
+    "mcpp.fetcher",
+    "mcpp.fetcher.progress",
+    "mcpp.freestanding.linkline",
+    "mcpp.freestanding.target",
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.lockfile",
+    "mcpp.log",
+    "mcpp.manifest",
+    "mcpp.modgraph.glob",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.modgraph.validate",
+    "mcpp.pack.abi_tag",
+    "mcpp.pack.prebuilt",
+    "mcpp.pack.stage_tree",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.platform.capacity",
+    "mcpp.platform.macos",
+    "mcpp.platform.runtime_search",
+    "mcpp.pm.compat",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_contract",
+    "mcpp.pm.index_refresh",
+    "mcpp.pm.index_route",
+    "mcpp.pm.index_spec",
+    "mcpp.pm.lock_io",
+    "mcpp.pm.mangle",
+    "mcpp.pm.resolver",
+    "mcpp.project",
+    "mcpp.runtime.binding",
+    "mcpp.source_kind",
+    "mcpp.targetside",
+    "mcpp.toolchain.abi",
+    "mcpp.toolchain.cenv",
+    "mcpp.toolchain.cenv_probe",
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.cppfly",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.gcc",
+    "mcpp.toolchain.hostflags",
+    "mcpp.toolchain.lifecycle",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.post_install",
+    "mcpp.toolchain.predefines",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.stdmod",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.version_req",
+    "mcpp.xlings",
+    "mcpp.xlings.address_set",
+    "mcpp.xlings.runtime_selection",
+    "mcpp.xlings.subos_info",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/pipeline.cppm",
+   "provides": "mcpp.pack.pipeline",
+   "requires": [
+    "mcpp.build.backend",
+    "mcpp.build.distribution",
+    "mcpp.build.flags",
+    "mcpp.build.ninja",
+    "mcpp.build.plan",
+    "mcpp.build.prepare",
+    "mcpp.config",
+    "mcpp.fetcher.progress",
+    "mcpp.manifest",
+    "mcpp.pack",
+    "mcpp.pack.stage_tree",
+    "mcpp.pack.strip",
+    "mcpp.platform",
+    "mcpp.platform.env",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.probe",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/execute.cppm",
+   "provides": "mcpp.build.execute",
+   "requires": [
+    "mcpp.bmi_cache",
+    "mcpp.bmi_cache.maintenance",
+    "mcpp.build.backend",
+    "mcpp.build.build_program",
+    "mcpp.build.directives",
+    "mcpp.build.graph_shape",
+    "mcpp.build.ninja",
+    "mcpp.build.plan",
+    "mcpp.build.prepare",
+    "mcpp.build.runner_lookup",
+    "mcpp.build.runtime_validation",
+    "mcpp.build.schedule.policy",
+    "mcpp.build.test_targets",
+    "mcpp.diag",
+    "mcpp.fetcher.progress",
+    "mcpp.freestanding.linkline",
+    "mcpp.freestanding.runner",
+    "mcpp.home",
+    "mcpp.libs.toml",
+    "mcpp.log",
+    "mcpp.manifest",
+    "mcpp.modgraph.scanner",
+    "mcpp.pack",
+    "mcpp.pack.pipeline",
+    "mcpp.platform",
+    "mcpp.platform.capacity",
+    "mcpp.project",
+    "mcpp.runtime.binding",
+    "mcpp.source_kind",
+    "mcpp.toolchain.post_install",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.stdmod",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.xlings",
+    "mcpp.xlings.subos_info",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/configure.cppm",
+   "provides": "mcpp.build.configure",
+   "requires": [
+    "mcpp.build.backend",
+    "mcpp.build.execute",
+    "mcpp.build.ninja",
+    "mcpp.build.plan",
+    "mcpp.build.prepare",
+    "mcpp.build.stage",
+    "mcpp.diag",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/pack/library_pipeline.cppm",
+   "provides": "mcpp.pack.library_pipeline",
+   "requires": [
+    "mcpp.build.backend",
+    "mcpp.build.ninja",
+    "mcpp.build.plan",
+    "mcpp.build.prepare",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.pack",
+    "mcpp.pack.abi_tag",
+    "mcpp.pack.interface",
+    "mcpp.pack.library",
+    "mcpp.pack.strip",
+    "mcpp.platform",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "mcpp.ui",
+    "mcpp.version",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_publish.cppm",
+   "provides": "mcpp.cli.cmd_publish",
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.libs.json",
+    "mcpp.pack",
+    "mcpp.pack.library_pipeline",
+    "mcpp.pack.pipeline",
+    "mcpp.pack.route",
+    "mcpp.platform.terminal",
+    "mcpp.publish.pipeline",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/doctor.cppm",
+   "provides": "mcpp.doctor",
+   "requires": [
+    "mcpp.bmi_cache.maintenance",
+    "mcpp.build.plan",
+    "mcpp.build.prepare",
+    "mcpp.build.program_protocol",
+    "mcpp.build.refusal",
+    "mcpp.build.runtime_validation",
+    "mcpp.config",
+    "mcpp.fallback.install_integrity",
+    "mcpp.fallback.probe_sysroot",
+    "mcpp.fallback.xlings_binary",
+    "mcpp.fetcher.progress",
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.env",
+    "mcpp.platform.process",
+    "mcpp.pm.index_refresh",
+    "mcpp.project",
+    "mcpp.runtime.elf",
+    "mcpp.source_kind",
+    "mcpp.targetside",
+    "mcpp.toolchain.abi",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.stdmod",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_self.cppm",
+   "provides": "mcpp.cli.cmd_self",
+   "requires": [
+    "mcpp.doctor",
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.platform",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/build/build_database.cppm",
+   "provides": "mcpp.build.build_database",
+   "requires": [
+    "mcpp.build.build_program",
+    "mcpp.build.compile_commands",
+    "mcpp.build.flags",
+    "mcpp.build.plan",
+    "mcpp.build.prepare",
+    "mcpp.home",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.platform",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.stdmod",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli/cmd_build.cppm",
+   "provides": "mcpp.cli.cmd_build",
+   "requires": [
+    "mcpp.bmi_cache.maintenance",
+    "mcpp.build.build_database",
+    "mcpp.build.build_program",
+    "mcpp.build.coff_exports",
+    "mcpp.build.configure",
+    "mcpp.build.directives",
+    "mcpp.build.execute",
+    "mcpp.build.prepare",
+    "mcpp.build.refusal",
+    "mcpp.build.schedule.detach_codegen",
+    "mcpp.build.stage",
+    "mcpp.build.test_targets",
+    "mcpp.dyndep",
+    "mcpp.home",
+    "mcpp.hooks",
+    "mcpp.libs.json",
+    "mcpp.log",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.terminal",
+    "mcpp.project",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/cli.cppm",
+   "provides": "mcpp.cli",
+   "requires": [
+    "mcpp.cli.cmd_build",
+    "mcpp.cli.cmd_cache",
+    "mcpp.cli.cmd_new",
+    "mcpp.cli.cmd_publish",
+    "mcpp.cli.cmd_registry",
+    "mcpp.cli.cmd_sbom",
+    "mcpp.cli.cmd_self",
+    "mcpp.cli.cmd_toolchain",
+    "mcpp.cli.cmd_xpkg",
+    "mcpp.diag",
+    "mcpp.log",
+    "mcpp.modgraph.glob",
+    "mcpp.platform.env",
+    "mcpp.platform.fs",
+    "mcpp.platform.process",
+    "mcpp.platform.runtime_search",
+    "mcpp.pm.commands",
+    "mcpp.toolchain.fingerprint",
+    "mcpp.ui",
+    "mcpp.wire",
+    "mcpplibs.cmdline",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp",
+   "source": "src/main.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.cli",
+    "mcpp.ui",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/windows/windows.cppm",
+   "provides": "mcpp.platform.windows",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/windows/bounded_process.cppm",
+   "provides": "mcpp.platform.windows.bounded_process",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/unix/bounded_process.cppm",
+   "provides": "mcpp.platform.unix.bounded_process",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/terminal.cppm",
+   "provides": "mcpp.platform.terminal",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/shell.cppm",
+   "provides": "mcpp.platform.shell",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/linux/linux.cppm",
+   "provides": "mcpp.platform.linux",
+   "requires": [
+    "mcpp.platform.shell",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/scaffold_fs.cppm",
+   "provides": "mcpp.platform.scaffold_fs",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/runtime_search.cppm",
+   "provides": "mcpp.platform.runtime_search",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/runtime_env_contract.cppm",
+   "provides": "mcpp.platform.runtime_env_contract",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/project_name.cppm",
+   "provides": "mcpp.platform.project_name",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/macos/macos.cppm",
+   "provides": "mcpp.platform.macos",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/env.cppm",
+   "provides": "mcpp.platform.env",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/common.cppm",
+   "provides": "mcpp.platform.common",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/process.cppm",
+   "provides": "mcpp.platform.process",
+   "requires": [
+    "mcpp.platform.common",
+    "mcpp.platform.env",
+    "mcpp.platform.shell",
+    "mcpp.platform.unix.bounded_process",
+    "mcpp.platform.windows.bounded_process",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/fs.cppm",
+   "provides": "mcpp.platform.fs",
+   "requires": [
+    "mcpp.platform.common",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/platform.cppm",
+   "provides": "mcpp.platform",
+   "requires": [
+    "mcpp.platform.common",
+    "mcpp.platform.env",
+    "mcpp.platform.fs",
+    "mcpp.platform.linux",
+    "mcpp.platform.macos",
+    "mcpp.platform.process",
+    "mcpp.platform.shell",
+    "mcpp.platform.terminal",
+    "mcpp.platform.windows"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/axis.cppm",
+   "provides": "mcpp.platform.axis",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.platform",
+   "source": "modules/platform/src/capacity.cppm",
+   "provides": "mcpp.platform.capacity",
+   "requires": []
+  },
+  {
+   "set": "mcpp.toolchain-model",
+   "source": "modules/toolchain-model/src/triple.cppm",
+   "provides": "mcpp.toolchain.triple",
+   "requires": [
+    "mcpp.platform",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.toolchain-model",
+   "source": "modules/toolchain-model/src/model.cppm",
+   "provides": "mcpp.toolchain.model",
+   "requires": [
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.toolchain-model",
+   "source": "modules/toolchain-model/src/linkmodel.cppm",
+   "provides": "mcpp.toolchain.linkmodel",
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.toolchain-model",
+   "source": "modules/toolchain-model/src/fingerprint.cppm",
+   "provides": "mcpp.toolchain.fingerprint",
+   "requires": [
+    "mcpp.toolchain.model",
+    "mcpp.version",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.toolchain-model",
+   "source": "modules/toolchain-model/src/dialect.cppm",
+   "provides": "mcpp.toolchain.dialect",
+   "requires": [
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.toolchain-model",
+   "source": "modules/toolchain-model/src/cppfly.cppm",
+   "provides": "mcpp.toolchain.cppfly",
+   "requires": [
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/targetside_model.cppm",
+   "provides": "mcpp.targetside",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/mangle.cppm",
+   "provides": "mcpp.pm.mangle",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/index_spec.cppm",
+   "provides": "mcpp.pm.index_spec",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/glob.cppm",
+   "provides": "mcpp.modgraph.glob",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/flag_words.cppm",
+   "provides": "mcpp.manifest.flag_words",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/dep_spec.cppm",
+   "provides": "mcpp.pm.dep_spec",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/dependency_selector.cppm",
+   "provides": "mcpp.pm.dependency_selector",
+   "requires": [
+    "mcpp.pm.dep_spec",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/compat/legacy.cppm",
+   "provides": "mcpp.pm.compat.legacy",
+   "requires": [
+    "mcpp.pm.dep_spec",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/compat.cppm",
+   "provides": "mcpp.pm.compat",
+   "requires": [
+    "mcpp.pm.compat.legacy",
+    "mcpp.pm.dep_spec",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/types.cppm",
+   "provides": "mcpp.manifest.types",
+   "requires": [
+    "mcpp.manifest.flag_words",
+    "mcpp.platform",
+    "mcpp.pm.compat",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.index_spec",
+    "mcpp.targetside",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/xpkg.cppm",
+   "provides": "mcpp.manifest.xpkg",
+   "requires": [
+    "mcpp.manifest.types",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.targetside",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/toml.cppm",
+   "provides": "mcpp.manifest.toml",
+   "requires": [
+    "mcpp.libs.toml",
+    "mcpp.manifest.types",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_spec",
+    "mcpp.source_kind",
+    "mcpp.targetside",
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.manifest",
+   "source": "modules/manifest/src/manifest.cppm",
+   "provides": "mcpp.manifest",
+   "requires": [
+    "mcpp.manifest.flag_words",
+    "mcpp.manifest.toml",
+    "mcpp.manifest.types",
+    "mcpp.manifest.xpkg"
+   ]
+  },
+  {
+   "set": "mcpp.buildmcpp",
+   "source": "modules/buildmcpp/src/provisions.cppm",
+   "provides": "mcpp.build.provisions",
+   "requires": [
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.mangle",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.buildmcpp",
+   "source": "modules/buildmcpp/src/tool_store.cppm",
+   "provides": "mcpp.build.tool_store",
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.toolchain.fingerprint",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.buildmcpp",
+   "source": "modules/buildmcpp/src/program_protocol.cppm",
+   "provides": "mcpp.build.program_protocol",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.buildmcpp",
+   "source": "modules/buildmcpp/src/directives.cppm",
+   "provides": "mcpp.build.directives",
+   "requires": [
+    "mcpp.build.program_protocol",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.modgraph.glob",
+    "mcpp.source_kind",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.fingerprint",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.log",
+   "source": "modules/log/src/log.cppm",
+   "provides": "mcpp.log",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.libs",
+   "source": "modules/libs/src/toml.cppm",
+   "provides": "mcpp.libs.toml",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp.libs",
+   "source": "modules/libs/src/json.cppm",
+   "provides": "mcpp.libs.json",
+   "requires": []
+  },
+  {
+   "set": "mcpp.dyndep",
+   "source": "modules/dyndep/src/dyndep.cppm",
+   "provides": "mcpp.dyndep",
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_abi.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.manifest",
+    "mcpp.toolchain.abi",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_abi_tag_accel.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.abi_tag",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_artifact_naming.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_bmi_cache.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.bmi_cache",
+    "mcpp.libs.json",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_bmi_equivalent.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.stage"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_build_database.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.build_database",
+    "mcpp.modgraph.graph",
+    "mcpp.platform",
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.gcc",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.msvc",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_build_directives.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.directives",
+    "mcpp.manifest",
+    "mcpp.toolchain.dialect",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_build_flags.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.distribution",
+    "mcpp.build.flags",
+    "mcpp.build.ninja",
+    "mcpp.modgraph.scanner",
+    "mcpp.targetside",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_build_profile.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_build_resources.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.resources",
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_build_stage.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.stage",
+    "mcpp.source_kind",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cache_key.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.cache_key",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.modgraph.scanner",
+    "mcpp.toolchain.detect",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_capacity_jobs.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.capacity"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cenv.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.targetside",
+    "mcpp.toolchain.cenv",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cenv_probe.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.cenv_probe",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cfg_accelerator.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare_inputs",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cfg_accelerator_none.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare_inputs",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cfg_os_only_platform.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare_inputs",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cmdlimits.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.cmdlimits",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_coff_exports.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.coff_exports",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_compile_commands.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.compile_commands",
+    "mcpp.build.flags",
+    "mcpp.build.plan",
+    "mcpp.libs.json",
+    "mcpp.manifest.flag_words",
+    "mcpp.platform",
+    "mcpp.source_kind",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_config.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.config",
+    "mcpp.fallback.config_migration",
+    "mcpp.pm.index_spec",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_configure.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.configure",
+    "mcpp.build.plan",
+    "mcpp.source_kind",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_core_vendor_probes.cpp",
+   "provides": null,
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cppfly.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.cppfly",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_cxx_layer_standard.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.plan",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.source_kind",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_diag.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.diag",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_dialect.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_distribution.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.distribution",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_doctor_runpath.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.doctor",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_dyndep.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.dyndep",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_elf_runtime.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.symbol_provision",
+    "mcpp.platform",
+    "mcpp.runtime.binding",
+    "mcpp.runtime.elf",
+    "mcpp.toolchain.post_install",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_fallback_legacy_dirs.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.fallback.legacy_dirs",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_fingerprint.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.fingerprint",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_freestanding.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.build_program",
+    "mcpp.freestanding.linkline",
+    "mcpp.freestanding.runner",
+    "mcpp.freestanding.target",
+    "mcpp.toolchain.triple",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_graph_shape.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.graph_shape",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_home.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.home",
+    "mcpp.toolchain.stdmod",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_hostflags.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.hostflags",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_index_contract.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.index_contract",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_index_snapshot.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.index_contract",
+    "mcpp.pm.index_snapshot",
+    "mcpp.version",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_install_hook_env.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.build_program",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_install_integrity.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.fallback.install_integrity",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_link_intent_spelling.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.flags",
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_link_line.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.link_line",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_link_model_runtime_dirs.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.flags",
+    "mcpp.manifest.types",
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_linkage_form.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.linkage_form",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_linkmodel.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.linkmodel",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_loader_contract.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.graph_shape",
+    "mcpp.build.loader_contract",
+    "mcpp.build.plan",
+    "mcpp.build.runtime_validation",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.pack.host_requirements",
+    "mcpp.platform",
+    "mcpp.runtime.binding",
+    "mcpp.runtime.elf",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_main_detection.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.plan",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_mangle.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.mangle",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_manifest.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.libs.toml",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.targetside",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_modgraph.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.modgraph.glob",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.modgraph.validate",
+    "mcpp.source_kind",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_ninja_backend.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.compile_commands",
+    "mcpp.build.flags",
+    "mcpp.build.ninja",
+    "mcpp.build.plan",
+    "mcpp.libs.json",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.platform.runtime_search",
+    "mcpp.source_kind",
+    "mcpp.targetside",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_object_address.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.plan",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.modgraph.scanner",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_p1689.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.modgraph.p1689",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_abi_tag.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.abi_tag",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_archive_remove.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.library",
+    "mcpp.platform.shell",
+    "mcpp.toolchain.dialect",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_binfmt.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.binfmt",
+    "mcpp.pack.zip",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_closure.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_interface.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.modgraph.graph",
+    "mcpp.pack.interface",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_modes.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_relocate.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.relocate",
+    "mcpp.pack.strip",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_route.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.route",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pack_stage_tree.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pack.stage_tree",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_platform_apple_sdk.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.platform.macos",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_platform_env.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.env",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_platform_fs.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.common",
+    "mcpp.platform.fs",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pm_bare_name_window.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pm_compat.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.compat",
+    "mcpp.pm.dependency_selector",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pm_index_refresh.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.config",
+    "mcpp.platform.axis",
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.index_refresh",
+    "mcpp.pm.index_route",
+    "mcpp.pm.index_spec",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pm_index_route.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.dep_spec",
+    "mcpp.pm.dependency_selector",
+    "mcpp.pm.index_route",
+    "mcpp.pm.index_spec",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pm_lock_io.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.lock_io",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_pm_package_fetcher.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.package_fetcher",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_post_install.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.config",
+    "mcpp.platform",
+    "mcpp.toolchain.post_install",
+    "mcpp.toolchain.registry",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_post_install_containment.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.post_install",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_predefines.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.predefines",
+    "mcpp.toolchain.triple"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_process_run_exec.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.process",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_process_seal_stdin.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.process",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_provisions.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.provisions",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_runner_lookup.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.runner_lookup",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_runtime_binding_fallback.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.post_install",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_runtime_contract.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.plan",
+    "mcpp.manifest.toml",
+    "mcpp.manifest.types",
+    "mcpp.manifest.xpkg",
+    "mcpp.modgraph.scanner",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "mcpp.platform.runtime_search",
+    "mcpp.runtime.binding",
+    "mcpp.xlings.subos_info",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_runtime_search.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.runtime_search",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_runtime_selection.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.config",
+    "mcpp.manifest",
+    "mcpp.platform",
+    "mcpp.runtime.binding",
+    "mcpp.xlings.runtime_selection",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_scaffold.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.scaffold_fs",
+    "mcpp.pm.dependency_selector",
+    "mcpp.scaffold",
+    "mcpp.scaffold.project_name",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_schedule_policy.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.schedule.policy",
+    "mcpp.manifest",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_search_versions.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.config",
+    "mcpp.pm.package_fetcher",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_short_name_scan.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.pm.package_fetcher",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_source_kind.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.source_kind",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_static_placement.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.plan",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_subos_info.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.xlings.subos_info",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_subsystem_contracts.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.hostprogram",
+    "mcpp.build.program_protocol",
+    "mcpp.version",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_symbol_provision.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.symbol_provision",
+    "mcpp.runtime.elf",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_sysroot_ownership.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.fallback.probe_sysroot",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_target_runtime_frameworks.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_target_scalar_keys.cpp",
+   "provides": null,
+   "requires": [
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_target_static.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_target_xlings_axis.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_targetside.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.targetside",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_test_options.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.backend",
+    "mcpp.build.execute",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_test_targets.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.test_targets",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toml.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.libs.toml",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_tool_store.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.tool_store",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_compat.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.compat",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_descriptor.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_detect.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.env",
+    "mcpp.toolchain.detect",
+    "mcpp.toolchain.probe",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_dialect.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_lifecycle.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.config",
+    "mcpp.platform",
+    "mcpp.runtime.binding",
+    "mcpp.toolchain.lifecycle",
+    "mcpp.toolchain.post_install",
+    "mcpp.toolchain.registry",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_msvc.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.dialect",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.registry",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_probe.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.probe",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_registry.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform",
+    "mcpp.toolchain.lifecycle",
+    "mcpp.toolchain.model",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_stdmod.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.clang",
+    "mcpp.toolchain.gcc",
+    "mcpp.toolchain.model",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_toolchain_triple.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_version_floor.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.version_floor",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_version_req.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.version_req",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_windows_command_line.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.process",
+    "mcpp.platform.shell",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_windows_defaults.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.build.prepare",
+    "mcpp.platform",
+    "mcpp.toolchain.msvc",
+    "mcpp.toolchain.registry",
+    "mcpp.toolchain.triple",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_wire.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.libs.json",
+    "mcpp.wire",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_xlings.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.platform.env",
+    "mcpp.xlings",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_xlings_address_set.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.xlings.address_set",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_xlings_version_pin.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.fallback.xlings_binary",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_xpkg_emit.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.diag",
+    "mcpp.manifest",
+    "mcpp.modgraph.graph",
+    "mcpp.platform.env",
+    "mcpp.publish.xpkg_emit",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_xpkg_host_tools.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.manifest",
+    "mcpp.manifest.xpkg",
+    "mcpp.platform",
+    "mcpp.platform.axis",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:test",
+   "source": "tests/unit/test_xpkg_versions_merge.cpp",
+   "provides": null,
+   "requires": [
+    "mcpp.manifest",
+    "std"
+   ]
+  },
+  {
+   "set": "mcpp:std",
+   "source": "third_party/mcpp-std/std.cc",
+   "provides": "std",
+   "requires": []
+  }
+ ]
+}

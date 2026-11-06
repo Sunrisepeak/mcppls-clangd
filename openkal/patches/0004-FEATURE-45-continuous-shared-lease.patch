@@ -1,0 +1,111 @@
+From 41eaeb709ba7a3cdbd57c4ac10bd255990044ed6 Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Wed, 4 Nov 2026 07:21:58 +0900
+Subject: [PATCH] [clangd] Keep an openkal shared lease continuously on Windows
+
+Windows adds a shared byte-range lock beside the same handle's exclusive lock. Acquire the shared lock before releasing the exclusive lock, preserving ownership across publication. The kernel releases the exclusive lock first for the identical range.
+
+Measure downgrade exclusion and shared admission explicitly, then release shared locks before testing writes: the system's locks are mandatory. No unlock/relock gap or in-process fallback is introduced.
+
+Reference: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp |  6 ++--
+ .../clangd/ModuleCachePlatform.cpp            | 28 +++++++++++++++++--
+ .../clangd/ModuleCachePlatform.h              |  7 +++--
+ 3 files changed, 33 insertions(+), 8 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 7df2bef..49e5533 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -1158,9 +1158,9 @@ llvm::Error ModuleBuildCacheLease::publish() {
+   State->Description = *R;
+   State->Description.Type = Stable;
+   // Never release/reacquire during transfer: downgrade the same kernel lease.
+-  // OFD range-lock conversion is one kernel operation, preserving continuous
+-  // ownership. Unlike flock conversion it does not drop/reacquire the lease.
+-  if (int Error = Platform::lock(State->Lease.Value, false, false))
++  // Windows first takes the shared lock alongside the exclusive one, then
++  // releases only the exclusive lock. No collector can cross the handoff.
++  if (int Error = Platform::downgrade(State->Lease.Value))
+     return ioError(Error);
+   return llvm::Error::success();
+ #endif
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.cpp b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+index d636a6a..3a8682a 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.cpp
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.cpp
+@@ -10,6 +10,7 @@
+ #include "llvm/ADT/ScopeExit.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/Support/FileSystem.h"
++#include "llvm/Support/Path.h"
+ #include <atomic>
+ #include <cerrno>
+ #include <cstring>
+@@ -112,9 +113,20 @@ std::string measureIn(PathRef Directory, int Dir) {
+            "of the same file";
+   if (Error != EAGAIN && Error != EACCES)
+     return errnoText("an open-file lock is not tried", Error);
+-  if ((Error = ModuleCachePlatform::lock(A.Value, false, false)) ||
+-      (Error = ModuleCachePlatform::lock(B.Value, false, false)))
++  if ((Error = ModuleCachePlatform::downgrade(A.Value)))
++    return errnoText("an exclusive open-file lock is not downgraded", Error);
++  Error = ModuleCachePlatform::lock(B.Value, true, false);
++  if (!Error)
++    return "a downgraded lease does not exclude another exclusive holder";
++  if (Error != EAGAIN && Error != EACCES)
++    return errnoText("a downgraded lease is not tried", Error);
++  if ((Error = ModuleCachePlatform::lock(B.Value, false, false)))
+     return errnoText("a shared open-file lock is not shared", Error);
++  // Locks are mandatory on Windows: a shared lease forbids writing even
++  // through its holder. The real cache writes payloads separately from its
++  // lease file; this scratch probe must release its read locks first.
++  if (flock(A.Value, LOCK_UN) || flock(B.Value, LOCK_UN))
++    return errnoText("a shared open-file lock is not released", errno);
+   if (write(A.Value, "m", 1) != 1)
+     return errnoText("a file is not written", errno);
+   if ((Error = ModuleCachePlatform::syncData(A.Value)))
+@@ -281,6 +293,18 @@ int ModuleCachePlatform::lock(int FD, bool Exclusive, bool Wait) {
+   return R ? errno : 0;
+ }
+ 
++int ModuleCachePlatform::downgrade(int FD) {
++  if (int Error = lock(FD, false, false))
++    return Error;
++  // Windows adds the shared lock beside the exclusive lock on this open
++  // file. Its first unlock removes the exclusive lock, leaving the shared
++  // one held throughout. Releasing before taking the shared lock would let
++  // a collector cross publication. POSIX converted the same range already.
++  if (llvm::sys::path::is_style_windows(llvm::sys::path::Style::native))
++    return flock(FD, LOCK_UN) ? errno : 0;
++  return 0;
++}
++
+ int ModuleCachePlatform::syncData(int FD) {
+ #if defined(__APPLE__)
+   // The system declares no fdatasync; fsync writes the data and metadata.
+diff --git a/clang-tools-extra/clangd/ModuleCachePlatform.h b/clang-tools-extra/clangd/ModuleCachePlatform.h
+index 39dd92e..ce99ed6 100644
+--- a/clang-tools-extra/clangd/ModuleCachePlatform.h
++++ b/clang-tools-extra/clangd/ModuleCachePlatform.h
+@@ -96,10 +96,11 @@ public:
+ 
+ #if CLANGD_OWNED_MODULE_CACHE
+   /// Takes the whole-file lock of the open file \p FD: exclusive or shared,
+-  /// waiting or not. A lock this open file holds already is converted in one
+-  /// step. Returns 0, or an errno value (EAGAIN or EACCES: another open file
+-  /// holds a conflicting lock).
++  /// waiting or not. Returns 0, or an errno value (EAGAIN or EACCES:
++  /// another open file holds a conflicting lock). Use downgrade() to turn
++  /// an existing exclusive lease into a shared one without losing ownership.
+   static int lock(int FD, bool Exclusive, bool Wait);
++  static int downgrade(int FD);
+   /// Writes the data of \p FD to storage, with the metadata needed to read
+   /// them back. Returns 0 or an errno value.
+   static int syncData(int FD);
+-- 
+2.53.0
+

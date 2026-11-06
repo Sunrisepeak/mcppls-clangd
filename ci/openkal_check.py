@@ -189,11 +189,96 @@ r = run(prefix + [f"--check={os.path.join(p, 'all.cpp')}", f"--compile-commands-
 limits = [int(x) for x in re.findall(r"Module build task \S+ started \(active=\d+, limit=(\d+)\)", r["log"])]
 results["cases"]["module-parallelism"] = {"rc": r["rc"], "limit": max(limits) if limits else None, "seconds": r["seconds"]}
 
+# THE INDEX OF A DOZEN FILES ON FOUR WORKERS AT ONCE, which every case above
+# misses: each parses one file on one thread, while a language server's workers
+# and its background index allocate and compare strings together. An ok image's
+# C library once served every allocation under one lock, and clangd.okb then used
+# less than one of four processors in mcppls's warm start while passing every
+# case above. Timed from `initialized' to the end of `backgroundIndexProgress',
+# over a fresh copy each time. THE LEAST OF FIVE: a shared runner's other work
+# only ever adds to a run, and on macOS the median of three moved between 1.05
+# and 1.33 times the native clangd's for one and the same image.
+def lsp_index(prefix, root, files, timeout=600):
+    log = tempfile.TemporaryFile()
+    p = subprocess.Popen(prefix + [f"--compile-commands-dir={root}", "-j=4", "--background-index", "--log=error"],
+                         cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log)
+    def send(m):
+        b = json.dumps(m).encode()
+        p.stdin.write(b"Content-Length: %d\r\n\r\n" % len(b) + b)
+        p.stdin.flush()
+    def recv():
+        n = 0
+        while True:
+            line = p.stdout.readline()
+            if not line:
+                return None
+            if line in (b"\r\n", b"\n"):
+                break
+            if line.lower().startswith(b"content-length:"):
+                n = int(line.split(b":")[1])
+        return json.loads(p.stdout.read(n))
+    uri = lambda f: "file:///" + os.path.join(root, f).replace("\\", "/").lstrip("/")
+    send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "processId": None, "rootUri": uri(""), "capabilities": {"window": {"workDoneProgress": True}}}})
+    while True:
+        m = recv()
+        if m is None or m.get("id") == 1:
+            break
+    send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
+    t0 = time.perf_counter()
+    text = open(os.path.join(root, files[0])).read()
+    send({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+        "uri": uri(files[0]), "languageId": "cpp", "version": 1, "text": text}}})
+    ended = False
+    while time.perf_counter() - t0 < timeout:
+        m = recv()
+        if m is None:
+            break
+        if m.get("method") == "window/workDoneProgress/create":
+            send({"jsonrpc": "2.0", "id": m["id"], "result": None})
+        if (m.get("method") == "$/progress" and m["params"].get("token") == "backgroundIndexProgress"
+                and m["params"].get("value", {}).get("kind") == "end"):
+            ended = True
+            break
+    seconds = round(time.perf_counter() - t0, 3)
+    try:
+        send({"jsonrpc": "2.0", "id": 2, "method": "shutdown"})
+        send({"jsonrpc": "2.0", "method": "exit"})
+        p.wait(timeout=30)
+    except Exception:
+        p.kill()
+    log.close()
+    return {"ok": ended, "seconds": seconds, "rc": p.returncode}
+
+
+def index_tree(at):
+    os.makedirs(at, exist_ok=True)
+    with open(os.path.join(at, "local.h"), "w") as f:
+        f.write("#pragma once\ninline int probe_value() { return 42; }\n")
+    names = []
+    for i in range(12):
+        with open(os.path.join(at, f"i{i}.cpp"), "w") as f:
+            f.write(heavy_free(1200).replace("namespace probe", f"namespace probe{i}").replace("probe::", f"probe{i}::"))
+        names.append(f"i{i}.cpp")
+    cdb(at, [(n, ["clang++", "-std=c++20", "-ffreestanding", "-c"]) for n in names])
+    return names
+
+
+runs = []
+for k in range(5):
+    at = os.path.join(d, f"index{k}")
+    runs.append(lsp_index(prefix + a.clangd_arg, at, index_tree(at)))
+results["cases"]["parallel-index"] = {"ok": all(r["ok"] for r in runs), "seconds": [r["seconds"] for r in runs],
+                                      "seconds_min": min(r["seconds"] for r in runs),
+                                      "seconds_median": statistics.median(r["seconds"] for r in runs)}
+
 with open(a.out, "w") as f:
     json.dump(results, f, indent=1)
 for k, v in results["cases"].items():
     if k == "module-parallelism":
         print(f"{a.label} module-parallelism: rc={v['rc']} limit={v['limit']}")
+    elif k == "parallel-index":
+        print(f"{a.label} parallel-index: ok={v['ok']} least={v['seconds_min']}s {v['seconds']}")
     elif k == "version":
         print(f"{a.label} version rc={v['rc']} t={v['seconds_median']}s {v['tail'].strip().splitlines()[:2]}")
     else:

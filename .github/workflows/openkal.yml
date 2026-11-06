@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  MCPP_VERSION: 2026.10.31.3
+  MCPP_VERSION: 2026.11.5.1
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
   NATIVE_RELEASE: v0.0.17
@@ -25,17 +25,25 @@ env:
 jobs:
   image:
     name: image ${{ matrix.arch }}-openkal
-    runs-on: ubuntu-24.04
+    # On a machine of the image's architecture: the build measures the image it built
+    # (the order a start executes its code in), which runs where it is built.
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 340
     # The build program reads these (build.mcpp, `rerun-if-env-changed`), so every step that plans
     # the image -- the build and the smoke run -- states the same ones.
     env:
       MCPPLS_LLVM_DIR: ${{ github.workspace }}/llvm-project
       MCPPLS_HOST_TOOLS: ${{ github.workspace }}/host-tools/bin
+      # The same PCH policy LLVM_CCACHE_BUILD supplies to the native builds.
+      CCACHE_CPP2: 'yes'
+      CCACHE_HASHDIR: 'yes'
+      CCACHE_SLOPPINESS: pch_defines,time_macros
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        include:
+          - { arch: x86_64, os: ubuntu-24.04 }
+          - { arch: aarch64, os: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
       - name: Room for LLVM
@@ -97,7 +105,7 @@ jobs:
           source ci/scripts/env.sh
           export FORK_SUFFIX
           (cd openkal/clangd && mcpp build --release --target ${{ matrix.arch }}-openkal)
-          ccache -s || true
+          ccache --show-stats --verbose | tee ccache-statistics.txt || true
           mkdir -p out
           cp "$(ls openkal/clangd/target/${{ matrix.arch }}-openkal/*/bin/clangd.oke | head -1)" out/clangd-${{ matrix.arch }}.oke
           # clang's own headers, which clangd reads beside it (one copy serves both images).
@@ -108,6 +116,75 @@ jobs:
           [ -n "$res" ] || { echo "::error::no llvm/lib/clang under openkal/clangd/target"; exit 1; }
           cp -R "$res" out/clang
           ls -l out
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install psutil
+      # THE ORDER A START EXECUTES THE CODE IN (mcpp design 2026-11-03 part 4 §9.4): a cold
+      # session of warm-prime, every process measured (okrun's `touch'), gives the order of the
+      # functions; the image is relinked in it (its objects are this build's), measured again
+      # on the layout it then has, and the pages its start executes are written as its touch
+      # note, which a runner reads in with the code. A measurement of this build, made and
+      # used in this run: no file of the repository.
+      - name: The layout a start executes the code in, and the touch note
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: |
+          set -euo pipefail
+          export JOBS="$(nproc)"
+          source ci/scripts/env.sh
+          export FORK_SUFFIX
+          t=${{ matrix.arch }}-openkal
+          mkdir -p tools-of/src
+          cat > tools-of/mcpp.toml <<'TOML'
+          [package]
+          name    = "tools-of"
+          version = "0.1.0"
+
+          [target.'cfg(os = "openkal")']
+          platform = "openkal-platform@0.24.0"
+          TOML
+          printf 'int main() { return 0; }\n' > tools-of/src/main.cpp
+          (cd tools-of && mcpp build --target "$t" > /dev/null)
+          (cd tools-of && mcpp self env --target "$t" --format json) > tools.json
+          tool() { python3 -c "import json,sys; d=json.load(open('tools.json'))['data']; print(d['runner']['program'] if sys.argv[1] == 'okrun' else d['tools'][sys.argv[1]])" "$1"; }
+          okrun=$(tool okrun); okprof=$(tool okprof); okld=$(tool okld)
+          img=out/clangd-${{ matrix.arch }}.oke
+          # The raw image is not yet in the payload's bin/ and lib/clang layout.
+          # Use this build's headers even when PATH names the host's older clang++.
+          resource="$PWD/out/clang/${UPSTREAM_VERSION%%.*}"
+          test -d "$resource/include"
+          rm -rf touch-order && mkdir touch-order
+          OKRUN_PROF="touch:$PWD/touch-order" OKRUN_SNAPSHOT=0 \
+            python ci/warm_prime.py --label order --workdir wp-order --out order.json --sessions 0 -- "$okrun" "$img" "--resource-dir=$resource"
+          python3 -c 'import json; d = json.load(open("order.json")); assert d["sessions"] and all(s["ok"] for s in d["sessions"]), d["sessions"]'
+          "$okprof" report --order "$img" touch-order > order.txt
+          echo "$(wc -l < order.txt) functions in the order of a start, from $(ls touch-order | wc -l) processes"
+          (cd openkal/clangd && MCPPLS_ORDER_FILE="$PWD/../../order.txt" mcpp build --release --target "$t")
+          cp "$(ls openkal/clangd/target/$t/*/bin/clangd.oke | head -1)" "$img"
+          rm -rf touch-note && mkdir touch-note
+          OKRUN_PROF="touch:$PWD/touch-note" OKRUN_SNAPSHOT=0 \
+            python ci/warm_prime.py --label note --workdir wp-note --out note.json --sessions 0 -- "$okrun" "$img" "--resource-dir=$resource"
+          python3 -c 'import json; d = json.load(open("note.json")); assert d["sessions"] and all(s["ok"] for s in d["sessions"]), d["sessions"]'
+          "$okld" touch "$img" touch-note
+          "$okld" check "$img"
+          "$okld" inspect "$img" | grep -E '^(placement|touches)'
+      - name: Keep layout probe diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkal-layout-${{ matrix.arch }}
+          path: |
+            ccache-statistics.txt
+            order.json
+            note.json
+            order.txt
+            wp-order/session-*.log
+            wp-note/session-*.log
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Keep ccache, whatever the build did
         if: always()
         uses: actions/cache/save@v4
@@ -147,11 +224,12 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.20.1"
+          platform = "openkal-platform@0.24.0"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
-          okld="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okld | sort -V | tail -1)"
+          (cd h && mcpp self env --target x86_64-openkal --format json) > tools.json
+          okld="$(python -c "import json; print(json.load(open('tools.json'))['data']['tools']['okld'])")"
           # okld bundle wants one image name across the architectures.
           mkdir -p x86_64 aarch64
           cp images/openkal-image-x86_64/clangd-x86_64.oke x86_64/clangd.oke
@@ -162,7 +240,7 @@ jobs:
           "$okld" bundle check "dist/$part/clangd/bin/clangd.okb"
           cp -R images/openkal-image-x86_64/clang "dist/$part/clangd/lib/clang"
           echo "PART=$part" >> "$GITHUB_ENV"
-          echo "OKRUN=$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun | sort -V | tail -1)" >> "$GITHUB_ENV"
+          python -c "import json; print('OKRUN=' + json.load(open('tools.json'))['data']['runner']['program'])" >> "$GITHUB_ENV"
       - name: llvm-project with the series and the openkal series (the identity's canaries read its tests)
         run: |
           set -euo pipefail
@@ -260,11 +338,12 @@ jobs:
           version = "0.1.0"
 
           [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.20.1"
+          platform = "openkal-platform@0.24.0"
           TOML
           printf 'int main() { return 0; }\n' > h/src/main.cpp
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
-          okrun="$(ls ~/.mcpp/build-cache/v1/tool/mcpplibs/openkal-tools@*/*/bin/okrun* | sort -V | tail -1)"
+          (cd h && mcpp self env --target ${{ matrix.arch }}-openkal --format json) > tools.json
+          okrun="$(python -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")"
           echo "OKRUN=$okrun" >> "$GITHUB_ENV"
           gh release download "$NATIVE_RELEASE" -p "clangd-$NATIVE_ENGINE-${{ matrix.platform }}.tar.gz" -O native.tgz
           mkdir native && tar xzf native.tgz -C native
@@ -292,6 +371,10 @@ jobs:
       - name: clangd.okb under okrun
         continue-on-error: true
         run: python ci/openkal_check.py --label image-${{ matrix.platform }} --out image.json --std --std-args="$STD_ARGS" $STD_HOST -- "$OKRUN" "$OKB"
+      # A NAME A MODULE WORKER FOUND ABSENT IS ABSENT STILL (openkal 0003): a header created earlier on
+      # the search path than the one a module read rebuilds the module, on each system.
+      - name: A header created earlier on the search path rebuilds the module
+        run: python ci/module_inputs_canary.py --absent-names-only --engine "$OKB" --runner "$OKRUN"
       - name: Acceptance
         run: python ci/openkal_accept.py --platform ${{ matrix.platform }} --native native.json --image image.json --image-file image/clangd-${{ matrix.arch }}.oke --out acceptance-${{ matrix.platform }}.json
       - uses: actions/upload-artifact@v4

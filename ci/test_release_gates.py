@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Fast negative controls for release eligibility and corpus replay."""
 import json
+import time
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -13,6 +15,18 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class Gates(unittest.TestCase):
+    def test_image_probes_share_the_declared_platform(self):
+        # A warm-prime bootstrap left on the previous platform installs the
+        # previous runner, even though the image and acceptance use the new one.
+        pattern = r'openkal-platform@[0-9]+(?:\.[0-9]+)*'
+        expected = set(re.findall(pattern, (ROOT / 'openkal/clangd/mcpp.toml').read_text()))
+        self.assertEqual(len(expected), 1)
+        for workflow in ('build-test.yml', 'openkal.yml'):
+            with self.subTest(workflow=workflow):
+                text = (ROOT / '.github/workflows' / workflow).read_text()
+                self.assertEqual(set(re.findall(pattern, text)), expected)
+                self.assertNotIn('openkal-tools@*', text)
+
     def test_release_ledger(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -148,8 +162,18 @@ while True:
             self.assertEqual(result['exit_code'], 7)
             self.assertTrue(result['readers_stopped'], result)
             stat = Path(f"/proc/{int((project / 'child.pid').read_text())}/stat")
-            if stat.exists():
-                self.assertEqual(stat.read_text().split(') ')[1].split()[0], 'Z')
+
+            def state():
+                try:
+                    return stat.read_text().split(') ')[1].split()[0]
+                except (FileNotFoundError, ProcessLookupError):
+                    return None
+            # The group's kill is delivered asynchronously: the helper has
+            # ended once it is a zombie or gone, a moment after the signal.
+            deadline = time.monotonic() + 5
+            while state() not in (None, 'Z') and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertIn(state(), (None, 'Z'))
 
 
 if __name__ == '__main__':

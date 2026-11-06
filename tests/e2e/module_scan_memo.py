@@ -32,7 +32,9 @@ def probe(v, sym=None):
         seq.append({'method': 'textDocument/didChange', 'notify': True, 'params': {'textDocument': {'uri': use.as_uri(), 'version': v}, 'contentChanges': [{'text': text}]}})
     seq.append({'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': use.as_uri()}}, 'expect': {'/result/0/name': 'probe'}})
     if sym:
-        seq.append({'method': 'textDocument/completion', 'params': {'textDocument': {'uri': use.as_uri()}, 'position': {'line': 3, 'character': 23}}, 'expected_symbols': [sym]})
+        # The module the edit brings in is built in the background: the
+        # completion is asked again until it has been (replay.py).
+        seq.append({'method': 'textDocument/completion', 'params': {'textDocument': {'uri': use.as_uri()}, 'position': {'line': 3, 'character': 23}}, 'expected_symbols': [sym], 'retry_seconds': 10})
 probe(1)
 probe(2)
 seq.append({'action': 'write-file', 'file': 'enable.h', 'contents': 'import M;\n'})

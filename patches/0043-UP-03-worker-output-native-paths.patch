@@ -1,0 +1,205 @@
+From 6035bafac10ed10f9c661f5e320ae567ff1c3810 Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Wed, 4 Nov 2026 07:20:55 +0900
+Subject: [PATCH] [clangd] Validate bounded worker paths using the native path
+ style
+
+Use component boundaries for private outputs and implicit cache inventories. Construct the worker cache path with the same path style as its producer, preserving foreign-directory and parent-traversal refusal. The previous slash concatenation rejected every bounded worker on Windows.
+
+Exercise POSIX and Windows path styles in PrerequisiteModulesTests.ModuleWorkerOutputPathsUseTheirPathStyle.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 11 +++++-
+ .../clangd/ModuleBuildWorker.cpp              |  6 +--
+ .../clangd/ModuleBuildWorkerOutput.cpp        | 38 +++++++++++++++----
+ .../clangd/ModuleBuildWorkerOutput.h          |  9 +++++
+ .../unittests/PrerequisiteModulesTest.cpp     | 29 ++++++++++++++
+ 5 files changed, 81 insertions(+), 12 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 501736f..75ea7b0 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -43,6 +43,13 @@ namespace {
+ llvm::Error failure(StringRef Message) {
+   return llvm::createStringError("owned module cache: " + Message);
+ }
++bool isImplicitCachePath(PathRef Relative) {
++  for (auto I = llvm::sys::path::begin(Relative),
++            E = llvm::sys::path::end(Relative); I != E; ++I)
++    if (*I == "module-cache")
++      return true;
++  return false;
++}
+ std::string path(PathRef Root, StringRef Name) {
+   llvm::SmallString<256> P(Root);
+   llvm::sys::path::append(P, Name);
+@@ -247,7 +254,7 @@ llvm::Expected<BundleInventory> inventoryBundle(int Generation,
+         } else if (Depth == 2)
+           Known = Name == "module-cache";
+         else
+-          Known = Relative.contains("/module-cache") && Depth < 6;
++          Known = isImplicitCachePath(Relative) && Depth < 6;
+         if (!Known)
+           return failure("unknown bundle directory");
+       } else if (Relative.empty()) {
+@@ -268,7 +275,7 @@ llvm::Expected<BundleInventory> inventoryBundle(int Generation,
+         if (!Metadata)
+           return failure("worker capture/startup payload remains");
+       } else {
+-        if (!Relative.contains("/module-cache") ||
++        if (!isImplicitCachePath(Relative) ||
+             (llvm::sys::path::extension(Name) != ".pcm" &&
+              Name != "modules.idx" && Name != "modules.timestamp") ||
+             ++Result.CacheFiles > 128)
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index f715f37..cbce286 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -933,9 +933,9 @@ llvm::Error runModuleBuildWorker(PathRef RequestFile, StringRef OwnerToken,
+   if (OutputLimit) {
+     StringRef UnitRoot = llvm::sys::path::parent_path(Inputs.MainContentsFile);
+     // Supervised requests put the sole output directly in their private unit.
+-    if (llvm::sys::path::parent_path(Output) != UnitRoot ||
+-        Invocation->getHeaderSearchOpts().ModuleCachePath !=
+-            (UnitRoot + "/module-cache").str())
++    if (!moduleBuildWorkerOutputsInUnit(
++            Inputs.MainContentsFile, Output,
++            Invocation->getHeaderSearchOpts().ModuleCachePath))
+       return llvm::createStringError(
+           "bounded worker outputs require its private unit");
+     Outputs = createModuleBuildWorkerOutput(UnitRoot, OutputLimit);
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+index 778bfcf..e45da0a 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.cpp
+@@ -10,6 +10,7 @@
+ #include "clang/Serialization/ASTWriter.h"
+ #include "clang/Serialization/InMemoryModuleCache.h"
+ #include "clang/Serialization/ModuleCache.h"
++#include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringMap.h"
+ #include "llvm/Support/AdvisoryLock.h"
+ #include "llvm/Support/FileSystem.h"
+@@ -26,13 +27,8 @@ public:
+   bool start(StringRef Path) {
+     // Units are private, newly created directories. Reject foreign outputs,
+     // traversal, reuse and pre-existing files instead of overwriting them.
+-    if (!llvm::sys::path::is_absolute(Path) || Path.contains('\0'))
+-      return reject();
+-    for (auto I = llvm::sys::path::begin(Path), E = llvm::sys::path::end(Path);
+-         I != E; ++I)
+-      if (*I == "..")
+-        return reject();
+-    if (!Path.starts_with(Root + "/") || llvm::sys::fs::exists(Path))
++    if (!moduleBuildWorkerPathInUnit(Root, Path) ||
++        llvm::sys::fs::exists(Path))
+       return reject();
+     std::lock_guard<std::mutex> Lock(Mutex);
+     if (Paths.size() >= MaxFiles || Paths.contains(Path)) {
+@@ -282,6 +278,34 @@ class BoundedReducedAction : public GenerateReducedModuleInterfaceAction {
+   }
+ };
+ } // namespace
++bool moduleBuildWorkerPathInUnit(PathRef Root, PathRef Output,
++                                 llvm::sys::path::Style Style) {
++  if (!llvm::sys::path::is_absolute(Root, Style) ||
++      !llvm::sys::path::is_absolute(Output, Style) || Output.contains('\0'))
++    return false;
++  auto I = llvm::sys::path::begin(Output, Style);
++  const auto End = llvm::sys::path::end(Output);
++  for (auto R = llvm::sys::path::begin(Root, Style),
++            RE = llvm::sys::path::end(Root); R != RE; ++R, ++I)
++    if (I == End || *R == ".." || *I != *R)
++      return false;
++  if (I == End)
++    return false;
++  for (; I != End; ++I)
++    if (*I == "..")
++      return false;
++  return true;
++}
++bool moduleBuildWorkerOutputsInUnit(PathRef MainContents, PathRef Output,
++                                    PathRef ModuleCache,
++                                    llvm::sys::path::Style Style) {
++  const auto Root = llvm::sys::path::parent_path(MainContents, Style);
++  llvm::SmallString<256> ExpectedCache(Root);
++  llvm::sys::path::append(ExpectedCache, Style, "module-cache");
++  return moduleBuildWorkerPathInUnit(Root, Output, Style) &&
++         llvm::sys::path::parent_path(Output, Style) == Root &&
++         ModuleCache == ExpectedCache;
++}
+ llvm::Error validateBoundedModuleBuildOutputs(const CompilerInvocation &CI) {
+   const auto &F = CI.getFrontendOpts();
+   const auto &D = CI.getDependencyOutputOpts();
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h
+index c6b3201..cd74544 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h
++++ b/clang-tools-extra/clangd/ModuleBuildWorkerOutput.h
+@@ -7,6 +7,7 @@
+ #include "support/Path.h"
+ #include "llvm/ADT/IntrusiveRefCntPtr.h"
+ #include "llvm/Support/Error.h"
++#include "llvm/Support/Path.h"
+ #include "llvm/Support/VirtualOutputBackend.h"
+ #include <cstdint>
+ #include <functional>
+@@ -26,6 +27,14 @@ struct ModuleBuildWorkerOutput {
+   // shared sticky failure before reporting worker compilation as successful.
+   std::function<llvm::Error()> Check;
+ };
++// A bounded output must remain below its unit, with no parent traversal.
++bool moduleBuildWorkerPathInUnit(
++    PathRef UnitRoot, PathRef Output,
++    llvm::sys::path::Style Style = llvm::sys::path::Style::native);
++// The main snapshot, sole output and implicit cache use one path style.
++bool moduleBuildWorkerOutputsInUnit(
++    PathRef MainContents, PathRef Output, PathRef ModuleCache,
++    llvm::sys::path::Style Style = llvm::sys::path::Style::native);
+ llvm::Error validateBoundedModuleBuildOutputs(const CompilerInvocation &);
+ ModuleBuildWorkerOutput createModuleBuildWorkerOutput(PathRef UnitRoot,
+                                                       uint64_t Bytes,
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 5ee37d1..9f2eda5 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -800,6 +800,35 @@ TEST_F(PrerequisiteModulesTests, ModuleWorkerIndexLimitRemainsSticky) {
+   EXPECT_FALSE(EC);
+ }
+ 
++TEST_F(PrerequisiteModulesTests, ModuleWorkerOutputPathsUseTheirPathStyle) {
++  using llvm::sys::path::Style;
++  for (Style S : {Style::posix, Style::windows_backslash}) {
++    const std::string Root =
++        S == Style::posix ? "/private/unit" : "C:\\private\\unit";
++    auto Path = [&](StringRef Name) {
++      llvm::SmallString<256> P(Root);
++      llvm::sys::path::append(P, S, Name);
++      return P.str().str();
++    };
++    const auto Main = Path("main.snapshot");
++    const auto Output = Path("output.pcm");
++    const auto Cache = Path("module-cache");
++    EXPECT_TRUE(moduleBuildWorkerPathInUnit(Root, Output, S));
++    EXPECT_TRUE(
++        moduleBuildWorkerPathInUnit(Root, Path("module-cache/Builtin.pcm"), S));
++    EXPECT_TRUE(moduleBuildWorkerOutputsInUnit(Main, Output, Cache, S));
++    EXPECT_FALSE(moduleBuildWorkerPathInUnit(Root, Root, S));
++    EXPECT_FALSE(
++        moduleBuildWorkerPathInUnit(Root, Root + "-foreign/output.pcm", S));
++    EXPECT_FALSE(moduleBuildWorkerPathInUnit(Root, Path("../escape.pcm"), S));
++    EXPECT_FALSE(moduleBuildWorkerOutputsInUnit(
++        Main, Path("nested/output.pcm"), Cache, S));
++    EXPECT_FALSE(moduleBuildWorkerOutputsInUnit(
++        Main, Output, Path("../module-cache"), S));
++    EXPECT_FALSE(moduleBuildWorkerOutputsInUnit(Main, Output, Cache + "-foreign", S));
++  }
++}
++
+ TEST_F(PrerequisiteModulesTests, ModuleWorkerBoundedProtocolCannotBeDowngraded) {
+   const std::string RequestPath = (TestDir + "/request.json").str();
+   std::error_code EC;
+-- 
+2.53.0
+

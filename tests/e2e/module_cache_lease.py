@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Live-copy protection and crash-orphan reclamation in a shared BMI cache."""
+"""Readers of a shared BMI cache: in the owned cache a reader is given the published generation under a
+lease of its own and no copy is made; on the portable path each reader's copy is protected while it lives
+and reclaimed after its engine is killed."""
 import argparse
 import hashlib
 import json
@@ -120,14 +122,40 @@ class Engine:
                 stream.close()
 
 
+def lease_holders(lease, pids):
+    """The engines among pids (and their workers) that hold the file lease open."""
+    lease = os.path.realpath(lease)
+    if sys.platform.startswith('linux'):
+        family = set(pids)
+        for entry in os.listdir('/proc'):
+            if entry.isdigit():
+                try:
+                    if int(Path(f'/proc/{entry}/stat').read_text().rsplit(')', 1)[1].split()[1]) in family:
+                        family.add(int(entry))
+                except (OSError, IndexError, ValueError):
+                    pass
+        held = []
+        for pid in sorted(family):
+            try:
+                if any(os.path.realpath(f'/proc/{pid}/fd/{fd}') == lease for fd in os.listdir(f'/proc/{pid}/fd')):
+                    held.append(pid)
+            except OSError:
+                pass
+        return held
+    # macOS: the system's lsof names the processes that have the file open.
+    found = subprocess.run(['lsof', '-t', lease], capture_output=True, text=True)
+    return sorted(int(p) for p in found.stdout.split() if p.isdigit())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, required=True)
     parser.add_argument('--clang', type=Path, required=True)
     parser.add_argument('--workdir', type=Path, required=True)
+    # auto: the cache the engine reports it uses for this directory ("Module cache <root>: owned"
+    # or "...: a copy of each BMI for each reader"); legacy turns the owned cache off.
     parser.add_argument('--cache-mode', choices=['auto', 'legacy', 'owned'], default='auto')
     args = parser.parse_args()
-    mode = ('owned' if sys.platform.startswith('linux') else 'legacy') if args.cache_mode == 'auto' else args.cache_mode
     engine, clang = args.engine.resolve(), args.clang.resolve()
     if os.name == 'nt':
         engine, clang = engine.with_suffix('.exe'), clang.with_suffix('.exe')
@@ -142,12 +170,19 @@ def main():
         for name in ('A.cppm', 'Use.cpp')]))
     cache = root / '.cache/clangd/modules'
     clients = []
+    mode = args.cache_mode
     report = {'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(),
               'passed': False, 'cache_mode': mode, 'checks': {}}
     try:
         seed = Engine(engine, root, mode); clients.append(seed); seed.ready(); seed.stop()
+        logs = seed.logs.decode(errors='replace')
+        if mode == 'auto':
+            selected = re.search(r'Module cache .+: (owned|a copy of each BMI for each reader)', logs)
+            mode = 'owned' if selected and selected[1] == 'owned' else 'legacy'
+            report['cache_mode'] = mode
+            report['cache_reported'] = selected[0] if selected else None
         if mode == 'owned':
-            match = re.search(r'Built module A to (.+)', seed.logs.decode(errors='replace'))
+            match = re.search(r'Built module A to (.+)', logs)
             if not match:
                 raise RuntimeError('missing fresh owned publication event')
             published = Path(match[1].strip())
@@ -159,76 +194,65 @@ def main():
                 raise RuntimeError('expected one legacy A publication')
             published = found[0]
         report['published'] = str(published)
-        def live_copies():
-            if mode == 'owned':
-                return {p.parent / 'owned.generation': p
-                        for p in cache.glob('.owned-payload-v1/generation-*/payload.pcm')
-                        if p != published}
-            return {p: Path(str(p).removesuffix('.lease')) for p in cache.rglob('*.pcm.lease')}
 
         # Deliberately ancient atime proves GC does not trust timestamps.
         before = published.stat()
         os.utime(published, ns=(0, before.st_mtime_ns))
-        reader = Engine(engine, root, mode); clients.append(reader); reader.ready()
-        report['checks']['published_identity_kept_on_reuse'] = published.stat().st_ino == before.st_ino and published.stat().st_mtime_ns == before.st_mtime_ns
-        copies = live_copies()
-        live = set(copies)
-        if not live:
-            raise RuntimeError('reused BMIs lack owner leases')
-        for path in copies.values():
-            stat = path.stat(); os.utime(path, ns=(0, stat.st_mtime_ns))
-        peer = Engine(engine, root, mode); clients.append(peer); peer.ready()
-        report['checks']['live_copy_kept'] = all(p.exists() for p in copies.values())
-        report['checks']['published_identity_kept'] = published.stat().st_ino == before.st_ino and published.stat().st_mtime_ns == before.st_mtime_ns
-        if not all(report['checks'].values()):
-            raise RuntimeError('GC removed a live copy or rebuilt the published BMI')
-        peer_copies = {p: value for p, value in live_copies().items() if p not in live}
-        peer_live = set(peer_copies)
-        reader.stop(kill=True)
-        # Verbose: what it reuses and what its maintenance collects is in the report when a copy is not reclaimed.
-        collector = Engine(engine, root, mode, ['--log=verbose']); clients.append(collector); collector.ready()
-        # Owned maintenance visits bounded slot batches independently of AST work.
-        # Observe its existing reclamation deadline; never force or invoke GC here.
-        # A copy the killed reader left is either reclaimed or, being a valid copy of the published BMI, taken over
-        # by a live engine that reuses it (acquireGeneration leases a Copy slot as well as a Stable one): which of the
-        # two happens depends on which payload the collector reuses. What may not remain is an orphan, a copy no live
-        # engine holds the slot lease of (`lease-<slot>`, an OFD lock beside the generations).
-        def holders(copy):
-            if mode != 'owned':
-                return []
-            slot = copy.parent.name.split('-')[1]
-            lease = os.path.realpath(copy.parent.parent / f'lease-{slot}')
-            pids = {collector.proc.pid, peer.proc.pid}
-            for entry in os.listdir('/proc'):
-                if entry.isdigit():
-                    try:
-                        if int(Path(f'/proc/{entry}/stat').read_text().rsplit(')', 1)[1].split()[1]) in pids:
-                            pids.add(int(entry))
-                    except (OSError, IndexError, ValueError):
-                        pass
-            held = []
-            for pid in sorted(pids):
-                try:
-                    if any(os.path.realpath(f'/proc/{pid}/fd/{fd}') == lease for fd in os.listdir(f'/proc/{pid}/fd')):
-                        held.append(pid)
-                except OSError:
-                    pass
-            return held
-        def held_by_live_engine(copy):
-            return bool(holders(copy))
-        def orphans():
-            return [p for p in live if (p.exists() or copies[p].exists()) and not held_by_live_engine(copies[p])]
+        def unchanged():
+            now = published.stat()
+            return now.st_ino == before.st_ino and now.st_mtime_ns == before.st_mtime_ns
+
         if mode == 'owned':
-            deadline = time.monotonic() + 15
-            while orphans() and time.monotonic() < deadline:
-                time.sleep(0.05)
-        report['adopted'] = [str(copies[p]) for p in live if copies[p].exists() and held_by_live_engine(copies[p])]
-        report['remaining'] = {str(copies[p]): holders(copies[p]) for p in live if p.exists() or copies[p].exists()}
-        report['engines'] = {'reader': reader.proc.pid, 'peer': peer.proc.pid, 'collector': collector.proc.pid}
-        report['checks']['killed_reader_copies_reclaimed'] = not orphans()
-        report['checks']['other_live_reader_kept'] = bool(peer_live) and all(p.exists() and peer_copies[p].exists() for p in peer_live)
-        report['checks']['published_survives_reclamation'] = published.exists() and published.stat().st_ino == before.st_ino
-        report['copies'] = {'killed_reader': [str(p) for p in copies.values()], 'live_peer': [str(p) for p in peer_copies.values()]}
+            # A reader is given the stable generation where it was published, under a lease of its
+            # own (`lease-<slot>`, an OFD lock beside the generations); no copy is made.
+            slot = published.parent.name.split('-')[1]
+            lease = published.parent.parent / f'lease-{slot}'
+            payloads = lambda: sorted(cache.glob('.owned-payload-v1/generation-*/payload.pcm'))
+            reader = Engine(engine, root, mode); clients.append(reader); reader.ready()
+            report['checks']['published_identity_kept_on_reuse'] = unchanged()
+            report['checks']['reused_where_published'] = (
+                f'Reusing owned module A from {published}' in reader.logs.decode(errors='replace'))
+            report['checks']['no_copy_made'] = payloads() == [published]
+            report['checks']['reader_holds_lease'] = reader.proc.pid in lease_holders(lease, [reader.proc.pid])
+            peer = Engine(engine, root, mode); clients.append(peer); peer.ready()
+            report['checks']['peer_reads_the_same_generation'] = payloads() == [published]
+            reader.stop(kill=True)
+            collector = Engine(engine, root, mode, ['--log=verbose']); clients.append(collector); collector.ready()
+            # Owned maintenance visits bounded slot batches independently of AST work; give it the
+            # time it takes, never force it.
+            time.sleep(6)
+            report['engines'] = {'reader': reader.proc.pid, 'peer': peer.proc.pid, 'collector': collector.proc.pid}
+            report['holders'] = lease_holders(lease, [peer.proc.pid, collector.proc.pid])
+            report['checks']['live_readers_hold_lease'] = peer.proc.pid in report['holders']
+            report['checks']['published_survives_collection'] = published.exists() and unchanged()
+            report['checks']['still_no_copy'] = payloads() == [published]
+        else:
+            def live_copies():
+                return {p: Path(str(p).removesuffix('.lease')) for p in cache.rglob('*.pcm.lease')}
+            reader = Engine(engine, root, mode); clients.append(reader); reader.ready()
+            report['checks']['published_identity_kept_on_reuse'] = unchanged()
+            copies = live_copies()
+            live = set(copies)
+            if not live:
+                raise RuntimeError('reused BMIs lack owner leases')
+            for path in copies.values():
+                stat = path.stat(); os.utime(path, ns=(0, stat.st_mtime_ns))
+            peer = Engine(engine, root, mode); clients.append(peer); peer.ready()
+            report['checks']['live_copy_kept'] = all(p.exists() for p in copies.values())
+            report['checks']['published_identity_kept'] = unchanged()
+            if not all(report['checks'].values()):
+                raise RuntimeError('GC removed a live copy or rebuilt the published BMI')
+            peer_copies = {p: value for p, value in live_copies().items() if p not in live}
+            peer_live = set(peer_copies)
+            reader.stop(kill=True)
+            collector = Engine(engine, root, mode, ['--log=verbose']); clients.append(collector); collector.ready()
+            report['engines'] = {'reader': reader.proc.pid, 'peer': peer.proc.pid, 'collector': collector.proc.pid}
+            orphans = [p for p in live if p.exists() or copies[p].exists()]
+            report['remaining'] = [str(copies[p]) for p in orphans]
+            report['checks']['killed_reader_copies_reclaimed'] = not orphans
+            report['checks']['other_live_reader_kept'] = bool(peer_live) and all(p.exists() and peer_copies[p].exists() for p in peer_live)
+            report['checks']['published_survives_reclamation'] = published.exists() and published.stat().st_ino == before.st_ino
+            report['copies'] = {'killed_reader': [str(p) for p in copies.values()], 'live_peer': [str(p) for p in peer_copies.values()]}
         report['passed'] = all(report['checks'].values())
     except Exception as error:
         report['error'] = str(error)

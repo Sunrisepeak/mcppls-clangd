@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Fresh module facades share provider inventory without losing real symbols."""
+"""Fresh module facades share provider inventory without losing real symbols, and a server's requests,
+which all mangle with the mangler it names, reuse the provider index without mangling a command."""
 import argparse
 import hashlib
 import importlib.util
@@ -62,12 +63,15 @@ def main():
     result = replay.replay(engine, manifest)
     result['engine_sha256'] = hashlib.sha256(engine.read_bytes()).hexdigest()
     result['provider_inventory_count'] = result['stderr'].count('Module provider inventory:')
-    result['provider_index_reuses'] = result['stderr'].count('Module provider index reused:')
+    result['provider_index_reuses'] = result['stderr'].count('Module provider index reused unmangled:')
+    result['provider_index_remangled'] = result['stderr'].count('Module provider index reused:')
     (root / 'result.json').write_text(json.dumps(result, indent=2))
     if result['outcome'] != 'pass':
         raise RuntimeError(result.get('detail', result['outcome']))
     if result['provider_inventory_count'] != 1 or result['provider_index_reuses'] < 2:
         raise RuntimeError('fresh module facades did not reuse their CDB generation')
+    if result['provider_index_remangled']:
+        raise RuntimeError('a request mangled the inventory again to reuse the provider index')
     if 'Failed to build' in result['stderr']:
         raise RuntimeError('valid module failed to build')
     print(json.dumps({'outcome': 'pass', 'provider_inventory_count': 1,

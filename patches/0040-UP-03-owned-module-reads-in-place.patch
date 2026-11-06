@@ -1,0 +1,446 @@
+From f107d621798a2657ee8978ee8250c04545e8adb5 Mon Sep 17 00:00:00 2001
+From: sunrisepeak <speakshen@163.com>
+Date: Mon, 2 Nov 2026 06:52:05 +0900
+Subject: [PATCH] [clangd] A module in the owned cache is read where it was
+ published, under its lease
+
+A prerequisite found in, or published to, the owned cache was copied before
+it was read: copy() reserved another generation, wrote the whole BMI into it,
+and the reader held both leases. A warm start of a project of 176 modules
+copied all of them, and the copies were collected again later.
+
+A stable generation needs no copy. It is immutable, its name is never used
+again, and the shared lease a reader holds keeps collection from it; a worker
+that consumes it takes a lease of its own (acquireInput). The reader is now
+given the stable payload itself and keeps its lease for as long as the module
+file lives. ModuleBuildCache::copy is removed, and a lease is taken on stable
+generations alone. A copy record that an earlier engine left in a shared
+ledger is collected like an abandoned reservation. The copy for each reader
+remains on the portable path, where no lease protects a published BMI.
+---
+ clang-tools-extra/clangd/ModuleBuildCache.cpp | 115 ++----------------
+ clang-tools-extra/clangd/ModuleBuildCache.h   |  10 +-
+ clang-tools-extra/clangd/ModulesBuilder.cpp   |  43 +++----
+ .../unittests/PrerequisiteModulesTest.cpp     |  58 ++++-----
+ 4 files changed, 55 insertions(+), 171 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.cpp b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+index 20e0b1e7c..501736f02 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildCache.cpp
+@@ -58,6 +58,8 @@ using Platform = ModuleCachePlatform;
+ // rejects new admission; opening another independent quota is not a migration.
+ constexpr uint64_t Magic = 0x324548434143434dULL;
+ constexpr unsigned MaximumSlots = 4096;
++// Copy is a reader's copy of a stable generation, which engines before this
++// one made; such a record is collected like an abandoned reservation.
+ enum Kind : uint64_t { Free, Reserved, Stable, Copy, Retired, Erased };
+ struct Header {
+   uint64_t MagicValue = Magic, RecordSize = 0, Slots = 0, Limit = 0;
+@@ -66,6 +68,7 @@ struct Header {
+ struct Record {
+   uint64_t Sequence = 0, Generation = 0, Bytes = 0, Type = Free;
+   uint64_t Device = 0, Inode = 0, LeaseDevice = 0, LeaseInode = 0;
++  // The stable generation a Copy was made from.
+   uint64_t StableSlot = UINT64_MAX, StableGeneration = 0;
+   uint64_t OutputEnvelope = 0, CaptureEnvelope = 0;
+   uint64_t MainBytes = 0, BundleFiles = 0;
+@@ -636,7 +639,6 @@ public:
+ #if CLANGD_OWNED_MODULE_CACHE
+   FD Lease;
+   Record Description;
+-  std::shared_ptr<ModuleBuildCacheLease> Companion;
+ #endif
+ };
+ ModuleBuildCache::ModuleBuildCache(std::unique_ptr<Impl> I)
+@@ -648,11 +650,6 @@ ModuleBuildCacheLease::~ModuleBuildCacheLease() {
+ #if CLANGD_OWNED_MODULE_CACHE
+   if (State->Description.Type == Stable)
+     return;
+-  // A consuming worker owns an independent shared OFD lease. Its parent may
+-  // disappear; failure to upgrade preserves the charge for later collection.
+-  if (State->Description.Type == Copy &&
+-      Platform::lock(State->Lease.Value, true, false))
+-    return;
+   auto &C = *State->Cache->State;
+   // The still-exclusive reservation protects cleanup; no request waits behind
+   // collector IO. Cleanup failure leaves the durable charge for maintenance.
+@@ -1153,78 +1150,6 @@ llvm::Error ModuleBuildCacheLease::publish() {
+   return llvm::Error::success();
+ #endif
+ }
+-llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>> ModuleBuildCache::copy(
+-    const std::shared_ptr<ModuleBuildCacheLease> &StableLease) {
+-#if !CLANGD_OWNED_MODULE_CACHE
+-  return failure("unsupported copy");
+-#else
+-  if (!StableLease || StableLease->State->Cache.get() != this ||
+-      StableLease->State->Description.Type != Stable)
+-    return failure("copy requires this namespace's stable lease");
+-  const auto &R = StableLease->State->Description;
+-  auto Result = reserve("read-copy", R.Source, R.MainBytes);
+-  if (!Result)
+-    return Result.takeError();
+-  {
+-    std::lock_guard<std::mutex> Guard(State->Mutex);
+-    Lock Ledger(State->Ledger.Value);
+-    if (!Ledger.acquire())
+-      return ioError();
+-    auto Entry = State->read((*Result)->State->Slot);
+-    if (!Entry)
+-      return Entry.takeError();
+-    Entry->StableSlot = StableLease->State->Slot;
+-    Entry->StableGeneration = R.Generation;
+-    if (auto Error = State->write((*Result)->State->Slot, *Entry))
+-      return std::move(Error);
+-    (*Result)->State->Companion = StableLease;
+-  }
+-  FD Input(::open(StableLease->payload().c_str(),
+-                  O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+-  FD Output(::open((*Result)->payload().c_str(),
+-                   O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
+-  if (Input.Value < 0 || Output.Value < 0)
+-    return ioError();
+-  std::array<char, 65536> Buffer;
+-  uint64_t Written = 0;
+-  for (;;) {
+-    ssize_t N = read(Input.Value, Buffer.data(), Buffer.size());
+-    if (N < 0 && errno == EINTR)
+-      continue;
+-    if (N < 0)
+-      return ioError();
+-    if (!N)
+-      break;
+-    // Even a changed source cannot grow the copy past its PRE-WRITE charge.
+-    if (uint64_t(N) > R.MainBytes - Written)
+-      return failure("copy source grew");
+-    if (!exactWrite(Output.Value, Buffer.data(), N, Written))
+-      return ioError();
+-    Written += N;
+-  }
+-  if (Written != R.MainBytes)
+-    return failure("copy source size changed");
+-  if (int Error = Platform::syncData(Output.Value))
+-    return ioError(Error);
+-  auto &C = *State;
+-  std::lock_guard<std::mutex> Guard(C.Mutex);
+-  Lock Ledger(C.Ledger.Value);
+-  if (!Ledger.acquire())
+-    return ioError();
+-  auto Current = C.read((*Result)->State->Slot);
+-  if (!Current)
+-    return Current.takeError();
+-  Current->Type = Copy;
+-  Current->MainBytes = Written;
+-  if (auto E = C.write((*Result)->State->Slot, *Current))
+-    return std::move(E);
+-  (*Result)->State->Description.Type = Copy;
+-  (*Result)->State->Description.MainBytes = Written;
+-  if (int Error = Platform::lock((*Result)->State->Lease.Value, false, false))
+-    return ioError(Error);
+-  return Result;
+-#endif
+-}
+ namespace {
+ #if CLANGD_OWNED_MODULE_CACHE
+ struct ManagedPath {
+@@ -1282,8 +1207,7 @@ openManaged(const ManagedPath &P) {
+ #endif
+ } // namespace
+ llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+-ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+-                                    bool StableOnly) {
++ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation) {
+ #if !CLANGD_OWNED_MODULE_CACHE
+   return failure("managed read leases unavailable");
+ #else
+@@ -1302,8 +1226,7 @@ ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+   }();
+   if (!R)
+     return R.takeError();
+-  if (R->Generation != Generation || (R->Type != Stable && R->Type != Copy) ||
+-      (StableOnly && R->Type != Stable) ||
++  if (R->Generation != Generation || R->Type != Stable ||
+       !State->leaseMatches(Slot, Lease.Value, *R))
+     return failure("managed input retired or identity changed");
+   auto G = State->generation(Slot, *R);
+@@ -1316,32 +1239,18 @@ ModuleBuildCache::acquireGeneration(unsigned Slot, uint64_t Generation,
+       !Platform::thisUser(Payload) ||
+       uint64_t(Payload.st_size) != R->MainBytes)
+     return failure("managed input payload changed");
+-  if (R->Type == Stable) {
+-    auto Bundle = inventoryBundle(Gen.Value);
+-    if (!Bundle)
+-      return Bundle.takeError();
+-    if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
+-        Bundle->CacheFiles != R->BundleFiles ||
+-        Bundle->Digest != R->BundleDigest)
+-      return failure("managed input bundle changed");
+-  }
+-  std::shared_ptr<ModuleBuildCacheLease> Companion;
+-  if (R->Type == Copy) {
+-    if (R->StableSlot >= State->Description.Slots || R->StableSlot == Slot)
+-      return failure("invalid managed stable companion");
+-    auto Parent = acquireGeneration(R->StableSlot, R->StableGeneration, true);
+-    if (!Parent)
+-      return Parent.takeError();
+-    if ((*Parent)->State->Description.Type != Stable)
+-      return failure("managed companion is not stable");
+-    Companion = std::move(*Parent);
+-  }
++  auto Bundle = inventoryBundle(Gen.Value);
++  if (!Bundle)
++    return Bundle.takeError();
++  if (Bundle->Bytes != R->Bytes || Bundle->MainBytes != R->MainBytes ||
++      Bundle->CacheFiles != R->BundleFiles ||
++      Bundle->Digest != R->BundleDigest)
++    return failure("managed input bundle changed");
+   auto I = std::make_unique<ModuleBuildCacheLease::Impl>();
+   I->Cache = shared_from_this();
+   I->Slot = Slot;
+   I->Lease.Value = Lease.release();
+   I->Description = *R;
+-  I->Companion = std::move(Companion);
+   return std::shared_ptr<ModuleBuildCacheLease>(
+       new ModuleBuildCacheLease(std::move(I)));
+ #endif
+diff --git a/clang-tools-extra/clangd/ModuleBuildCache.h b/clang-tools-extra/clangd/ModuleBuildCache.h
+index 5ce78e2a4..406a67979 100644
+--- a/clang-tools-extra/clangd/ModuleBuildCache.h
++++ b/clang-tools-extra/clangd/ModuleBuildCache.h
+@@ -24,8 +24,9 @@ public:
+   std::error_code convertToErrorCode() const override;
+ };
+ // An immutable generation's kernel lease. Keeping this object alive protects
+-// both its payload and its persistent charge. Reserved/copy generations clean
+-// up on final release; stable generations remain eligible for bounded GC.
++// both its payload and its persistent charge. A reserved generation cleans up
++// on final release; a stable one remains eligible for bounded GC, and is read
++// where it was published for as long as its lease is held.
+ class ModuleBuildCacheLease {
+ public:
+   ~ModuleBuildCacheLease();
+@@ -66,8 +67,6 @@ public:
+                const std::function<void()> &OnPressure = {});
+   llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+   lookup(llvm::StringRef Key, std::function<bool(PathRef)> Usable = {});
+-  llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+-  copy(const std::shared_ptr<ModuleBuildCacheLease> &Stable);
+   // Child-side bootstrap: take its own leases before consuming any managed
+   // prerequisite. Foreign paths return a null lease and remain untouched.
+   static llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+@@ -76,8 +75,7 @@ public:
+ 
+ private:
+   llvm::Expected<std::shared_ptr<ModuleBuildCacheLease>>
+-  acquireGeneration(unsigned Slot, uint64_t Generation,
+-                    bool StableOnly = false);
++  acquireGeneration(unsigned Slot, uint64_t Generation);
+ 
+ public:
+   llvm::Expected<unsigned> collect(unsigned MaxSlots = 32);
+diff --git a/clang-tools-extra/clangd/ModulesBuilder.cpp b/clang-tools-extra/clangd/ModulesBuilder.cpp
+index 0e2349077..841aecabd 100644
+--- a/clang-tools-extra/clangd/ModulesBuilder.cpp
++++ b/clang-tools-extra/clangd/ModulesBuilder.cpp
+@@ -296,10 +296,10 @@ llvm::cl::opt<unsigned> ModuleWorkerCaptureMiB(
+ // excludes physical allocation/metadata and retains legacy/foreign files.
+ llvm::cl::opt<unsigned> ModuleOwnedCacheMiB(
+     "modules-builder-owned-cache-payload-mib",
+-    llvm::cl::desc("Owned module stable/staging/read-copy payload admission "
+-                   "in MiB; 0 disables strict admission (not a filesystem "
+-                   "quota; default: 1024 where the system provides the owned "
+-                   "module cache and workers are used, 0 elsewhere)"),
++    llvm::cl::desc("Owned module stable/staging payload admission in MiB; 0 "
++                   "disables strict admission (not a filesystem quota; "
++                   "default: 1024 where the system provides the owned module "
++                   "cache and workers are used, 0 elsewhere)"),
+     llvm::cl::init(ownedCacheProvided() ? 1024 : 0));
+ llvm::cl::opt<unsigned> ModuleOwnedCacheSlots(
+     "modules-builder-owned-cache-generations",
+@@ -924,16 +924,16 @@ public:
+   }
+ };
+ 
+-// Both immutable generations remain leased through validation and every
+-// consumer. The exact-size copy has its own persistent payload reservation.
++// A stable generation is immutable and its name is never reused, and its
++// lease keeps it from collection: it is read where it was published, through
++// validation and every consumer, for as long as this file holds the lease.
+ class OwnedModuleFile final : public ModuleFile {
+-  std::shared_ptr<ModuleBuildCacheLease> Stable, Copy;
++  std::shared_ptr<ModuleBuildCacheLease> Stable;
+   std::optional<ModuleValidationCache::FileIdentity> Identity;
+ public:
+-  OwnedModuleFile(StringRef Name, std::shared_ptr<ModuleBuildCacheLease> Stable,
+-                  std::shared_ptr<ModuleBuildCacheLease> Copy)
+-      : ModuleFile(Name, Copy->payload(), Stable->payload()),
+-        Stable(std::move(Stable)), Copy(std::move(Copy)) {
++  OwnedModuleFile(StringRef Name, std::shared_ptr<ModuleBuildCacheLease> Stable)
++      : ModuleFile(Name, Stable->payload(), Stable->payload()),
++        Stable(std::move(Stable)) {
+     if (auto ID = ModuleValidationCache::identityOf(PublishedModuleFilePath))
+       Identity = *ID;
+   }
+@@ -2113,8 +2113,9 @@ public:
+   // The module files last built for each file stay alive past the preamble
+   // or completion that asked for them. A set let go of for a moment -- an
+   // import being typed, a bounded build that answered late -- is then found
+-  // in Cache again instead of being looked up and copied again, module by
+-  // module (a copy reserves a generation and writes the whole BMI).
++  // in Cache again instead of being looked up again, module by module (a
++  // lookup leases a generation and checks its bundle; the portable path
++  // writes a copy of the whole BMI).
+   void retain(PathRef File, const ReusablePrerequisiteModules &Built) {
+     constexpr unsigned MaxFiles = 32;
+     const std::string Key = maybeCaseFoldPath(File);
+@@ -2650,19 +2651,11 @@ ModulesBuilder::ModulesBuilderImpl::getOrBuildSingleModule(
+       *Stable = std::move(*Reservation);
+       TallyOk = true;
+       log("Built module {0} to {1}", ModuleName, (*Stable)->payload());
++    } else {
++      log("Reusing owned module {0} from {1}", ModuleName,
++          (*Stable)->payload());
+     }
+-    auto Copy = (*Owned)->copy(*Stable);
+-    if (!Copy) {
+-      llvm::Error Error = llvm::handleErrors(
+-          Copy.takeError(), [](const ModuleCachePressure &) {});
+-      if (Error)
+-        return std::move(Error);
+-      // No room for the copy: let go of what is only retained, once.
+-      releaseRetained();
+-      Copy = (*Owned)->copy(*Stable);
+-      if (!Copy) return Copy.takeError();
+-    }
+-    auto Result = std::make_shared<OwnedModuleFile>(ModuleName, *Stable, *Copy);
++    auto Result = std::make_shared<OwnedModuleFile>(ModuleName, *Stable);
+     Cache.add(ModuleName, ModuleSource, CommandHash, Result);
+     return std::shared_ptr<const ModuleFile>(std::move(Result));
+   }
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 529d6610e..0a7ab64d8 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -1131,7 +1131,10 @@ TEST_F(PrerequisiteModulesTests, OwnedLookupFindsEachKeyAgain) {
+   EXPECT_FALSE(*Missing);
+ }
+ 
+-TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
++// A worker reads a stable generation, its implicit modules included, where it
++// was published, through a lease it takes itself; collection under pressure
++// waits for that lease, not for the publisher's.
++TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleReadUnderItsOwnLease) {
+   const auto Root = (TestDir + "/bundles/.owned-payload-v1").str();
+   const auto Anchor = (TestDir + "/source-anchor").str();
+   auto Write = [](StringRef File, StringRef Text) {
+@@ -1162,11 +1165,7 @@ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
+   ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
+   EXPECT_EQ((*Stable)->mainBytes(), 4u);
+   EXPECT_EQ((*Stable)->payloadBytes(), 12u);
+-  auto Copy = (*Cache)->copy(*Stable);
+-  ASSERT_THAT_EXPECTED(Copy, llvm::Succeeded());
+-  EXPECT_EQ((*Copy)->payloadBytes(), 4u);
+-  // Copying the entire 12-byte bundle would exhaust this exact 20-byte quota.
+-  const auto CopyPath = (*Copy)->payload();
++  const auto Payload = (*Stable)->payload();
+   int Ready[2], Continue[2];
+   ASSERT_EQ(pipe(Ready), 0);
+   ASSERT_EQ(pipe(Continue), 0);
+@@ -1176,22 +1175,11 @@ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
+     close(Ready[0]);
+     close(Continue[1]);
+     // Close every inherited cache/OFD handle: the independent input API must
+-    // acquire both copy and stable companion, rather than inherit ownership.
+-    DIR *Descriptors = opendir("/proc/self/fd");
+-    if (!Descriptors)
+-      _exit(2);
+-    std::vector<int> Close;
+-    while (auto *Entry = readdir(Descriptors)) {
+-      unsigned FD;
+-      if (!StringRef(Entry->d_name).getAsInteger(10, FD) && FD > 2 &&
+-          int(FD) != Ready[1] && int(FD) != Continue[0] &&
+-          int(FD) != dirfd(Descriptors))
+-        Close.push_back(FD);
+-    }
+-    closedir(Descriptors);
+-    for (int FD : Close)
+-      close(FD);
+-    auto Input = ModuleBuildCache::acquireInput(CopyPath);
++    // acquire the stable generation's lease, rather than inherit ownership.
++    for (int FD = 3; FD < 4096; ++FD)
++      if (FD != Ready[1] && FD != Continue[0])
++        close(FD);
++    auto Input = ModuleBuildCache::acquireInput(Payload);
+     if (!Input || !*Input || (*Input)->mainBytes() != 4)
+       _exit(3);
+     auto Header = llvm::MemoryBuffer::getFile(Implicit);
+@@ -1219,14 +1207,14 @@ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
+   ASSERT_EQ(read(Ready[0], &Signal, 1), 1);
+   close(Ready[0]);
+   Stable->reset();
+-  Copy->reset();
+-  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 5),
++  // The 12-byte bundle and 9 more exceed this 20-byte quota.
++  EXPECT_THAT_EXPECTED((*Cache)->reserve("pressure", Anchor, 9),
+                        llvm::Failed());
+   auto Collected = (*Cache)->collect(8);
+   ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
+   EXPECT_EQ(*Collected, 0u);
+   EXPECT_TRUE(llvm::sys::fs::exists(Implicit));
+-  EXPECT_TRUE(llvm::sys::fs::exists(CopyPath));
++  EXPECT_TRUE(llvm::sys::fs::exists(Payload));
+   ASSERT_EQ(write(Continue[1], "X", 1), 1);
+   close(Continue[1]);
+   int Status;
+@@ -1236,9 +1224,9 @@ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleMainCopyAndCompanionLease) {
+   ASSERT_EQ(WEXITSTATUS(Status), 0);
+   Collected = (*Cache)->collect(8);
+   ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded());
+-  EXPECT_EQ(*Collected, 2u);
++  EXPECT_EQ(*Collected, 1u);
+   EXPECT_FALSE(llvm::sys::fs::exists(Implicit));
+-  EXPECT_FALSE(llvm::sys::fs::exists(CopyPath));
++  EXPECT_FALSE(llvm::sys::fs::exists(Payload));
+   EXPECT_THAT_EXPECTED((*Cache)->reserve("after-cleanup", Anchor, 20),
+                        llvm::Succeeded());
+ }
+@@ -1342,7 +1330,9 @@ TEST_F(PrerequisiteModulesTests, OwnedImplicitBundleChecksOutputAndIdentity) {
+   EXPECT_TRUE(llvm::sys::fs::exists(Implicit + ".foreign"));
+ }
+ 
+-TEST_F(PrerequisiteModulesTests, OwnedPayloadAdmissionAndImmutableCopyLeases) {
++// A published generation is read where it was published; every lease on it,
++// in any view of the namespace, keeps it from collection.
++TEST_F(PrerequisiteModulesTests, OwnedPayloadAdmissionAndStableLeases) {
+   auto Root = (TestDir + "/owned").str();
+   auto Anchor = (TestDir + "/source-anchor").str();
+   { std::error_code EC; llvm::raw_fd_ostream F(Anchor, EC); ASSERT_FALSE(EC); }
+@@ -1361,21 +1351,15 @@ TEST_F(PrerequisiteModulesTests, OwnedPayloadAdmissionAndImmutableCopyLeases) {
+   EXPECT_THAT_EXPECTED(Denied, llvm::Failed());
+   { std::error_code EC; llvm::raw_fd_ostream F((*Stable)->payload(), EC); ASSERT_FALSE(EC); F << "BMI"; }
+   ASSERT_THAT_ERROR((*Stable)->publish(), llvm::Succeeded());
+-  auto Copy = (*Cache)->copy(*Stable);
+-  ASSERT_THAT_EXPECTED(Copy, llvm::Succeeded());
+-  auto Contents = llvm::MemoryBuffer::getFile((*Copy)->payload());
++  auto Contents = llvm::MemoryBuffer::getFile((*Stable)->payload());
+   ASSERT_TRUE(Contents); EXPECT_EQ((*Contents)->getBuffer(), "BMI");
+-  // Another factory/process view cannot collect either active physical inode.
++  // Another factory/process view cannot collect the leased generation.
+   auto Other = ModuleBuildCache::open(Root, 6, 4);
+   ASSERT_THAT_EXPECTED(Other, llvm::Succeeded());
+-  EXPECT_THAT_EXPECTED((*Other)->reserve("pressure", Anchor, 1), llvm::Failed());
++  EXPECT_THAT_EXPECTED((*Other)->reserve("pressure", Anchor, 4), llvm::Failed());
+   auto Collected = (*Other)->collect(4);
+   ASSERT_THAT_EXPECTED(Collected, llvm::Succeeded()); EXPECT_EQ(*Collected, 0u);
+   EXPECT_TRUE(llvm::sys::fs::exists((*Stable)->payload()));
+-  EXPECT_TRUE(llvm::sys::fs::exists((*Copy)->payload()));
+-  auto CopyPath = (*Copy)->payload();
+-  Copy->reset();
+-  EXPECT_FALSE(llvm::sys::fs::exists(CopyPath));
+   auto LeasedAgain = (*Other)->lookup("M");
+   ASSERT_THAT_EXPECTED(LeasedAgain, llvm::Succeeded()); ASSERT_TRUE(*LeasedAgain);
+   Stable->reset();
+-- 
+2.53.0
+
