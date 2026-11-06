@@ -27,6 +27,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: The tag names the reviewed distribution version
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          version = pathlib.Path('RELEASE_VERSION').read_text().strip()
+          assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version), 'invalid distribution version'
+          if os.environ['RELEASE_REF_TYPE'] == 'tag':
+              assert os.environ['RELEASE_REF_NAME'] == 'v' + version, 'tag/RELEASE_VERSION mismatch'
+          PY
       - name: Reject experimental patches
         run: python3 ci/check_ledger.py --release
 
@@ -142,6 +154,15 @@ jobs:
     needs: [package, openkal]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Release notes for this version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          version = Path('RELEASE_VERSION').read_text().strip()
+          notes = Path('CHANGELOG.md').read_text().split('## [' + version + ']\n', 1)[1].split('\n## [', 1)[0]
+          Path('release-notes.md').write_text(notes.strip() + '\n')
+          PY
       - uses: actions/download-artifact@v4
         with:
           pattern: clangd-*
@@ -167,5 +188,6 @@ jobs:
             dist/*.sha256
             dist/openkal-acceptance.json
           generate_release_notes: true
+          body_path: release-notes.md
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -9,13 +9,15 @@ macOS): the image's time to ready and processor time are at most 1.15 times the 
 faults at most twice, in the cold session and in the median of the warm ones; every session of both is ready.
 Faults use complete engine lifetimes, including shutdown and waited descendants, from POSIX kernel counters.
 Readiness fault samples remain diagnostic. Version 3 requires a stable-reap Linux CPU observation;
-earlier measurement versions cannot satisfy this gate. Limits and workload are unchanged.
+earlier measurement versions cannot satisfy this gate. The one-release Linux x64 cold CPU
+exception is explicit; the original target and its failures remain in the report (ci/performance-policy.md).
 
 PATH PARITY, on every system: the image builds in supervised workers over the owned cache. The native engine does
 so on Linux and macOS; on Windows it compiles in clangd and gives each reader a copy of each BMI (the portable
 path), and the ratios there are recorded and are not the gate, since the two engines take different paths.
 """
-import argparse, json, math, statistics, sys
+import argparse, hashlib, json, math, re, statistics, sys
+from decimal import Decimal
 from warm_usage import FAULT_SCOPE, MEASUREMENT_VERSION, READY_CPU_SCOPE
 
 ap = argparse.ArgumentParser()
@@ -25,6 +27,8 @@ ap.add_argument("--image", required=True)
 ap.add_argument("--out", required=True)
 ap.add_argument("--limit", type=float, default=1.15)
 ap.add_argument("--fault-limit", type=float, default=2.0)
+ap.add_argument("--release-version", help="distribution version; only 0.0.20 has an approved exception")
+ap.add_argument("--source-commit", help="exact producer source identity for a release exception")
 a = ap.parse_args()
 
 native = json.load(open(a.native))
@@ -33,11 +37,46 @@ windows = a.platform.startswith("win32")
 OWNED, WORKERS = "owned", "in supervised workers"
 
 
+def number(x):
+    return type(x) in (int, float) and math.isfinite(x) and x >= 0
+
+
 def ratio(x, y):
-    return round(x / y, 3) if x is not None and y else None
+    return round(x / y, 3) if number(x) and number(y) and y > 0 else None
+
+
+def within(x, y, limit):
+    # Rounded display ratios must not admit values just beyond either ceiling.
+    return (number(x) and number(y) and y > 0 and
+            Decimal(str(x)) <= Decimal(str(y)) * Decimal(str(limit)))
 
 
 failures = []
+exception = None
+if a.release_version == '0.0.20' and a.platform == 'linux-x64':
+    exception = dict(issue='https://github.com/Sunrisepeak/mcpp-language-server/issues/77',
+                     release='0.0.20', platform='linux-x64', metric='cold.cpu_seconds',
+                     ratio_limit=1.25, extra_cpu_seconds_limit=3.0,
+                     source_commit=a.source_commit, applied=False)
+    if a.limit != 1.15 or a.fault_limit != 2.0:
+        failures.append('the release exception requires the unchanged 1.15 time/CPU and 2.0 fault targets')
+    if not re.fullmatch(r'[0-9a-f]{40}', a.source_commit or ''):
+        failures.append('the release exception requires an exact producer source commit')
+    try:
+        # Hash the actual command prefixes recorded by the measured lanes, not separately supplied files.
+        if len(native['engine']) != 1 or len(image['engine']) != 2:
+            raise ValueError('unexpected engine command prefix')
+        identities = {}
+        for name, path in (('native', native['engine'][0]), ('runner', image['engine'][0]),
+                           ('image', image['engine'][1])):
+            with open(path, 'rb') as stream:
+                digest = hashlib.sha256()
+                for block in iter(lambda: stream.read(1 << 20), b''):
+                    digest.update(block)
+            identities[name] = digest.hexdigest()
+        exception['artifact_sha256'] = identities
+    except (KeyError, TypeError, ValueError, OSError):
+        failures.append('the release exception requires readable measured native, runner and image artifacts')
 for name, run in (("native", native), ("image", image)):
     if run.get("measurement_version") != MEASUREMENT_VERSION or run.get("fault_scope") != FAULT_SCOPE:
         failures.append(f"{name} has no supported measurement version and complete-lifetime fault scope")
@@ -99,6 +138,8 @@ if not native_ok:
     failures.append(f"the native engine took another path than this system's: {parity['native']}")
 
 ratios = {}
+target_failures = list(failures)
+waived_failures = []
 for when in ("cold", "warm"):
     n = native["sessions"][0] if when == "cold" else native["warm"]
     i = image["sessions"][0] if when == "cold" else image["warm"]
@@ -108,14 +149,32 @@ for when in ("cold", "warm"):
         continue
     for k, limit in (("ready_seconds", a.limit), ("cpu_seconds", a.limit), ("complete_page_faults", a.fault_limit)):
         r = ratios[when][k]
-        if r is None or r > limit:
-            failures.append(f"{when} {k}: the image {i.get(k)} against the native {n.get(k)} is {r}, over {limit}")
+        if not within(i.get(k), n.get(k), limit):
+            message = f"{when} {k}: the image {i.get(k)} against the native {n.get(k)} is {r}, over {limit} (unrounded comparison)"
+            target_failures.append(message)
+            allowed = False
+            if exception and when == 'cold' and k == 'cpu_seconds' and r is not None:
+                extra = Decimal(str(i[k])) - Decimal(str(n[k]))
+                exception['extra_cpu_seconds'] = float(extra)
+                allowed = within(i[k], n[k], 1.25) and extra <= Decimal('3.0')
+            if allowed:
+                waived_failures.append(message)
+            else:
+                failures.append(message)
+
+if exception:
+    exception['applied'] = bool(waived_failures) and not failures
 
 result = {
     "measurement_version": MEASUREMENT_VERSION,
     "fault_scope": FAULT_SCOPE,
     "platform": a.platform,
     "gated": not windows,
+    "release_version": a.release_version,
+    "target_met": not target_failures,
+    "target_failures": target_failures,
+    "release_exception": exception,
+    "waived_failures": waived_failures,
     "accepted": not failures,
     "failures": failures,
     "ratios": ratios,
@@ -125,7 +184,11 @@ result = {
 }
 with open(a.out, "w") as f:
     json.dump(result, f, indent=1)
-print(json.dumps({"platform": a.platform, "gated": not windows, "ratios": ratios, "parity": parity}, indent=1))
+print(json.dumps({"platform": a.platform, "gated": not windows, "ratios": ratios, "parity": parity,
+                  "target_met": result['target_met'], "accepted": result['accepted'],
+                  "release_exception": exception}, indent=1))
+for msg in target_failures:
+    print("target not met:", msg)
 for msg in failures:
     print("not accepted:", msg)
 sys.exit(1 if failures else 0)

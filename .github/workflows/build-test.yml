@@ -553,7 +553,12 @@ jobs:
       - name: clangd.okb under okrun
         run: python ci/warm_prime.py --label image-${{ matrix.platform }} --workdir wp-image --out image-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$OKRUN" "$OKB"
       - name: Acceptance
-        run: python ci/warm_prime_accept.py --platform ${{ matrix.platform }} --native native-warm.json --image image-warm.json --out warm-prime-${{ matrix.platform }}.json
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python ci/warm_prime_accept.py --platform ${{ matrix.platform }} \
+            --native native-warm.json --image image-warm.json --out warm-prime-${{ matrix.platform }}.json \
+            --release-version "$(cat RELEASE_VERSION)" --source-commit "$SOURCE_COMMIT"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

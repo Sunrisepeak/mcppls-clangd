@@ -36,6 +36,12 @@ mcpp performs and seals. The release measures it against the native engine on
 the four systems and publishes where it is accepted (`openkal-acceptance.json`);
 mcppls uses `clangd.okb` where it is.
 
+The separate warm-prime check records readiness latency, CPU and complete
+page faults. Its [release policy](ci/performance-policy.md) documents the
+one-release 0.0.20 Linux x64 cold-CPU exception and the unchanged gates.
+The remaining OKE/OKB performance work is tracked in
+[mcppls issue 77](https://github.com/Sunrisepeak/mcpp-language-server/issues/77).
+
 | Platform | Built on | Runs on |
 |---|---|---|
 | `linux-x64` | Ubuntu 20.04 rootfs, Clang 12 | glibc 2.31 and later; libstdc++ linked in |
