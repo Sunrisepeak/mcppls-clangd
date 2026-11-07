@@ -137,16 +137,7 @@ jobs:
           source ci/scripts/env.sh
           export FORK_SUFFIX
           t=${{ matrix.arch }}-openkal
-          mkdir -p tools-of/src
-          cat > tools-of/mcpp.toml <<'TOML'
-          [package]
-          name    = "tools-of"
-          version = "0.1.0"
-
-          [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.24.0"
-          TOML
-          printf 'int main() { return 0; }\n' > tools-of/src/main.cpp
+          bash ci/scripts/probe-platform.sh tools-of
           (cd tools-of && mcpp build --target "$t" > /dev/null)
           (cd tools-of && mcpp self env --target "$t" --format json) > tools.json
           tool() { python3 -c "import json,sys; d=json.load(open('tools.json'))['data']; print(d['runner']['program'] if sys.argv[1] == 'okrun' else d['tools'][sys.argv[1]])" "$1"; }
@@ -217,16 +208,7 @@ jobs:
           export PATH="$HOME/.xlings/subos/current/bin:$PATH"
           xlings install "mcpp@$MCPP_VERSION" -y -g
           # okld and okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
-          mkdir -p h/src
-          cat > h/mcpp.toml <<'TOML'
-          [package]
-          name    = "h"
-          version = "0.1.0"
-
-          [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.24.0"
-          TOML
-          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          bash ci/scripts/probe-platform.sh h
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
           (cd h && mcpp self env --target x86_64-openkal --format json) > tools.json
           okld="$(python -c "import json; print(json.load(open('tools.json'))['data']['tools']['okld'])")"
@@ -331,16 +313,7 @@ jobs:
             sleep 30
           done
           # okld and okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
-          mkdir -p h/src
-          cat > h/mcpp.toml <<'TOML'
-          [package]
-          name    = "h"
-          version = "0.1.0"
-
-          [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.24.0"
-          TOML
-          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          bash ci/scripts/probe-platform.sh h
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
           (cd h && mcpp self env --target ${{ matrix.arch }}-openkal --format json) > tools.json
           okrun="$(python -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")"

@@ -16,16 +16,23 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class Gates(unittest.TestCase):
     def test_image_probes_share_the_declared_platform(self):
-        # A warm-prime bootstrap left on the previous platform installs the
-        # previous runner, even though the image and acceptance use the new one.
+        # The platform of the images is stated once, in openkal/clangd/mcpp.toml: a
+        # warm-prime bootstrap or a probe left on another platform installs another
+        # runner than the image and acceptance use. Every probe is written by
+        # ci/scripts/probe-platform.sh, which reads that manifest.
         pattern = r'openkal-platform@[0-9]+(?:\.[0-9]+)*'
         expected = set(re.findall(pattern, (ROOT / 'openkal/clangd/mcpp.toml').read_text()))
         self.assertEqual(len(expected), 1)
         for workflow in ('build-test.yml', 'openkal.yml'):
             with self.subTest(workflow=workflow):
                 text = (ROOT / '.github/workflows' / workflow).read_text()
-                self.assertEqual(set(re.findall(pattern, text)), expected)
+                self.assertEqual(set(re.findall(pattern, text)), set())
+                self.assertIn('ci/scripts/probe-platform.sh', text)
                 self.assertNotIn('openkal-tools@*', text)
+        with tempfile.TemporaryDirectory() as tmp:
+            probe = Path(tmp) / 'h'
+            subprocess.run(['bash', str(ROOT / 'ci/scripts/probe-platform.sh'), str(probe)], check=True)
+            self.assertEqual(set(re.findall(pattern, (probe / 'mcpp.toml').read_text())), expected)
 
     def test_release_ledger(self):
         with tempfile.TemporaryDirectory() as tmp:

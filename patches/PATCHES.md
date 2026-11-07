@@ -243,6 +243,18 @@ release adds clangd as an ok image, `clangd.okb`, whose tree is this series and 
 (`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
 image.
 
+## The 0.0.21 additions
+
+No patch of either series changes. The ok image is built with zlib, as the native engines are: llvm-project is
+configured with the headers of `compat.zlib` and the image links the library that dependency builds for the
+target (`openkal/okgen`, `openkal/clangd/mcpp.toml`). An index shard written by an engine with zlib compresses
+its string table, and the image built without it discarded every such shard ("Compressed string table, but zlib
+is unavailable") and indexed the files again. The image is built over openkal-platform 0.24.1, stated once in
+`openkal/clangd/mcpp.toml`, from which `ci/scripts/probe-platform.sh` writes every probe of CI. The warm-prime
+gate is the median of four alternating native/image pairs under a registered sampling rule
+(`ci/performance-policy.md`); the 0.0.20 cold-CPU exception has expired. The engine reports itself as
+`23.1.0-mcppls.10` on every platform and as the ok image.
+
 ## The 0.0.20 additions
 
 Five patches are added. 0038: the provider index is built from a mangled inventory once rather than once per

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.21]
+
+- The ok image (`clangd.okb`) is built with zlib, as the native engines are, and
+  reads the index shards an engine with zlib writes. It discarded them before
+  ("Compressed string table, but zlib is unavailable") and indexed again.
+- The engine reports itself as `23.1.0-mcppls.10`.
+- The image is built over openkal-platform 0.24.1, stated only in
+  `openkal/clangd/mcpp.toml`; CI writes its probes from that line.
+- The warm-prime gate takes the median of four alternating native/image pairs
+  and classifies a measurement as invalid or failed; only an invalid one may be
+  repeated ([policy](ci/performance-policy.md)). The 0.0.20 Linux x64 cold-CPU
+  exception has expired.
+
 ## [0.0.20]
 
 - Readiness CPU measurement uses version 3 accounting, avoiding a child-reap
