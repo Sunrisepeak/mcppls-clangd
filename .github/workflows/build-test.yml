@@ -70,7 +70,10 @@ jobs:
               "$VCPKG_INSTALLATION_ROOT/vcpkg" install zlib:x64-windows-static
               zlib="$(cygpath -m "$VCPKG_INSTALLATION_ROOT")/installed/x64-windows-static"
               ls "$zlib/lib"
-              lib="$(ls "$zlib"/lib/zlib.lib "$zlib"/lib/zs.lib "$zlib"/lib/zlibstatic.lib 2>/dev/null | head -1)"
+              lib=""
+              for name in zlib.lib zs.lib zlibstatic.lib; do
+                if [ -f "$zlib/lib/$name" ]; then lib="$zlib/lib/$name"; break; fi
+              done
               test -n "$lib" && test -f "$zlib/include/zlib.h"
               { echo "ZLIB_INCLUDE_DIR=$zlib/include"; echo "ZLIB_LIBRARY=$lib"; } >> "$GITHUB_ENV"
               ;;
