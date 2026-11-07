@@ -16,16 +16,50 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class Gates(unittest.TestCase):
     def test_image_probes_share_the_declared_platform(self):
-        # A warm-prime bootstrap left on the previous platform installs the
-        # previous runner, even though the image and acceptance use the new one.
+        # The platform of the images is stated once, in openkal/clangd/mcpp.toml: a
+        # warm-prime bootstrap or a probe left on another platform installs another
+        # runner than the image and acceptance use. Every probe is written by
+        # ci/scripts/probe-platform.sh, which reads that manifest.
         pattern = r'openkal-platform@[0-9]+(?:\.[0-9]+)*'
         expected = set(re.findall(pattern, (ROOT / 'openkal/clangd/mcpp.toml').read_text()))
         self.assertEqual(len(expected), 1)
         for workflow in ('build-test.yml', 'openkal.yml'):
             with self.subTest(workflow=workflow):
                 text = (ROOT / '.github/workflows' / workflow).read_text()
-                self.assertEqual(set(re.findall(pattern, text)), expected)
+                self.assertEqual(set(re.findall(pattern, text)), set())
+                self.assertIn('ci/scripts/probe-platform.sh', text)
                 self.assertNotIn('openkal-tools@*', text)
+        with tempfile.TemporaryDirectory() as tmp:
+            probe = Path(tmp) / 'h'
+            subprocess.run(['bash', str(ROOT / 'ci/scripts/probe-platform.sh'), str(probe)], check=True)
+            self.assertEqual(set(re.findall(pattern, (probe / 'mcpp.toml').read_text())), expected)
+
+    def test_native_engines_are_compared_not_released(self):
+        # ci/performance-policy.md, "Comparison runs": a push or a pull request builds one native engine for
+        # the series' tests; only a dispatched comparison run builds, packages and measures the others.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('comparison_matrix', ROOT / 'ci/comparison_matrix.py')
+        cm = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cm)
+        for event in ('pull_request', 'push'):
+            daily = cm.matrices(event, 'all')
+            self.assertEqual([r['platform'] for r in daily['build']], ['linux-x64'])
+            self.assertEqual((daily['floor'], daily['compare']), ([], []))
+        full = cm.matrices('workflow_dispatch', 'all')
+        self.assertEqual([r['platform'] for r in full['compare']], list(cm.PLATFORMS))
+        self.assertEqual([r['platform'] for r in full['floor']], ['linux-x64', 'linux-arm64'])
+        one = cm.matrices('workflow_dispatch', 'win32-x64')
+        self.assertEqual(([r['platform'] for r in one['build']], one['floor']), (['win32-x64'], []))
+        with self.assertRaises(SystemExit):
+            cm.matrices('workflow_dispatch', 'win32-arm64')
+        test = (ROOT / '.github/workflows/build-test.yml').read_text()
+        for output in ('build', 'floor', 'compare'):
+            self.assertIn(f'fromJSON(needs.setup.outputs.{output})', test)
+        release = (ROOT / '.github/workflows/release.yml').read_text()
+        self.assertNotIn('ci_build.sh', release)
+        self.assertNotIn('package.sh', release)
+        self.assertIn('needs: [openkal]', release)
+        self.assertIn('Comparison run: https://github', release)
 
     def test_release_ledger(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -15,12 +15,15 @@ import subprocess
 import threading
 import time
 
+# The program that starts the engine: the system's runner when --engine is clangd.okb (tests/crash/replay.py).
+RUNNER = [os.environ['MCPPLS_ENGINE_RUNNER']] if os.environ.get('MCPPLS_ENGINE_RUNNER') else []
+
 
 class Engine:
     def __init__(self, binary, root, cache_mode="legacy", extra=()):
         self.root = root
         cache_flags = ['--modules-builder-owned-cache-payload-mib=0'] if cache_mode == 'legacy' else []
-        self.proc = subprocess.Popen([str(binary), '--experimental-modules-support',
+        self.proc = subprocess.Popen([*RUNNER, str(binary), '--experimental-modules-support',
             '--background-index=false', '--modules-builder-versioned-gc-threshold-seconds=0', '-j=2', *cache_flags, *extra],
             cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, start_new_session=os.name != 'nt')
@@ -123,7 +126,8 @@ class Engine:
 
 
 def lease_holders(lease, pids):
-    """The engines among pids (and their workers) that hold the file lease open."""
+    """The engines among pids (and their workers) that hold the file lease open; None where the
+    system cannot say."""
     lease = os.path.realpath(lease)
     if sys.platform.startswith('linux'):
         family = set(pids)
@@ -142,6 +146,10 @@ def lease_holders(lease, pids):
             except OSError:
                 pass
         return held
+    # Windows: no program of the system names the processes that have a file open; the lease is
+    # observed through what it protects (the published generation survives collection).
+    if os.name == 'nt':
+        return None
     # macOS: the system's lsof names the processes that have the file open.
     found = subprocess.run(['lsof', '-t', lease], capture_output=True, text=True)
     return sorted(int(p) for p in found.stdout.split() if p.isdigit())
@@ -157,8 +165,9 @@ def main():
     parser.add_argument('--cache-mode', choices=['auto', 'legacy', 'owned'], default='auto')
     args = parser.parse_args()
     engine, clang = args.engine.resolve(), args.clang.resolve()
+    # A program named without its suffix on Windows; an image (clangd.okb) or a named .exe is as given.
     if os.name == 'nt':
-        engine, clang = engine.with_suffix('.exe'), clang.with_suffix('.exe')
+        engine, clang = (p if p.is_file() else p.with_suffix('.exe') for p in (engine, clang))
     root = args.workdir.resolve()
     root.mkdir(parents=True, exist_ok=True)
     for name, text in [('A.cppm', 'export module A;\nexport int fn1(){return 1;}\n'),
@@ -213,7 +222,9 @@ def main():
             report['checks']['reused_where_published'] = (
                 f'Reusing owned module A from {published}' in reader.logs.decode(errors='replace'))
             report['checks']['no_copy_made'] = payloads() == [published]
-            report['checks']['reader_holds_lease'] = reader.proc.pid in lease_holders(lease, [reader.proc.pid])
+            holders = lease_holders(lease, [reader.proc.pid])
+            if holders is not None:
+                report['checks']['reader_holds_lease'] = reader.proc.pid in holders
             peer = Engine(engine, root, mode); clients.append(peer); peer.ready()
             report['checks']['peer_reads_the_same_generation'] = payloads() == [published]
             reader.stop(kill=True)
@@ -223,7 +234,8 @@ def main():
             time.sleep(6)
             report['engines'] = {'reader': reader.proc.pid, 'peer': peer.proc.pid, 'collector': collector.proc.pid}
             report['holders'] = lease_holders(lease, [peer.proc.pid, collector.proc.pid])
-            report['checks']['live_readers_hold_lease'] = peer.proc.pid in report['holders']
+            if report['holders'] is not None:
+                report['checks']['live_readers_hold_lease'] = peer.proc.pid in report['holders']
             report['checks']['published_survives_collection'] = published.exists() and unchanged()
             report['checks']['still_no_copy'] = payloads() == [published]
         else:

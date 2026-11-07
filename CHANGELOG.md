@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.0.21]
+
+- The ok image (`clangd.okb`) is built with zlib, as the native engines are, and
+  reads the index shards an engine with zlib writes. It discarded them before
+  ("Compressed string table, but zlib is unavailable") and indexed again.
+- The engine reports itself as `23.1.0-mcppls.10`.
+- The image is built over openkal-platform 0.24.3, stated only in
+  `openkal/clangd/mcpp.toml` (CI writes its probes from that line): its runtime
+  keeps a path's volume (`D:/a/..` stays on `D:`, 0.24.2), and its okrun.exe
+  reserves a thread's stack for the image's main thread on Windows, where
+  clangd.okb with `--sync` overflowed 1 MiB indexing the MSVC headers (0.24.3,
+  found by the image e2e on windows-2022).
+- The warm-prime gate takes the median of four alternating native/image pairs
+  and classifies a measurement as invalid or failed; only an invalid one may be
+  repeated ([policy](ci/performance-policy.md)). The 0.0.20 Linux x64 cold-CPU
+  exception has expired.
+- The engine is released only as the ok image: a release publishes
+  `clangd-23.1.0-mcppls.10-openkal.tar.gz` and `openkal-acceptance.json`, and no
+  native archive (0.0.20 is the last with them; mcpp-language-server has used
+  only the ok image since 0.0.20). A push or a pull request builds the image,
+  accepts it on the four systems and builds one native engine, linux-x64, for the
+  series' tests. The other native engines, the Ubuntu 20.04 floor packages,
+  warm-prime and the shard exchange run in a comparison run, a manual dispatch of
+  `build-test`; a release's entry names its comparison run, which the release
+  workflow checks.
+- The end-to-end regressions (`tests/e2e`) run against `clangd.okb` under okrun on
+  the four systems, in each system's acceptance (`ci/e2e_suite.py`; the scripts
+  take the runner from `MCPPLS_ENGINE_RUNNER`). The two cases that read a BMI
+  another compiler wrote need the engine's own clang and are reported as not run
+  there; they run on the native engine.
+- The image starts a module worker program other than itself
+  (`--modules-builder-worker-executable`) directly; only the image itself is
+  started again through its loader.
+- The shard exchange names each engine absolutely, since each session runs in
+  its project's directory.
+
 ## [0.0.20]
 
 - Readiness CPU measurement uses version 3 accounting, avoiding a child-reap
