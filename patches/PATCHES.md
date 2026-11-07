@@ -246,8 +246,9 @@ image.
 ## The 0.0.21 additions
 
 No patch of either series changes. The ok image is built with zlib, as the native engines are: llvm-project is
-configured with the headers of `compat.zlib` and the image links the library that dependency builds for the
-target (`openkal/okgen`, `openkal/clangd/mcpp.toml`). An index shard written by an engine with zlib compresses
+configured with the headers of `compat.zlib-ng` (zlib's API, zlib-ng's implementation with NEON and SSE2
+paths chosen at compile time) and the image links the library that dependency builds for the target
+(`openkal/okgen`, `openkal/clangd/mcpp.toml`). An index shard written by an engine with zlib compresses
 its string table, and the image built without it discarded every such shard ("Compressed string table, but zlib
 is unavailable") and indexed the files again. The image is built over openkal-platform 0.24.3 (its runtime keeps a path's volume; its okrun.exe reserves a thread's stack for the image's main thread on Windows), stated once in
 `openkal/clangd/mcpp.toml`, from which `ci/scripts/probe-platform.sh` writes every probe of CI. The warm-prime

@@ -22,11 +22,11 @@ int main() {
         mcpp::warning("MCPPLS_LLVM_DIR and MCPPLS_HOST_TOOLS name llvm-project with the series and the host's tablegen");
         return 1;
     }
-    // zlib for llvm-project's configuration: compat.zlib, a dependency of the image, whose library
-    // the image links; its headers are what CMake is given.
-    const std::string zlib = mcpp::dep_dir("zlib");
+    // zlib for llvm-project's configuration: compat.zlib-ng, a dependency of the image, whose
+    // library the image links; its headers are what CMake is given.
+    const std::string zlib = mcpp::dep_dir("zlib-ng");
     if (zlib.empty()) {
-        mcpp::warning("compat.zlib, a dependency of the image (mcpp.toml), is not in the graph");
+        mcpp::warning("compat.zlib-ng, a dependency of the image (mcpp.toml), is not in the graph");
         return 1;
     }
     const std::string dir = std::string(mcpp::out_dir()) + "/llvm";

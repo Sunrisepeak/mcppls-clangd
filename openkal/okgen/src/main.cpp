@@ -149,7 +149,7 @@ std::vector<std::string> split_command(std::string_view line) {
     return out;
 }
 
-// The directory of zlib.h in compat.zlib's tree: the tree itself or its one top directory.
+// The directory of zlib.h in compat.zlib-ng's tree: the tree itself or its one top directory.
 fs::path zlib_headers(const fs::path& root) {
     if (fs::exists(root / "zlib.h")) return root;
     std::error_code ec;
@@ -207,7 +207,7 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
             "-DLLVM_ENABLE_PLUGINS=OFF", "-DLLVM_ENABLE_WERROR=OFF",
             // zlib, as a native clangd has it: the index shards it writes compress their string
             // tables, and an engine without zlib cannot read them. CMake is given the headers; the
-            // library is linked by mcpp, which builds compat.zlib for the target, so the library
+            // library is linked by mcpp, which builds compat.zlib-ng for the target, so the library
             // CMake names (`z`) appears only in clangd's link line here, which nothing runs.
             "-DLLVM_ENABLE_ZLIB=FORCE_ON",
             "-DZLIB_INCLUDE_DIR=" + zlibHeaders.generic_string(), "-DZLIB_LIBRARY=z",

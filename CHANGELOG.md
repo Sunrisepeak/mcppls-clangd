@@ -8,6 +8,13 @@
   discarded them before ("Compressed string table, but zlib is unavailable")
   and indexed again; the native Windows engine had no zlib either, which the
   comparison run's shard exchange found.
+- The image's zlib is zlib-ng in its zlib-compatible form (`compat.zlib-ng`
+  2.3.3): the same API and streams, with inflate, adler32 and the deflate match
+  search on NEON (aarch64) and SSE2 (x86_64), chosen at compile time since an
+  image cannot ask the processor. With madler's zlib the image's warm start on
+  darwin-arm64, against the native engine on macOS's NEON libz, took 1.214–1.332
+  times the native processor time in every pair (limit 1.15); without zlib it
+  took 0.973–1.107 (comparison runs 42369457883 and 42386660489).
 - The engine reports itself as `23.1.0-mcppls.10`.
 - The image is built over openkal-platform 0.24.3, stated only in
   `openkal/clangd/mcpp.toml` (CI writes its probes from that line): its runtime

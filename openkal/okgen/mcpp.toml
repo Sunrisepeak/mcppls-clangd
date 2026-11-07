@@ -5,7 +5,7 @@
 # reads the build's contract (mcpp's `${mcpp.contract}`: the compiler, its words and the target
 # side of `<arch>-openkal`), writes a CMake toolchain file from it, configures llvm-project for
 # that target once, builds the static libraries clangd links, and writes them, in clangd's own
-# link order, as a linker response file. <zlib> is compat.zlib's tree, whose headers llvm-project
+# link order, as a linker response file. <zlib> is compat.zlib-ng's tree, whose headers llvm-project
 # is configured with. openkal/clangd's build program runs it as a `prepare`
 # action, with `${mcpp.contract}` as its first argument.
 [package]
