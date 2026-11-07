@@ -15,12 +15,15 @@ import subprocess
 import threading
 import time
 
+# The program that starts the engine: the system's runner when --engine is clangd.okb (tests/crash/replay.py).
+RUNNER = [os.environ['MCPPLS_ENGINE_RUNNER']] if os.environ.get('MCPPLS_ENGINE_RUNNER') else []
+
 
 class Engine:
     def __init__(self, binary, root, cache_mode="legacy", extra=()):
         self.root = root
         cache_flags = ['--modules-builder-owned-cache-payload-mib=0'] if cache_mode == 'legacy' else []
-        self.proc = subprocess.Popen([str(binary), '--experimental-modules-support',
+        self.proc = subprocess.Popen([*RUNNER, str(binary), '--experimental-modules-support',
             '--background-index=false', '--modules-builder-versioned-gc-threshold-seconds=0', '-j=2', *cache_flags, *extra],
             cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, start_new_session=os.name != 'nt')

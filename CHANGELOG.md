@@ -22,6 +22,16 @@
   warm-prime and the shard exchange run in a comparison run, a manual dispatch of
   `build-test`; a release's entry names its comparison run, which the release
   workflow checks.
+- The end-to-end regressions (`tests/e2e`) run against `clangd.okb` under okrun on
+  the four systems, in each system's acceptance (`ci/e2e_suite.py`; the scripts
+  take the runner from `MCPPLS_ENGINE_RUNNER`). The two cases that read a BMI
+  another compiler wrote need the engine's own clang and are reported as not run
+  there; they run on the native engine.
+- The image starts a module worker program other than itself
+  (`--modules-builder-worker-executable`) directly; only the image itself is
+  started again through its loader.
+- The shard exchange names each engine absolutely, since each session runs in
+  its project's directory.
 
 ## [0.0.20]
 

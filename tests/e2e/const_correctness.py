@@ -3,12 +3,16 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import queue
 import re
 import subprocess
 import threading
 import time
+
+# The program that starts the engine: the system's runner when --engine is clangd.okb (tests/crash/replay.py).
+RUNNER = [os.environ['MCPPLS_ENGINE_RUNNER']] if os.environ.get('MCPPLS_ENGINE_RUNNER') else []
 
 SOURCE = r'''#include <array>
 #include <ranges>
@@ -36,7 +40,7 @@ WARNING = re.compile(r"variable '([^']+)' .*can be declared 'const'", re.IGNOREC
 
 
 def raw_diagnostics(engine, root, source, text):
-    proc = subprocess.Popen([str(engine), '--sync', '--background-index=false',
+    proc = subprocess.Popen([*RUNNER, str(engine), '--sync', '--background-index=false',
                              '--enable-config', '--clang-tidy'], stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     messages = queue.Queue()

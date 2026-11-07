@@ -421,7 +421,7 @@ index 0a294e2..a389c2d 100644
    struct rlimit Previous;
    if (getrlimit(RLIMIT_AS, &Previous))
      return llvm::errorCodeToError(
-@@ -660,12 +667,25 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
+@@ -660,12 +667,29 @@ buildModuleInWorker(const CompilerInvocation &Invocation,
        StringRef(""), StringRef(""), StringRef(DiagnosticsPath)};
    const std::string MemoryToken =
        MemoryBudget ? MemoryBudget->bootstrapToken() : "";
@@ -431,12 +431,16 @@ index 0a294e2..a389c2d 100644
 +                              RequestPath, OwnerToken, MemoryToken};
 +  StringRef Program = Options.Executable;
 +#if defined(__OPENKAL__)
-+  // An ok image is started by the loader that started this one (openkal
-+  // clause 12): the loader, then the image and its arguments.
++  // This image is started again by the loader that started it (openkal
++  // clause 12): the loader, then the image and its arguments. Another worker
++  // program (--modules-builder-worker-executable) is a program of the system.
++  static int ImageAnchor;
 +  char LoaderName[4096];
 +  const kal_intptr LoaderLength = kal_env_loader(LoaderName, sizeof(LoaderName));
 +  std::string Loader;
-+  if (LoaderLength > 0 && LoaderLength < (kal_intptr)sizeof(LoaderName)) {
++  if (Options.Executable ==
++          llvm::sys::fs::getMainExecutable(nullptr, &ImageAnchor) &&
++      LoaderLength > 0 && LoaderLength < (kal_intptr)sizeof(LoaderName)) {
 +    Loader.assign(LoaderName, static_cast<size_t>(LoaderLength));
 +    Program = Loader;
 +    Args.insert(Args.begin(), Loader);

@@ -262,7 +262,7 @@ jobs:
     name: acceptance ${{ matrix.platform }}
     needs: bundle
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -355,3 +355,25 @@ jobs:
         with:
           name: acceptance-${{ matrix.platform }}
           path: '*.json'
+      # The engine's end-to-end regressions against what users run, on this system: clangd.okb under okrun
+      # (ci/e2e_suite.py). The compile commands name this system's clang; the two cases that read a BMI
+      # another compiler wrote need the engine's own clang and are reported as not run.
+      - name: The end-to-end regressions, against clangd.okb
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          case "${{ runner.os }}" in
+            Linux)   clang="$(command -v clang)" ;;
+            macOS)   clang="$(xcrun -f clang)" ;;
+            Windows) clang="C:/Program Files/LLVM/bin/clang.exe" ;;
+          esac
+          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "$clang" \
+            --platform ${{ matrix.platform }} --workdir "${{ runner.temp }}/e2e"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/e2e/e2e-suite.json
+            ${{ runner.temp }}/e2e/*.log
+          if-no-files-found: warn

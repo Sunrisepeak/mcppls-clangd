@@ -21,6 +21,8 @@ ap.add_argument("--image", nargs="+", required=True)
 ap.add_argument("--units", type=int, default=12)
 ap.add_argument("--timeout", type=int, default=600)
 a = ap.parse_args()
+# Each session runs in its project's directory: a program named relative to this one is named absolutely.
+a.native, a.image = ([os.path.abspath(x) if os.path.exists(x) else x for x in argv] for argv in (a.native, a.image))
 
 
 def project(at):
