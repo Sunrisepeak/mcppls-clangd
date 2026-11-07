@@ -16,12 +16,15 @@
   times the native processor time in every pair (limit 1.15); without zlib it
   took 0.973–1.107 (comparison runs 42369457883 and 42386660489).
 - The engine reports itself as `23.1.0-mcppls.10`.
-- The image is built over openkal-platform 0.24.3, stated only in
+- The image is built over openkal-platform 0.24.4, stated only in
   `openkal/clangd/mcpp.toml` (CI writes its probes from that line): its runtime
-  keeps a path's volume (`D:/a/..` stays on `D:`, 0.24.2), and its okrun.exe
+  keeps a path's volume (`D:/a/..` stays on `D:`, 0.24.2), its okrun.exe
   reserves a thread's stack for the image's main thread on Windows, where
   clangd.okb with `--sync` overflowed 1 MiB indexing the MSVC headers (0.24.3,
-  found by the image e2e on windows-2022).
+  found by the image e2e on windows-2022), and its okrun enters the image in its
+  convention's floating-point state, under which the C library reads a decimal
+  number on Windows as elsewhere (0.24.4). CI builds with mcpp 2026.11.7.2,
+  which resolves within the platform's version group.
 - The warm-prime gate takes the median of four alternating native/image pairs
   and classifies a measurement as invalid or failed; only an invalid one may be
   repeated ([policy](ci/performance-policy.md)). The 0.0.20 Linux x64 cold-CPU
