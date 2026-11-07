@@ -1,7 +1,9 @@
 name: release
 
-# Per-platform release artifacts (plan doc §4.3). Tags build and upload the
-# payloads; a manual dispatch packages artifacts only (dry run).
+# The engine's release: the ok image clangd.okb as the payload part
+# clangd-<engine>-openkal and where it is accepted (openkal-acceptance.json).
+# Native engines are not released (ci/performance-policy.md, "Comparison
+# runs"). Tags build and upload; a manual dispatch packages only (dry run).
 
 on:
   push:
@@ -41,117 +43,24 @@ jobs:
           PY
       - name: Reject experimental patches
         run: python3 ci/check_ledger.py --release
+      - name: The version names its comparison run (ci/performance-policy.md)
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+          version = pathlib.Path('RELEASE_VERSION').read_text().strip()
+          notes = pathlib.Path('CHANGELOG.md').read_text().split('## [' + version + ']', 1)[1].split('\n## [', 1)[0]
+          assert re.search(r'Comparison run: https://github\.com/Sunrisepeak/mcppls-clangd/actions/runs/[0-9]+', notes), \
+              f'the {version} changelog entry names no comparison run'
+          PY
 
   # clangd as an ok image: the payload part clangd-<engine>-openkal and where it is accepted.
   openkal:
     needs: eligibility
     uses: ./.github/workflows/openkal.yml
 
-  package:
-    needs: eligibility
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux-x64
-            os: ubuntu-24.04
-          - platform: linux-arm64
-            os: ubuntu-24.04-arm
-          - platform: darwin-arm64
-            os: macos-15
-          - platform: win32-x64
-            os: windows-2022
-    name: package ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install build tools
-        shell: bash
-        run: |
-          set -e
-          case "${{ matrix.platform }}" in
-            linux-*)  sudo apt-get update && sudo apt-get install -y ninja-build ccache ;;
-            darwin-*) brew install ninja ccache ;;
-            win32-*)  pip install ninja ;;
-          esac
-      - name: MSVC environment
-        if: matrix.platform == 'win32-x64'
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - uses: actions/cache@v4
-        with:
-          path: .ccache
-          key: ccache-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ github.sha }}
-          restore-keys: |
-            ccache-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-
-            ccache-${{ matrix.platform }}-
-      - uses: actions/cache@v4
-        with:
-          path: llvm-project
-          key: llvm-tree-${{ matrix.platform }}-${{ hashFiles('UPSTREAM') }}-${{ hashFiles('patches/**', 'overlay/**', 'ci/scripts/apply.sh') }}
-
-      # The same ccache build-test's floor job keeps (its key, without the commit).
-      - uses: actions/cache@v4
-        if: startsWith(matrix.platform, 'linux-')
-        with:
-          path: .ccache-floor
-          key: ccache-floor-clang12${{ matrix.platform == 'linux-arm64' && '-linux-arm64' || '' }}-${{ hashFiles('UPSTREAM', matrix.platform == 'linux-arm64' && 'ci/linux-floor-rootfs-arm64.json' || 'ci/linux-floor-rootfs.json') }}-${{ github.sha }}
-          restore-keys: |
-            ccache-floor-clang12${{ matrix.platform == 'linux-arm64' && '-linux-arm64' || '' }}-${{ hashFiles('UPSTREAM', matrix.platform == 'linux-arm64' && 'ci/linux-floor-rootfs-arm64.json' || 'ci/linux-floor-rootfs.json') }}-
-      # Linux packages are built and checked in the pinned Ubuntu 20.04 rootfs (glibc 2.31).
-      - uses: ./.github/actions/linux-floor
-        if: startsWith(matrix.platform, 'linux-')
-        with:
-          platform: ${{ matrix.platform }}
-
-      - name: Build fork clangd
-        if: "!startsWith(matrix.platform, 'linux-')"
-        shell: bash
-        env:
-          PLATFORM: ${{ matrix.platform }}
-          JOBS: 4
-          CCACHE_DIR: ${{ github.workspace }}/.ccache
-        run: ./ci/ci_build.sh
-
-      - name: Package payload part
-        if: "!startsWith(matrix.platform, 'linux-')"
-        shell: bash
-        env:
-          PLATFORM: ${{ matrix.platform }}
-        run: |
-          set -x
-          ./ci/scripts/package.sh
-
-      - name: Archive payload part
-        shell: bash
-        run: |
-          cd dist
-          PART=$(find . -maxdepth 1 -type d -name "clangd-*-${{ matrix.platform }}" | head -1)
-          sum() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi; }
-          tar czf "${PART}.tar.gz" "$PART"
-          sum "${PART}.tar.gz" > "${PART}.tar.gz.sha256"
-          echo "artifact: ${PART}.tar.gz"
-          # The unstripped binary beside it (package.sh), for naming a crash's frames; not part of the payload.
-          if [ -d "${PART}-symbols" ]; then
-            tar czf "${PART}-symbols.tar.gz" "${PART}-symbols"
-            sum "${PART}-symbols.tar.gz" > "${PART}-symbols.tar.gz.sha256"
-            echo "symbols: ${PART}-symbols.tar.gz"
-          fi
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: clangd-${{ matrix.platform }}
-          path: |
-            dist/*.tar.gz
-            dist/*.sha256
-
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [package, openkal]
+    needs: [openkal]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -165,8 +74,7 @@ jobs:
           PY
       - uses: actions/download-artifact@v4
         with:
-          pattern: clangd-*
-          merge-multiple: true
+          name: clangd-openkal
           path: dist
       - uses: actions/download-artifact@v4
         with:

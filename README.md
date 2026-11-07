@@ -6,9 +6,8 @@ monorepo, not a vendored source tree, not a runtime integration.
 
 The model is openkal-style: pin the upstream revision (`UPSTREAM`), carry the
 divergence as a numbered patch series (`patches/`) plus drop-in new files
-(`overlay/`), build with upstream CMake, release per-platform binaries using
-the same build paradigm as [clangd/clangd]'s releases, feeding
-[mcpp-language-server]'s payload machinery. Every patch maps to one row of
+(`overlay/`), build with upstream CMake and with mcpp as an ok image, and
+release the ok image to [mcpp-language-server]'s payload machinery. Every patch maps to one row of
 the upstream-defects register ([mcpp-language-server#24]) and carries a drop
 condition — when upstream lands the fix, the patch is dropped and the base is
 bumped.
@@ -37,10 +36,16 @@ the four systems and publishes where it is accepted (`openkal-acceptance.json`);
 mcppls uses `clangd.okb` where it is.
 
 The separate warm-prime check records readiness latency, CPU and complete
-page faults. Its [release policy](ci/performance-policy.md) documents the
-one-release 0.0.20 Linux x64 cold-CPU exception and the unchanged gates.
+page faults against native engines built from the same source, in a comparison
+run that is dispatched by hand; its [policy](ci/performance-policy.md) states
+the sampling rule, the gates and when a release carries such a run.
 The remaining OKE/OKB performance work is tracked in
 [mcppls issue 77](https://github.com/Sunrisepeak/mcpp-language-server/issues/77).
+
+From 0.0.21 a release publishes only the ok image. The native engines are built
+for the series' tests (linux-x64, on every change) and for comparison runs (all
+four), and are not released; 0.0.20 is the last release with native archives,
+and `v0.0.17`'s remain the acceptance reference.
 
 | Platform | Built on | Runs on |
 |---|---|---|
@@ -50,12 +55,9 @@ The remaining OKE/OKB performance work is tracked in
 | `win32-x64` | Windows Server 2022, MSVC | Windows x64; static CRT, no separate runtime |
 | `openkal` | Ubuntu 24.04, mcpp (`openkal/clangd`), clang 23 for `x86_64-openkal` and `aarch64-openkal` | every system an okrun serves: one `clangd.okb` of both architectures (`.github/workflows/openkal.yml`) |
 
-A release tag `v<version>` builds and publishes each platform's
-`clangd-<engine version>-<platform>.tar.gz` (`.github/workflows/release.yml`), and
-for Linux and macOS `clangd-<engine version>-<platform>-symbols.tar.gz`: the same
-clangd unstripped, which names the frames of a crash stack the shipped binary
-prints as module offsets (`llvm-symbolizer --obj=…/clangd/bin/clangd`; Windows
-publishes its PDB, see `ci/windows-symbols.md`).
+A release tag `v<version>` builds and publishes
+`clangd-<engine version>-openkal.tar.gz` and `openkal-acceptance.json`
+(`.github/workflows/release.yml`); its changelog entry names its comparison run.
 Raw evidence is not kept in the repository: `tests/evidence/README.md` says
 where each release's archive is, and `patches/HISTORY.md` maps the incremental
 patch numbers older notes use to the current series. The plan and architecture
@@ -66,9 +68,8 @@ live in [.agents/docs](.agents/docs).
 A change here reaches users through mcpp-language-server's payload, so it is
 tested there before it is released:
 
-1. A PR's CI (`build-test`) packages each platform's part as a release does,
-   with its proved `engine.json`, as the artifact `clangd-<platform>-portable`
-   (the Linux ones from the Ubuntu 20.04 floor job).
+1. A PR's CI (`build-test`) packages the ok image's part as a release does,
+   with its proved `engine.json`, as the artifact `clangd-openkal`.
 2. The mcpp-language-server PR that takes the change names that run in
    `packaging/engine-candidate.json`; its CI assembles every payload from those
    parts and runs its whole suite on them

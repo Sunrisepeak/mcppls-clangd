@@ -33,6 +33,24 @@ engine 0.0.21 (mcpp design 2026-11-07, §4.5 item 4 and D7).
   repetition is a complete measurement of at least four pairs. A valid
   measurement that misses a limit is the result; it is not repeated.
 
+## Comparison runs
+
+The engine is released only as the ok image; native engines are built to be
+measured against, never released. A push or a pull request builds the image,
+accepts it on the four systems against the pinned native reference
+(`openkal.yml`), and builds one native engine, linux-x64, for the series' unit
+and lit tests. The measurement above runs only in a comparison run: a manual
+dispatch of `build-test` naming a platform or `all`, which builds those native
+engines, packages them as a release would, and runs warm-prime and the shard
+exchange on each.
+
+A release whose engine inputs (`UPSTREAM`, `patches/`, `overlay/`, `openkal/`,
+`ci/scripts/env.sh`) differ from the previous release's carries a comparison run
+with `all` on a commit with the same engine inputs, and its changelog entry names
+that run (`Comparison run: <run URL>`); the release workflow refuses a version
+whose entry names none. A release that changes no engine input names the
+comparison run of the release whose engine it carries.
+
 ## Limits
 
 On Linux x64, Linux ARM64 and macOS ARM64, the limits are 1.15 times native
