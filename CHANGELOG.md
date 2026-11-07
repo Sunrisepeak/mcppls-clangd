@@ -6,9 +6,12 @@
   reads the index shards an engine with zlib writes. It discarded them before
   ("Compressed string table, but zlib is unavailable") and indexed again.
 - The engine reports itself as `23.1.0-mcppls.10`.
-- The image is built over openkal-platform 0.24.2, whose runtime keeps a path's
-  volume (`D:/a/..` stays on `D:`), stated only in `openkal/clangd/mcpp.toml`;
-  CI writes its probes from that line.
+- The image is built over openkal-platform 0.24.3, stated only in
+  `openkal/clangd/mcpp.toml` (CI writes its probes from that line): its runtime
+  keeps a path's volume (`D:/a/..` stays on `D:`, 0.24.2), and its okrun.exe
+  reserves a thread's stack for the image's main thread on Windows, where
+  clangd.okb with `--sync` overflowed 1 MiB indexing the MSVC headers (0.24.3,
+  found by the image e2e on windows-2022).
 - The warm-prime gate takes the median of four alternating native/image pairs
   and classifies a measurement as invalid or failed; only an invalid one may be
   repeated ([policy](ci/performance-policy.md)). The 0.0.20 Linux x64 cold-CPU
