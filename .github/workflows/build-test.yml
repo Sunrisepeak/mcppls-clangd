@@ -43,8 +43,9 @@ jobs:
     timeout-minutes: 300
     concurrency:
       # A long Windows build must not queue newer Linux/macOS results.
-      # Preserve active builds and their caches independently per platform.
-      group: build-test-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
+      # Preserve active builds and their caches independently per platform, and a comparison run's
+      # apart from the pull request's: one would otherwise take the other's pending place.
+      group: build-test-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}-${{ matrix.platform }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
