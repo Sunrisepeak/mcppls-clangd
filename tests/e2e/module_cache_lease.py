@@ -126,7 +126,8 @@ class Engine:
 
 
 def lease_holders(lease, pids):
-    """The engines among pids (and their workers) that hold the file lease open."""
+    """The engines among pids (and their workers) that hold the file lease open; None where the
+    system cannot say."""
     lease = os.path.realpath(lease)
     if sys.platform.startswith('linux'):
         family = set(pids)
@@ -145,6 +146,10 @@ def lease_holders(lease, pids):
             except OSError:
                 pass
         return held
+    # Windows: no program of the system names the processes that have a file open; the lease is
+    # observed through what it protects (the published generation survives collection).
+    if os.name == 'nt':
+        return None
     # macOS: the system's lsof names the processes that have the file open.
     found = subprocess.run(['lsof', '-t', lease], capture_output=True, text=True)
     return sorted(int(p) for p in found.stdout.split() if p.isdigit())
@@ -217,7 +222,9 @@ def main():
             report['checks']['reused_where_published'] = (
                 f'Reusing owned module A from {published}' in reader.logs.decode(errors='replace'))
             report['checks']['no_copy_made'] = payloads() == [published]
-            report['checks']['reader_holds_lease'] = reader.proc.pid in lease_holders(lease, [reader.proc.pid])
+            holders = lease_holders(lease, [reader.proc.pid])
+            if holders is not None:
+                report['checks']['reader_holds_lease'] = reader.proc.pid in holders
             peer = Engine(engine, root, mode); clients.append(peer); peer.ready()
             report['checks']['peer_reads_the_same_generation'] = payloads() == [published]
             reader.stop(kill=True)
@@ -227,7 +234,8 @@ def main():
             time.sleep(6)
             report['engines'] = {'reader': reader.proc.pid, 'peer': peer.proc.pid, 'collector': collector.proc.pid}
             report['holders'] = lease_holders(lease, [peer.proc.pid, collector.proc.pid])
-            report['checks']['live_readers_hold_lease'] = peer.proc.pid in report['holders']
+            if report['holders'] is not None:
+                report['checks']['live_readers_hold_lease'] = peer.proc.pid in report['holders']
             report['checks']['published_survives_collection'] = published.exists() and unchanged()
             report['checks']['still_no_copy'] = payloads() == [published]
         else:
