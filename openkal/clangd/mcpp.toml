@@ -24,8 +24,8 @@ okgen = { path = "../okgen", tools = ["okgen"] }
 # with its headers (okgen, LLVM_ENABLE_ZLIB=FORCE_ON) and the image links the library this
 # dependency builds for the target. A native clangd links zlib too, so the shards either engine
 # writes the other reads (mcpp design 2026-11-07, §4.5 item 4).
-[target.'cfg(os = "openkal")'.dependencies.compat]
-zlib = "1.3.2"
+[target.'cfg(os = "openkal")'.dependencies]
+compat.zlib = "1.3.2"
 
 # The platform of the ok images, stated here only: ci/scripts/probe-platform.sh writes every probe
 # of CI from this line. openkal-platform 0.24.3, openkal 0.24 -- an image at a base of each boot,
