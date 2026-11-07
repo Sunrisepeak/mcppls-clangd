@@ -561,6 +561,9 @@ jobs:
             --pair native-1-warm.json image-1-warm.json --pair native-2-warm.json image-2-warm.json \
             --pair native-3-warm.json image-3-warm.json --pair native-4-warm.json image-4-warm.json \
             --out warm-prime-${{ matrix.platform }}.json
+      - name: The index shards one engine writes, the other reads
+        if: ${{ !cancelled() }}
+        run: python ci/shard_exchange.py --workdir shard-exchange --std-args="$STD_ARGS" --native "$NATIVE" --image "$OKRUN" "$OKB"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -569,4 +572,6 @@ jobs:
             *-warm.json
             warm-prime-*.json
             wp-*/session-*.log
+            shard-exchange/*.log
+            shard-exchange/shard-exchange.json
           if-no-files-found: warn
