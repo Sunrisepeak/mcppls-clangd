@@ -160,8 +160,9 @@ def main():
     parser.add_argument('--cache-mode', choices=['auto', 'legacy', 'owned'], default='auto')
     args = parser.parse_args()
     engine, clang = args.engine.resolve(), args.clang.resolve()
+    # A program named without its suffix on Windows; an image (clangd.okb) or a named .exe is as given.
     if os.name == 'nt':
-        engine, clang = engine.with_suffix('.exe'), clang.with_suffix('.exe')
+        engine, clang = (p if p.is_file() else p.with_suffix('.exe') for p in (engine, clang))
     root = args.workdir.resolve()
     root.mkdir(parents=True, exist_ok=True)
     for name, text in [('A.cppm', 'export module A;\nexport int fn1(){return 1;}\n'),

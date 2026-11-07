@@ -376,4 +376,6 @@ jobs:
           path: |
             ${{ runner.temp }}/e2e/e2e-suite.json
             ${{ runner.temp }}/e2e/*.log
+            ${{ runner.temp }}/e2e/*/result*.json
+            ${{ runner.temp }}/e2e/*/*/result*.json
           if-no-files-found: warn

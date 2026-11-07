@@ -69,6 +69,12 @@ for name, script, extra, only, reads_bmi in CASES:
     if reads_bmi and not a.matching_clang:
         results.append({"case": name, "status": "not_run", "reason": "reads a BMI only the engine's own clang writes"})
         continue
+    if name == "module-worker-diagnostics" and a.runner:
+        # The bounded FIFO transport is native Linux's; the image takes the portable one (issue 19).
+        results.append({"case": name, "status": "not_run",
+                        "reason": "the image's worker diagnostics take the portable transport, not native Linux's FIFO "
+                                  "(https://github.com/Sunrisepeak/mcppls-clangd/issues/19)"})
+        continue
     if script == "module_directive_diagnostics.py":   # its own runner option, and no compiler
         argv = [sys.executable, str(ROOT / "tests/e2e" / script), "--engine", engine,
                 "--output", str(work / f"{name}.json"), *(["--runner", env["MCPPLS_ENGINE_RUNNER"]] if a.runner else [])]
