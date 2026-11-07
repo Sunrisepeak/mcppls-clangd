@@ -209,8 +209,8 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
             // tables, and an engine without zlib cannot read them. CMake is given the headers; the
             // library is linked by mcpp, which builds compat.zlib for the target, so the library
             // CMake names (`z`) appears only in clangd's link line here, which nothing runs.
-            "-DLLVM_ENABLE_ZLIB=FORCE_ON",
-            "-DZLIB_INCLUDE_DIR=" + zlibHeaders.generic_string(), "-DZLIB_LIBRARY=z",
+            // PROBE (darwin warm-prime, 0.0.21): the image without zlib, as 0.0.20 was.
+            "-DLLVM_ENABLE_ZLIB=OFF",
             "-DLLVM_ENABLE_ZSTD=OFF", "-DLLVM_ENABLE_LIBXML2=OFF",
             "-DLLVM_ENABLE_TERMINFO=OFF", "-DLLVM_ENABLE_LIBEDIT=OFF", "-DLLVM_ENABLE_FFI=OFF",
             "-DLLVM_ENABLE_LIBPFM=OFF", "-DLLVM_ENABLE_CURL=OFF", "-DLLVM_ENABLE_HTTPLIB=OFF",
