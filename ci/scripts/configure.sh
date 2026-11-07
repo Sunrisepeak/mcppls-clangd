@@ -12,7 +12,8 @@ COMPILER_FLAGS=()
 # LLVM_ENABLE_ZLIB=FORCE_ON): an engine without zlib discards a shard another wrote ("Compressed string
 # table, but zlib is unavailable") and indexes again. A build that finds no zlib stops here.
 EXTRA=(-DLLVM_ENABLE_ZLIB=FORCE_ON)
-[[ -n "${ZLIB_ROOT:-}" ]] && EXTRA+=(-DZLIB_ROOT="$ZLIB_ROOT" -DZLIB_USE_STATIC_LIBS=ON)
+# A zlib the system does not provide is named by its header directory and library (Windows: vcpkg's static one).
+[[ -n "${ZLIB_LIBRARY:-}" ]] && EXTRA+=(-DZLIB_INCLUDE_DIR="$ZLIB_INCLUDE_DIR" -DZLIB_LIBRARY="$ZLIB_LIBRARY")
 case "$PLATFORM" in
   linux-*)
     # recipe: old-glibc container is the compat floor; static libgcc + deps.

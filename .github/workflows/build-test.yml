@@ -68,7 +68,9 @@ jobs:
               # zlib for the engine's index shards, static and over the static C runtime (/MT), so the
               # native engine and the image read the shards each other writes (ci/shard_exchange.py).
               "$VCPKG_INSTALLATION_ROOT/vcpkg" install zlib:x64-windows-static
-              echo "ZLIB_ROOT=$VCPKG_INSTALLATION_ROOT/installed/x64-windows-static" >> "$GITHUB_ENV"
+              zlib="$(cygpath -m "$VCPKG_INSTALLATION_ROOT")/installed/x64-windows-static"
+              test -f "$zlib/lib/zlib.lib"
+              { echo "ZLIB_INCLUDE_DIR=$zlib/include"; echo "ZLIB_LIBRARY=$zlib/lib/zlib.lib"; } >> "$GITHUB_ENV"
               ;;
           esac
 
