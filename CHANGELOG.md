@@ -2,9 +2,12 @@
 
 ## [0.0.21]
 
-- The ok image (`clangd.okb`) is built with zlib, as the native engines are, and
-  reads the index shards an engine with zlib writes. It discarded them before
-  ("Compressed string table, but zlib is unavailable") and indexed again.
+- The ok image (`clangd.okb`) and every native engine are built with zlib
+  (`LLVM_ENABLE_ZLIB=FORCE_ON`; on Windows a static zlib over the static C
+  runtime), so each reads the index shards the other writes. The image
+  discarded them before ("Compressed string table, but zlib is unavailable")
+  and indexed again; the native Windows engine had no zlib either, which the
+  comparison run's shard exchange found.
 - The engine reports itself as `23.1.0-mcppls.10`.
 - The image is built over openkal-platform 0.24.3, stated only in
   `openkal/clangd/mcpp.toml` (CI writes its probes from that line): its runtime

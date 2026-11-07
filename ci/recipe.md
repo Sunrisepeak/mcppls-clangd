@@ -42,6 +42,9 @@ do the same.
 
 - `windows-2022` runner + MSVC via `vcvars64`
 - `-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` (static CRT)
+- zlib from vcpkg's `x64-windows-static` (static, `/MT`) with
+  `-DLLVM_ENABLE_ZLIB=FORCE_ON`: the engine reads the compressed index shards
+  the ok image and the other native engines write
 - a separate debug-symbols artifact ships the PDBs (upstream:
   `clangd-debug-symbols-*.7z`) — the `win-symbols` job reuses this channel
   for the UP-12/13/20 stack hunt

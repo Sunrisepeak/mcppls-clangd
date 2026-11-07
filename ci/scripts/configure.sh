@@ -8,7 +8,11 @@ COMPILER_FLAGS=()
 [[ -n "$CC"  ]] && COMPILER_FLAGS+=(-DCMAKE_C_COMPILER="$CC")
 [[ -n "$CXX" ]] && COMPILER_FLAGS+=(-DCMAKE_CXX_COMPILER="$CXX")
 
-EXTRA=()
+# Every native engine reads and writes compressed index shards, as the ok image does (openkal/clangd,
+# LLVM_ENABLE_ZLIB=FORCE_ON): an engine without zlib discards a shard another wrote ("Compressed string
+# table, but zlib is unavailable") and indexes again. A build that finds no zlib stops here.
+EXTRA=(-DLLVM_ENABLE_ZLIB=FORCE_ON)
+[[ -n "${ZLIB_ROOT:-}" ]] && EXTRA+=(-DZLIB_ROOT="$ZLIB_ROOT" -DZLIB_USE_STATIC_LIBS=ON)
 case "$PLATFORM" in
   linux-*)
     # recipe: old-glibc container is the compat floor; static libgcc + deps.
