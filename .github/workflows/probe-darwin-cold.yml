@@ -41,8 +41,10 @@ jobs:
           native="$(find native -path '*/clangd/bin/clangd' | head -1)"; chmod +x "$(dirname "$native")"/*
           d=h; mkdir -p "$d/src"
           printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.'"'"'cfg(os = "openkal")'"'"']\nplatform = "openkal-platform@0.24.4"\n' > "$d/mcpp.toml"
-          printf 'int main() { return 0; }\n' > "$d/src/main.cpp"
+          printf 'import std;\nint main() { std::println("hardware_concurrency {}", std::thread::hardware_concurrency()); return 0; }\n' > "$d/src/main.cpp"
           (cd "$d" && mcpp build --target aarch64-openkal > /dev/null && mcpp self env --target aarch64-openkal --format json) > tools.json
+          echo "native: $(sysctl -n hw.ncpu) logical, $(sysctl -n hw.physicalcpu) physical" | tee -a "$GITHUB_STEP_SUMMARY"
+          (cd "$d" && mcpp run --target aarch64-openkal) 2>/dev/null | tail -1 | sed 's/^/image: /' | tee -a "$GITHUB_STEP_SUMMARY"
           echo "OKRUN=$(python3 -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")" >> "$GITHUB_ENV"
           echo "NATIVE=$native" >> "$GITHUB_ENV"
           echo "OKB=$(ls okb/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
