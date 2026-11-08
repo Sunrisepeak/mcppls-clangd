@@ -24,6 +24,16 @@ import threading
 import time
 
 
+# The program that starts the engine, before it: empty for a native engine; for clangd.okb, the ok image the
+# engine is distributed as, the system's runner (okrun), which MCPPLS_ENGINE_RUNNER names.
+RUNNER = [os.environ["MCPPLS_ENGINE_RUNNER"]] if os.environ.get("MCPPLS_ENGINE_RUNNER") else []
+
+
+def command(engine, *arguments):
+    """The command that starts `engine` with `arguments`: through the runner when the engine is an image."""
+    return [*RUNNER, str(engine), *arguments]
+
+
 def executable(path):
     path = path.resolve()
     if not path.is_file() and path.with_suffix(".exe").is_file():
@@ -138,7 +148,7 @@ def replay(engine, manifest, process_started=None, timeout_diagnostics=None, req
     if not 0 < timeout <= 600:
         raise ValueError("deadline must be in (0, 600]")
     # New process unit: POSIX group / Windows process tree, including helpers.
-    proc = subprocess.Popen([str(engine), *case.get("flags", [])], cwd=project,
+    proc = subprocess.Popen(command(engine, *case.get("flags", [])), cwd=project,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, start_new_session=os.name != "nt")
     messages = queue.Queue()

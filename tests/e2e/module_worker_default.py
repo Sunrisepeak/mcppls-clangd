@@ -67,38 +67,53 @@ def main():
     }))
     stopped, observations, monitors = threading.Event(), {}, []
     captured = {}
+    # clangd.okb starts each worker through the loader that started it, and openkal states no address-space
+    # ceiling: the parent's memory budget is an image worker's bound (openkal/patches, FEATURE-45).
+    image = bool(replay.RUNNER)
+
+    def descendants(pid):
+        # Pool children belong to the launching thread, not necessarily the
+        # leader. Read every task's child list instead of missing those PIDs,
+        # and below them: a runner may stand between the engine and its worker.
+        pending, seen = [str(pid)], []
+        while pending:
+            for task in Path(f'/proc/{pending.pop()}/task').glob('*'):
+                try:
+                    children = (task / 'children').read_text().split()
+                except OSError:
+                    continue
+                for child in children:
+                    if child not in seen:
+                        seen.append(child)
+                        pending.append(child)
+        return seen
 
     def started(proc, deadline):
         def observe():
-            # Pool children belong to the launching thread, not necessarily the
-            # leader. Read every task's child list instead of missing those PIDs.
             while not stopped.wait(0.001) and proc.poll() is None:
-                for task in Path(f'/proc/{proc.pid}/task').glob('*'):
+                for child in descendants(proc.pid):
                     try:
-                        children = (task / 'children').read_text().split()
-                    except OSError:
-                        continue
-                    for child in children:
-                        try:
-                            command = Path(f'/proc/{child}/cmdline').read_bytes().split(b'\0')
-                            if b'--module-build-worker' not in command:
-                                continue
-                            if args.dependency_mode != 'none' and child not in captured:
-                                try:
-                                    captured[child] = json.loads(Path(command[2].decode()).read_text())
-                                except (OSError, ValueError):
-                                    pass
-                            limits = Path(f'/proc/{child}/limits').read_text()
-                            line = next(x for x in limits.splitlines() if x.startswith('Max address space'))
-                            columns = line[len('Max address space'):].split()
-                            # Bootstrap may still be applying the bound. Keep
-                            # the observed checked state, not an earlier max.
-                            if columns[:2] != ['unlimited', 'unlimited']:
-                                observations[child] = {'command': [x.decode() for x in command if x],
-                                                       'address_space': columns[:2],
-                                                       'cgroup': Path(f'/proc/{child}/cgroup').read_text()}
-                        except (OSError, StopIteration):
-                            pass
+                        command = Path(f'/proc/{child}/cmdline').read_bytes().split(b'\0')
+                        if b'--module-build-worker' not in command:
+                            continue
+                        at = command.index(b'--module-build-worker')
+                        if args.dependency_mode != 'none' and child not in captured:
+                            try:
+                                captured[child] = json.loads(Path(command[at + 1].decode()).read_text())
+                            except (OSError, ValueError):
+                                pass
+                        limits = Path(f'/proc/{child}/limits').read_text()
+                        line = next(x for x in limits.splitlines() if x.startswith('Max address space'))
+                        columns = line[len('Max address space'):].split()
+                        # Bootstrap may still be applying the bound. Keep
+                        # the observed checked state, not an earlier max.
+                        if image or columns[:2] != ['unlimited', 'unlimited']:
+                            observations[child] = {'command': [x.decode() for x in command if x],
+                                                   'worker_argument': at,
+                                                   'address_space': columns[:2],
+                                                   'cgroup': Path(f'/proc/{child}/cgroup').read_text()}
+                    except (OSError, StopIteration, ValueError):
+                        pass
         thread = threading.Thread(target=observe)
         monitors.append(thread)
         thread.start()
@@ -130,13 +145,17 @@ def main():
         assert result['dependency_output_absent'], 'Use.d dependency output escaped'
         assert dependency.read_bytes() == originals[dependency], 'existing M.d was modified'
     for item in observations.values():
-        soft, hard = map(int, item['address_space'])
-        assert soft == hard and 0 < hard <= 4096 * 1024 * 1024
-        request = Path(item['command'][2])
+        at = item['worker_argument']
+        if image:
+            assert Path(item['command'][0]).name == Path(replay.RUNNER[0]).name, item
+        else:
+            soft, hard = map(int, item['address_space'])
+            assert soft == hard and 0 < hard <= 4096 * 1024 * 1024
+        request = Path(item['command'][at + 1])
         assert not request.parent.exists(), f'worker unit survives normal shutdown: {request.parent}'
         if any(flag.startswith('--modules-builder-worker-cgroup-root=') for flag in args.engine_flag):
             assert '/clangd-module-workers-' in item['cgroup'], item
-            group = Path(item['command'][4].split(':', 3)[3])
+            group = Path(item['command'][at + 3].split(':', 3)[3])
             assert not group.exists(), f'owned memory group survives normal shutdown: {group}'
     print(json.dumps({'outcome': 'pass', 'observed_workers': len(observations),
                       'dependency_mode': args.dependency_mode,

@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  MCPP_VERSION: 2026.11.5.1
+  MCPP_VERSION: 2026.11.7.2
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
   NATIVE_RELEASE: v0.0.17
@@ -137,16 +137,7 @@ jobs:
           source ci/scripts/env.sh
           export FORK_SUFFIX
           t=${{ matrix.arch }}-openkal
-          mkdir -p tools-of/src
-          cat > tools-of/mcpp.toml <<'TOML'
-          [package]
-          name    = "tools-of"
-          version = "0.1.0"
-
-          [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.24.0"
-          TOML
-          printf 'int main() { return 0; }\n' > tools-of/src/main.cpp
+          bash ci/scripts/probe-platform.sh tools-of
           (cd tools-of && mcpp build --target "$t" > /dev/null)
           (cd tools-of && mcpp self env --target "$t" --format json) > tools.json
           tool() { python3 -c "import json,sys; d=json.load(open('tools.json'))['data']; print(d['runner']['program'] if sys.argv[1] == 'okrun' else d['tools'][sys.argv[1]])" "$1"; }
@@ -217,16 +208,7 @@ jobs:
           export PATH="$HOME/.xlings/subos/current/bin:$PATH"
           xlings install "mcpp@$MCPP_VERSION" -y -g
           # okld and okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
-          mkdir -p h/src
-          cat > h/mcpp.toml <<'TOML'
-          [package]
-          name    = "h"
-          version = "0.1.0"
-
-          [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.24.0"
-          TOML
-          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          bash ci/scripts/probe-platform.sh h
           (cd h && mcpp build --target x86_64-openkal > /dev/null)
           (cd h && mcpp self env --target x86_64-openkal --format json) > tools.json
           okld="$(python -c "import json; print(json.load(open('tools.json'))['data']['tools']['okld'])")"
@@ -280,7 +262,7 @@ jobs:
     name: acceptance ${{ matrix.platform }}
     needs: bundle
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -331,16 +313,7 @@ jobs:
             sleep 30
           done
           # okld and okrun of the platform the images are built over (openkal/clangd/mcpp.toml).
-          mkdir -p h/src
-          cat > h/mcpp.toml <<'TOML'
-          [package]
-          name    = "h"
-          version = "0.1.0"
-
-          [target.'cfg(os = "openkal")']
-          platform = "openkal-platform@0.24.0"
-          TOML
-          printf 'int main() { return 0; }\n' > h/src/main.cpp
+          bash ci/scripts/probe-platform.sh h
           (cd h && mcpp build --target ${{ matrix.arch }}-openkal > /dev/null)
           (cd h && mcpp self env --target ${{ matrix.arch }}-openkal --format json) > tools.json
           okrun="$(python -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")"
@@ -382,3 +355,27 @@ jobs:
         with:
           name: acceptance-${{ matrix.platform }}
           path: '*.json'
+      # The engine's end-to-end regressions against what users run, on this system: clangd.okb under okrun
+      # (ci/e2e_suite.py). The compile commands name this system's clang; the two cases that read a BMI
+      # another compiler wrote need the engine's own clang and are reported as not run.
+      - name: The end-to-end regressions, against clangd.okb
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          case "${{ runner.os }}" in
+            Linux)   clang="$(command -v clang)" ;;
+            macOS)   clang="$(xcrun -f clang)" ;;
+            Windows) clang="C:/Program Files/LLVM/bin/clang.exe" ;;
+          esac
+          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "$clang" \
+            --platform ${{ matrix.platform }} --workdir "${{ runner.temp }}/e2e"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/e2e/e2e-suite.json
+            ${{ runner.temp }}/e2e/*.log
+            ${{ runner.temp }}/e2e/*/result*.json
+            ${{ runner.temp }}/e2e/*/*/result*.json
+          if-no-files-found: warn

@@ -22,13 +22,20 @@ int main() {
         mcpp::warning("MCPPLS_LLVM_DIR and MCPPLS_HOST_TOOLS name llvm-project with the series and the host's tablegen");
         return 1;
     }
+    // zlib for llvm-project's configuration: compat.zlib-ng, a dependency of the image, whose
+    // library the image links; its headers are what CMake is given.
+    const std::string zlib = mcpp::dep_dir("zlib-ng");
+    if (zlib.empty()) {
+        mcpp::warning("compat.zlib-ng, a dependency of the image (mcpp.toml), is not in the graph");
+        return 1;
+    }
     const std::string dir = std::string(mcpp::out_dir()) + "/llvm";
     const std::string rsp = dir + "/clangd.rsp";
     mcpp::action a;
     a.id = "llvm:clangd-libraries";
     a.role = mcpp::roles::prepare;
     a.arg(mcpp::dep_bin("okgen", "okgen"))
-     .arg("build").arg("${mcpp.contract}").arg(llvm.c_str()).arg(host.c_str()).arg(dir.c_str()).arg(rsp.c_str())
+     .arg("build").arg("${mcpp.contract}").arg(llvm.c_str()).arg(host.c_str()).arg(dir.c_str()).arg(rsp.c_str()).arg(zlib.c_str())
      .output((dir + ".stamp").c_str())
      .output_dir(dir.c_str())
      .submit();
