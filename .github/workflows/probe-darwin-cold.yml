@@ -1,0 +1,146 @@
+name: "probe: darwin cold start of clangd.okb"
+
+# Temporary: which part makes the image's cold start on darwin-arm64 slower in
+# 0.0.21's comparison run (42416069243: cold ready 1.318, cold page faults 3.6
+# times native) than in 42386660489 (1.092, 2.95): the image (zlib-ng over
+# openkal-platform 0.24.4 against madler's zlib over 0.24.2) or okrun (0.24.4's
+# against 0.24.2's). Each pairing is measured as warm-prime measures, cold
+# session first. It prints and never asserts.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  spawn:
+    # How long one start of the engine takes, which a cold session pays once per module worker
+    # (176 here): `--version` of the native engine and of the image under okrun, 60 starts each,
+    # alternating, with each start's wall time and the faults of the run.
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults: { run: { shell: bash } }
+    env:
+      MCPP_VERSION: 2026.11.7.2
+      XLINGS_VERSION: v2026.10.26.1
+      XLINGS_NON_INTERACTIVE: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: xlings, mcpp, the image, the native engine, okrun
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
+          export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          for attempt in 1 2 3 4 5; do xlings install "mcpp@$MCPP_VERSION" -y -g && break; sleep 30; done
+          gh run download 42416069243 -R "$GITHUB_REPOSITORY" -n clangd-openkal -D part
+          mkdir -p okb && tar xzf part/clangd-*-openkal.tar.gz -C okb
+          gh run download 42386660489 -R "$GITHUB_REPOSITORY" -n clangd-darwin-arm64-portable -D native
+          native="$(find native -path '*/clangd/bin/clangd' | head -1)"; chmod +x "$(dirname "$native")"/*
+          d=h; mkdir -p "$d/src"
+          printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.'"'"'cfg(os = "openkal")'"'"']\nplatform = "openkal-platform@0.24.4"\n' > "$d/mcpp.toml"
+          printf 'import std;\nint main() { std::println("hardware_concurrency {}", std::thread::hardware_concurrency()); return 0; }\n' > "$d/src/main.cpp"
+          (cd "$d" && mcpp build --target aarch64-openkal > /dev/null && mcpp self env --target aarch64-openkal --format json) > tools.json
+          echo "native: $(sysctl -n hw.ncpu) logical, $(sysctl -n hw.physicalcpu) physical" | tee -a "$GITHUB_STEP_SUMMARY"
+          (cd "$d" && mcpp run --target aarch64-openkal) 2>/dev/null | tail -1 | sed 's/^/image: /' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "OKRUN=$(python3 -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")" >> "$GITHUB_ENV"
+          echo "NATIVE=$native" >> "$GITHUB_ENV"
+          echo "OKB=$(ls okb/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+      - name: Sixty starts each
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import os, resource, statistics, subprocess, time
+          native, okrun, okb = os.environ["NATIVE"], os.environ["OKRUN"], os.environ["OKB"]
+          def start(argv):
+              t = time.perf_counter()
+              subprocess.run(argv + ["--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+              return (time.perf_counter() - t) * 1000
+          for argv in ([native], [okrun, okb]):
+              start(argv)  # the first start pages the file in
+          times = {"native": [], "image": []}
+          for k in range(60):
+              times["native"].append(start([native]))
+              times["image"].append(start([okrun, okb]))
+          for name, v in times.items():
+              q = statistics.quantiles(v, n=10)
+              print(f"{name}: median {statistics.median(v):.1f} ms, p10 {q[0]:.1f}, p90 {q[-1]:.1f}, min {min(v):.1f}")
+          ru = resource.getrusage(resource.RUSAGE_CHILDREN)
+          print(f"children: minor faults {ru.ru_minflt}, major {ru.ru_majflt}")
+          PY
+          ls -la "$OKB" "$NATIVE"
+
+  measure:
+    if: false   # measured in the run before
+    runs-on: macos-15
+    timeout-minutes: 180
+    defaults: { run: { shell: bash } }
+    env:
+      MCPP_VERSION: 2026.11.7.2
+      XLINGS_VERSION: v2026.10.26.1
+      XLINGS_NON_INTERACTIVE: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install psutil
+      - name: xlings and mcpp
+        run: |
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          for attempt in 1 2 3 4 5; do xlings install "mcpp@$MCPP_VERSION" -y -g && break; sleep 30; done
+      - name: The two images, the native engine, the two okruns
+        run: |
+          set -euo pipefail
+          for pair in new:42416069243 old:42386660489; do
+            name=${pair%%:*}; run=${pair#*:}
+            gh run download "$run" -R "$GITHUB_REPOSITORY" -n clangd-openkal -D "part-$name"
+            mkdir -p "okb-$name" && tar xzf part-$name/clangd-*-openkal.tar.gz -C "okb-$name"
+          done
+          gh run download 42386660489 -R "$GITHUB_REPOSITORY" -n clangd-darwin-arm64-portable -D native
+          native="$(find native -path '*/clangd/bin/clangd' | head -1)"; chmod +x "$(dirname "$native")"/*
+          echo "NATIVE=$native" >> "$GITHUB_ENV"
+          echo "OKB_NEW=$(ls okb-new/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          echo "OKB_OLD=$(ls okb-old/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          for v in 0.24.4 0.24.2; do
+            d="h-$v"; mkdir -p "$d/src"
+            printf '[package]\nname = "h"\nversion = "0.1.0"\n\n[target.'"'"'cfg(os = "openkal")'"'"']\nplatform = "openkal-platform@%s"\n' "$v" > "$d/mcpp.toml"
+            printf 'int main() { return 0; }\n' > "$d/src/main.cpp"
+            (cd "$d" && mcpp build --target aarch64-openkal > /dev/null && mcpp self env --target aarch64-openkal --format json) > "tools-$v.json"
+            key=$(echo "$v" | tr . _)
+            echo "OKRUN_$key=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['data']['runner']['program'])" "tools-$v.json")" >> "$GITHUB_ENV"
+          done
+          ls -la okb-new/clangd-*/clangd/bin okb-old/clangd-*/clangd/bin
+      - name: Arguments of the standard library
+        run: echo "STD_ARGS=--target=arm64-apple-macos14 -isysroot $(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
+      - name: Pairs, each pairing twice, native first
+        run: |
+          set -euo pipefail
+          for k in 1 2; do
+            python ci/warm_prime.py --label native-$k --workdir wp-native-$k --out native-$k.json --sessions 1 --std-args="$STD_ARGS" -- "$NATIVE"
+            python ci/warm_prime.py --label nn-$k --workdir wp-nn-$k --out nn-$k.json --sessions 1 --std-args="$STD_ARGS" -- "$OKRUN_0_24_4" "$OKB_NEW"
+            python ci/warm_prime.py --label on-$k --workdir wp-on-$k --out on-$k.json --sessions 1 --std-args="$STD_ARGS" -- "$OKRUN_0_24_4" "$OKB_OLD"
+            python ci/warm_prime.py --label no-$k --workdir wp-no-$k --out no-$k.json --sessions 1 --std-args="$STD_ARGS" -- "$OKRUN_0_24_2" "$OKB_NEW"
+            python ci/warm_prime.py --label oo-$k --workdir wp-oo-$k --out oo-$k.json --sessions 1 --std-args="$STD_ARGS" -- "$OKRUN_0_24_2" "$OKB_OLD"
+          done
+      - name: The cold sessions side by side
+        run: |
+          {
+            echo "nn: new image, new okrun; on: old image, new okrun; no: new image, old okrun; oo: old image, old okrun"
+            echo
+            echo "| run | cold ready s | cold cpu s | cold page faults |"
+            echo "|---|---:|---:|---:|"
+            for f in native-1 nn-1 on-1 no-1 oo-1 native-2 nn-2 on-2 no-2 oo-2; do
+              jq -r --arg f "$f" '.sessions[] | select(.kind == "cold") | "| \($f) | \(.ready_seconds) | \(.cpu_seconds) | \(.page_faults) |"' "$f.json"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-darwin-cold
+          path: |
+            *-[12].json
+            wp-*/session-1-cold.log
