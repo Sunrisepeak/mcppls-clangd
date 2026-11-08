@@ -34,6 +34,18 @@
   pairs from 0.964 to 1.409, and before the measurement that qualifies this
   release). The limits are unchanged. The 0.0.20 Linux x64 cold-CPU exception has
   expired.
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/42464678787 . Linux x64 and Linux
+  ARM64 pass the warm-prime gate; Windows records its ratios (cold readiness 1.47 and processor time 1.21 times
+  native, 1.53 and 1.25 for 0.0.20). darwin-arm64 measured three times and each measurement is invalid under O5:
+  six of eight pairs lie outside the cold processor-time bound (the native engine's own cold readiness spans 7.5 to
+  14 s on these runners), with medians of 1.14 to 1.29 times native readiness and 0.87 to 0.93 times its processor
+  time. The release is admitted on its comparison with 0.0.20 instead ([policy](ci/performance-policy.md), "0.0.21"):
+  the 0.0.21 image's absolute cold readiness on darwin-arm64 (medians of the two complete measurements 11.3 and
+  11.0 s) and processor time (12.0 and 11.8 s) are not above 0.0.20's (11.6 s, 14.1 s), and on one machine the two images, alternated in four pairs, differ by at
+  most 3% (0.0.21 against 0.0.20: cold readiness 1.03, processor time 1.01, faults 1.02, warm readiness 1.00,
+  processor time 0.99; Linux x64, okrun of openkal-platform 0.24.4).
+- A build-test run puts the image it built on the draft release `ci-artifacts` (assets replaced by each run, the
+  run and commit in `ci-artifacts.txt`), from which a local analysis downloads it at a release asset's speed.
 - The engine is released only as the ok image: a release publishes
   `clangd-23.1.0-mcppls.10-openkal.tar.gz` and `openkal-acceptance.json`, and no
   native archive (0.0.20 is the last with them; mcpp-language-server has used

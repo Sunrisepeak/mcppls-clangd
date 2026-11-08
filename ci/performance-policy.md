@@ -40,6 +40,14 @@ engine 0.0.21 (mcpp design 2026-11-07, §4.5 item 4 and D7).
   registration a measurement is eight pairs and bounds the readiness spread as
   above. The two measurements of 42416069243 are results under the rule they
   were made under, and they stand; the limit is unchanged.
+- **0.0.21 (registered 2026-11-09, by the maintainer's decision).** darwin-arm64 gave three invalid
+  measurements in comparison run 42464678787: the native engine's cold readiness on these runners spans
+  7.5 to 14 s, and six of eight pairs lie outside the cold processor-time bound each time. 0.0.21 is
+  released on its comparison with the release before it instead: on darwin-arm64 the image's absolute
+  cold readiness and processor time are not above 0.0.20's measurement, and on one machine the two images,
+  alternated in four pairs, differ by at most 3% in every gated quantity. A measurement here that is
+  invalid three times running admits a release only so, on the previous release's numbers and a local
+  pairing of the two images, and the changelog says so.
 - **Invalid measurement.** A measurement is invalid when it has fewer than four
   pairs, when a report is not the version-3 measurement of the workload above,
   when a counter or an aggregate is missing or inconsistent with its raw

@@ -32,6 +32,34 @@ jobs:
   openkal:
     uses: ./.github/workflows/openkal.yml
 
+  # The image this run built, on the one draft release `ci-artifacts` (its assets replaced by each run, the
+  # run and commit in ci-artifacts.txt): an Actions artifact downloads at tens of KB/s outside GitHub, a
+  # release asset at megabytes, so a local comparison takes the image from there. Not for a fork's
+  # pull request, whose token cannot write.
+  image-to-draft-release:
+    needs: openkal
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: clangd-openkal
+          path: part
+      - name: The image on the draft release ci-artifacts
+        run: |
+          set -euo pipefail
+          printf 'run %s (%s/%s/actions/runs/%s)\ncommit %s\nref %s\n' "$GITHUB_RUN_ID" "$GITHUB_SERVER_URL" \
+            "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" "$GITHUB_REF" > part/ci-artifacts.txt
+          gh release view ci-artifacts -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+            || gh release create ci-artifacts -R "$GITHUB_REPOSITORY" --draft --title "CI artifacts (draft)" \
+                 --notes "The latest CI run's ok image, for local analysis; never published."
+          gh release upload ci-artifacts -R "$GITHUB_REPOSITORY" --clobber part/*
+
   build:
     needs: setup
     strategy:
