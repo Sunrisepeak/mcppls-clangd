@@ -25,10 +25,15 @@
   convention's floating-point state, under which the C library reads a decimal
   number on Windows as elsewhere (0.24.4). CI builds with mcpp 2026.11.7.2,
   which resolves within the platform's version group.
-- The warm-prime gate takes the median of four alternating native/image pairs
+- The warm-prime gate takes the median of eight alternating native/image pairs
   and classifies a measurement as invalid or failed; only an invalid one may be
-  repeated ([policy](ci/performance-policy.md)). The 0.0.20 Linux x64 cold-CPU
-  exception has expired.
+  repeated ([policy](ci/performance-policy.md)). A measurement is invalid when more
+  than a quarter of its pairs lie further than 0.03 from the cold processor-time
+  median or 0.10 from the cold readiness median (O5, registered after comparison
+  run 42416069243 measured darwin-arm64 readiness 1.319 and 1.154 times native with
+  pairs from 0.964 to 1.409, and before the measurement that qualifies this
+  release). The limits are unchanged. The 0.0.20 Linux x64 cold-CPU exception has
+  expired.
 - The engine is released only as the ok image: a release publishes
   `clangd-23.1.0-mcppls.10-openkal.tar.gz` and `openkal-acceptance.json`, and no
   native archive (0.0.20 is the last with them; mcpp-language-server has used

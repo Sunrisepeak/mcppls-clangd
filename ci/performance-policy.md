@@ -11,19 +11,35 @@ This rule is registered before the measurements it governs and applies from
 engine 0.0.21 (mcpp design 2026-11-07, §4.5 item 4 and D7).
 
 - **Sample.** A sample is a pair: one run of the native engine and then one of
-  the image, on the same runner. A measurement is at least four pairs,
-  alternating native and image, so that a drift of the runner reaches both
-  engines alike.
+  the image, on the same runner. A measurement is at least eight pairs
+  (O5; four before it), alternating native and image, so that a drift of the
+  runner reaches both engines alike.
 - **Statistic.** For each gated quantity the statistic is the median over the
   pairs of the image/native ratio, compared with its limit on the recorded
   values before display rounding.
 - **Spread.** On one runner the cold processor-time ratio of four alternating
   pairs lies within 0.03 of its median (measurement O4: 24 sessions on three
-  runners, ratios 1.041 to 1.103, median 1.082). A measurement in which more
-  than one pair lies further than 0.03 from the median is invalid. One such
-  pair is admitted, since the median does not move with it. Readiness and warm
-  ratios carry no spread bound: their absolute values are small and the median
-  already discards a single outlier.
+  runners, ratios 1.041 to 1.103, median 1.082). The cold readiness ratio lies
+  within 0.10 of its median where the runner measures readiness at all (O5,
+  below). A measurement in which more than a quarter of the pairs (at least one)
+  lie outside either bound is invalid; a quarter is admitted, since the median
+  does not move with them. Warm ratios carry no spread bound: their absolute
+  values are small and the median of the warm sessions already discards a
+  single outlier.
+- **O5, readiness (registered 2026-11-08, before the measurements it governs).**
+  0.0.21's comparison run 42416069243 measured darwin-arm64 twice: cold
+  readiness ratios of the pairs 1.173 to 1.398 (median 1.319) and 0.964 to
+  1.409 (median 1.154), the native engine's own cold readiness 7.1 to 8.1 s in
+  the first and 10.2 to 14.6 s in the second, while the cold processor-time
+  ratios stayed within O4's bound. A probe on macos-15
+  (Sunrisepeak/mcppls-clangd#20) measured the image's cold processor time at 0.84
+  and 1.01 of native in two pairs, the median of its module workers at 37 and 40 ms
+  against 46 and 45 ms, and its start at 7.4 ms against 17.2 ms (60 starts each), and the native engine's cold readiness at 9.3 and 11.9 s
+  in two sessions of one runner. Readiness on that runner varies by more than
+  the gate resolves with four pairs, and the rule had no bound on it. From this
+  registration a measurement is eight pairs and bounds the readiness spread as
+  above. The two measurements of 42416069243 are results under the rule they
+  were made under, and they stand; the limit is unchanged.
 - **Invalid measurement.** A measurement is invalid when it has fewer than four
   pairs, when a report is not the version-3 measurement of the workload above,
   when a counter or an aggregate is missing or inconsistent with its raw

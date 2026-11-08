@@ -5,7 +5,7 @@
 usage: warm_prime_accept.py --platform P --pair native-1.json image-1.json ... --out warm-prime-P.json
 
 THE SAMPLE is a pair: the native engine's report and then the image's, measured one after the other on one
-runner, each a cold session over an empty cache followed by three warm ones. A measurement is at least four
+runner, each a cold session over an empty cache followed by three warm ones. A measurement is at least eight
 pairs, alternating native and image, so that a drift of the runner reaches both engines alike.
 
 THE GATE, on every system where both engines build modules in supervised workers over the owned cache (Linux and
@@ -14,11 +14,12 @@ ratio of time to ready and of processor time is at most 1.15, and of page faults
 engines is ready. Faults use complete engine lifetimes, including shutdown and waited descendants, from POSIX kernel
 counters. Readiness fault samples remain diagnostic. Version 3 requires a stable-reap Linux CPU observation.
 
-A MEASUREMENT IS INVALID, and only then may it be repeated, in full: fewer than four pairs; a report that is not
-the version-3 measurement of the 304-unit, three-probe, one-cold/three-warm workload; a missing or inconsistent
-counter or aggregate; or, on a gated system, more than one pair whose cold processor-time ratio lies further than
-0.03 from the median (the spread measured on one runner, mcpp design 2026-11-07, A.2). An invalid measurement
-exits 2; a valid one that misses the gate exits 1.
+A MEASUREMENT IS INVALID, and only then may it be repeated, in full: fewer than eight pairs; a report that is
+not the version-3 measurement of the 304-unit, three-probe, one-cold/three-warm workload; a missing or
+inconsistent counter or aggregate; or, on a gated system, more than a quarter of the pairs (at least one) whose
+cold processor-time ratio lies further than 0.03 from the median (O4, the spread measured on one runner, mcpp
+design 2026-11-07, A.2), or whose cold readiness ratio lies further than 0.10 from the median (O5,
+ci/performance-policy.md). An invalid measurement exits 2; a valid one that misses the gate exits 1.
 
 PATH PARITY, on every system: the image builds in supervised workers over the owned cache. The native engine does
 so on Linux and macOS; on Windows it compiles in clangd and gives each reader a copy of each BMI (the portable
@@ -34,8 +35,9 @@ ap.add_argument("--pair", nargs=2, action="append", required=True, metavar=("NAT
 ap.add_argument("--out", required=True)
 ap.add_argument("--limit", type=float, default=1.15)
 ap.add_argument("--fault-limit", type=float, default=2.0)
-ap.add_argument("--min-pairs", type=int, default=4)
+ap.add_argument("--min-pairs", type=int, default=8)
 ap.add_argument("--spread", type=float, default=0.03)
+ap.add_argument("--ready-spread", type=float, default=0.10)
 a = ap.parse_args()
 
 windows = a.platform.startswith("win32")
@@ -139,20 +141,30 @@ for k, (native_file, image_file) in enumerate(a.pair, 1):
     pairs.append(entry)
 
 measured = [p for p in pairs if p["valid"]]
-medians, spread = {}, {}
+medians, spread, ready_spread = {}, {}, {}
 if not invalid:
     for when in ("cold", "warm"):
         medians[when] = {}
         for m in METRICS:
             values = [p["ratios"][when][m] for p in measured]
             medians[when][m] = statistics.median(values) if all(v is not None for v in values) else None
-    cold_cpu = [p["ratios"]["cold"]["cpu_seconds"] for p in measured]
-    centre = medians["cold"]["cpu_seconds"]
-    outside = [p["pair"] for p, r in zip(measured, cold_cpu)
-               if r is None or centre is None or abs(r - centre) > Decimal(str(a.spread))]
-    spread = {"metric": "cold.cpu_seconds", "bound": a.spread, "median": centre, "pairs_outside": outside}
-    if not windows and len(outside) > 1:
-        invalid.append(f"cold CPU ratios of pairs {outside} lie further than {a.spread} from the median {centre}")
+    # O4 and O5: the pairs a quarter of the measurement (at least one) may leave outside each bound.
+    allowed = max(1, len(measured) // 4)
+
+    def outside_of(metric, bound):
+        centre = medians["cold"][metric]
+        ratios = [p["ratios"]["cold"][metric] for p in measured]
+        out = [p["pair"] for p, r in zip(measured, ratios)
+               if r is None or centre is None or abs(r - centre) > Decimal(str(bound))]
+        return {"metric": f"cold.{metric}", "bound": bound, "median": centre, "pairs_outside": out,
+                "allowed": allowed}
+
+    spread = outside_of("cpu_seconds", a.spread)
+    ready_spread = outside_of("ready_seconds", a.ready_spread)
+    for s, what in ((spread, "cold CPU"), (ready_spread, "cold readiness")):
+        if not windows and len(s["pairs_outside"]) > allowed:
+            invalid.append(f"{what} ratios of pairs {s['pairs_outside']} lie further than {s['bound']} from the "
+                           f"median {s['median']} (at most {allowed} may)")
     if not windows and not invalid:
         for when in ("cold", "warm"):
             for m, limit in (("ready_seconds", a.limit), ("cpu_seconds", a.limit),
@@ -179,12 +191,14 @@ result = {
     "pairs": len(a.pair),
     "ratios": {w: {m: shown(r) for m, r in ms.items()} for w, ms in medians.items()},
     "spread": {**spread, "median": shown(spread.get("median"))} if spread else {},
+    "ready_spread": {**ready_spread, "median": shown(ready_spread.get("median"))} if ready_spread else {},
     "samples": [{**p, "ratios": {w: {m: shown(r) for m, r in ms.items()} for w, ms in p["ratios"].items()}}
                 if p["valid"] else p for p in pairs],
 }
 with open(a.out, "w") as f:
     json.dump(result, f, indent=1)
-print(json.dumps({k: result[k] for k in ("platform", "gated", "valid", "accepted", "pairs", "ratios", "spread")},
+print(json.dumps({k: result[k] for k in ("platform", "gated", "valid", "accepted", "pairs", "ratios", "spread",
+                                         "ready_spread")},
                  indent=1))
 for msg in invalid:
     print("invalid measurement:", msg)

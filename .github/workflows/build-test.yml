@@ -555,18 +555,17 @@ jobs:
               for d in "${dirs[@]}"; do [ -n "$d" ] && args="$args -imsvc$(cygpath -m "$d")"; done ;;
           esac
           echo "STD_ARGS=$args" >> "$GITHUB_ENV"
-      - name: Four alternating pairs, the native engine then clangd.okb under okrun
+      - name: Eight alternating pairs, the native engine then clangd.okb under okrun
         run: |
           set -euo pipefail
-          for k in 1 2 3 4; do
+          for k in 1 2 3 4 5 6 7 8; do
             python ci/warm_prime.py --label native-${{ matrix.platform }}-$k --workdir wp-native-$k --out native-$k-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$NATIVE"
             python ci/warm_prime.py --label image-${{ matrix.platform }}-$k --workdir wp-image-$k --out image-$k-warm.json --sessions 3 --std-args="$STD_ARGS" -- "$OKRUN" "$OKB"
           done
       - name: Acceptance
         run: |
-          python ci/warm_prime_accept.py --platform ${{ matrix.platform }} \
-            --pair native-1-warm.json image-1-warm.json --pair native-2-warm.json image-2-warm.json \
-            --pair native-3-warm.json image-3-warm.json --pair native-4-warm.json image-4-warm.json \
+          pairs=(); for k in 1 2 3 4 5 6 7 8; do pairs+=(--pair native-$k-warm.json image-$k-warm.json); done
+          python ci/warm_prime_accept.py --platform ${{ matrix.platform }} "${pairs[@]}" \
             --out warm-prime-${{ matrix.platform }}.json
       - name: The index shards one engine writes, the other reads
         if: ${{ !cancelled() }}

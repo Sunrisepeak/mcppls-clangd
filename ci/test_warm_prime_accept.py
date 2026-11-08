@@ -53,52 +53,59 @@ class WarmAcceptanceTests(unittest.TestCase):
             self.assertEqual(evidence['valid'], expected != INVALID)
             return evidence
 
-    def test_four_equal_pairs_are_accepted_on_every_gated_host(self):
+    def test_eight_equal_pairs_are_accepted_on_every_gated_host(self):
         for host in ('linux-x64', 'linux-arm64', 'darwin-arm64'):
             with self.subTest(host=host):
-                evidence = self.check_cli(pairs([report()] * 4), ACCEPTED, host)
+                evidence = self.check_cli(pairs([report()] * 8), ACCEPTED, host)
                 self.assertEqual(evidence['ratios']['cold']['cpu_seconds'], 1)
 
-    def test_fewer_than_four_pairs_is_an_invalid_measurement(self):
-        evidence = self.check_cli(pairs([report()] * 3), INVALID)
-        self.assertIn('fewer than 4', evidence['invalid'][0])
+    def test_fewer_than_eight_pairs_is_an_invalid_measurement(self):
+        evidence = self.check_cli(pairs([report()] * 7), INVALID)
+        self.assertIn('fewer than 8', evidence['invalid'][0])
 
     def test_the_gate_is_the_median_of_the_pairs(self):
-        # 1.10, 1.12, 1.14, 1.16: median 1.13, every pair within 0.03 of it.
-        self.check_cli(pairs([report(cold_cpu=c) for c in (1.10, 1.12, 1.14, 1.16)]), ACCEPTED)
-        # 1.14, 1.15, 1.16, 1.17: median 1.155.
-        evidence = self.check_cli(pairs([report(cold_cpu=c) for c in (1.14, 1.15, 1.16, 1.17)]), FAILED)
+        # 1.10, 1.12, 1.14, 1.16 twice: median 1.13, every pair within 0.03 of it.
+        self.check_cli(pairs([report(cold_cpu=c) for c in (1.10, 1.12, 1.14, 1.16) * 2]), ACCEPTED)
+        # 1.14, 1.15, 1.16, 1.17 twice: median 1.155.
+        evidence = self.check_cli(pairs([report(cold_cpu=c) for c in (1.14, 1.15, 1.16, 1.17) * 2]), FAILED)
         self.assertTrue(any('cold cpu_seconds' in f and 'over 1.15' in f for f in evidence['failures']))
 
     def test_the_median_is_compared_unrounded(self):
-        self.check_cli(pairs([report(cold_cpu=1.15)] * 4), ACCEPTED)
-        self.check_cli(pairs([report(cold_cpu=1.150001)] * 4), FAILED)
+        self.check_cli(pairs([report(cold_cpu=1.15)] * 8), ACCEPTED)
+        self.check_cli(pairs([report(cold_cpu=1.150001)] * 8), FAILED)
 
-    def test_one_pair_outside_the_spread_is_tolerated_and_two_invalidate(self):
-        evidence = self.check_cli(pairs([report(cold_cpu=c) for c in (1.08, 1.08, 1.08, 1.30)]), ACCEPTED)
-        self.assertEqual(evidence['spread']['pairs_outside'], [4])
-        evidence = self.check_cli(pairs([report(cold_cpu=c) for c in (1.00, 1.08, 1.08, 1.20)]), INVALID)
+    def test_a_quarter_of_the_pairs_outside_the_cpu_spread_is_tolerated_and_more_invalidate(self):
+        values = (1.08,) * 6 + (1.30, 0.80)
+        evidence = self.check_cli(pairs([report(cold_cpu=c) for c in values]), ACCEPTED)
+        self.assertEqual(evidence['spread']['pairs_outside'], [7, 8])
+        values = (1.00,) + (1.08,) * 5 + (1.20, 1.25)
+        evidence = self.check_cli(pairs([report(cold_cpu=c) for c in values]), INVALID)
         self.assertIn('further than 0.03', evidence['invalid'][0])
 
-    def test_readiness_uses_the_median_without_a_spread_bound(self):
-        self.check_cli(pairs([report(cold_ready=r) for r in (0.95, 1.5, 1.0, 1.05)]), ACCEPTED, 'darwin-arm64')
-        self.check_cli(pairs([report(cold_ready=r) for r in (1.16, 1.2, 1.0, 1.17)]), FAILED, 'darwin-arm64')
+    def test_readiness_has_a_spread_bound_of_its_own(self):
+        # O5: two pairs of eight further than 0.10 from the median are tolerated.
+        self.check_cli(pairs([report(cold_ready=r) for r in (0.95, 1.5, 1.0, 1.05) * 2]), ACCEPTED, 'darwin-arm64')
+        self.check_cli(pairs([report(cold_ready=r) for r in (1.16, 1.2, 1.0, 1.17) * 2]), FAILED, 'darwin-arm64')
+        # Six of eight 0.15 from the median: the readiness of this runner is not measured to the gate's precision.
+        evidence = self.check_cli(pairs([report(cold_ready=r) for r in (1.0, 1.0, 1.0, 1.15, 1.15, 1.3, 1.3, 1.3)]),
+                                  INVALID, 'darwin-arm64')
+        self.assertIn('cold readiness', evidence['invalid'][0])
 
     def test_warm_medians_and_faults_are_gated(self):
         image = report()
         for session in image['sessions'][1:]:
             session['cpu_seconds'] = session['cpu_sample']['cpu_seconds'] = 1.16
         image['warm']['cpu_seconds'] = 1.16
-        self.check_cli(pairs([image] * 4), FAILED)
+        self.check_cli(pairs([image] * 8), FAILED)
         image = report()
         image['sessions'][0]['complete_page_faults'] = 201
         image['sessions'][0]['waited_usage']['minor_faults'] = 200
-        self.check_cli(pairs([image] * 4), FAILED)
+        self.check_cli(pairs([image] * 8), FAILED)
 
     def test_readiness_samples_do_not_substitute_for_complete_kernel_counters(self):
         image = report()
         image['sessions'][0]['page_faults'] = image['sessions'][0]['cpu_sample']['page_faults'] = 1000
-        evidence = self.check_cli(pairs([image] * 4), ACCEPTED)
+        evidence = self.check_cli(pairs([image] * 8), ACCEPTED)
         self.assertEqual(evidence['ratios']['cold']['page_faults'], 100)
         self.assertEqual(evidence['ratios']['cold']['complete_page_faults'], 1)
 
@@ -130,19 +137,19 @@ class WarmAcceptanceTests(unittest.TestCase):
         cases.append(image)
         for broken in cases:
             with self.subTest(broken=broken):
-                self.check_cli(pairs([report(), report(), broken, report()]), INVALID)
+                self.check_cli(pairs([report(), report(), broken] + [report()] * 5), INVALID)
 
     def test_a_session_that_is_not_ready_or_another_path_fails_the_gate(self):
         for field, value in (('ok', False), ('cache', 'copied')):
             with self.subTest(field=field):
                 image = report()
                 image['sessions'][0][field] = value
-                self.check_cli(pairs([report(), image, report(), report()]), FAILED)
+                self.check_cli(pairs([report(), image] + [report()] * 6), FAILED)
 
     def test_windows_records_the_path_comparison_without_gating(self):
         native = report()
         native['sessions'][0].update(builds='in clangd', owned_cache='not used')
-        evidence = self.check_cli(pairs([report(cold_cpu=2)] * 4, native), ACCEPTED, 'win32-x64')
+        evidence = self.check_cli(pairs([report(cold_cpu=2)] * 8, native), ACCEPTED, 'win32-x64')
         self.assertFalse(evidence['gated'])
         self.assertEqual(evidence['ratios']['cold']['cpu_seconds'], 2)
 
