@@ -1,0 +1,26 @@
+# Probe (temporary): an artifact of a run, attached to a draft release, so that it downloads at a
+# release asset's speed. Removed with its draft pull request.
+name: probe-artifact-transfer
+on:
+  pull_request:
+    paths: ['.github/workflows/probe-artifact-transfer.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: '42464678787'
+      ARTIFACT: clangd-openkal
+      TAG: probe-artifact-clangd-0.0.21
+    steps:
+      - name: The artifact, as a draft release's asset
+        run: |
+          set -euo pipefail
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$ARTIFACT" -D artifact
+          ls -la artifact
+          gh release delete "$TAG" -R "$GITHUB_REPOSITORY" -y --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
+            --title "probe: $ARTIFACT of run $RUN" --notes "Temporary: the artifact $ARTIFACT of run $RUN." artifact/*
