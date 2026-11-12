@@ -90,8 +90,6 @@ jobs:
     if: github.workflow == 'engine-cts'
     needs: program
     runs-on: ${{ matrix.os }}
-    # Windows 11 24H2's build is a report, as in the acceptance (openkal.yml): what else that build changes.
-    continue-on-error: ${{ matrix.report || false }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -101,7 +99,9 @@ jobs:
           - { platform: linux-arm64, os: ubuntu-24.04-arm }
           - { platform: darwin-arm64, os: macos-15 }
           - { platform: win32-x64, os: windows-2022 }
-          - { platform: win32-x64, os: windows-2025, report: true }
+          # Windows 11 24H2's build, as in the acceptance (openkal.yml): the case of issue 86 with its control
+          # as a gate, and the whole suite as a report of what else that build changes.
+          - { platform: win32-x64, os: windows-2025, report: true, control: v0.0.21 }
     defaults:
       run:
         shell: bash
@@ -127,7 +127,25 @@ jobs:
             Windows) echo "CLANG=C:/Program Files/LLVM/bin/clang.exe" >> "$GITHUB_ENV" ;;
           esac
           echo "the image of $tag" >> "$GITHUB_STEP_SUMMARY"
-      - uses: ./.github/actions/engine-cts
+          if [ -n "${{ matrix.control || '' }}" ]; then
+            gh release download "${{ matrix.control }}" -R "$GITHUB_REPOSITORY" -p 'clangd-*-openkal.tar.gz' -O control.tgz
+            mkdir control && tar xzf control.tgz -C control
+            echo "CONTROL=$(ls control/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          fi
+      - name: One file, two identities, and the control ${{ matrix.control }}
+        if: matrix.control
+        uses: ./.github/actions/engine-cts
+        with:
+          engine: ${{ env.OKB }}
+          runner: tree
+          control: ${{ env.CONTROL }}
+          clang: ${{ env.CLANG }}
+          platform: ${{ matrix.platform }}
+          select: --case 'gmf-include-analysis*'
+          name: released-gate-${{ matrix.os }}
+      - name: The cases
+        continue-on-error: ${{ matrix.report || false }}
+        uses: ./.github/actions/engine-cts
         with:
           engine: ${{ env.OKB }}
           runner: tree
