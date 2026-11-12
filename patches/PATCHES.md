@@ -243,6 +243,31 @@ release adds clangd as an ok image, `clangd.okb`, whose tree is this series and 
 (`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
 image.
 
+## The 0.0.22 additions
+
+One patch is added. 0048 (UP-41): clangd's include analysis marked an include of the main file as used by the ID
+of the include's *resolved* file entry and dereferenced the lookup behind an assert alone
+(`computeIncludeCleanerFindings`, two sites). The ID is found by the file's identity, and the resolved entry is
+made from the include's canonical path, which need not be the path the header was entered by; a file system
+that gives the two paths two identities leaves the include structure without an ID for that entry. The ok
+image met exactly that on Windows 11 24H2 (builds 26100 and 26200), where openkal-windows through 0.21.0 gave
+an open file another volume word than its name (corrected in openkal-windows 0.22.0): the engine's own probe of
+0039 printed "an open file is not the node its name refers to", and the image, built with libc++'s fast
+hardening, ended by an illegal instruction (`0xC000001D`) in `optional::operator*` on the first build of any
+module unit that includes a header in its global module fragment, imports a module and uses a type of the
+header ([mcpp-language-server issue 86](https://github.com/Sunrisepeak/mcpp-language-server/issues/86); the
+frames were named from the image's own symbol table under a debugger on a `windows-2025` runner). A native
+build read an indeterminate ID there instead. The condition needs the header to be entered with the main file
+-- the skipped preamble of a file that imports modules -- since a textual preamble's stat cache answers both
+paths alike. An include is now marked by the ID it was entered with, taken from the include itself; the
+resolved entry is asked only for an include that has none; and where neither answers, no include is reported
+unused. `mayConsiderUnused` no longer dereferences a failed lookup of the header's real path. The unit test
+gives a file one identity where it is opened and another by name and enters the headers with the main file;
+the end-to-end case (`tests/e2e/gmf_include_analysis.py`) is the report's shape -- a module unit, a header
+under a search path that is not its resolved path, an import, a use -- and runs in every system's acceptance
+and on `windows-2025`, the hosted runner of build 26100, which no job of this repository ran on before. The
+engine reports itself as `23.1.0-mcppls.11` and declares the feature `include-ids-by-entry`.
+
 ## The 0.0.21 additions
 
 No patch of either series changes. The ok image is built with zlib, as the native engines are: llvm-project is
@@ -353,3 +378,4 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0045-UP-03-owned-ledger-scan-candidates.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedLookupSeesNewKeysAcrossLedgerChunks, OwnedLookupRejectsTruncatedLedgerOnMiss, OwnedLookupRejectsAmbiguousUnusedLedgerTail); ci/warm_prime.py | upstream filters owned-cache lookup candidates from validated bounded ledger scans before acquiring leases, retaining post-acquisition identity and payload validation |
 | 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | steady | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
 | 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |
+| 0048-UP-41-include-ids-by-entry.patch | UP-41 | stabilizing | clangd/unittests/IncludeCleanerTests.cpp (HeaderWithAnotherIdentityByName); tests/e2e/gmf_include_analysis.py (every system's acceptance; windows-2025 in `openkal.yml`) | upstream marks a used include by the ID it was entered with, or checks the ID of its resolved entry before using it |

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.0.22]
+
+- The include analysis no longer ends the engine on a header that has two
+  identities (0048). `computeIncludeCleanerFindings` marked a used include by
+  the ID of its resolved file entry and dereferenced that lookup unchecked; where
+  the file system gave the header's resolved path another identity than the path
+  it was entered by, the lookup was empty. The ok image ended there by an illegal
+  instruction (`0xC000001D`, libc++'s hardening) on Windows 11 24H2, on the first
+  build of any module unit that includes a header in its global module fragment,
+  imports a module and uses a type of the header
+  ([mcpp-language-server issue 86](https://github.com/Sunrisepeak/mcpp-language-server/issues/86)).
+  An include is marked by the ID it was entered with; no include is reported
+  unused where a used one cannot be identified.
+- The engine reports itself as `23.1.0-mcppls.11` and declares the feature
+  `include-ids-by-entry` in `engine.json`.
+- `tests/e2e/gmf_include_analysis.py` is the report's shape and runs in every
+  system's acceptance. `openkal.yml` gains a job on `windows-2025` (Windows
+  build 26100), the one hosted system on which a file had two identities under
+  okrun: it runs that case as a gate and the whole end-to-end suite as a report.
+  Every Windows job ran on `windows-2022` (build 20348) before, where the
+  condition cannot occur.
+- No other patch of either series changes; the image is built over the same
+  platform (openkal-platform 0.24.3). The platform's own correction of the two
+  identities is openkal-windows 0.22.0, which a later platform pin takes.
+
 ## [0.0.21]
 
 - The ok image (`clangd.okb`) and every native engine are built with zlib

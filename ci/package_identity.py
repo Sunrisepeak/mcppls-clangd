@@ -160,7 +160,7 @@ def main():
                              'const-correctness-views', 'unresolved-import-recovery',
                              'partial-prerequisite-modules', 'module-rebuild-reasons', 'bounded-module-wait',
                              'managed-input-roots', 'persistent-module-memos', 'retained-asts-option',
-                             'module-input-recheck', 'interactive-actions'],
+                             'module-input-recheck', 'interactive-actions', 'include-ids-by-entry'],
                 'llvm-tree-commit': stamp['llvm-tree-commit']}
     # The owned module cache and its supervised workers, where the system provides what they need
     # (ModuleCachePlatform): Linux, macOS and the ok image. The native engine of Windows caches a copy

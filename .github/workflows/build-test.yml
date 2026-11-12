@@ -434,6 +434,21 @@ jobs:
 
       # The native engine packaged as a release would package it, for the platforms the floor
       # job does not package: what a comparison run measures the image against (warm-prime).
+      - name: A header of the global module fragment is analysed whatever identity its path has
+        shell: bash
+        run: |
+          python3 tests/e2e/gmf_include_analysis.py \
+            --engine "build-${{ matrix.platform }}/bin/clangd" \
+            --clang "build-${{ matrix.platform }}/bin/clang" \
+            --workdir "${{ runner.temp }}/gmf-include-analysis"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gmf-include-analysis-${{ matrix.platform }}
+          path: ${{ runner.temp }}/gmf-include-analysis/results.json
+          if-no-files-found: error
+
       - name: Package payload part
         if: "!startsWith(matrix.platform, 'linux-')"
         shell: bash

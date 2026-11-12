@@ -1,0 +1,258 @@
+From 5a3129120e13ff17e1b9ec3d57bd8b36ff3dd355 Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Thu, 12 Nov 2026 17:59:41 +0900
+Subject: [clangd] Mark a used include by the ID it was entered with
+
+computeIncludeCleanerFindings marks an include of the main file as used by
+asking the include structure for the ID of the include's resolved file entry,
+and dereferences the result behind an assert alone. The ID is found by the
+file's identity (its UniqueID), and the resolved entry is made from the
+include's canonical path, which need not be the path the header was entered
+by. A file system can give the two paths two identities -- a network share, a
+substituted drive, a sandboxed file system that numbers an open file otherwise
+than its name -- and the include structure then has no ID for the resolved
+entry. A release build read an empty optional: an indeterminate ID with an
+unhardened standard library, a trap with a hardened one, on the first build of
+any file that uses a type of such a header. It is met where headers are entered
+with the main file, as the headers of a module unit's global module fragment
+are when the unit has no textual preamble; a preamble's stat cache hides it
+otherwise.
+
+An include is the header the preprocessor entered for it, and that header's
+ID is what unused includes are found by. Mark it by that ID, taken from the
+include itself, and ask the resolved entry only for an include that has none.
+Where neither gives an ID, the includes that were not marked are not known to
+be unused, and none is reported.
+
+mayConsiderUnused finds the header's entry by its real path again; a header
+that cannot be found that way is not offered for removal, instead of
+dereferencing the failed lookup.
+
+Co-authored-by: speak-agent <248744407+speak-agent@users.noreply.github.com>
+---
+ clang-tools-extra/clangd/IncludeCleaner.cpp   | 51 ++++++++---
+ .../clangd/unittests/IncludeCleanerTests.cpp  | 89 +++++++++++++++++++
+ 2 files changed, 127 insertions(+), 13 deletions(-)
+
+diff --git a/clang-tools-extra/clangd/IncludeCleaner.cpp b/clang-tools-extra/clangd/IncludeCleaner.cpp
+index 382ea3f..3d425dc 100644
+--- a/clang-tools-extra/clangd/IncludeCleaner.cpp
++++ b/clang-tools-extra/clangd/IncludeCleaner.cpp
+@@ -34,6 +34,7 @@
+ #include "clang/Tooling/Inclusions/StandardLibrary.h"
+ #include "clang/Tooling/Syntax/Tokens.h"
+ #include "llvm/ADT/ArrayRef.h"
++#include "llvm/ADT/DenseMap.h"
+ #include "llvm/ADT/DenseSet.h"
+ #include "llvm/ADT/GenericUniformityImpl.h"
+ #include "llvm/ADT/STLExtras.h"
+@@ -74,7 +75,12 @@ bool mayConsiderUnused(const Inclusion &Inc, ParsedAST &AST,
+   auto HID = static_cast<IncludeStructure::HeaderID>(*Inc.HeaderID);
+   auto FE = AST.getSourceManager().getFileManager().getFileRef(
+       AST.getIncludeStructure().getRealPath(HID));
+-  assert(FE);
++  if (!FE) {
++    // A header that was entered and cannot be found by its path again is not
++    // one to offer for removal.
++    llvm::consumeError(FE.takeError());
++    return false;
++  }
+   if (FE->getDir() == AST.getPreprocessor()
+                           .getHeaderSearchInfo()
+                           .getModuleMap()
+@@ -388,6 +394,32 @@ computeIncludeCleanerFindings(ParsedAST &AST, bool AnalyzeAngledIncludes) {
+       collectMacroReferences(AST);
+   std::vector<MissingIncludeDiagInfo> MissingIncludes;
+   llvm::DenseSet<IncludeStructure::HeaderID> Used;
++  // An include of the main file is the header the preprocessor entered for
++  // it, and that header's ID is the one unused includes are found by. The
++  // entry of the include's resolved path names the same file, but an ID is
++  // found by the file's identity, and a file system can give one file two of
++  // them: one for the path it was entered by and another for its resolved
++  // path (a network share, a substituted drive, a volume that numbers a file
++  // by how it was reached). So the include's own ID is the one marked, and the
++  // resolved entry is asked only for an include that has none.
++  llvm::DenseMap<unsigned, IncludeStructure::HeaderID> EnteredAs;
++  for (const Inclusion &Inc : AST.getIncludeStructure().MainFileIncludes)
++    if (Inc.HeaderID)
++      EnteredAs.try_emplace(
++          Inc.HashLine + 1,
++          static_cast<IncludeStructure::HeaderID>(*Inc.HeaderID));
++  // Set when a used include could not be told apart from the others: the
++  // includes not marked are then not known to be unused.
++  bool UsedUnidentified = false;
++  auto MarkUsed = [&](const include_cleaner::Include &Inc) {
++    if (auto It = EnteredAs.find(Inc.Line); It != EnteredAs.end())
++      Used.insert(It->second);
++    else if (auto HeaderID = AST.getIncludeStructure().getID(
++                 &Inc.Resolved->getFileEntry()))
++      Used.insert(*HeaderID);
++    else
++      UsedUnidentified = true;
++  };
+   trace::Span Tracer("include_cleaner::walkUsed");
+   OptionalDirectoryEntryRef ResourceDir = AST.getPreprocessor()
+                                               .getHeaderSearchInfo()
+@@ -408,11 +440,7 @@ computeIncludeCleanerFindings(ParsedAST &AST, bool AnalyzeAngledIncludes) {
+           }
+           for (auto *Inc : ConvertedIncludes.match(H)) {
+             Satisfied = true;
+-            auto HeaderID =
+-                AST.getIncludeStructure().getID(&Inc->Resolved->getFileEntry());
+-            assert(HeaderID.has_value() &&
+-                   "ConvertedIncludes only contains resolved includes.");
+-            Used.insert(*HeaderID);
++            MarkUsed(*Inc);
+           }
+         }
+ 
+@@ -431,11 +459,7 @@ computeIncludeCleanerFindings(ParsedAST &AST, bool AnalyzeAngledIncludes) {
+         for (auto *Inc :
+              ConvertedIncludes.match(include_cleaner::Header{Spelling})) {
+           Satisfied = true;
+-          auto HeaderID =
+-              AST.getIncludeStructure().getID(&Inc->Resolved->getFileEntry());
+-          assert(HeaderID.has_value() &&
+-                 "ConvertedIncludes only contains resolved includes.");
+-          Used.insert(*HeaderID);
++          MarkUsed(*Inc);
+         }
+         if (Satisfied)
+           return;
+@@ -480,8 +504,9 @@ computeIncludeCleanerFindings(ParsedAST &AST, bool AnalyzeAngledIncludes) {
+            MapInfo::getHashValue(RHS.Symbol);
+   });
+   MissingIncludes.erase(llvm::unique(MissingIncludes), MissingIncludes.end());
+-  std::vector<const Inclusion *> UnusedIncludes =
+-      getUnused(AST, Used, AnalyzeAngledIncludes);
++  std::vector<const Inclusion *> UnusedIncludes;
++  if (!UsedUnidentified)
++    UnusedIncludes = getUnused(AST, Used, AnalyzeAngledIncludes);
+   return {std::move(UnusedIncludes), std::move(MissingIncludes)};
+ }
+ 
+diff --git a/clang-tools-extra/clangd/unittests/IncludeCleanerTests.cpp b/clang-tools-extra/clangd/unittests/IncludeCleanerTests.cpp
+index ec733cb..a5754da 100644
+--- a/clang-tools-extra/clangd/unittests/IncludeCleanerTests.cpp
++++ b/clang-tools-extra/clangd/unittests/IncludeCleanerTests.cpp
+@@ -7,14 +7,18 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "Annotations.h"
++#include "Compiler.h"
+ #include "Diagnostics.h"
++#include "Headers.h"
+ #include "IncludeCleaner.h"
+ #include "ParsedAST.h"
++#include "Preamble.h"
+ #include "SourceCode.h"
+ #include "TestFS.h"
+ #include "TestTU.h"
+ #include "clang-include-cleaner/Analysis.h"
+ #include "clang-include-cleaner/Types.h"
++#include "support/ThreadsafeFS.h"
+ #include "clang/AST/DeclBase.h"
+ #include "clang/Basic/SourceManager.h"
+ #include "clang/Tooling/Syntax/Tokens.h"
+@@ -25,6 +29,7 @@
+ #include "llvm/Support/Casting.h"
+ #include "llvm/Support/Error.h"
+ #include "llvm/Support/ScopedPrinter.h"
++#include "llvm/Support/VirtualFileSystem.h"
+ #include "gmock/gmock.h"
+ #include "gtest/gtest.h"
+ #include <cstddef>
+@@ -707,6 +712,90 @@ TEST(IncludeCleaner, DifferentHeaderSameSpelling) {
+   EXPECT_THAT(Findings.UnusedIncludes, IsEmpty());
+   EXPECT_THAT(Findings.MissingIncludes, IsEmpty());
+ }
++
++// A file system on which a file has one identity where it is opened and
++// another where it is asked about by name, as some network shares, substituted
++// drives and sandboxed file systems give.
++class IdentityByNameFS : public ThreadsafeFS {
++public:
++  llvm::StringMap<std::string> Files;
++
++private:
++  class View : public llvm::vfs::ProxyFileSystem {
++  public:
++    using ProxyFileSystem::ProxyFileSystem;
++    llvm::ErrorOr<llvm::vfs::Status> status(const llvm::Twine &Path) override {
++      auto S = ProxyFileSystem::status(Path);
++      if (!S || S->isDirectory())
++        return S;
++      llvm::sys::fs::UniqueID ID(S->getUniqueID().getDevice() + 1,
++                                 S->getUniqueID().getFile());
++      return llvm::vfs::Status(S->getName(), ID, S->getLastModificationTime(),
++                               S->getUser(), S->getGroup(), S->getSize(),
++                               S->getType(), S->getPermissions());
++    }
++  };
++  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
++    return new View(buildTestFS(Files));
++  }
++};
++
++TEST(IncludeCleaner, HeaderWithAnotherIdentityByName) {
++  // The headers are entered with the main file, as the headers of a module
++  // unit's global module fragment are when the unit has no textual preamble,
++  // and through a search path that is not their resolved path. The entry of
++  // an include's resolved path is then asked about by name, and here that is
++  // another identity than the header was entered with: the include structure
++  // has no ID for it.
++  TestTU TU;
++  TU.Filename = "foo.cpp";
++  TU.Code = R"cpp(
++    int EndsThePreamble;
++    #include "used.h"
++    #include "macro.h"
++    #include "unused.h"
++    Used U = MACRO;
++  )cpp";
++  TU.AdditionalFiles["inc/used.h"] = guard("struct Used { Used(int); };");
++  TU.AdditionalFiles["inc/macro.h"] = guard("#define MACRO 1");
++  TU.AdditionalFiles["inc/unused.h"] = guard("void unused();");
++  TU.ExtraArgs.push_back("-I" + testPath("other/../inc"));
++
++  MockFS Mock;
++  ParseInputs Inputs = TU.inputs(Mock);
++  IdentityByNameFS FS;
++  FS.Files = Mock.Files;
++  Inputs.TFS = &FS;
++  StoreDiags Diags;
++  auto CI = buildCompilerInvocation(Inputs, Diags);
++  ASSERT_TRUE(CI);
++  auto Preamble = buildPreamble(testPath(TU.Filename), *CI, Inputs,
++                                /*StoreInMemory=*/true,
++                                /*PreambleCallback=*/nullptr);
++  ASSERT_TRUE(Preamble);
++  auto AST = ParsedAST::build(testPath(TU.Filename), Inputs, std::move(CI),
++                              Diags.take(), Preamble);
++  ASSERT_TRUE(AST);
++
++  // The precondition: an include's resolved entry is not the header entered.
++  const auto &Includes = AST->getIncludeStructure();
++  ASSERT_EQ(Includes.MainFileIncludes.size(), 3u);
++  const Inclusion &UsedInc = Includes.MainFileIncludes.front();
++  ASSERT_TRUE(UsedInc.HeaderID);
++  auto Resolved =
++      AST->getSourceManager().getFileManager().getFileRef(UsedInc.Resolved);
++  ASSERT_TRUE(bool(Resolved));
++  EXPECT_FALSE(Includes.getID(&Resolved->getFileEntry()));
++
++  IncludeCleanerFindings Findings = computeIncludeCleanerFindings(*AST);
++  // A header in use is not offered for removal, and what it provides is not
++  // reported as missing.
++  for (const Inclusion *Unused : Findings.UnusedIncludes)
++    EXPECT_NE(Unused->Written, "\"used.h\"");
++  for (const Inclusion *Unused : Findings.UnusedIncludes)
++    EXPECT_NE(Unused->Written, "\"macro.h\"");
++  EXPECT_THAT(Findings.MissingIncludes, IsEmpty());
++}
+ } // namespace
+ } // namespace clangd
+ } // namespace clang
+-- 
+2.53.0
+
