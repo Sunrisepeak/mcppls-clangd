@@ -41,24 +41,39 @@ CTS code_actions{"code-actions", [] { against_subject([] {
             return params;
         };
         Session session { .id = "code-actions", .project = root, .flags = { "--background-index=false", "-j=2", "--log=verbose" }, .timeout_seconds = 120 };
+        const auto asked = [&](int line, int start, int end) { return json { { "method", "textDocument/codeAction" }, { "params", actions(line, start, end) } }; };
         session.sequence = json::array({
             initialize(root),
             initialized(),
             did_open(unit, text),
-            // On the class's name: its constructor and its special members. The engine orders what it offers by name.
-            json { { "method", "textDocument/codeAction" }, { "params", actions(1, 8, 8) },
-                   { "expect", json { { "/result/0/title", "Define constructor" }, { "/result/0/command", "clangd.applyTweak" },
-                                      { "/result/0/arguments/0/tweakID", "MemberwiseConstructor" },
-                                      { "/result/1/title", "Declare implicit copy/move members" },
-                                      { "/result/1/arguments/0/tweakID", "SpecialMembers" } } } },
-            // On an expression: it can be given a name.
-            json { { "method", "textDocument/codeAction" }, { "params", actions(10, 17, 22) },
-                   { "expect", json { { "/result/0/arguments/0/tweakID", "ExtractVariable" } } } },
-            // On `auto`: the type it stands for.
-            json { { "method", "textDocument/codeAction" }, { "params", actions(10, 3, 3) },
-                   { "expect", json { { "/result/0/arguments/0/tweakID", "ExpandDeducedType" } } } },
+            asked(1, 8, 8),      // the class's name
+            asked(10, 17, 22),   // an expression
+            asked(10, 3, 3),     // `auto`
         });
-        passed(replay(session), root);
+        const json result = replay(session);
+        passed(result, root);
+        // What each request was answered with, by the refactoring's identifier: the order they are offered in is
+        // the order their units registered in, which a link decides.
+        std::vector<std::map<std::string, json>> offered;
+        for (const auto& answer : result.value("raw_responses", json::array())) {
+            if (answer.value("method", std::string {}) != "textDocument/codeAction") continue;
+            auto& byId = offered.emplace_back();
+            for (const auto& action : answer["reply"].value("result", json::array())) {
+                const json* id { pointer(action, "/arguments/0/tweakID") };
+                if (id != nullptr && id->is_string()) byId.emplace(id->get<std::string>(), action);
+            }
+        }
+        expect(fatal(eq(offered.size(), std::size_t { 3 })));
+        const auto has = [&](std::size_t request, const char* id, const char* title) {
+            const auto found = offered[request].find(id);
+            expect(fatal(found != offered[request].end())) << "the engine offered no " << id << " where one was asked for";
+            expect(eq(found->second.value("command", std::string {}), std::string { "clangd.applyTweak" })) << id;
+            if (title != nullptr) expect(eq(found->second.value("title", std::string {}), std::string { title })) << id;
+        };
+        has(0, "MemberwiseConstructor", "Define constructor");
+        has(0, "SpecialMembers", "Declare implicit copy/move members");
+        has(1, "ExtractVariable", nullptr);
+        has(2, "ExpandDeducedType", nullptr);
     };
 }); }};
 

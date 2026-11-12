@@ -105,12 +105,14 @@ void cache_lease(std::string mode) {
         std::println("the engine reports: {}", selected.empty() ? std::string { "nothing about its module cache" } : selected[0].str());
     }
     fs::path published;
+    std::string publishedAs;   // the name as the engine logs it: its system's own separators
     if (mode == "owned") {
         static const std::regex BUILT { R"(Built module A to ([^\r\n]+))" };
         std::smatch match;
         expect(fatal(std::regex_search(seedLog, match, BUILT))) << "missing fresh owned publication event";
         std::string name { match[1] };
         while (!name.empty() && std::isspace(static_cast<unsigned char>(name.back()))) name.pop_back();
+        publishedAs = name;
         published = fs::path { os::fs::from_utf8(os::fs::generic(os::fs::from_utf8(name))) };
         expect(fatal(str(published).contains("/.owned-payload-v1/") && published.filename() == "payload.pcm"))
             << "default owned admission did not publish its managed generation: " << str(published);
@@ -148,7 +150,7 @@ void cache_lease(std::string mode) {
         Client reader { root, flags };
         ready(reader, root);
         expect(unchanged()) << "the published BMI changed when it was reused";
-        expect(contains(reader.log(), "Reusing owned module A from " + str(published))) << "the reader did not reuse the generation where it was published";
+        expect(contains(reader.log(), "Reusing owned module A from " + publishedAs)) << "the reader did not reuse the generation where it was published";
         expect(only_published()) << "a copy was made";
         if (const auto holders = lease_holders(lease, { reader.pid() })) expect(holds(*holders, reader.pid())) << "the reader does not hold its lease";
         Client peer { root, flags };

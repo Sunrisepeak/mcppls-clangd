@@ -90,6 +90,8 @@ jobs:
     if: github.workflow == 'engine-cts'
     needs: program
     runs-on: ${{ matrix.os }}
+    # Windows 11 24H2's build is a report, as in the acceptance (openkal.yml): what else that build changes.
+    continue-on-error: ${{ matrix.report || false }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -99,7 +101,7 @@ jobs:
           - { platform: linux-arm64, os: ubuntu-24.04-arm }
           - { platform: darwin-arm64, os: macos-15 }
           - { platform: win32-x64, os: windows-2022 }
-          - { platform: win32-x64, os: windows-2025 }
+          - { platform: win32-x64, os: windows-2025, report: true }
     defaults:
       run:
         shell: bash

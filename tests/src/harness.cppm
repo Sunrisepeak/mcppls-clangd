@@ -810,6 +810,12 @@ json replay(const Session& session) {
                 const std::string original { read(file) };
                 const auto modified = fs::last_write_time(file);
                 remember(file);
+                // The time the file was written at, kept on a file beside the project: a system whose own call
+                // sets a time less finely than it reads one (macOS under a runner: microseconds) is given it
+                // back by its `touch`, which copies it whole.
+                const bool keepsTime { step.value("preserve-mtime", false) };
+                const fs::path reference { mt::temp_dir() / "time-reference" };
+                if (keepsTime && os::host() != os::platform::windows) (void)tool({ "touch", "-r", str(file), str(reference) });
                 const std::string from { step.at("from").get<std::string>() }, with { step.at("with").get<std::string>() };
                 const auto first = original.find(from);
                 if (from.empty() || first == std::string::npos || original.find(from, first + from.size()) != std::string::npos)
@@ -817,9 +823,11 @@ json replay(const Session& session) {
                 std::string updated { original };
                 updated.replace(first, from.size(), with);
                 write(file, updated);
-                if (step.value("preserve-mtime", false)) {
+                if (keepsTime) {
                     if (updated.size() != original.size()) failure("preserved-mtime regression requires same size");
-                    fs::last_write_time(file, modified);
+                    std::error_code refused;
+                    fs::last_write_time(file, modified, refused);
+                    if ((refused || fs::last_write_time(file) != modified) && fs::exists(reference)) (void)tool({ "touch", "-m", "-r", str(reference), str(file) });
                     if (fs::last_write_time(file) != modified) failure("filesystem did not preserve exact timestamp");
                 }
                 if (step.value("same-second", false)) {
