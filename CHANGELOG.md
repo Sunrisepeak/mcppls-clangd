@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.0.23]
+
+- The ok image offers clangd's refactorings again
+  ([mcpp-language-server issue 89](https://github.com/Sunrisepeak/mcpp-language-server/issues/89)). clangd's
+  tweaks ("Define constructor", "Declare implicit copy/move members", "Extract to function", "Expand macro" and
+  the rest) are an object library whose every unit registers itself when the program starts; nothing refers to
+  them, so clangd's link names their objects one by one. `okgen` took the libraries of that line and nothing
+  else, and the image, linked from them, carried no refactoring: a request for code actions was answered with
+  the fixes of its diagnostics and otherwise with an empty list, on every system, since the engine is released
+  as the image. `okgen` builds and links the objects the line names beside the libraries (the tool's own units
+  excepted: the image's main is `openkal/clangd`'s), and stops when the line names none.
+- The engine reports itself as `23.1.0-mcppls.12` and declares the feature `refactorings` in `engine.json`. The
+  identity is written only for a package that answers upstream's own request
+  (`clangd/test/code-action-request.test`) with its refactoring and applies it.
+- `tests/e2e/code_actions.py` asks for the actions on a class's name, on an expression and on `auto`, and runs in
+  every system's acceptance.
+- No patch of either series changes; the image is built over the same platform (openkal-platform 0.24.4).
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43274622969 .
+
 ## [0.0.22]
 
 - The include analysis no longer ends the engine on a header that has two
