@@ -267,6 +267,9 @@ the end-to-end case (`tests/e2e/gmf_include_analysis.py`) is the report's shape 
 under a search path that is not its resolved path, an import, a use -- and runs in every system's acceptance
 and on `windows-2025`, the hosted runner of build 26100, which no job of this repository ran on before. The
 engine reports itself as `23.1.0-mcppls.11` and declares the feature `include-ids-by-entry`.
+For this addition, [build-test run 43188051127](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43188051127)
+is the comparison run: every native engine, both Ubuntu 20.04 packages, the four acceptances with the end-to-end
+suite, and the `windows-2025` gate with its control.
 
 ## The 0.0.21 additions
 
@@ -378,4 +381,4 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0045-UP-03-owned-ledger-scan-candidates.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (OwnedLookupSeesNewKeysAcrossLedgerChunks, OwnedLookupRejectsTruncatedLedgerOnMiss, OwnedLookupRejectsAmbiguousUnusedLedgerTail); ci/warm_prime.py | upstream filters owned-cache lookup candidates from validated bounded ledger scans before acquiring leases, retaining post-acquisition identity and payload validation |
 | 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | steady | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
 | 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |
-| 0048-UP-41-include-ids-by-entry.patch | UP-41 | stabilizing | clangd/unittests/IncludeCleanerTests.cpp (HeaderWithAnotherIdentityByName); tests/e2e/gmf_include_analysis.py (every system's acceptance; windows-2025 in `openkal.yml`) | upstream marks a used include by the ID it was entered with, or checks the ID of its resolved entry before using it |
+| 0048-UP-41-include-ids-by-entry.patch | UP-41 | steady | clangd/unittests/IncludeCleanerTests.cpp (HeaderWithAnotherIdentityByName); tests/e2e/gmf_include_analysis.py (every system's acceptance; windows-2025 in `openkal.yml`) | upstream marks a used include by the ID it was entered with, or checks the ID of its resolved entry before using it |

@@ -24,6 +24,7 @@
 - No other patch of either series changes; the image is built over the same
   platform (openkal-platform 0.24.3). The platform's own correction of the two
   identities is openkal-windows 0.22.0, which a later platform pin takes.
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43188051127
 
 ## [0.0.21]
 
