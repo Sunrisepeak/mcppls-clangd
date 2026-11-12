@@ -53,9 +53,14 @@ jobs:
               f'the {version} changelog entry names no comparison run'
           PY
 
+  # The engine's test program, which the acceptance of the image runs (engine-cts.yml).
+  cts:
+    needs: eligibility
+    uses: ./.github/workflows/engine-cts.yml
+
   # clangd as an ok image: the payload part clangd-<engine>-openkal and where it is accepted.
   openkal:
-    needs: eligibility
+    needs: [eligibility, cts]
     uses: ./.github/workflows/openkal.yml
 
   publish:

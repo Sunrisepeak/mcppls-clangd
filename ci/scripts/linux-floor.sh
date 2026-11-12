@@ -32,37 +32,12 @@ python3 ci/build_identity.py --build-dir "$BUILD_DIR" --llvm-dir "$LLVM_DIR" --p
 python3 ci/portability_linux.py \
   "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
   --output "$DIST_DIR/portability-$PLATFORM.json"
-python3 tests/e2e/module_request_inputs.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-request-inputs"
-python3 tests/e2e/module_dag.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-dag"
-python3 tests/e2e/module_cold_completion.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-cold-completion"
-python3 tests/e2e/module_scan_memo.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-scan-memo"
-python3 tests/e2e/module_scan_builtins.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang "$BUILD_DIR/bin/clang" --workdir "$BUILD_DIR/portable-module-scan-builtins"
-python3 tests/e2e/completion_quality.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang /usr/bin/g++ --workdir "$BUILD_DIR/portable-module-quality" --unsaved-update --async-scheduling
-
-python3 tests/e2e/compiler_extensions.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-compiler-extensions"
-
-python3 tests/e2e/module_directive_recovery.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-module-directive-recovery"
-
-python3 tests/e2e/module_lock_close.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-module-lock-close"
-
-python3 tests/e2e/module_cycle.py \
-  --engine "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
-  --clang /usr/bin/clang-12 --workdir "$BUILD_DIR/portable-module-cycle"
+# The series' regressions that say something about the packaged engine on this floor, by the test program the
+# run built once (tests/README.md): the tree is in engine-cts/ of the repository, put there before this
+# container started (.github/actions/linux-floor). The compile commands name the build's own driver.
+bash ci/scripts/engine-cts.sh --tree engine-cts \
+  --engine "$DIST_DIR/clangd-$FORK_VERSION-$PLATFORM/clangd/bin/clangd" \
+  --clang "$BUILD_DIR/bin/clang" --platform "$PLATFORM" --has matching-clang --out "$BUILD_DIR/cts" -- \
+  --case 'module-request-inputs*' --case 'module-dag*' --case 'module-cold-completion*' --case 'module-scan-*' \
+  --case 'module-drafts*' --case 'compiler-extensions*' --case 'module-directive-recovery*' \
+  --case 'module-lock-close*' --case 'module-cycle*'

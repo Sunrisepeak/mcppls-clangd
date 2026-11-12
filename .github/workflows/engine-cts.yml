@@ -1,0 +1,131 @@
+name: engine-cts
+
+# THE ENGINE'S TEST PROGRAM, BUILT ONCE (tests/README.md). The series' end-to-end regressions are the cases of
+# one C++ program over mcpplibs.mtest. `program` builds it as an ok image of both architectures and packs it
+# with the runner of every system (mcpp pack, self-contained): the artifact `engine-cts`, which every job that
+# tests an engine -- the native build, the acceptance of the image on four systems, the Windows 11 24H2 gate,
+# the Ubuntu 20.04 floor -- runs through mtest (.github/actions/engine-cts) without mcpp or a compiler.
+#
+# Called by build-test and release before the jobs that test an engine. Dispatched by itself it tests the
+# tests: the program against a released image on every system, minutes instead of the hour an image takes.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "The release whose image the cases run against (a tag; empty: the latest)"
+        required: false
+        default: ""
+
+env:
+  MCPP_VERSION: 2026.11.9.1
+  XLINGS_VERSION: v2026.10.26.1
+  XLINGS_NON_INTERACTIVE: '1'
+
+jobs:
+  program:
+    name: the test program (one tree, every system)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: mcpp
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-all-errors https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s "$XLINGS_VERSION"
+          export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+          for attempt in 1 2 3 4 5; do
+            xlings update > /dev/null 2>&1 || true
+            if xlings install "mcpp@$MCPP_VERSION" -y -g; then break; fi
+            [ "$attempt" = 5 ] && exit 1
+            sleep 30
+          done
+          mcpp --version
+          mcpp self config --mirror GLOBAL
+      # One platform starts the engine's image and the program that tests it.
+      - name: The program is built over the image's platform
+        run: |
+          set -euo pipefail
+          image="$(sed -n 's/^platform *= *"\(openkal-platform@[^"]*\)"$/\1/p' openkal/clangd/mcpp.toml)"
+          tests="$(sed -n 's/^platform *= *"\(openkal-platform@[^"]*\)"$/\1/p' tests/mcpp.toml)"
+          echo "image: $image; tests: $tests"
+          [ -n "$image" ] && [ "$image" = "$tests" ]
+          . ci/mtest.env
+          grep -qF "mcpplibs.mtest = \"$MTEST_VERSION\"" tests/mcpp.toml \
+            || { echo "::error::tests/mcpp.toml does not name mtest $MTEST_VERSION (ci/mtest.env)"; exit 1; }
+      - name: Pack the okb and the tree
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/engine-cts"
+          (cd tests && mcpp pack --profile release --target openkal --mode self-contained --systems all --pkg-format zip,okb -o "$RUNNER_TEMP/engine-cts/")
+          ls -l "$RUNNER_TEMP/engine-cts"
+          test -f "$RUNNER_TEMP"/engine-cts/engine-cts-*.okb && test -f "$RUNNER_TEMP"/engine-cts/engine-cts-*-openkal-bundle-all.zip
+      # The cases the program declares, as the tree's own runner lists them: what a later job runs.
+      - name: The cases
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/engine-cts"
+          mkdir tree && python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall("tree")' engine-cts-*-openkal-bundle-all.zip
+          chmod +x tree/*/libexec/okrun/linux-x86_64/okrun
+          tree/*/libexec/okrun/linux-x86_64/okrun engine-cts-*.okb --list | tee cases.txt
+          rm -rf tree
+          # Every regression the README names is a case, and every case is named there.
+          diff <(sed -n 's/^| `\([a-z0-9-]*\)` |.*/\1/p' "$GITHUB_WORKSPACE/tests/README.md" | sort) <(sort cases.txt) \
+            || { echo "::error::tests/README.md and the program's cases differ"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-cts
+          path: ${{ runner.temp }}/engine-cts
+          if-no-files-found: error
+          retention-days: 14
+
+  # The tests themselves, against an image that is released: on a dispatch of this workflow alone.
+  released:
+    name: a released image (${{ matrix.platform }}, ${{ matrix.os }})
+    if: github.workflow == 'engine-cts'
+    needs: program
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux-x64, os: ubuntu-24.04 }
+          - { platform: linux-arm64, os: ubuntu-24.04-arm }
+          - { platform: darwin-arm64, os: macos-15 }
+          - { platform: win32-x64, os: windows-2022 }
+          - { platform: win32-x64, os: windows-2025 }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: The released image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release }}
+        run: |
+          set -euo pipefail
+          tag="$RELEASE"
+          [ -n "$tag" ] || tag="$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p 'clangd-*-openkal.tar.gz' -O image.tgz
+          mkdir okb && tar xzf image.tgz -C okb
+          echo "OKB=$(ls okb/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          case "$RUNNER_OS" in
+            Linux)   echo "CLANG=$(command -v clang)" >> "$GITHUB_ENV" ;;
+            macOS)   echo "CLANG=$(xcrun -f clang)" >> "$GITHUB_ENV" ;;
+            Windows) echo "CLANG=C:/Program Files/LLVM/bin/clang.exe" >> "$GITHUB_ENV" ;;
+          esac
+          echo "the image of $tag" >> "$GITHUB_STEP_SUMMARY"
+      - uses: ./.github/actions/engine-cts
+        with:
+          engine: ${{ env.OKB }}
+          runner: tree
+          clang: ${{ env.CLANG }}
+          platform: ${{ matrix.platform }}
+          name: released-${{ matrix.platform }}-${{ matrix.os }}

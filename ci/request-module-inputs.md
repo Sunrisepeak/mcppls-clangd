@@ -39,7 +39,7 @@ overriding another draft. Thirty related module/provider/diagnostic units pass
 on the combined development link. Raw evidence is in
 tests/evidence/module-request-inputs.json. This is not the final package proof.
 
-Run tests/e2e/module_request_inputs.py with --engine, --clang and --workdir;
+Run the case module-request-inputs of the test program (tests/e2e/module_cache.cpp, tests/README.md);
 normal native CI repeats it. Upstream/drop condition: request snapshots reach
 every module dependency scan, prerequisite build and preamble/completion reuse
 check with equivalent filesystem ownership and invalidation guarantees.

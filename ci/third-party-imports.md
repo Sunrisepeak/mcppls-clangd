@@ -1,6 +1,6 @@
 # Third-party module imports keep resolvable prerequisites and the preamble
 
-`tests/e2e/third_party_import.py` covers two behaviors the qt-demo real
+`tests/e2e/third_party_import.cpp` covers two behaviors the qt-demo real
 project exposed through the completion stage trace (`0018`):
 
 1. A direct import whose module unit the project cannot supply — a toolchain

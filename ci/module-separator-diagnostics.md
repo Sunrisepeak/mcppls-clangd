@@ -19,7 +19,7 @@ verify regression fails on the old driver and passes on the updated driver.
 Reports with raw replies and identities are retained in
 tests/evidence/module-directive-diagnostics.json.
 
-tests/e2e/module_directive_diagnostics.py is a reusable raw capability canary.
+ci/module_directive_canary.py is a reusable raw capability canary.
 Local development-link evidence does not establish native final-package
 acceptance or retire the product's compatibility workaround. A final stripped
 package must pass the canary before declaring the capability; product policy

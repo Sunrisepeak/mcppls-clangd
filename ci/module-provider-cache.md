@@ -43,10 +43,9 @@ adjustment regressions remain in the focused filter.
 ```sh
 build-linux-x64/tools/clang/tools/extra/clangd/unittests/ClangdTests \
   --gtest_filter='PrerequisiteModulesTests.Provider*:GlobalCompilationDatabaseTest.ProviderIndexFollowsDatabaseGeneration:PrerequisiteModulesTests.UniqueModuleNameStateResolvedFromCompileCommands:PrerequisiteModulesTests.DuplicateModuleNamesResolvedFromCompileCommands:PrerequisiteModulesTests.ModuleWithArgumentPatch'
-python3 tests/e2e/module_provider_cache.py \
-  --engine build-linux-x64/bin/clangd \
-  --clang build-linux-x64/bin/clang++ \
-  --workdir /tmp/mcppls-module-provider-cache
+(cd tests && mcpp build)
+MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang MCPPLS_ENGINE_HAS=matching-clang \
+  MCPPLS_ENGINE_KEEP=/tmp/mcppls-module-provider-cache tests/target/*/*/bin/engine-cts module-provider-cache
 ```
 
 The raw replay uses 132 CDB entries and three successive importer documents.

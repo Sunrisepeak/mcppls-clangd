@@ -69,9 +69,6 @@ if [[ "${RUN_TESTS:-}" = "lit-subset" ]]; then
   if [[ "$PLATFORM" == linux-* ]]; then
     "$CLANGD_TESTS" --gtest_filter='PrerequisiteModulesTests.PositiveScanMemo*'
   fi
-  python3 "$MCPPLS_CI_ROOT/tests/e2e/frontend_completion_consumers.py" \
-    --clang "$PWD/bin/clang" --c-index-test "$PWD/bin/c-index-test" \
-    --clang-repl "$PWD/bin/clang-repl" --workdir "$PWD/frontend-consumer-evidence"
 fi
 
 if [[ -n "${PACKAGE:-}" ]]; then
