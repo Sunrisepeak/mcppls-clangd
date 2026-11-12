@@ -267,9 +267,11 @@ the end-to-end case (`tests/e2e/gmf_include_analysis.py`) is the report's shape 
 under a search path that is not its resolved path, an import, a use -- and runs in every system's acceptance
 and on `windows-2025`, the hosted runner of build 26100, which no job of this repository ran on before. The
 engine reports itself as `23.1.0-mcppls.11` and declares the feature `include-ids-by-entry`.
-For this addition, [build-test run 43188051127](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43188051127)
-is the comparison run: every native engine, both Ubuntu 20.04 packages, the four acceptances with the end-to-end
-suite, and the `windows-2025` gate with its control.
+The comparison run of this addition is the one the changelog's 0.0.22 entry names: every native engine, both Ubuntu
+20.04 packages, the four acceptances with the end-to-end suite, and the `windows-2025` gate with its control. On that
+runner (10.0.26100) the image with 0048 passes the case with the engine reporting two identities, and 0.0.21's image
+ends on it ("server stdout closed"); of the rest of the suite there, `module-cache-lease` alone fails, the owned cache
+being the thing 0039 steps aside from while a file has two identities.
 
 ## The 0.0.21 additions
 

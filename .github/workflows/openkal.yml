@@ -446,9 +446,11 @@ jobs:
           PY
       - name: The control, ${{ env.CONTROL_ENGINE }}, ends on it while this system gives two identities
         run: |
-          set -uo pipefail
+          # The case is expected to fail here: its outcome is read below, not its exit status (the step's shell has -e).
+          set +e
           MCPPLS_ENGINE_RUNNER="$OKRUN" python tests/e2e/gmf_include_analysis.py --engine "$CONTROL" \
             --clang "C:/Program Files/LLVM/bin/clang.exe" --workdir "${{ runner.temp }}/control"
+          set -e
           python - <<'PY'
           import json, os, pathlib, sys
           temp = pathlib.Path(os.environ['RUNNER_TEMP'])
