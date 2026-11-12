@@ -432,8 +432,6 @@ jobs:
           path: ${{ runner.temp }}/compiler-extensions/results.json
           if-no-files-found: error
 
-      # The native engine packaged as a release would package it, for the platforms the floor
-      # job does not package: what a comparison run measures the image against (warm-prime).
       - name: A header of the global module fragment is analysed whatever identity its path has
         shell: bash
         run: |
@@ -449,6 +447,8 @@ jobs:
           path: ${{ runner.temp }}/gmf-include-analysis/results.json
           if-no-files-found: error
 
+      # The native engine packaged as a release would package it, for the platforms the floor
+      # job does not package: what a comparison run measures the image against (warm-prime).
       - name: Package payload part
         if: "!startsWith(matrix.platform, 'linux-')"
         shell: bash
