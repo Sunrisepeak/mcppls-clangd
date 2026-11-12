@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.0.23]
+
+- The ok image offers clangd's refactorings again
+  ([mcpp-language-server issue 89](https://github.com/Sunrisepeak/mcpp-language-server/issues/89)). clangd's
+  tweaks ("Define constructor", "Declare implicit copy/move members", "Extract to function", "Expand macro" and
+  the rest) are an object library whose every unit registers itself when the program starts; nothing refers to
+  them, so clangd's link names their objects one by one. `okgen` took the libraries of that line and nothing
+  else, and the image, linked from them, carried no refactoring: a request for code actions was answered with
+  the fixes of its diagnostics and otherwise with an empty list, on every system, since the engine is released
+  as the image. `okgen` builds and links the objects the line names beside the libraries (the tool's own units
+  excepted: the image's main is `openkal/clangd`'s), and stops when the line names none.
+- The engine reports itself as `23.1.0-mcppls.12` and declares the feature `refactorings` in `engine.json`. The
+  identity is written only for a package that answers upstream's own request
+  (`clangd/test/code-action-request.test`) with its refactoring and applies it.
+- `tests/e2e/code_actions.py` asks for the actions on a class's name, on an expression and on `auto`, and runs in
+  every system's acceptance. It finds each refactoring by its identifier: the image and a native build register
+  the same ones in another order.
+- No patch of either series changes; the image is built over the same platform (openkal-platform 0.24.4).
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43288707599 . Linux x64 passes the
+  warm-prime gate (cold readiness 1.09 and processor time 1.11 times native), and Linux ARM64 on its repetition
+  (1.05 and 1.07; the first measurement was invalid, three pairs outside the cold processor-time bound). Windows
+  records its ratios (cold readiness 1.69 and processor time 1.32 times native; 1.46 and 1.19 for 0.0.22): that
+  runner was faster for both engines (native ready in 6.8 s, the image in 11.3 s; 11.2 s and 16.4 s in 0.0.22's
+  run), and the image's cold readiness is 4.5 s above native's where it was 5.2 s. darwin-arm64 measured three
+  times and each measurement is invalid under O5, as each of 0.0.22's and 0.0.21's was: six to eight of eight
+  pairs lie outside the cold processor-time bound, with medians of 1.34, 1.31 and 1.25 times native readiness and
+  1.09, 1.02 and 0.99 times its processor time; every session of both engines was ready. The release is admitted
+  on its comparison with 0.0.22 instead ([policy](ci/performance-policy.md), "0.0.21"), the two images alternated
+  in eight pairs on one runner of each system, once in each order
+  ([0.0.22 first](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43315972808),
+  [0.0.23 first](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43320038561)); the quantities are
+  readiness, processor time and complete-lifetime page faults, 0.0.23 as a ratio of 0.0.22.
+  - darwin-arm64: the 0.0.23 image's absolute cold readiness and processor time (medians 10.8 s and 11.4 s where
+    it ran second, 11.1 s and 12.0 s where it ran first) are not above the 0.0.22 image's beside it (10.9 s and
+    11.7 s; 11.6 s and 13.1 s). Its warm medians are 1.06, 1.02 and 1.00 where it ran second and 0.97, 1.00 and
+    0.99 where it ran first: on that runner the second of a pair is the slower one, and the two orders together
+    put the images within 2% of each other. Neither pairing is a valid measurement by the spread rule.
+  - Linux x64: with 0.0.23 first, a valid measurement, 1.02, 1.02 and 1.01 cold and 1.01, 1.01 and 1.01 warm; with
+    0.0.22 first (five pairs outside the cold processor-time bound) 0.99, 1.02 and 1.00 cold and 1.03, 1.03 and
+    1.01 warm.
+
+  The image carries the refactorings' code now, as a native clangd always has: where a runner resolves it, that is
+  1 to 3% of a session's time. The limits are unchanged.
+
 ## [0.0.22]
 
 - The include analysis no longer ends the engine on a header that has two

@@ -124,6 +124,15 @@ def main():
         parser.error('final package bytes hang on a malformed module directive')
     if recovered.returncode != 0 or recovered.stdout.count('"name": "marker"') != 2:
         parser.error('final package bytes failed module directive recovery canary')
+    # The refactorings are objects clangd's link names one by one, and an engine linked without them answers
+    # every such request with nothing (mcpp-language-server issue 89): upstream's own request for the actions
+    # on `auto i = 0;` is answered with its refactoring, and applied.
+    actions_canary = source / 'clang-tools-extra/clangd/test/code-action-request.test'
+    acted = subprocess.run([*launch, '-lit-test'], input=actions_canary.read_text(),
+                           text=True, capture_output=True, timeout=30)
+    if (acted.returncode != 0 or '"tweakID": "ExpandDeducedType"' not in acted.stdout
+            or '"newText": "int"' not in acted.stdout):
+        parser.error('final package bytes failed refactorings canary: the engine offers or applies no refactoring')
     views = subprocess.run(['python3', str(ROOT / 'ci/const_views_canary.py'), '--engine', str(engine.resolve()), *runner],
                            text=True, capture_output=True, timeout=120)
     if views.returncode != 0:
@@ -160,7 +169,7 @@ def main():
                              'const-correctness-views', 'unresolved-import-recovery',
                              'partial-prerequisite-modules', 'module-rebuild-reasons', 'bounded-module-wait',
                              'managed-input-roots', 'persistent-module-memos', 'retained-asts-option',
-                             'module-input-recheck', 'interactive-actions', 'include-ids-by-entry'],
+                             'module-input-recheck', 'interactive-actions', 'include-ids-by-entry', 'refactorings'],
                 'llvm-tree-commit': stamp['llvm-tree-commit']}
     # The owned module cache and its supervised workers, where the system provides what they need
     # (ModuleCachePlatform): Linux, macOS and the ok image. The native engine of Windows caches a copy
