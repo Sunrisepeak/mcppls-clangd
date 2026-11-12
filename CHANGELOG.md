@@ -24,7 +24,26 @@
 - No other patch of either series changes; the image is built over the same
   platform (openkal-platform 0.24.4). The platform's own correction of the two
   identities is openkal-windows 0.22.0, which a later platform pin takes.
-- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43198627378
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43198627378 . Linux ARM64 passes the
+  warm-prime gate (cold readiness 1.07 and processor time 1.07 times native), and Linux x64 on its repetition
+  (1.08 and 1.11; the first measurement was invalid, four pairs outside the cold processor-time bound). Windows
+  records its ratios (cold readiness 1.46 and processor time 1.19 times native; 1.47 and 1.21 for 0.0.21).
+  darwin-arm64 measured three times and each measurement is invalid under O5, as each of 0.0.21's was: five or six
+  of eight pairs lie outside the cold processor-time bound, with medians of 1.25 and 1.16 times native readiness
+  and 0.94 to 0.96 times its processor time (1.14 to 1.29 and 0.87 to 0.93 for 0.0.21). The release is admitted on
+  its comparison with 0.0.21 instead ([policy](ci/performance-policy.md), "0.0.21"), the two images alternated in
+  eight pairs on one runner of each system
+  ([run 43245970422](https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/43245970422)): on darwin-arm64 the
+  0.0.22 image's absolute cold readiness (median 11.2 s) and processor time (12.5 s) are not above the 0.0.21
+  image's beside it (12.9 s, 15.2 s), and its warm medians are within 3% of it (readiness 1.01, processor time
+  1.03, page faults 1.00); on Linux x64, a valid measurement, the two images differ by at most 2% in every gated
+  quantity (cold readiness 0.98, processor time 0.98, page faults 1.01; warm 0.99, 0.99, 1.00). The limits are
+  unchanged.
+- Known, and not of this release's change: in the third darwin-arm64 measurement one cold session of the image
+  did not become ready, one of the comparison run's 24 (none of the pairing's 16, none of 0.0.21's 24). With the
+  prerequisites of three files built at once, a module's lock anchor could not be opened
+  (`Failed to open lock file anchor .../.locks/<hash>: No such file or directory`), and the five modules behind
+  it were not built for that file in that session. The lock's code is 0.0.20's.
 
 ## [0.0.21]
 
