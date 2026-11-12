@@ -16,8 +16,8 @@ bumped.
 
 ## Status
 
-The 0.0.21 engine carries 43 main patches ([patches/PATCHES.md](patches/PATCHES.md))
-on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.10`. Each patch maps
+The 0.0.22 engine carries 44 main patches ([patches/PATCHES.md](patches/PATCHES.md))
+on llvm-project 23.1.0 and reports itself as `23.1.0-mcppls.11`. Each patch maps
 to rows of the upstream-defects register and has a drop condition. A release
 requires every ledger entry in both series to be `steady`, as checked by
 `ci/check_ledger.py --release`.

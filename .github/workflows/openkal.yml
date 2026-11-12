@@ -379,3 +379,107 @@ jobs:
             ${{ runner.temp }}/e2e/*/result*.json
             ${{ runner.temp }}/e2e/*/*/result*.json
           if-no-files-found: warn
+
+  # ONE FILE, TWO IDENTITIES (mcpp-language-server issue 86). Under okrun of openkal-windows through 0.21.0, Windows
+  # 11 24H2's build (26100) gives an open file another identity than its name; the include analysis of a module
+  # unit then found no ID for a header it had entered and ended the engine by an illegal instruction. windows-2022
+  # (build 20348), where every other Windows job runs, cannot show it. The case is run on the image as a gate, and
+  # on the last release without the fix as its control: while the platform the probe names still gives two
+  # identities, the control must end as the report did, or the gate proves nothing. The whole end-to-end suite
+  # runs after them as a report of what else this build of Windows changes.
+  two-identities:
+    name: one file, two identities (windows-2025)
+    needs: bundle
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      CONTROL_RELEASE: v0.0.21
+      CONTROL_ENGINE: 23.1.0-mcppls.10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install psutil
+      - uses: actions/download-artifact@v4
+        with:
+          name: clangd-openkal
+          path: part
+      - name: xlings
+        shell: pwsh
+        run: |
+          irm https://d2learn.org/xlings-install.ps1.txt | iex
+          "$env:USERPROFILE\.xlings\subos\current\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: okrun, the image and the control
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if xlings install "mcpp@$MCPP_VERSION" -y -g; then break; fi
+            [ "$attempt" = 5 ] && exit 1
+            sleep 30
+          done
+          bash ci/scripts/probe-platform.sh h
+          (cd h && mcpp build --target x86_64-openkal > /dev/null)
+          (cd h && mcpp self env --target x86_64-openkal --format json) > tools.json
+          okrun="$(python -c "import json; print(json.load(open('tools.json'))['data']['runner']['program'])")"
+          echo "OKRUN=$okrun" >> "$GITHUB_ENV"
+          mkdir okb && tar xzf part/clangd-*-openkal.tar.gz -C okb
+          echo "OKB=$(ls okb/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          gh release download "$CONTROL_RELEASE" -p "clangd-$CONTROL_ENGINE-openkal.tar.gz" -O control.tgz
+          mkdir control && tar xzf control.tgz -C control
+          echo "CONTROL=$(ls control/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
+          cmd //c ver
+      - name: The image analyses a header that has two identities
+        run: |
+          set -euo pipefail
+          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "C:/Program Files/LLVM/bin/clang.exe" \
+            --platform win32-x64 --workdir "${{ runner.temp }}/gate" --case gmf-include-analysis
+          python - <<'PY'
+          import json, os, pathlib
+          report = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'gate/gmf-include-analysis/results.json').read_text())
+          print('outcome', report['result']['outcome'], 'two identities', report['two_identities'])
+          PY
+      - name: The control, ${{ env.CONTROL_ENGINE }}, ends on it while this system gives two identities
+        run: |
+          # The case is expected to fail here: its outcome is read below, not its exit status (the step's shell has -e).
+          set +e
+          MCPPLS_ENGINE_RUNNER="$OKRUN" python tests/e2e/gmf_include_analysis.py --engine "$CONTROL" \
+            --clang "C:/Program Files/LLVM/bin/clang.exe" --workdir "${{ runner.temp }}/control"
+          set -e
+          python - <<'PY'
+          import json, os, pathlib, sys
+          temp = pathlib.Path(os.environ['RUNNER_TEMP'])
+          gate = json.loads((temp / 'gate/gmf-include-analysis/results.json').read_text())
+          control = json.loads((temp / 'control/results.json').read_text())
+          outcome = control['result']['outcome']
+          print('gate: two identities', gate['two_identities'], '| control outcome', outcome, control['result'].get('detail'))
+          if gate['two_identities']:
+              # The condition holds here: an engine without the fix must end on the case.
+              sys.exit(0 if outcome == 'crash' else 'the control did not end on the case: the gate does not show the defect')
+          # The platform gives one identity (openkal-windows 0.22.0 or later beneath okrun): neither engine can meet
+          # the defect on this system, and the unit test's file system is what keeps the fix proven.
+          sys.exit(0 if outcome == 'pass' else 'one identity for a file, and the control still failed')
+          PY
+      - name: The end-to-end regressions on this build, as a report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "C:/Program Files/LLVM/bin/clang.exe" \
+            --platform win32-x64 --workdir "${{ runner.temp }}/e2e"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: two-identities-windows-2025
+          path: |
+            ${{ runner.temp }}/gate/**/result*.json
+            ${{ runner.temp }}/gate/*.log
+            ${{ runner.temp }}/control/results.json
+            ${{ runner.temp }}/e2e/e2e-suite.json
+            ${{ runner.temp }}/e2e/*.log
+          if-no-files-found: warn
