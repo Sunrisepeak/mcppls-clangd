@@ -12,7 +12,7 @@
 #
 # E is the engine: clangd.okb with --runner (okrun, or `tree` for the tree's own), or a native build. C is
 # the compiler the compile commands name. --has names what the subject has beyond what the program sees by
-# itself (tests/src/harness.cppm): matching-clang where C is the engine's own build. The three tools are a
+# itself (tests/cts/harness.cppm): matching-clang where C is the engine's own build. The three tools are a
 # build tree's, and K is an engine without a fix that a case proves by it (started as E is); a case that needs
 # one the subject lacks is reported as not run, with that reason.
 #

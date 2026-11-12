@@ -1,4 +1,4 @@
-// How the cases drive the engine (tests/README.md). A case writes a project into a directory of
+// How the cases drive the engine (tests/cts/README.md). A case writes a project into a directory of
 // its own, states a session as a sequence of steps -- requests with what their answers must hold,
 // notifications, edits of the project's files, waits for a line of the engine's log -- and
 // `replay` runs it against the subject: the engine starts, the steps are sent, the engine is shut
@@ -55,7 +55,7 @@ const Subject& subject();
 // `native` after what the subject is. A part that needs what the subject lacks
 // (`"..."_test[cts::needs{"linux"}]`) is not run there, and says so: `unsupported: linux`.
 //
-// A regression is an object of a file of e2e/, a case of its own that mtest lists, selects and
+// A regression is an object of a file of this directory, a case of its own that mtest lists, selects and
 // schedules, whose body is this:
 //
 //   CTS cold{"module-cold-completion", [] { against_subject([] {

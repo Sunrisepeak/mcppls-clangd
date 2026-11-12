@@ -53,10 +53,10 @@ The repository regression uses the actual installed standard library and raw
 clangd without product filtering:
 
 ```sh
-(cd tests && mcpp build)
+(cd tests/cts && mcpp build)
 MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang++ \
   MCPPLS_ENGINE_TIDY=build-linux-x64/bin/clang-tidy MCPPLS_ENGINE_KEEP=/tmp/mcppls-const-correctness \
-  tests/target/*/*/bin/engine-cts const-correctness
+  tests/cts/target/*/*/bin/engine-cts const-correctness
 ```
 
 It requires exactly the five valid suggestions (`answer`, `input`, `reference`,

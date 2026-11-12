@@ -33,7 +33,7 @@ python3 ci/portability_linux.py \
   "$DIST_DIR/clangd-${FORK_VERSION:-23.1.0-mcppls.6}-$PLATFORM/clangd/bin/clangd" \
   --output "$DIST_DIR/portability-$PLATFORM.json"
 # The series' regressions that say something about the packaged engine on this floor, by the test program the
-# run built once (tests/README.md): the tree is in engine-cts/ of the repository, put there before this
+# run built once (tests/cts/README.md): the tree is in engine-cts/ of the repository, put there before this
 # container started (.github/actions/linux-floor). The compile commands name the build's own driver.
 bash ci/scripts/engine-cts.sh --tree engine-cts \
   --engine "$DIST_DIR/clangd-$FORK_VERSION-$PLATFORM/clangd/bin/clangd" \

@@ -38,9 +38,9 @@ actual module function with Function completion kind and normal shutdown.
 The baseline fails the published-identity assertion and has no reader leases.
 
 ```sh
-(cd tests && mcpp build)
+(cd tests/cts && mcpp build)
 MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang MCPPLS_ENGINE_HAS=matching-clang \
-  MCPPLS_ENGINE_KEEP=/tmp/module-cache-lease tests/target/*/*/bin/engine-cts module-cache-lease
+  MCPPLS_ENGINE_KEEP=/tmp/module-cache-lease tests/cts/target/*/*/bin/engine-cts module-cache-lease
 ```
 
 The four-platform PR workflow runs this probe and retains raw outcomes. The

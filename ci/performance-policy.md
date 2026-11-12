@@ -68,7 +68,7 @@ dispatch of `build-test` naming a platform or `all`, which builds those native
 engines, packages them as a release would, and runs warm-prime and the shard
 exchange on each. Every system's acceptance also runs the end-to-end
 regressions against the image (the test program of `tests/`, built once per run
-and run through mtest: `tests/README.md`), so what users run is tested on each
+and run through mtest: `tests/cts/README.md`), so what users run is tested on each
 system without a native build there.
 
 A release whose engine inputs (`UPSTREAM`, `patches/`, `overlay/`, `openkal/`,

@@ -365,7 +365,7 @@ jobs:
           name: acceptance-${{ matrix.platform }}
           path: '*.json'
       # The series' end-to-end regressions against what users run, on this system: clangd.okb under okrun, by
-      # the test program this run built once (tests/README.md). The compile commands name this system's
+      # the test program this run built once (tests/cts/README.md). The compile commands name this system's
       # clang; the cases that read a BMI another compiler wrote need the engine's own and say so.
       - name: This system's clang
         if: ${{ !cancelled() }}
@@ -441,7 +441,7 @@ jobs:
           echo "CONTROL=$(ls control/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
           cmd //c ver
       # The gate and its control are one case: the image builds the unit and answers for it, and the control
-      # ends on it while this system gives a file two identities (tests/e2e/gmf_include_analysis.cpp).
+      # ends on it while this system gives a file two identities (tests/cts/gmf_include_analysis.cpp).
       - name: The image analyses a header that has two identities, and ${{ env.CONTROL_ENGINE }} ends on it
         uses: ./.github/actions/engine-cts
         with:

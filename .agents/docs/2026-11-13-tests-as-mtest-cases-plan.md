@@ -15,12 +15,14 @@ regressions are written in C++ over the latest mtest (0.6.3), and CI is rebuilt 
 
 ## What there is
 
-One program, `tests/` (`engine-cts`), C++ over `mcpplibs.mtest` 0.6.3:
+One program, `tests/cts/` (`engine-cts`), C++ over `mcpplibs.mtest` 0.6.3. Its cases are `CTS`
+objects, so they are in `tests/cts/`, a package of its own as mtest lays tests out; `tests/e2e/`
+keeps what drives the engine over real projects (`tests/README.md` states each directory's kind):
 
-- `src/harness.cppm`: the subject (the engine the environment names, with what it has), `replay`
+- `harness.cppm`: the subject (the engine the environment names, with what it has), `replay`
   (the session of steps, the same steps and the same result as `replay.py`), `Client` (an engine
   talked to step by step), `lit_test`, `tool`.
-- `e2e/*.cpp`: 26 cases. Each is a `CTS` object, so mtest lists, selects and schedules it; its
+- `<matter>.cpp`: 26 cases. Each is a `CTS` object, so mtest lists, selects and schedules it; its
   parts run under `cts::against` the subject, and a part that needs what the subject lacks
   (`cts::needs{"linux"}`, `matching-clang`, `clang-tidy`, `control`) is reported `unsupported`,
   never passed.
@@ -32,7 +34,7 @@ One program, `tests/` (`engine-cts`), C++ over `mcpplibs.mtest` 0.6.3:
 
 | # | Task | Depends on |
 |---|---|---|
-| T1 | `tests/mcpp.toml`, `src/harness.cppm`: subject, `replay`, `Client` | mtest 0.6.3 in mcpp-index |
+| T1 | `tests/cts/mcpp.toml`, `harness.cppm`: subject, `replay`, `Client` | mtest 0.6.3 in mcpp-index |
 | T2 | The cases of the image's suite (the 24 of `ci/e2e_suite.py`) | T1 |
 | T3 | The cases only a build tree has (`const-correctness`, `frontend-completion-consumers`) | T1 |
 | T4 | The Windows 11 24H2 control as a part of `gmf-include-analysis` (`control`) | T2 |

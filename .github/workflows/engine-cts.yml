@@ -1,6 +1,6 @@
 name: engine-cts
 
-# THE ENGINE'S TEST PROGRAM, BUILT ONCE (tests/README.md). The series' end-to-end regressions are the cases of
+# THE ENGINE'S TEST PROGRAM, BUILT ONCE (tests/cts/README.md). The series' regressions are the cases of
 # one C++ program over mcpplibs.mtest. `program` builds it as an ok image of both architectures and packs it
 # with the runner of every system (mcpp pack, self-contained): the artifact `engine-cts`, which every job that
 # tests an engine -- the native build, the acceptance of the image on four systems, the Windows 11 24H2 gate,
@@ -52,17 +52,17 @@ jobs:
         run: |
           set -euo pipefail
           image="$(sed -n 's/^platform *= *"\(openkal-platform@[^"]*\)"$/\1/p' openkal/clangd/mcpp.toml)"
-          tests="$(sed -n 's/^platform *= *"\(openkal-platform@[^"]*\)"$/\1/p' tests/mcpp.toml)"
+          tests="$(sed -n 's/^platform *= *"\(openkal-platform@[^"]*\)"$/\1/p' tests/cts/mcpp.toml)"
           echo "image: $image; tests: $tests"
           [ -n "$image" ] && [ "$image" = "$tests" ]
           . ci/mtest.env
-          grep -qF "mcpplibs.mtest = \"$MTEST_VERSION\"" tests/mcpp.toml \
-            || { echo "::error::tests/mcpp.toml does not name mtest $MTEST_VERSION (ci/mtest.env)"; exit 1; }
+          grep -qF "mcpplibs.mtest = \"$MTEST_VERSION\"" tests/cts/mcpp.toml \
+            || { echo "::error::tests/cts/mcpp.toml does not name mtest $MTEST_VERSION (ci/mtest.env)"; exit 1; }
       - name: Pack the okb and the tree
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/engine-cts"
-          (cd tests && mcpp pack --profile release --target openkal --mode self-contained --systems all --pkg-format zip,okb -o "$RUNNER_TEMP/engine-cts/")
+          (cd tests/cts && mcpp pack --profile release --target openkal --mode self-contained --systems all --pkg-format zip,okb -o "$RUNNER_TEMP/engine-cts/")
           ls -l "$RUNNER_TEMP/engine-cts"
           test -f "$RUNNER_TEMP"/engine-cts/engine-cts-*.okb && test -f "$RUNNER_TEMP"/engine-cts/engine-cts-*-openkal-bundle-all.zip
       # The cases the program declares, as the tree's own runner lists them: what a later job runs.
@@ -75,8 +75,8 @@ jobs:
           tree/*/libexec/okrun/linux-x86_64/okrun engine-cts-*.okb --list | tee cases.txt
           rm -rf tree
           # Every regression the README names is a case, and every case is named there.
-          diff <(sed -n 's/^| `\([a-z0-9-]*\)` |.*/\1/p' "$GITHUB_WORKSPACE/tests/README.md" | sort) <(sort cases.txt) \
-            || { echo "::error::tests/README.md and the program's cases differ"; exit 1; }
+          diff <(sed -n 's/^| `\([a-z0-9-]*\)` |.*/\1/p' "$GITHUB_WORKSPACE/tests/cts/README.md" | sort) <(sort cases.txt) \
+            || { echo "::error::tests/cts/README.md and the program's cases differ"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: engine-cts

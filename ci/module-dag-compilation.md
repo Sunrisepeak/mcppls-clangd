@@ -4,7 +4,7 @@ Patch `0023-UP-03-bounded-module-dag-compilation.patch` replaces the serial
 prerequisite loop with a single forest plan and a builder-owned worker pool.
 It builds on the cycle, cancellation, generation and read-lease changes already
 carried in the series. The patch is confined to ModulesBuilder.cpp and a focused
-clangd lit test; the larger raw replay lives in tests/e2e/module_dag.cpp.
+clangd lit test; the larger raw replay lives in tests/cts/module_dag.cpp.
 
 ## Evidence and selected root cause
 
@@ -80,9 +80,9 @@ shell/URI setup follows the existing module lit tests and is unsupported on
 Windows; the raw replay (the case module-dag of the test program) uses native paths and URIs.
 
 ```sh
-(cd tests && mcpp build)
+(cd tests/cts && mcpp build)
 MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang MCPPLS_ENGINE_HAS=matching-clang \
-  MCPPLS_ENGINE_KEEP=/tmp/mcppls-module-dag tests/target/*/*/bin/engine-cts module-dag
+  MCPPLS_ENGINE_KEEP=/tmp/mcppls-module-dag tests/cts/target/*/*/bin/engine-cts module-dag
 ```
 
 Each shape has a directory of its own, emptied before it runs, because cold cache is an assertion. The replay checks wide

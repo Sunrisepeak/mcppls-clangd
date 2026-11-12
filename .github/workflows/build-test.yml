@@ -149,7 +149,7 @@ jobs:
           CMAKE_EXTRA: ${{ matrix.platform == 'win32-x64' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }}
         run: ./ci/ci_build.sh
 
-      # THE SERIES' END-TO-END REGRESSIONS (tests/README.md): the test program this run built once
+      # THE SERIES' END-TO-END REGRESSIONS (tests/cts/README.md): the test program this run built once
       # (engine-cts), against this build. The compile commands name the build's own clang, so the cases
       # that read a BMI it wrote run here (matching-clang), and the build tree's other tools are the
       # subject's: clang-tidy where this system's standard library is found by the build's driver.

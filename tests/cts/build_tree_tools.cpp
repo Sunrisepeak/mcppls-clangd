@@ -1,6 +1,6 @@
 // What only a build tree can be asked: the engine's const suggestions beside clang-tidy's own,
 // and the compiler's other completion consumers. The subject has `clang-tidy` and
-// `frontend-tools` where the environment names those tools (src/harness.cppm); an image has
+// `frontend-tools` where the environment names those tools (harness.cppm); an image has
 // neither, and these cases then say so.
 import std;
 import engine.harness;
