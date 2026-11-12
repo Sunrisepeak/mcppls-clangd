@@ -53,11 +53,10 @@ The repository regression uses the actual installed standard library and raw
 clangd without product filtering:
 
 ```sh
-python3 tests/e2e/const_correctness.py \
-  --engine build-linux-x64/bin/clangd \
-  --clang-tidy build-linux-x64/bin/clang-tidy \
-  --clang build-linux-x64/bin/clang++ \
-  --workdir /tmp/mcppls-const-correctness
+(cd tests/cts && mcpp build)
+MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang++ \
+  MCPPLS_ENGINE_TIDY=build-linux-x64/bin/clang-tidy MCPPLS_ENGINE_KEEP=/tmp/mcppls-const-correctness \
+  tests/cts/target/*/*/bin/engine-cts const-correctness
 ```
 
 It requires exactly the five valid suggestions (`answer`, `input`, `reference`,

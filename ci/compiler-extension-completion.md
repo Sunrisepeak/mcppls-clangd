@@ -20,7 +20,7 @@ from semantic completion. This stops a libstdc++ macro being mistaken for SEH
 on Linux. Visible declarations/macros already supplied by Sema remain present; a Linux
 macro declaration is a positive canary for that preservation.
 
-Run tests/e2e/compiler_extensions.py with --engine, --clang and --workdir.
+Run the case compiler-extensions of the test program (tests/cts/compiler_extensions.cpp, tests/cts/README.md).
 Eleven asserted raw LSP cases check grammar and target boundaries. The probe
 applies the actual edits and fills snippet fields, then compiles those results:
 GNU introducer, cleanup attribute, cleanup function reference and Windows SEH.

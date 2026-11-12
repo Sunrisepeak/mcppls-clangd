@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+- The regressions of the series are cases of one C++ program over `mcpplibs.mtest` 0.6.3 (`tests/cts`, the package
+  `engine-cts`; 26 cases) instead of 25 Python scripts. A case runs against a subject -- a native build, or the ok
+  image under its runner -- and a part that needs what the subject lacks is reported `unsupported`, never passed.
+  `tests/README.md` states what each directory of `tests/` holds.
+- CI builds that program once per run, as an ok image with every system's runner (`engine-cts.yml`), and every job
+  that tests an engine runs it through mtest (`.github/actions/engine-cts`): the native job, the four acceptances,
+  the Windows 11 24H2 gate with its control, the Ubuntu 20.04 floor. Dispatched by itself, `engine-cts` runs the
+  cases against a released image on five systems.
+- No engine input changes: `patches/PATCHES.md` names the cases' new files, and nothing else under `patches/`,
+  `overlay/` or `openkal/` differs.
+
 ## [0.0.23]
 
 - The ok image offers clangd's refactorings again

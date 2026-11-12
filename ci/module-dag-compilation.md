@@ -4,7 +4,7 @@ Patch `0023-UP-03-bounded-module-dag-compilation.patch` replaces the serial
 prerequisite loop with a single forest plan and a builder-owned worker pool.
 It builds on the cycle, cancellation, generation and read-lease changes already
 carried in the series. The patch is confined to ModulesBuilder.cpp and a focused
-clangd lit test; the larger raw replay lives in tests/e2e/module_dag.py.
+clangd lit test; the larger raw replay lives in tests/cts/module_dag.cpp.
 
 ## Evidence and selected root cause
 
@@ -77,17 +77,15 @@ counts use verbose logging.
 The in-patch modules-bounded-dag.test proves a shared dependency is built once,
 parents run after siblings finish, and all four imported functions survive. Its
 shell/URI setup follows the existing module lit tests and is unsupported on
-Windows; the Python raw replay uses native paths and URIs.
+Windows; the raw replay (the case module-dag of the test program) uses native paths and URIs.
 
 ```sh
-python3 tests/e2e/module_dag.py \
-  --engine build-linux-x64/bin/clangd \
-  --clang build-linux-x64/bin/clang++ \
-  --baseline-engine /tmp/mcppls-dag-engine-before \
-  --workdir /tmp/mcppls-module-dag
+(cd tests/cts && mcpp build)
+MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang MCPPLS_ENGINE_HAS=matching-clang \
+  MCPPLS_ENGINE_KEEP=/tmp/mcppls-module-dag tests/cts/target/*/*/bin/engine-cts module-dag
 ```
 
-Use a fresh workdir, because cold cache is an assertion. The replay checks wide
+Each shape has a directory of its own, emptied before it runs, because cold cache is an assertion. The replay checks wide
 DAGs with 1/2/4 workers, a nested diamond with 1/4 workers, failed siblings with
 1/4 workers followed by a healthy edit, a prebuilt B whose provider is absent
 from the CDB, and two simultaneously opened importers sharing the worker pool.

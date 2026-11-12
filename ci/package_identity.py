@@ -74,7 +74,7 @@ def main():
     subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', 'HEAD', '--',
                     'UPSTREAM', 'patches', 'overlay', 'ci/scripts', 'ci/package_identity.py',
                     'ci/const_views_canary.py', 'ci/unresolved_import_canary.py',
-                    'tests/e2e/module_directive_diagnostics.py'], check=True,
+                    'ci/module_directive_canary.py'], check=True,
                    stdout=subprocess.DEVNULL)
     fork = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     # An ok image's tree is the series and the openkal series (openkal/patches/README.md).
@@ -151,7 +151,7 @@ def main():
         parser.error('final package bytes failed module inputs canary: ' + inputs.stdout.strip())
     directive_report = (args.build_dir or args.checksums) / 'module-directive-package-canary.json'
     directive = subprocess.run([
-        'python3', str(ROOT / 'tests/e2e/module_directive_diagnostics.py'),
+        'python3', str(ROOT / 'ci/module_directive_canary.py'),
         '--engine', str(engine.resolve()), *runner, '--output', str(directive_report.resolve())],
         text=True, capture_output=True, timeout=30)
     if directive.returncode != 0:

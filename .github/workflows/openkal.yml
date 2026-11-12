@@ -9,7 +9,9 @@ name: openkal
 #
 # Called by build-test (a pull request) and release (a tag): the part it writes,
 # clangd-<engine>-openkal.tar.gz, is the payload part of the ok image, and acceptance-*.json says
-# where it is accepted.
+# where it is accepted. The acceptance runs the engine's test program (engine-cts.yml, the artifact
+# `engine-cts`), which a caller builds before it calls this; dispatched by itself this workflow
+# builds it.
 
 on:
   workflow_call:
@@ -23,6 +25,11 @@ env:
   NATIVE_ENGINE: 23.1.0-mcppls.5
 
 jobs:
+  # The test program, where no caller built it: a dispatch of this workflow alone.
+  cts:
+    if: github.workflow == 'openkal'
+    uses: ./.github/workflows/engine-cts.yml
+
   image:
     name: image ${{ matrix.arch }}-openkal
     # On a machine of the image's architecture: the build measures the image it built
@@ -260,7 +267,9 @@ jobs:
 
   accept:
     name: acceptance ${{ matrix.platform }}
-    needs: bundle
+    needs: [bundle, cts]
+    # `cts` is skipped where the caller built the program.
+    if: ${{ !cancelled() && needs.bundle.result == 'success' && needs.cts.result != 'failure' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     strategy:
@@ -355,30 +364,26 @@ jobs:
         with:
           name: acceptance-${{ matrix.platform }}
           path: '*.json'
-      # The engine's end-to-end regressions against what users run, on this system: clangd.okb under okrun
-      # (ci/e2e_suite.py). The compile commands name this system's clang; the two cases that read a BMI
-      # another compiler wrote need the engine's own clang and are reported as not run.
-      - name: The end-to-end regressions, against clangd.okb
+      # The series' end-to-end regressions against what users run, on this system: clangd.okb under okrun, by
+      # the test program this run built once (tests/cts/README.md). The compile commands name this system's
+      # clang; the cases that read a BMI another compiler wrote need the engine's own and say so.
+      - name: This system's clang
         if: ${{ !cancelled() }}
         run: |
-          set -euo pipefail
           case "${{ runner.os }}" in
-            Linux)   clang="$(command -v clang)" ;;
-            macOS)   clang="$(xcrun -f clang)" ;;
-            Windows) clang="C:/Program Files/LLVM/bin/clang.exe" ;;
+            Linux)   echo "CLANG=$(command -v clang)" >> "$GITHUB_ENV" ;;
+            macOS)   echo "CLANG=$(xcrun -f clang)" >> "$GITHUB_ENV" ;;
+            Windows) echo "CLANG=C:/Program Files/LLVM/bin/clang.exe" >> "$GITHUB_ENV" ;;
           esac
-          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "$clang" \
-            --platform ${{ matrix.platform }} --workdir "${{ runner.temp }}/e2e"
-      - uses: actions/upload-artifact@v4
+      - name: The end-to-end regressions, against clangd.okb
         if: ${{ !cancelled() }}
+        uses: ./.github/actions/engine-cts
         with:
-          name: e2e-${{ matrix.platform }}
-          path: |
-            ${{ runner.temp }}/e2e/e2e-suite.json
-            ${{ runner.temp }}/e2e/*.log
-            ${{ runner.temp }}/e2e/*/result*.json
-            ${{ runner.temp }}/e2e/*/*/result*.json
-          if-no-files-found: warn
+          engine: ${{ env.OKB }}
+          runner: ${{ env.OKRUN }}
+          clang: ${{ env.CLANG }}
+          platform: ${{ matrix.platform }}
+          name: image-${{ matrix.platform }}
 
   # ONE FILE, TWO IDENTITIES (mcpp-language-server issue 86). Under okrun of openkal-windows through 0.21.0, Windows
   # 11 24H2's build (26100) gives an open file another identity than its name; the include analysis of a module
@@ -389,7 +394,8 @@ jobs:
   # runs after them as a report of what else this build of Windows changes.
   two-identities:
     name: one file, two identities (windows-2025)
-    needs: bundle
+    needs: [bundle, cts]
+    if: ${{ !cancelled() && needs.bundle.result == 'success' && needs.cts.result != 'failure' }}
     runs-on: windows-2025
     timeout-minutes: 60
     env:
@@ -434,52 +440,25 @@ jobs:
           mkdir control && tar xzf control.tgz -C control
           echo "CONTROL=$(ls control/clangd-*/clangd/bin/clangd.okb)" >> "$GITHUB_ENV"
           cmd //c ver
-      - name: The image analyses a header that has two identities
-        run: |
-          set -euo pipefail
-          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "C:/Program Files/LLVM/bin/clang.exe" \
-            --platform win32-x64 --workdir "${{ runner.temp }}/gate" --case gmf-include-analysis
-          python - <<'PY'
-          import json, os, pathlib
-          report = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'gate/gmf-include-analysis/results.json').read_text())
-          print('outcome', report['result']['outcome'], 'two identities', report['two_identities'])
-          PY
-      - name: The control, ${{ env.CONTROL_ENGINE }}, ends on it while this system gives two identities
-        run: |
-          # The case is expected to fail here: its outcome is read below, not its exit status (the step's shell has -e).
-          set +e
-          MCPPLS_ENGINE_RUNNER="$OKRUN" python tests/e2e/gmf_include_analysis.py --engine "$CONTROL" \
-            --clang "C:/Program Files/LLVM/bin/clang.exe" --workdir "${{ runner.temp }}/control"
-          set -e
-          python - <<'PY'
-          import json, os, pathlib, sys
-          temp = pathlib.Path(os.environ['RUNNER_TEMP'])
-          gate = json.loads((temp / 'gate/gmf-include-analysis/results.json').read_text())
-          control = json.loads((temp / 'control/results.json').read_text())
-          outcome = control['result']['outcome']
-          print('gate: two identities', gate['two_identities'], '| control outcome', outcome, control['result'].get('detail'))
-          if gate['two_identities']:
-              # The condition holds here: an engine without the fix must end on the case.
-              sys.exit(0 if outcome == 'crash' else 'the control did not end on the case: the gate does not show the defect')
-          # The platform gives one identity (openkal-windows 0.22.0 or later beneath okrun): neither engine can meet
-          # the defect on this system, and the unit test's file system is what keeps the fix proven.
-          sys.exit(0 if outcome == 'pass' else 'one identity for a file, and the control still failed')
-          PY
+      # The gate and its control are one case: the image builds the unit and answers for it, and the control
+      # ends on it while this system gives a file two identities (tests/cts/gmf_include_analysis.cpp).
+      - name: The image analyses a header that has two identities, and ${{ env.CONTROL_ENGINE }} ends on it
+        uses: ./.github/actions/engine-cts
+        with:
+          engine: ${{ env.OKB }}
+          runner: ${{ env.OKRUN }}
+          control: ${{ env.CONTROL }}
+          clang: C:/Program Files/LLVM/bin/clang.exe
+          platform: win32-x64
+          select: --case 'gmf-include-analysis*'
+          name: two-identities-gate
       - name: The end-to-end regressions on this build, as a report
         if: ${{ !cancelled() }}
         continue-on-error: true
-        run: |
-          set -euo pipefail
-          python ci/e2e_suite.py --engine "$OKB" --runner "$OKRUN" --clang "C:/Program Files/LLVM/bin/clang.exe" \
-            --platform win32-x64 --workdir "${{ runner.temp }}/e2e"
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        uses: ./.github/actions/engine-cts
         with:
-          name: two-identities-windows-2025
-          path: |
-            ${{ runner.temp }}/gate/**/result*.json
-            ${{ runner.temp }}/gate/*.log
-            ${{ runner.temp }}/control/results.json
-            ${{ runner.temp }}/e2e/e2e-suite.json
-            ${{ runner.temp }}/e2e/*.log
-          if-no-files-found: warn
+          engine: ${{ env.OKB }}
+          runner: ${{ env.OKRUN }}
+          clang: C:/Program Files/LLVM/bin/clang.exe
+          platform: win32-x64
+          name: image-win32-x64-windows-2025

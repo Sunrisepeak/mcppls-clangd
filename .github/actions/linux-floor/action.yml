@@ -23,6 +23,11 @@ runs:
             out.write('MCPPLS_ROOTFS_URL=' + pin['url'] + '\n')
             out.write('MCPPLS_ROOTFS_SHA256=' + pin['sha256'] + '\n')
         PYROOT
+    # The engine's test program, which the floor script runs inside the container (ci/scripts/linux-floor.sh).
+    - uses: actions/download-artifact@v4
+      with:
+        name: engine-cts
+        path: engine-cts
     - name: Build and validate final Linux package
       shell: bash
       env:
@@ -35,6 +40,6 @@ runs:
         docker import "$rootfs" mcppls-linux-floor:20.04
         docker run --rm -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -w "$GITHUB_WORKSPACE" \
           -e JOBS=4 -e DIST_DIR="$GITHUB_WORKSPACE/dist" -e PLATFORM="$MCPPLS_FLOOR_PLATFORM" \
-          -e CCACHE_DIR="$GITHUB_WORKSPACE/.ccache-floor" \
+          -e CCACHE_DIR="$GITHUB_WORKSPACE/.ccache-floor" -e RUNNER_TEMP=/tmp \
           mcppls-linux-floor:20.04 bash ci/scripts/linux-floor.sh
         sudo chown -R "$(id -u):$(id -g)" .ccache-floor dist "build-$MCPPLS_FLOOR_PLATFORM-ubuntu20"

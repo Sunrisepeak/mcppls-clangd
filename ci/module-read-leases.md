@@ -38,8 +38,9 @@ actual module function with Function completion kind and normal shutdown.
 The baseline fails the published-identity assertion and has no reader leases.
 
 ```sh
-python3 tests/e2e/module_cache_lease.py --engine build-linux-x64/bin/clangd \
-  --clang build-linux-x64/bin/clang --workdir /tmp/module-cache-lease
+(cd tests/cts && mcpp build)
+MCPPLS_ENGINE=build-linux-x64/bin/clangd MCPPLS_ENGINE_CLANG=build-linux-x64/bin/clang MCPPLS_ENGINE_HAS=matching-clang \
+  MCPPLS_ENGINE_KEEP=/tmp/module-cache-lease tests/cts/target/*/*/bin/engine-cts module-cache-lease
 ```
 
 The four-platform PR workflow runs this probe and retains raw outcomes. The

@@ -332,7 +332,7 @@ alter production defaults. ClangdTests has no internal worker entry point;
 real LSP tests separately verify default launch and OS limits.
 
 Root development verification through 0042: all 94 related units pass in
-550 ms. tests/e2e/module_worker_default.py leaves isolation policy at default,
+550 ms. tests/cts/module_workers.cpp leaves isolation policy at default,
 uses relative CDB source arguments, enables dirty-header semantics explicitly,
 and changes an opened header from disk 41 to draft 42. Actual workers have
 checked 2 GiB limits, semantic completion returns fn_m, disk files remain
@@ -355,7 +355,7 @@ native macOS/Windows resource policy, final immutable packages/floor tests and
 qualifying joint nightlies/RC load. This batch does not close the full release
 resource or crash-corpus gates.
 
-Actual default failure gate tests/e2e/module_worker_failure.py sets a two-worker
+Actual default failure gate tests/cts/module_workers.cpp sets a two-worker
 pool with 32 MiB aggregate address allowance, waits for the launched-worker
 failure event, then requests an independent ControlValue document symbol.
 That semantic reply succeeds, the parent exits normally, disk is unchanged and

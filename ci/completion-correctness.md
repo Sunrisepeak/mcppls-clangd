@@ -19,6 +19,7 @@ completion uses Sema until a replacement proves all W1 contexts. This change
 restores correctness; it is not the required module completion optimization or
 steady promotion. Raw performance and C7 isolation remain outstanding.
 
-Reproduce: python3 tests/e2e/completion_quality.py --engine <candidate-clangd>
---clang <matching-clang> --workdir <isolated-directory>. The report preserves
-engine SHA, returned names, timings and failure outcomes.
+Reproduce: the cases module-quality and module-drafts of the test program
+(tests/cts/completion_quality.cpp, tests/cts/README.md), with MCPPLS_ENGINE the
+candidate clangd and MCPPLS_ENGINE_CLANG a matching clang. MCPPLS_ENGINE_KEEP
+names a directory that keeps the returned names, timings and failure outcomes.

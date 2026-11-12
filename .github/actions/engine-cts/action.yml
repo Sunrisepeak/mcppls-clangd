@@ -1,0 +1,93 @@
+name: The engine's test program
+description: >
+  Runs the engine's test program (tests/cts/, one program whose cases are the series' regressions)
+  against one engine on this system, through mtest. The program is the artifact `engine-cts` this run's job
+  `program` built once (.github/workflows/engine-cts.yml): an ok image this system's runner starts, so the job
+  needs neither mcpp nor a compiler. ci/scripts/engine-cts.sh is the same run outside a workflow.
+inputs:
+  engine:
+    description: clangd.okb, or a native clangd
+    required: true
+  runner:
+    description: "what starts an ok image: okrun, or `tree` for the test program's own; empty for a native engine"
+    default: ''
+  clang:
+    description: the compiler the compile commands name
+    required: true
+  platform:
+    description: the platform the subject is of (linux-x64, ...); empty for this system's
+    default: ''
+  has:
+    description: "what the subject has beyond what the program sees, comma-separated: matching-clang"
+    default: ''
+  tidy:
+    description: a build tree's clang-tidy
+    default: ''
+  c-index-test:
+    description: a build tree's c-index-test
+    default: ''
+  clang-repl:
+    description: a build tree's clang-repl
+    default: ''
+  control:
+    description: an engine without a fix, started as the subject is, that a case proves by it
+    default: ''
+  select:
+    description: options of `mtest run` that choose the cases (--case 'module-dag*'); empty for every case
+    default: ''
+  name:
+    description: the name of the run, and of the artifact that keeps it
+    required: true
+  jobs:
+    description: how many cases run at once
+    default: '2'
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: engine-cts
+        path: ${{ runner.temp }}/engine-cts
+    - name: The cases, through mtest
+      shell: bash
+      env:
+        CTS_ENGINE: ${{ inputs.engine }}
+        CTS_RUNNER: ${{ inputs.runner }}
+        CTS_CLANG: ${{ inputs.clang }}
+        CTS_PLATFORM: ${{ inputs.platform }}
+        CTS_HAS: ${{ inputs.has }}
+        CTS_TIDY: ${{ inputs.tidy }}
+        CTS_C_INDEX_TEST: ${{ inputs.c-index-test }}
+        CTS_CLANG_REPL: ${{ inputs.clang-repl }}
+        CTS_CONTROL: ${{ inputs.control }}
+        CTS_SELECT: ${{ inputs.select }}
+        CTS_NAME: ${{ inputs.name }}
+        CTS_JOBS: ${{ inputs.jobs }}
+      run: |
+        set -euo pipefail
+        temp="$RUNNER_TEMP"; [ "$RUNNER_OS" != Windows ] || temp="$(cygpath -u "$RUNNER_TEMP")"
+        args=(--tree "$temp/engine-cts" --engine "$CTS_ENGINE" --clang "$CTS_CLANG" --out "$temp/cts-$CTS_NAME" --jobs "$CTS_JOBS")
+        [ -z "$CTS_RUNNER" ] || args+=(--runner "$CTS_RUNNER")
+        [ -z "$CTS_PLATFORM" ] || args+=(--platform "$CTS_PLATFORM")
+        [ -z "$CTS_HAS" ] || args+=(--has "$CTS_HAS")
+        [ -z "$CTS_TIDY" ] || args+=(--tidy "$CTS_TIDY")
+        [ -z "$CTS_C_INDEX_TEST" ] || args+=(--c-index-test "$CTS_C_INDEX_TEST")
+        [ -z "$CTS_CLANG_REPL" ] || args+=(--clang-repl "$CTS_CLANG_REPL")
+        [ -z "$CTS_CONTROL" ] || args+=(--control "$CTS_CONTROL")
+        # CTS_SELECT is words of mtest's own: --case 'a*' --case 'b*'.
+        eval "select=($CTS_SELECT)"
+        bash ci/scripts/engine-cts.sh "${args[@]}" -- ${select[@]+"${select[@]}"}
+    # What a failure is read from: mtest's store, the JUnit file, the report, and what each session answered.
+    # The projects themselves (module caches of hundreds of megabytes) are not kept.
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: cts-${{ inputs.name }}
+        path: |
+          ${{ runner.temp }}/cts-${{ inputs.name }}/.mtest
+          ${{ runner.temp }}/cts-${{ inputs.name }}/junit.xml
+          ${{ runner.temp }}/cts-${{ inputs.name }}/report.md
+          ${{ runner.temp }}/cts-${{ inputs.name }}/kept/**/replay-*.json
+        include-hidden-files: true
+        if-no-files-found: warn
+        retention-days: 14
