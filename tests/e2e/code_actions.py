@@ -64,18 +64,12 @@ def main():
         {'method': 'initialized', 'notify': True, 'params': {}},
         {'method': 'textDocument/didOpen', 'notify': True, 'params': {
             'textDocument': {'uri': uri, 'languageId': 'cpp', 'version': 1, 'text': TEXT}}},
-        # On the class's name: its constructor and its special members. The engine orders what it offers by name.
-        {'method': 'textDocument/codeAction', 'params': actions(1, 8, 8),
-         'expect': {'/result/0/title': 'Define constructor', '/result/0/command': 'clangd.applyTweak',
-                    '/result/0/arguments/0/tweakID': 'MemberwiseConstructor',
-                    '/result/1/title': 'Declare implicit copy/move members',
-                    '/result/1/arguments/0/tweakID': 'SpecialMembers'}},
-        # On an expression: it can be given a name.
-        {'method': 'textDocument/codeAction', 'params': actions(10, 17, 22),
-         'expect': {'/result/0/arguments/0/tweakID': 'ExtractVariable'}},
-        # On `auto`: the type it stands for.
-        {'method': 'textDocument/codeAction', 'params': actions(10, 3, 3),
-         'expect': {'/result/0/arguments/0/tweakID': 'ExpandDeducedType'}},
+        # The file is read: its first symbol is the namespace.
+        {'method': 'textDocument/documentSymbol', 'params': {'textDocument': {'uri': uri}},
+         'expect': {'/result/0/name': 'render'}},
+        {'method': 'textDocument/codeAction', 'params': actions(1, 8, 8)},      # the class's name
+        {'method': 'textDocument/codeAction', 'params': actions(10, 17, 22)},   # an expression
+        {'method': 'textDocument/codeAction', 'params': actions(10, 3, 3)},     # `auto`
     ]
     manifest = root / 'case.json'
     manifest.write_text(json.dumps({
@@ -84,9 +78,25 @@ def main():
         'flags': ['--background-index=false', '-j=2', '--log=verbose'],
         'sequence': sequence}))
     result = replay.replay(engine, manifest)
-    # An empty answer has no first action to compare.
-    if result['outcome'] != 'pass' and 'index out of range' in str(result.get('detail', '')):
-        result['detail'] = 'the engine offered no refactoring where one was asked for'
+    # What each request was answered with, by the refactoring's identifier: the order they are offered in is the
+    # order their units registered in, which a link decides.
+    offered = [{(action.get('arguments') or [{}])[0].get('tweakID'): action
+                for action in answer['reply'].get('result') or [] if action.get('command') == 'clangd.applyTweak'}
+               for answer in result.get('raw_responses', []) if answer['method'] == 'textDocument/codeAction']
+    expected = [{'MemberwiseConstructor': 'Define constructor', 'SpecialMembers': 'Declare implicit copy/move members'},
+                {'ExtractVariable': None}, {'ExpandDeducedType': None}]
+    if result['outcome'] == 'pass':
+        problems = []
+        if len(offered) != len(expected):
+            problems.append(f'{len(offered)} answers to {len(expected)} requests')
+        for got, wanted in zip(offered, expected):
+            for tweak, title in wanted.items():
+                if tweak not in got:
+                    problems.append(f'the engine offered no {tweak} where one was asked for')
+                elif title is not None and got[tweak].get('title') != title:
+                    problems.append(f"{tweak} is titled {got[tweak].get('title')!r}, expected {title!r}")
+        if problems:
+            result['outcome'], result['detail'] = 'error', '; '.join(problems)
     report = {'schema': 1, 'engine_sha256': hashlib.sha256(engine.read_bytes()).hexdigest(), 'result': result,
               'limits': ['Three of the refactorings are asked for; that every one is registered follows from their '
                          'being one object library, linked whole or not at all.']}
