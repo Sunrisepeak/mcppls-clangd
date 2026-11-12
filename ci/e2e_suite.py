@@ -42,6 +42,7 @@ CASES = [
     ("module-directive-recovery", "module_directive_recovery.py", [], None, False),
     ("compiler-extensions", "compiler_extensions.py", [], None, False),
     ("gmf-include-analysis", "gmf_include_analysis.py", [], None, False),
+    ("code-actions", "code_actions.py", [], None, False),
 ]
 
 ap = argparse.ArgumentParser()

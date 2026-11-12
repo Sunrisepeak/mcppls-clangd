@@ -8,9 +8,10 @@
 //    hold the target side (the C library's and the C++ runtime's headers, `__OPENKAL__`, the
 //    realised C environment), and the archiver. Nothing is linked by CMake.
 // 2. llvm-project configured for the target once, with the host's tablegen.
-// 3. The libraries clangd's own link line names, built.
-// 4. Those libraries, in that order, between --start-group and --end-group, as a response file
-//    the link reads (`@<file>`).
+// 3. The libraries clangd's own link line names, and the objects it names beside its own units
+//    (its refactorings), built.
+// 4. Those objects, then the libraries, in that order, between --start-group and --end-group, as
+//    a response file the link reads (`@<file>`).
 import std;
 import nlohmann.json;
 import mcpplibs.os;
@@ -232,10 +233,24 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
         at = end + 1;
     }
     std::vector<std::string> libraries;
-    for (const auto& word : split_command(last))
-        if (word.ends_with(".a") && std::ranges::find(libraries, word) == libraries.end()) libraries.push_back(word);
+    // The objects the line names beside the libraries: clangd's refactorings (its tweaks), an object library whose
+    // every unit registers itself when the program starts and which nothing refers to. As members of an archive none
+    // of them would be linked, and the line names them for that reason; an image linked from the libraries alone
+    // offered no refactoring (mcpp-language-server issue 89). The tool's own units are not among them: the image's
+    // main is this project's (openkal/clangd/src/main.cpp).
+    std::vector<std::string> objects;
+    constexpr std::string_view OWN { "/CMakeFiles/clangd.dir/" };
+    for (const auto& word : split_command(last)) {
+        if (word.ends_with(".a")) {
+            if (std::ranges::find(libraries, word) == libraries.end()) libraries.push_back(word);
+        } else if (word.ends_with(".o") && word.find(OWN) == std::string::npos) {
+            if (std::ranges::find(objects, word) == objects.end()) objects.push_back(word);
+        }
+    }
     if (libraries.empty()) fail("clangd's link line names no static library");
+    if (objects.empty()) fail("clangd's link line names no object beside the tool's own: its refactorings are objects there (obj.clangDaemonTweaks)");
     std::vector<std::string> targets = libraries;
+    targets.insert(targets.end(), objects.begin(), objects.end());
     // The compiler's own headers, which clangd reads beside it (lib/clang/<version>/include).
     targets.push_back("clang-resource-headers");
     std::vector<std::string> args{"-C", buildDir.generic_string()};
@@ -243,12 +258,14 @@ int build(const fs::path& contractFile, const fs::path& llvm, const fs::path& ho
     for (const auto& t : targets) args.push_back(t);
     run(*ninja, args);
 
-    // 4: the response file, the libraries absolute.
-    std::string rsp = "--start-group\n";
+    // 4: the response file, the objects and the libraries absolute.
+    std::string rsp;
+    for (const auto& o : objects) rsp += (buildDir / o).lexically_normal().generic_string() + "\n";
+    rsp += "--start-group\n";
     for (const auto& l : libraries) rsp += (buildDir / l).lexically_normal().generic_string() + "\n";
     rsp += "--end-group\n";
     write_file(responseFile, rsp);
-    std::println("okgen: {} libraries for {}-openkal in {}", libraries.size(), arch, responseFile.string());
+    std::println("okgen: {} libraries and {} objects for {}-openkal in {}", libraries.size(), objects.size(), arch, responseFile.string());
     return 0;
 }
 
