@@ -10,6 +10,9 @@ name: engine-cts
 # tests: the program against a released image on every system, minutes instead of the hour an image takes.
 
 on:
+  # TEMPORARY, while the branch is developed: removed before the pull request.
+  push:
+    branches: ['tests/mtest-cts']
   workflow_call:
   workflow_dispatch:
     inputs:
