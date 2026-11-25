@@ -13,6 +13,12 @@
   X86. clangDaemon now links the x86 MC (`X86Desc`) and assembly parser (`X86AsmParser`) and `clangdMain`
   registers them before anything compiles, the module worker included, so a unit builds exactly where the project's
   own compile builds it. The stock in-process builder fails the same way ("Failed to compile"); not filed.
+- Not on an arm64 engine. The ok image of `aarch64-openkal` that linked the two libraries ended by SIGBUS in the first
+  thread its program creates (`startModuleMemoStore`: the head of openkal-musl's thread list, at the start of `.bss`,
+  held a path's text), on `linux-arm64` and `darwin-arm64`, in the product's `report`, its VS Code end-to-end suite
+  and its proot job, each twice; the unmodified 0.0.23 image and every x86_64 image run. The cause is not found, so
+  the libraries are linked where the processor is not arm64: on an arm64 host a module with an `__asm` block for a
+  32-bit Windows target still fails to build, as before.
 - What changes for the editor: a genuine mistake inside an `__asm` block can be reported as the compiler reports it
   where the whole block used to be accepted. The native `clangd` grows by 4.4 MB (77.96 to 82.40 MB, Linux x64).
 - Patch 0049, `23.1.0-mcppls.13`. The unit cases (`MSAsmModulesTests`) build an asm module and a module that imports

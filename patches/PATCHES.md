@@ -256,9 +256,15 @@ module interface once an error has been reported (the engine's error flag is set
 diagnostic, and `DiagnosticsEngine::setSeverity` does not allow an error to be remapped to a lesser severity), so
 filtering the diagnostic in the worker, the first design, cannot work. A plain translation unit was never affected.
 The in-process builder (stock clangd's) fails the same way with "Failed to compile a.cppm", so the defect is probably
-upstream's; it is not filed. clangDaemon links `X86Desc` and `X86AsmParser` when X86 is among the targets, and
+upstream's; it is not filed. clangDaemon links `X86Desc` and `X86AsmParser` when X86 is among the targets and the processor is not arm64, and
 `clangdMain` registers them before the module worker starts or anything compiles; the other targets have no MS
-assembly. The unmodified engine (this series through 0048, Linux) reproduces the report with a module with an
+assembly. **Not on arm64:** the image of `aarch64-openkal` that links them ended by SIGBUS in the first thread its
+program creates (the server's `report`, the VS Code end-to-end suite and the proot job, on `linux-arm64` and
+`darwin-arm64`, twice each; the engine's own acceptance did not start that thread the same way): the thread list's
+head, `okm_done`, at the start of `.bss`, held the tail of `x86_64/clangd.oke`'s name, and the same source without the
+two libraries, and every x86_64 image, run. Not found: whether it is openkal-musl's, okrun's snapshot's or the
+image's link. An arm64 engine therefore parses MS-style assembly as before: a module with such a block for a 32-bit
+Windows target fails to build there. The engine's own source with the libraries linked is otherwise the same. The unmodified engine (this series through 0048, Linux) reproduces the report with a module with an
 `__asm` block and `--target=i686-pc-windows-msvc`: the worker prints the error and the importer reports "module 'a'
 not found"; the patched engine builds it in both builders with no error. What changes for the editor: a genuine
 mistake inside an `__asm` block can be reported as the compiler reports it. What it costs: 4.4 MB in the native

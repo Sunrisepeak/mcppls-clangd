@@ -1,4 +1,4 @@
-From cdf33c9418e430adedfde090842bd23a6919f757 Mon Sep 17 00:00:00 2001
+From 76cf4f1e1ee89b9268bab211d3e719ba6f34427d Mon Sep 17 00:00:00 2001
 From: Sunrisepeak <speakshen@163.com>
 Date: Thu, 26 Nov 2026 02:37:47 +0900
 Subject: [PATCH] [clangd] Module builds parse MS-style inline assembly:
@@ -24,15 +24,20 @@ reported in the editor as the compiler reports it, where the whole block used to
 be accepted. isExcluded still hides the diagnostic for a target without MS
 assembly or a build that does not link the MC.
 
+Not on an arm64 engine: an ok image of aarch64-openkal that links the two libraries
+ends by SIGBUS in the first thread its program creates, so they are linked where
+the processor is not arm64 and a module build that has such a block still fails
+there.
+
 Unit tests (PrerequisiteModulesTest.cpp): an asm module and a module importing
 it build in process, a real error next to an asm block still fails the build,
 and the module worker's entry writes the staged interface.
 
 diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
-index ef8258f85..97b3e2f84 100644
+index ef8258f85..785c9ca8a 100644
 --- a/clang-tools-extra/clangd/CMakeLists.txt
 +++ b/clang-tools-extra/clangd/CMakeLists.txt
-@@ -47,6 +47,18 @@ set(LLVM_LINK_COMPONENTS
+@@ -47,6 +47,25 @@ set(LLVM_LINK_COMPONENTS
    TargetParser
    )
  
@@ -41,7 +46,14 @@ index ef8258f85..97b3e2f84 100644
 +# MC unavailable" -- an error, which clangd's editor path filters (Diagnostics.cpp) but which keeps a module
 +# interface from being written (PCHGenerator: a compile with errors writes no BMI), so every module that
 +# includes <Windows.h> for an x86 target failed to build.
-+if("X86" IN_LIST LLVM_TARGETS_TO_BUILD)
++#
++# Not for an arm64 engine: the ok image of aarch64-openkal that links them ends by SIGBUS in the first thread
++# its program creates (the head of openkal-musl's list of threads holds the text of a path), on Linux and macOS
++# alike, and an x86 image that links the same libraries does not. The cause is not found; until it is, an arm64
++# engine parses MS-style assembly as before (the diagnostic is filtered in the editor; a module build that has
++# such a block still fails).
++if("X86" IN_LIST LLVM_TARGETS_TO_BUILD AND
++   NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^([Aa][Aa][Rr][Cc][Hh]64|[Aa][Rr][Mm]64)$")
 +  list(APPEND LLVM_LINK_COMPONENTS X86Desc X86AsmParser)
 +  # For every target of this directory and the ones below it (the tool, the
 +  # tests), which initialize what clangDaemon links.
@@ -215,5 +227,5 @@ index 657817607..383490ce4 100644
    MockDirectoryCompilationDatabase CDB(TestDir, FS);
  
 -- 
-2.43.0
+2.53.0
 
