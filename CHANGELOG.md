@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.0.24]
+
+- A module that includes `<Windows.h>` for a 32-bit Windows target builds
+  ([mcpp-language-server issue 100](https://github.com/Sunrisepeak/mcpp-language-server/issues/100)). The SDK's
+  `winnt.h` defines `Int64ShllMod32` and its siblings with MS-style `__asm { }` blocks under `_M_IX86`, which clang
+  parses with the target's MC and assembly parser. clangd registered only the target infos, so clang reported "MS-style
+  inline assembly is not available: target MC unavailable". clangd's editor path hides that diagnostic, and a plain
+  translation unit is not affected; a module build cannot, because clang writes no module interface once an error
+  has been reported, so the module and every module that imports it failed ("module worker compilation failed"),
+  and with them every importer's completion. The report took it for a missing X86 target: the engine has always built
+  X86. clangDaemon now links the x86 MC (`X86Desc`) and assembly parser (`X86AsmParser`) and `clangdMain`
+  registers them before anything compiles, the module worker included, so a unit builds exactly where the project's
+  own compile builds it. The stock in-process builder fails the same way ("Failed to compile"); not filed.
+- What changes for the editor: a genuine mistake inside an `__asm` block can be reported as the compiler reports it
+  where the whole block used to be accepted. The native `clangd` grows by 4.4 MB (77.96 to 82.40 MB, Linux x64).
+- Patch 0049, `23.1.0-mcppls.13`. The unit cases (`MSAsmModulesTests`) build an asm module and a module that imports
+  it in process, keep a real error next to an asm block failing, and write a staged interface through the worker's
+  entry; the whole `ClangdTests` suite passes (1520 cases). The product's conformance fixtures `compdb-i686-asm`
+  (every system) and `mcpp-msvc-i686-windows-h` (`win32-x64`) run against this image.
+- Not carried: [issue 19](https://github.com/Sunrisepeak/mcppls-clangd/issues/19), the ok image's worker diagnostics
+  on disk. The worker is started through `llvm::sys::ExecuteNoWait`, which names a stream by a path, and openkal
+  starts a program with three streams and no other descriptor; a pipe needs openkal's own process-start API. The
+  comment at `WorkerDiagnostics` says so.
+- No change to the openkal series, to `okgen` or to the performance policy; the image links two libraries more. The
+  local check of this change measured the cold and warm `--check` of a 30-module importer unchanged within its
+  spread (cold 1.1-2.2 s wall, 0.7 s CPU; warm 0.26-0.30 s) against the unmodified 0.0.23 source. The release's
+  comparison run is named in the release.
+
 ## [0.0.23]
 
 - The ok image offers clangd's refactorings again

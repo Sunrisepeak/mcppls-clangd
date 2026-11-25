@@ -1,0 +1,219 @@
+From cdf33c9418e430adedfde090842bd23a6919f757 Mon Sep 17 00:00:00 2001
+From: Sunrisepeak <speakshen@163.com>
+Date: Thu, 26 Nov 2026 02:37:47 +0900
+Subject: [PATCH] [clangd] Module builds parse MS-style inline assembly:
+ register the x86 MC and assembly parser
+
+MS-style `__asm { }` is parsed with the target's MC and assembly parser. clangd
+registered only the target infos, so clang reported "MS-style inline assembly
+is not available: target MC unavailable" and went on with an empty statement.
+The editor path filters that diagnostic (isExcluded), and its AST is whole. A
+module build cannot: PCHGenerator writes no module interface when a diagnostic
+of error severity was reported (the DiagnosticsEngine's error flag is set before
+any consumer sees the diagnostic, and an error cannot be remapped to a lesser
+severity), so a module that includes <Windows.h> for a 32-bit Windows target,
+whose winnt.h uses __asm (Int64ShllMod32 and others), did not build, nor did
+any module that imports it. A plain translation unit was not affected: a
+preamble is written despite errors.
+
+When X86 is among the targets built, clangDaemon links X86Desc and
+X86AsmParser, and clangd registers them before anything compiles, which
+includes the module build worker. The module is then accepted exactly where the
+project's own compile accepts it. A genuine mistake in an asm block can now be
+reported in the editor as the compiler reports it, where the whole block used to
+be accepted. isExcluded still hides the diagnostic for a target without MS
+assembly or a build that does not link the MC.
+
+Unit tests (PrerequisiteModulesTest.cpp): an asm module and a module importing
+it build in process, a real error next to an asm block still fails the build,
+and the module worker's entry writes the staged interface.
+
+diff --git a/clang-tools-extra/clangd/CMakeLists.txt b/clang-tools-extra/clangd/CMakeLists.txt
+index ef8258f85..97b3e2f84 100644
+--- a/clang-tools-extra/clangd/CMakeLists.txt
++++ b/clang-tools-extra/clangd/CMakeLists.txt
+@@ -47,6 +47,18 @@ set(LLVM_LINK_COMPONENTS
+   TargetParser
+   )
+ 
++# MS-style inline assembly (`__asm { }`, which winnt.h uses for 32-bit Windows) is parsed with the target's MC
++# and assembly parser, x86 only. Without them clang reports "MS-style inline assembly is not available: target
++# MC unavailable" -- an error, which clangd's editor path filters (Diagnostics.cpp) but which keeps a module
++# interface from being written (PCHGenerator: a compile with errors writes no BMI), so every module that
++# includes <Windows.h> for an x86 target failed to build.
++if("X86" IN_LIST LLVM_TARGETS_TO_BUILD)
++  list(APPEND LLVM_LINK_COMPONENTS X86Desc X86AsmParser)
++  # For every target of this directory and the ones below it (the tool, the
++  # tests), which initialize what clangDaemon links.
++  add_compile_definitions(CLANGD_X86_MS_ASM=1)
++endif()
++
+ set(COMPLETIONMODEL_SOURCES)
+ if(CLANGD_DECISION_FOREST)
+   include(${CMAKE_CURRENT_SOURCE_DIR}/quality/CompletionModel.cmake)
+diff --git a/clang-tools-extra/clangd/Diagnostics.cpp b/clang-tools-extra/clangd/Diagnostics.cpp
+index bbfd24119..93d7da7ae 100644
+--- a/clang-tools-extra/clangd/Diagnostics.cpp
++++ b/clang-tools-extra/clangd/Diagnostics.cpp
+@@ -89,7 +89,9 @@ bool mentionsMainFile(const Diag &D) {
+ }
+ 
+ bool isExcluded(unsigned DiagID) {
+-  // clang will always fail parsing MS ASM, we don't link in desc + asm parser.
++  // clang fails parsing MS ASM where the target's MC is not registered: for a
++  // target without MS assembly (an x86 engine registers its own, ClangdMain),
++  // or in a build that does not link them.
+   if (DiagID == clang::diag::err_msasm_unable_to_create_target ||
+       DiagID == clang::diag::err_msasm_unsupported_arch)
+     return true;
+diff --git a/clang-tools-extra/clangd/ModuleBuildWorker.cpp b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+index cbce286fb..282625489 100644
+--- a/clang-tools-extra/clangd/ModuleBuildWorker.cpp
++++ b/clang-tools-extra/clangd/ModuleBuildWorker.cpp
+@@ -420,6 +420,16 @@ std::string workerDiagnostics(PathRef Path) {
+ // FIFO instead. Polling drains a finite batch and retains a bounded prefix;
+ // excess bytes are discarded, with pipe backpressure bounding queued output.
+ // No diagnostic reader thread may outlive the owned child or block shutdown.
++//
++// Only a native Linux build takes this transport. An ok image (__OPENKAL__, on
++// every system) and the other native systems read a regular file of the
++// worker's unit with a bounded parent read: that bounds the parent's memory,
++// not the disk, so a worker that writes without bound can fill it before it
++// ends. A pipe would, but the worker is started through
++// llvm::sys::ExecuteNoWait, which names each stream by a path, and openkal
++// starts a program with its three streams and no other descriptor; a size bound
++// polled here does not bound a writer that finishes within one poll. Not
++// carried; mcppls-clangd issue 19 holds it.
+ class WorkerDiagnostics {
+ public:
+   static llvm::Expected<std::unique_ptr<WorkerDiagnostics>>
+diff --git a/clang-tools-extra/clangd/tool/ClangdMain.cpp b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+index 873c62599..683be92bb 100644
+--- a/clang-tools-extra/clangd/tool/ClangdMain.cpp
++++ b/clang-tools-extra/clangd/tool/ClangdMain.cpp
+@@ -858,6 +858,13 @@ int clangdMain(int argc, char *argv[]) {
+   clang::noteBottomOfStack();
+   llvm::InitLLVM X(argc, argv);
+   llvm::InitializeAllTargetInfos();
++#ifdef CLANGD_X86_MS_ASM
++  // MS-style inline assembly needs the x86 MC and assembly parser; a module
++  // build, which includes the module worker below, fails without them. The
++  // other targets have no MS assembly.
++  LLVMInitializeX86TargetMC();
++  LLVMInitializeX86AsmParser();
++#endif
+   // The internal compiler worker has no LSP transport or inherited clangd
+   // configuration. Inputs are the captured request and optional inherited
+   // owner-lifetime object; neither enters ordinary command-line parsing.
+diff --git a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+index 657817607..383490ce4 100644
+--- a/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
++++ b/clang-tools-extra/clangd/unittests/PrerequisiteModulesTest.cpp
+@@ -57,6 +57,7 @@
+ #include "llvm/Support/MemoryBuffer.h"
+ #include "llvm/Support/Path.h"
+ #include "llvm/Support/Process.h"
++#include "llvm/Support/TargetSelect.h"
+ #include "llvm/Support/VirtualFileSystem.h"
+ #include "llvm/Support/raw_ostream.h"
+ #include "llvm/Testing/Support/Error.h"
+@@ -1812,6 +1813,96 @@ TEST_F(PrerequisiteModulesTests, OneFailedModuleLeavesTheOthers) {
+   EXPECT_TRUE(FixedOpts.PrebuiltModuleFiles.count("user"));
+ }
+ 
++#ifdef CLANGD_X86_MS_ASM
++// An MS-style `__asm` block (winnt.h's Int64ShllMod32 and the like, for a 32-bit
++// Windows target) is parsed with the target's MC. Without it clang reports an
++// error, and a compile with an error writes no module interface: every module
++// that included <Windows.h> for i686-windows-msvc failed to build.
++class MSAsmModulesTests : public PrerequisiteModulesTests {
++protected:
++  static void SetUpTestSuite() {
++    // As in ClangdMain.
++    llvm::InitializeAllTargetInfos();
++    LLVMInitializeX86TargetMC();
++    LLVMInitializeX86AsmParser();
++  }
++  static constexpr llvm::StringLiteral Asm =
++      "export module a;\nexport inline int shl(int v) {\n"
++      "  __asm {\n    mov ecx, 1\n    shl dword ptr v, cl\n  }\n"
++      "  return v;\n}\n";
++};
++
++TEST_F(MSAsmModulesTests, InProcessModuleBuildKeepsTheAsmModule) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.ExtraClangFlags.push_back("--target=i686-pc-windows-msvc");
++  CDB.ExtraClangFlags.push_back("-fms-extensions");
++  CDB.addFile("a.cppm", Asm);
++  CDB.addFile("b.cppm", "export module b;\nimport a;\nexport int use() { return shl(1); }\n");
++  CDB.addFile("main.cpp", "import a;\nimport b;\nint main() { return shl(1) + use(); }\n");
++  ModulesBuilder Builder(CDB);
++
++  auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("main.cpp"), FS);
++  ASSERT_TRUE(Modules);
++  HeaderSearchOptions HSOpts;
++  Modules->adjustHeaderSearchOptions(HSOpts);
++  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("a"));
++  EXPECT_TRUE(HSOpts.PrebuiltModuleFiles.count("b"))
++      << "a module that imports the asm module follows it";
++}
++
++TEST_F(MSAsmModulesTests, AMistakeInTheAsmModuleStillFails) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.ExtraClangFlags.push_back("--target=i686-pc-windows-msvc");
++  CDB.ExtraClangFlags.push_back("-fms-extensions");
++  // The asm is accepted; the rest of the unit is not.
++  CDB.addFile("a.cppm", std::string(Asm) + "export int broken() { return nope; }\n");
++  CDB.addFile("main.cpp", "import a;\nint main() { return shl(1); }\n");
++  ModulesBuilder Builder(CDB);
++
++  auto Modules = Builder.buildPrerequisiteModulesFor(getFullPath("main.cpp"), FS);
++  ASSERT_TRUE(Modules);
++  HeaderSearchOptions HSOpts;
++  Modules->adjustHeaderSearchOptions(HSOpts);
++  EXPECT_FALSE(HSOpts.PrebuiltModuleFiles.count("a"));
++}
++
++// The supervised worker, which a real session uses (the policy of these tests
++// is in-process): the staged module interface is written.
++TEST_F(MSAsmModulesTests, WorkerWritesTheAsmModule) {
++  MockDirectoryCompilationDatabase CDB(TestDir, FS);
++  CDB.ExtraClangFlags.push_back("--target=i686-pc-windows-msvc");
++  CDB.ExtraClangFlags.push_back("-fms-extensions");
++  CDB.addFile("a.cppm", "#error disk main must not be read\n");
++  CDB.addFile("main.snapshot", Asm);
++  CDB.addFile("staged.pcm", "");
++  llvm::vfs::YAMLVFSWriter Writer;
++  Writer.setUseExternalNames(false);
++  std::string YAML;
++  llvm::raw_string_ostream OS(YAML);
++  Writer.write(OS);
++  CDB.addFile("snapshot.yaml", YAML);
++
++  auto Invocation = buildCompilerInvocation(getInputs("a.cppm", CDB), DiagConsumer);
++  ASSERT_TRUE(Invocation);
++  Invocation->getFrontendOpts().OutputFile = getFullPath("staged.pcm");
++  ModuleBuildWorkerInputs Inputs;
++  Inputs.FileSystem =
++      ModuleBuildWorkerInputs::FileSystemKind::DiskWithCapturedOverlays;
++  Inputs.WorkingDirectory = TestDir.str().str();
++  Inputs.MainFile = getFullPath("a.cppm");
++  Inputs.MainContentsFile = getFullPath("main.snapshot");
++  Inputs.OverlayFiles = {getFullPath("snapshot.yaml")};
++  auto Request = serializeModuleBuildWorkerRequest(*Invocation, Inputs);
++  ASSERT_TRUE(static_cast<bool>(Request)) << llvm::toString(Request.takeError());
++  CDB.addFile("request.json", *Request);
++  auto Err = runModuleBuildWorker(getFullPath("request.json"));
++  EXPECT_FALSE(static_cast<bool>(Err)) << llvm::toString(std::move(Err));
++  uint64_t Size = 0;
++  EXPECT_FALSE(llvm::sys::fs::file_size(Invocation->getFrontendOpts().OutputFile, Size));
++  EXPECT_GT(Size, 0u) << "the module interface was written";
++}
++#endif // CLANGD_X86_MS_ASM
++
+ TEST_F(PrerequisiteModulesTests, ModuleWithoutDepTest) {
+   MockDirectoryCompilationDatabase CDB(TestDir, FS);
+ 
+-- 
+2.43.0
+
