@@ -31,8 +31,17 @@
   comment at `WorkerDiagnostics` says so.
 - No change to the openkal series, to `okgen` or to the performance policy; the image links two libraries more. The
   local check of this change measured the cold and warm `--check` of a 30-module importer unchanged within its
-  spread (cold 1.1-2.2 s wall, 0.7 s CPU; warm 0.26-0.30 s) against the unmodified 0.0.23 source. The release's
-  comparison run is named in the release.
+  spread (cold 1.1-2.2 s wall, 0.7 s CPU; warm 0.26-0.30 s) against the unmodified 0.0.23 source.
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/45695790977 . Linux x64 passes the
+  warm-prime gate (cold readiness 1.072 and processor time 1.099 times native, 1.09 and 1.11 for 0.0.23; warm 1.027
+  and 1.061) with the image 4.5 MB larger (83.19 MB against 78.68 MB for its x86_64 executable), and Linux ARM64
+  passes (1.079 and 1.074; warm 0.992 and 1.017). Windows records its ratios (cold readiness 1.681 and processor
+  time 1.308 times native; warm 0.597 and 0.597; 0.0.23: 1.69 and 1.32). darwin-arm64 is invalid under O5 and the
+  cold processor-time bound once more (pairs 1, 2, 4, 5, 7 and 2, 4, 5, 7 outside; medians 1.011 and 1.226, every
+  session of both engines ready), as each of 0.0.21's, 0.0.22's and 0.0.23's was. This release's aarch64 image is
+  0.0.23's source: the x86 libraries are not linked on arm64, and its executable has the size 0.0.23's has
+  (76,791,416 bytes), so no pairing of the two aarch64 images was run; that is the departure from the 0.0.21 rule,
+  and the maintainer's to accept.
 
 ## [0.0.23]
 
