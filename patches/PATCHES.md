@@ -264,7 +264,7 @@ not found"; the patched engine builds it in both builders with no error. What ch
 mistake inside an `__asm` block can be reported as the compiler reports it. What it costs: 4.4 MB in the native
 `clangd` (77.96 to 82.40 MB, Linux x64). The local cold and warm `--check` of a 30-module importer is unchanged
 within its spread. The test is in the product: the conformance fixtures `compdb-i686-asm` (every system) and
-`mcpp-msvc-i686-windows-h` (`win32-x64`, the SDK's own header), run against this image's candidate build.
+`compdb-clangxx-msvc-i686-windows-h` (`win32-x64`, the SDK's own header), run against this image's candidate build.
 
 **Not carried here: mcppls-clangd#19** (the ok image does not bound a worker's diagnostics on disk). The image starts
 a worker through `llvm::sys::ExecuteNoWait`, which names each stream by path, and openkal starts a program "with its
@@ -414,4 +414,4 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | steady | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
 | 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |
 | 0048-UP-41-include-ids-by-entry.patch | UP-41 | steady | clangd/unittests/IncludeCleanerTests.cpp (HeaderWithAnotherIdentityByName); tests/e2e/gmf_include_analysis.py (every system's acceptance; windows-2025 in `openkal.yml`) | upstream marks a used include by the ID it was entered with, or checks the ID of its resolved entry before using it |
-| 0049-UP-42-ms-asm-in-module-builds.patch | UP-42 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (MSAsmModulesTests); the product's conformance fixtures compdb-i686-asm (every system) and mcpp-msvc-i686-windows-h (win32-x64) against the image candidate | upstream registers the x86 MC and assembly parser when it builds module interfaces, or compiles a module with an error from MS-style inline assembly |
+| 0049-UP-42-ms-asm-in-module-builds.patch | UP-42 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (MSAsmModulesTests); the product's conformance fixtures compdb-i686-asm (every system) and compdb-clangxx-msvc-i686-windows-h (win32-x64) against the image candidate | upstream registers the x86 MC and assembly parser when it builds module interfaces, or compiles a module with an error from MS-style inline assembly |

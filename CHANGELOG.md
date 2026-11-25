@@ -18,7 +18,7 @@
 - Patch 0049, `23.1.0-mcppls.13`. The unit cases (`MSAsmModulesTests`) build an asm module and a module that imports
   it in process, keep a real error next to an asm block failing, and write a staged interface through the worker's
   entry; the whole `ClangdTests` suite passes (1520 cases). The product's conformance fixtures `compdb-i686-asm`
-  (every system) and `mcpp-msvc-i686-windows-h` (`win32-x64`) run against this image.
+  (every system) and `compdb-clangxx-msvc-i686-windows-h` (`win32-x64`) run against this image.
 - Not carried: [issue 19](https://github.com/Sunrisepeak/mcppls-clangd/issues/19), the ok image's worker diagnostics
   on disk. The worker is started through `llvm::sys::ExecuteNoWait`, which names a stream by a path, and openkal
   starts a program with three streams and no other descriptor; a pipe needs openkal's own process-start API. The
