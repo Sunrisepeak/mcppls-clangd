@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.0.24]
+
+- A module that includes `<Windows.h>` for a 32-bit Windows target builds
+  ([mcpp-language-server issue 100](https://github.com/Sunrisepeak/mcpp-language-server/issues/100)). The SDK's
+  `winnt.h` defines `Int64ShllMod32` and its siblings with MS-style `__asm { }` blocks under `_M_IX86`, which clang
+  parses with the target's MC and assembly parser. clangd registered only the target infos, so clang reported "MS-style
+  inline assembly is not available: target MC unavailable". clangd's editor path hides that diagnostic, and a plain
+  translation unit is not affected; a module build cannot, because clang writes no module interface once an error
+  has been reported, so the module and every module that imports it failed ("module worker compilation failed"),
+  and with them every importer's completion. The report took it for a missing X86 target: the engine has always built
+  X86. clangDaemon now links the x86 MC (`X86Desc`) and assembly parser (`X86AsmParser`) and `clangdMain`
+  registers them before anything compiles, the module worker included, so a unit builds exactly where the project's
+  own compile builds it. The stock in-process builder fails the same way ("Failed to compile"); not filed.
+- Not on an arm64 engine. The ok image of `aarch64-openkal` that linked the two libraries ended by SIGBUS in the first
+  thread its program creates (`startModuleMemoStore`: the head of openkal-musl's thread list, at the start of `.bss`,
+  held a path's text), on `linux-arm64` and `darwin-arm64`, in the product's `report`, its VS Code end-to-end suite
+  and its proot job, each twice; the unmodified 0.0.23 image and every x86_64 image run. The cause is not found, so
+  the libraries are linked where the processor is not arm64: on an arm64 host a module with an `__asm` block for a
+  32-bit Windows target still fails to build, as before.
+- What changes for the editor: a genuine mistake inside an `__asm` block can be reported as the compiler reports it
+  where the whole block used to be accepted. The native `clangd` grows by 4.4 MB (77.96 to 82.40 MB, Linux x64).
+- Patch 0049, `23.1.0-mcppls.13`. The unit cases (`MSAsmModulesTests`) build an asm module and a module that imports
+  it in process, keep a real error next to an asm block failing, and write a staged interface through the worker's
+  entry; the whole `ClangdTests` suite passes (1520 cases). The product's conformance fixtures `compdb-i686-asm`
+  (every system) and `compdb-clangxx-msvc-i686-windows-h` (`win32-x64`) run against this image.
+- Not carried: [issue 19](https://github.com/Sunrisepeak/mcppls-clangd/issues/19), the ok image's worker diagnostics
+  on disk. The worker is started through `llvm::sys::ExecuteNoWait`, which names a stream by a path, and openkal
+  starts a program with three streams and no other descriptor; a pipe needs openkal's own process-start API. The
+  comment at `WorkerDiagnostics` says so.
+- No change to the openkal series, to `okgen` or to the performance policy; the image links two libraries more. The
+  local check of this change measured the cold and warm `--check` of a 30-module importer unchanged within its
+  spread (cold 1.1-2.2 s wall, 0.7 s CPU; warm 0.26-0.30 s) against the unmodified 0.0.23 source.
+- Comparison run: https://github.com/Sunrisepeak/mcppls-clangd/actions/runs/45695790977 . Linux x64 passes the
+  warm-prime gate (cold readiness 1.072 and processor time 1.099 times native, 1.09 and 1.11 for 0.0.23; warm 1.027
+  and 1.061) with the image 4.5 MB larger (83.19 MB against 78.68 MB for its x86_64 executable), and Linux ARM64
+  passes (1.079 and 1.074; warm 0.992 and 1.017). Windows records its ratios (cold readiness 1.681 and processor
+  time 1.308 times native; warm 0.597 and 0.597; 0.0.23: 1.69 and 1.32). darwin-arm64 is invalid under O5 and the
+  cold processor-time bound once more (pairs 1, 2, 4, 5, 7 and 2, 4, 5, 7 outside; medians 1.011 and 1.226, every
+  session of both engines ready), as each of 0.0.21's, 0.0.22's and 0.0.23's was. This release's aarch64 image is
+  0.0.23's source: the x86 libraries are not linked on arm64, and its executable has the size 0.0.23's has
+  (76,791,416 bytes), so no pairing of the two aarch64 images was run; that is the departure from the 0.0.21 rule,
+  and the maintainer's to accept.
+
 ## [0.0.23]
 
 - The ok image offers clangd's refactorings again

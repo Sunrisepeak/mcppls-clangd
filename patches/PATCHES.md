@@ -243,6 +243,42 @@ release adds clangd as an ok image, `clangd.okb`, whose tree is this series and 
 (`openkal/patches/`); the engine reports itself as `23.1.0-mcppls.6` on every platform and as the ok
 image.
 
+## The 0.0.24 additions
+
+One patch is added. 0049 (UP-42): a module that includes `<Windows.h>` for a 32-bit Windows target did not build, and
+nor did any module that imports it
+([mcpp-language-server issue 100](https://github.com/Sunrisepeak/mcpp-language-server/issues/100)). The SDK's
+`winnt.h` defines `Int64ShllMod32` and its siblings with MS-style `__asm { }` under `_M_IX86`, which clang parses
+with the target's MC and assembly parser. clangd registered only the target infos, so clang reported "MS-style
+inline assembly is not available: target MC unavailable" and went on with an empty statement. clangd's editor path
+hides that diagnostic (`isExcluded`) and keeps a whole AST; a module build cannot, because `PCHGenerator` writes no
+module interface once an error has been reported (the engine's error flag is set before any consumer sees the
+diagnostic, and `DiagnosticsEngine::setSeverity` does not allow an error to be remapped to a lesser severity), so
+filtering the diagnostic in the worker, the first design, cannot work. A plain translation unit was never affected.
+The in-process builder (stock clangd's) fails the same way with "Failed to compile a.cppm", so the defect is probably
+upstream's; it is not filed. clangDaemon links `X86Desc` and `X86AsmParser` when X86 is among the targets and the processor is not arm64, and
+`clangdMain` registers them before the module worker starts or anything compiles; the other targets have no MS
+assembly. **Not on arm64:** the image of `aarch64-openkal` that links them ended by SIGBUS in the first thread its
+program creates (the server's `report`, the VS Code end-to-end suite and the proot job, on `linux-arm64` and
+`darwin-arm64`, twice each; the engine's own acceptance did not start that thread the same way): the thread list's
+head, `okm_done`, at the start of `.bss`, held the tail of `x86_64/clangd.oke`'s name, and the same source without the
+two libraries, and every x86_64 image, run. Not found: whether it is openkal-musl's, okrun's snapshot's or the
+image's link. An arm64 engine therefore parses MS-style assembly as before: a module with such a block for a 32-bit
+Windows target fails to build there. The engine's own source with the libraries linked is otherwise the same. The unmodified engine (this series through 0048, Linux) reproduces the report with a module with an
+`__asm` block and `--target=i686-pc-windows-msvc`: the worker prints the error and the importer reports "module 'a'
+not found"; the patched engine builds it in both builders with no error. What changes for the editor: a genuine
+mistake inside an `__asm` block can be reported as the compiler reports it. What it costs: 4.4 MB in the native
+`clangd` (77.96 to 82.40 MB, Linux x64). The local cold and warm `--check` of a 30-module importer is unchanged
+within its spread. The test is in the product: the conformance fixtures `compdb-i686-asm` (every system) and
+`compdb-clangxx-msvc-i686-windows-h` (`win32-x64`, the SDK's own header), run against this image's candidate build.
+
+**Not carried here: mcppls-clangd#19** (the ok image does not bound a worker's diagnostics on disk). The image starts
+a worker through `llvm::sys::ExecuteNoWait`, which names each stream by path, and openkal starts a program "with its
+three streams and no other descriptor" (openkal series 0002): a pipe as the worker's standard error needs openkal's
+own process-start API, and a size bound polled by the supervisor does not bound a writer that finishes within one
+poll (the 8 MiB stand-in of the end-to-end case). The three image systems keep the regular-file transport, bounded
+only on the parent's read; the comment at `WorkerDiagnostics` says so.
+
 ## The 0.0.22 additions
 
 One patch is added. 0048 (UP-41): clangd's include analysis marked an include of the main file as used by the ID
@@ -384,3 +420,4 @@ access. The engine reports itself as `23.1.0-mcppls.7` on every platform and as 
 | 0046-UP-03-inline-checked-bitstream-reads.patch | UP-03 | steady | ci/warm_prime.py; BitstreamTests (unchanged upstream reader and writer tests run by ci/ci_build.sh) | upstream keeps checked buffered bitstream reads visible to BMI decoder callers without changing their bounds, refill or error handling |
 | 0047-UP-03-reuse-operation-input-replay.patch | UP-03 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (ScanPublicationReplayIsSharedWithinOperation, FailedScanMemoRejectsOversizedAndCanceledEntries); ci/warm_prime.py | upstream accounts complete scan publication as the operation replay and reuses normalized input classifications without skipping observations |
 | 0048-UP-41-include-ids-by-entry.patch | UP-41 | steady | clangd/unittests/IncludeCleanerTests.cpp (HeaderWithAnotherIdentityByName); tests/e2e/gmf_include_analysis.py (every system's acceptance; windows-2025 in `openkal.yml`) | upstream marks a used include by the ID it was entered with, or checks the ID of its resolved entry before using it |
+| 0049-UP-42-ms-asm-in-module-builds.patch | UP-42 | steady | clangd/unittests/PrerequisiteModulesTest.cpp (MSAsmModulesTests); the product's conformance fixtures compdb-i686-asm (every system) and compdb-clangxx-msvc-i686-windows-h (win32-x64) against the image candidate | upstream registers the x86 MC and assembly parser when it builds module interfaces, or compiles a module with an error from MS-style inline assembly |

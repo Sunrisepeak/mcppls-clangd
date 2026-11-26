@@ -99,10 +99,13 @@ jobs:
               zlib="$(cygpath -m "$VCPKG_INSTALLATION_ROOT")/installed/x64-windows-static"
               ls "$zlib/lib"
               lib=""
-              for name in zlib.lib zs.lib zlibstatic.lib; do
+              for name in zlib.lib zs.lib libzs.lib zlibstatic.lib; do
                 if [ -f "$zlib/lib/$name" ]; then lib="$zlib/lib/$name"; break; fi
               done
-              test -n "$lib" && test -f "$zlib/include/zlib.h"
+              # vcpkg's zlib 1.4 names its static library libzs.lib; a list that finds none stops here
+              # (as `test -n ... && test -f ...` on its own does not, under -e).
+              test -n "$lib" || { echo "no static zlib library in $zlib/lib"; exit 1; }
+              test -f "$zlib/include/zlib.h"
               { echo "ZLIB_INCLUDE_DIR=$zlib/include"; echo "ZLIB_LIBRARY=$lib"; } >> "$GITHUB_ENV"
               ;;
           esac
